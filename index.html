@@ -254,6 +254,24 @@
   var elPreview = document.getElementById('rc-preview');
   var elDetailWarn = document.getElementById('rc-detail-warn');
 
+  /** 新訂單載入前清空預覽／模式／警告，避免快取或 BFCache 殘留舊畫面。 */
+  function clearUiBeforeNewOrder_() {
+    if (elPreview) elPreview.textContent = '';
+    if (elMode) elMode.textContent = '（載入訂單…）';
+    if (elDetailWarn) {
+      elDetailWarn.style.display = 'none';
+      elDetailWarn.textContent = '';
+    }
+    rcDetailLengthWarn_ = '';
+  }
+
+  /** 從 URL 成功讀到新 data 後、列印前：清掉本頁用過的 session 鍵，避免沿用上一筆 lastPrintedId 等。 */
+  function purgeStaleReceiverStorage_() {
+    try {
+      sessionStorage.removeItem('lastPrintedId');
+    } catch (e0) { /* 略 */ }
+  }
+
   function log(msg, cls) {
     var line = '[' + new Date().toLocaleTimeString('zh-TW') + '] ' + msg + '\n';
     var span = document.createElement('span');
@@ -314,7 +332,11 @@
   var TSPL_PAPER_WIDTH_MM = 58;
 
   function tsplThermalHeaderBytes_() {
-    return asciiBytes('CLS\r\nSIZE ' + TSPL_PAPER_WIDTH_MM + ' mm,\r\nDIRECTION 1\r\n');
+    var bytes = asciiBytes('CLS\r\nSIZE ' + TSPL_PAPER_WIDTH_MM + ' mm,\r\nDIRECTION 1\r\n');
+    if (bytes.length < 3 || bytes[0] !== 67 || bytes[1] !== 76 || bytes[2] !== 83) {
+      throw new Error('TSPL 標頭必須以 CLS 開頭（清空印機緩衝）。');
+    }
+    return bytes;
   }
 
   /** 每份明細結尾：單一 PRINT 1,1 與 END（勿在迴圈內重複加入）。 */
@@ -455,6 +477,7 @@
   }
 
   function parseUrlParamsOnLoad_() {
+    clearUiBeforeNewOrder_();
     rcUrlMode_ = '';
     rcUrlOrder_ = null;
     rcUrlAuto_ = false;
@@ -486,6 +509,7 @@
             '\n── 原始 data 參數（URL 上未再解碼的取值）──\n' + rawData, 'err');
           throw je;
         }
+        purgeStaleReceiverStorage_();
         rcUrlOrder_ = normalizeOrderFromJson_(parsed);
         if (rcUrlOrder_ && (!rcUrlOrder_.items || !rcUrlOrder_.items.length)) {
           log('data 已解析為 JSON，但找不到品項陣列（支援 items／品項／商品）。\n解碼後摘要：' + decodedStr.slice(0, 400), 'err');
@@ -891,6 +915,12 @@
             sessionStorage.setItem('lastPrintedId', okId);
           } catch (eMark) { /* 略 */ }
         }
+        try {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          log('已以 replaceState 移除網址查詢字串，重新整理不會再依舊網址自動列印。', 'ok');
+        } catch (eHist) {
+          log('replaceState 失敗：' + fmtErr_(eHist), 'err');
+        }
       }
       refreshRcUi_();
       isPrinting = false;
@@ -1031,7 +1061,7 @@
 
   window.onload = function () {
     // data：URLSearchParams → decodeURIComponent → JSON.parse（邏輯在 parseUrlParamsOnLoad_）；失敗時日誌會附原始 data
-    parseUrlParamsOnLoad_(); 
+    parseUrlParamsOnLoad_();
     refreshRcUi_();
     log('POS 列印接收中心就緒。');
     if (!rcUrlAuto_) return;
