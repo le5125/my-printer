@@ -169,6 +169,8 @@
 
   let isPrinting = false;
   window.isPrintProcessed = false;
+  /** 自動列印成功送單時間戳，用於短時間內防重入（部分環境會重複觸發 print）。 */
+  var _lastAutoPrintOkWallMs_ = 0;
 
   var PRINTER_NAME = 'Printer_9AE9';
   var PRINTER_NAME_BLE = 'Printer_9AE9_BLE';
@@ -883,9 +885,11 @@
           return;
         }
       } catch (eSkip) { /* 略 */ }
-    }
-    if (!forceBypassDedup && rcUrlAuto_) {
-      window.isPrintProcessed = true;
+      var nowWall = Date.now();
+      if (_lastAutoPrintOkWallMs_ && nowWall - _lastAutoPrintOkWallMs_ < 5000) {
+        log('自動列印冷卻中（5 秒內不重複送單），略過。', 'ok');
+        return;
+      }
     }
     isPrinting = true;
     btnPrint.disabled = true;
@@ -896,6 +900,8 @@
       await writeChunks(writeCharacteristic, payload);
       log('列印指令已送出。', 'ok');
       if (!forceBypassDedup && rcUrlAuto_) {
+        window.isPrintProcessed = true;
+        _lastAutoPrintOkWallMs_ = Date.now();
         var okId = getCurrentOrderIdForDedup_();
         if (okId) {
           try {
@@ -909,7 +915,17 @@
       try {
         if (confirm('打印完成，是否關閉此頁面回到 POS？')) {
           try {
+            if (window.opener && !window.opener.closed) {
+              try {
+                window.opener.focus();
+              } catch (eFoc) { /* 略 */ }
+            }
             window.close();
+            setTimeout(function () {
+              if (!window.closed) {
+                alert('若分頁仍未關閉，請手動關閉本分頁或從多工切回 POS（跨網域時瀏覽器常阻擋 window.close）。');
+              }
+            }, 500);
           } catch (eClose) { /* 略 */ }
         }
       } catch (eAlert) { /* 略 */ }
@@ -920,6 +936,11 @@
         } catch (eHist) {
           log('replaceState 失敗：' + fmtErr_(eHist), 'err');
         }
+        rcUrlMode_ = '';
+        rcUrlOrder_ = null;
+        rcUrlAuto_ = false;
+        clearUiBeforeNewOrder_();
+        refreshRcUi_();
       }
     } catch (err) {
       isPrinting = false;
@@ -1079,4 +1100,3 @@
   </script>
 </body>
 </html>
- 
