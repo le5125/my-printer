@@ -1031,7 +1031,7 @@
 
   window.onload = function () {
     // data：URLSearchParams → decodeURIComponent → JSON.parse（邏輯在 parseUrlParamsOnLoad_）；失敗時日誌會附原始 data
-    parseUrlParamsOnLoad_();
+    parseUrlParamsOnLoad_(); 
     refreshRcUi_();
     log('POS 列印接收中心就緒。');
     if (!rcUrlAuto_) return;
