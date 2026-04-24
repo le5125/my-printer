@@ -558,18 +558,33 @@ function handleReturnToPos(backUrl) {
   if (!backUrl) return;
 
   if (mode === 'yes') {
-    setTimeout(() => { window.location.href = backUrl; }, 800);
+    setTimeout(() => { goBackToPos(backUrl); }, 800);
   } else if (mode === 'ask') {
     showReturnPrompt(backUrl);
   }
   // mode === 'no': do nothing
 }
 
+function goBackToPos(backUrl) {
+  if (!backUrl) return;
+  try {
+    if (window.opener && !window.opener.closed) {
+      window.opener.location.href = backUrl;
+      try { window.opener.focus(); } catch (eF) {}
+      try { window.close(); } catch (eC) {}
+      return;
+    }
+  } catch (e) {
+    log('透過 opener 返回失敗，改用本頁跳轉', 'warn');
+  }
+  window.location.href = backUrl;
+}
+
 function showReturnPrompt(backUrl) {
   returnPrompt.style.display = 'block';
   btnGoPos.onclick = () => {
     returnPrompt.style.display = 'none';
-    window.location.href = backUrl;
+    goBackToPos(backUrl);
   };
   btnStay.onclick = () => {
     returnPrompt.style.display = 'none';
