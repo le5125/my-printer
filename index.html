@@ -168,7 +168,14 @@
   'use strict';
 
   let isPrinting = false;
+  window.hasPrinted = false;
   window.isPrintProcessed = false;
+  var isIframeMode_ = false;
+  try {
+    isIframeMode_ = window.self !== window.top;
+  } catch (eFrame) {
+    isIframeMode_ = true;
+  }
   /** 自動列印成功送單時間戳，用於短時間內防重入（部分環境會重複觸發 print）。 */
   var _lastAutoPrintOkWallMs_ = 0;
 
@@ -331,14 +338,15 @@
 
   /**
    * 熱感連續紙：僅設寬度、不設高度、無 GAP。
-   * 指令順序：CLS → SIZE → DIRECTION 1；結尾僅一組 PRINT 1,1 → END（整份 payload 僅一處 PRINT）。
+   * GP-2270T：前置 RT 與 SET REPRINT OFF，避免重印快取。
+   * 指令順序：RT → SET REPRINT OFF → CLS → SIZE → DIRECTION 1；結尾僅一組 PRINT 1,1 → END。
    */
   var TSPL_PAPER_WIDTH_MM = 58;
 
   function tsplThermalHeaderBytes_() {
-    var bytes = asciiBytes('CLS\r\nSIZE ' + TSPL_PAPER_WIDTH_MM + ' mm,\r\nDIRECTION 1\r\n');
-    if (bytes.length < 3 || bytes[0] !== 67 || bytes[1] !== 76 || bytes[2] !== 83) {
-      throw new Error('TSPL 標頭必須以 CLS 開頭（清空印機緩衝）。');
+    var bytes = asciiBytes('RT\r\nSET REPRINT OFF\r\nCLS\r\nSIZE ' + TSPL_PAPER_WIDTH_MM + ' mm,\r\nDIRECTION 1\r\n');
+    if (bytes.length < 3 || bytes[0] !== 82 || bytes[1] !== 84 || bytes[2] !== 13) {
+      throw new Error('TSPL 標頭必須以 RT 開頭（重置印機狀態）。');
     }
     return bytes;
   }
@@ -900,6 +908,13 @@
         return;
       }
     }
+    if (!forceBypassDedup) {
+      if (window.hasPrinted) {
+        log('hasPrinted=true，略過重複列印。', 'ok');
+        return;
+      }
+      window.hasPrinted = true;
+    }
     isPrinting = true;
     btnPrint.disabled = true;
     try {
@@ -921,8 +936,8 @@
       }
       refreshRcUi_();
       isPrinting = false;
-      /** auto=1（POS 橋接）：不 confirm、不關閉本分頁，避免 Bluefy 關錯分頁或切回變首頁；僅嘗試將焦點切回 POS。手動按「列印」仍可選擇關閉。 */
-      if (!forceBypassDedup && rcUrlAuto_) {
+      /** iframe / auto 路徑：靜默完成，不 alert / confirm。 */
+      if (isIframeMode_ || (!forceBypassDedup && rcUrlAuto_)) {
         log('列印完成。請從多工切回 POS 分頁繼續接單（本頁保持開啟，下次出單會更新同一視窗）。', 'ok');
         setTimeout(function () {
           try {
@@ -966,6 +981,7 @@
         refreshRcUi_();
       }
     } catch (err) {
+      if (!forceBypassDedup) window.hasPrinted = false;
       isPrinting = false;
       log('列印失敗：' + (err && err.message ? err.message : String(err)), 'err');
     } finally {
@@ -1115,6 +1131,10 @@
     try {
       var urlParamsOnLoad = new URLSearchParams(window.location.search);
       if (urlParamsOnLoad.get('data') && rcUrlOrder_) {
+        if (isIframeMode_) {
+          rcUrlAuto_ = true;
+        }
+        window.hasPrinted = false;
         var curOid = getCurrentOrderIdForDedup_();
         var prevOid = '';
         try {
@@ -1129,7 +1149,7 @@
       log('onload 訂單鎖同步失敗：' + fmtErr_(eOn), 'err');
     }
     log('POS 列印接收中心就緒。');
-    if (!rcUrlAuto_) return;
+    if (!rcUrlAuto_ && !(isIframeMode_ && rcUrlOrder_ && rcUrlOrder_.items && rcUrlOrder_.items.length)) return;
     tryReconnectBleThenAutoPrint_();
   };
 
