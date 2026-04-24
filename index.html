@@ -168,7 +168,7 @@
   'use strict';
 
   let isPrinting = false;
-  window.hasPrinted = false;
+  let globalPrintLock = false;
 
   var PRINTER_NAME = 'Printer_9AE9';
   var PRINTER_NAME_BLE = 'Printer_9AE9_BLE';
@@ -768,10 +768,10 @@
   }
 
   /**
-   * 自動列印控制中心：全頁僅此一處 setTimeout 觸發 print(false)。
-   * 每次呼叫先 clear 再排程，避免 onConnect／onload／重連各建一個 timer。
+   * 僅在已取得寫入特徵值後呼叫：全頁唯一 setTimeout，1.5 秒後 print(false) 一次。
+   * 不在 onStart／visibility／多處 GATT 回呼重複排程；connect／tryReconnect 成功取得特徵後只呼叫本函式。
    */
-  function requestAutoPrintFromCentral_() {
+  function scheduleAutoPrintOnceAfterBleReady_() {
     clearAutoPrintSchedule_();
     if (!rcUrlAuto_) return;
     if (!writeCharacteristic) {
@@ -797,14 +797,14 @@
       _autoPrintScheduleTimer_ = null;
       print(false);
     }, 1500);
-    log('控制中心：已排程 1.5 秒後自動列印。', 'ok');
+    log('已排程 1.5 秒後自動列印（寫入特徵已取得）。', 'ok');
   }
 
-  /** 若已授權過裝置，嘗試不經選單恢復 GATT（iframe 重載時可能成功）；自動列印僅經 requestAutoPrintFromCentral_ 排程。 */
+  /** 僅恢復 GATT／裝置；自動列印改由取得寫入特徵後 scheduleAutoPrintOnceAfterBleReady_ 單一路徑排程。 */
   async function tryReconnectBleThenAutoPrint_() {
     if (!rcUrlAuto_) return;
     if (isGattReadyForWrite_()) {
-      requestAutoPrintFromCentral_();
+      scheduleAutoPrintOnceAfterBleReady_();
       return;
     }
     if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') return;
@@ -813,7 +813,7 @@
       var list = await navigator.bluetooth.getDevices();
       if (connectInProgress_) return;
       if (isGattReadyForWrite_()) {
-        requestAutoPrintFromCentral_();
+        scheduleAutoPrintOnceAfterBleReady_();
         return;
       }
       if (!list || !list.length) return;
@@ -828,7 +828,7 @@
       log('寫入特徵（自動恢復）：' + writeCharacteristic.uuid, 'ok');
       btnDisconnect.disabled = false;
       btnPrint.disabled = false;
-      requestAutoPrintFromCentral_();
+      scheduleAutoPrintOnceAfterBleReady_();
     } catch (e) {
       log('自動恢復藍牙失敗，請手動連接：' + fmtErr_(e), 'err');
     }
@@ -836,16 +836,13 @@
 
   /**
    * 送出目前 TSPL（手動按鈕與自動列印共用）。
-   * @param {boolean} forceBypassDedup 為 true 時略過 orderId／lastPrintedId／window.hasPrinted（手動「列印」可重複出單）。
-   * 自動路徑（auto=1）：函式開頭即鎖 window.hasPrinted，同頁僅進入一次；另配合 lastPrintedId 與 isPrinting。
+   * @param {boolean} forceBypassDedup 為 true 時略過 orderId／lastPrintedId（手動「列印」可重複出單）。
+   * 自動路徑（auto=1）：開頭若 globalPrintLock 已設則 return；通過前置檢查後設 globalPrintLock，同頁僅實際送單一次。
    */
   async function print(forceBypassDedup) {
-    if (!forceBypassDedup && rcUrlAuto_) {
-      if (window.hasPrinted) {
-        log('本頁 auto=1 僅執行一次列印流程，已略過。', 'ok');
-        return;
-      }
-      window.hasPrinted = true;
+    if (!forceBypassDedup && rcUrlAuto_ && globalPrintLock) {
+      log('auto=1：本頁已進入過自動列印流程，略過。', 'ok');
+      return;
     }
     if (isPrinting) {
       log('列印鎖：前一筆尚在緩衝中，略過重入。', 'ok');
@@ -872,6 +869,9 @@
         }
       } catch (eSkip) { /* 略 */ }
     }
+    if (!forceBypassDedup && rcUrlAuto_) {
+      globalPrintLock = true;
+    }
     isPrinting = true;
     btnPrint.disabled = true;
     try {
@@ -889,15 +889,15 @@
         }
       }
       refreshRcUi_();
-      var closeAfterAuto_ = !forceBypassDedup && rcUrlAuto_;
-      setTimeout(function () {
-        isPrinting = false;
-        if (closeAfterAuto_) {
+      isPrinting = false;
+      try {
+        alert('列印完成');
+        if (!forceBypassDedup && rcUrlAuto_) {
           try {
             window.close();
           } catch (eClose) { /* 略 */ }
         }
-      }, 3000);
+      } catch (eAlert) { /* 略 */ }
     } catch (err) {
       isPrinting = false;
       log('列印失敗：' + (err && err.message ? err.message : String(err)), 'err');
@@ -936,7 +936,7 @@
 
       btnDisconnect.disabled = false;
       btnPrint.disabled = false;
-      requestAutoPrintFromCentral_();
+      scheduleAutoPrintOnceAfterBleReady_();
     } catch (err) {
       if (err && err.name === 'NotFoundError') {
         log('未選擇裝置或清單為空。', 'err');
@@ -1035,7 +1035,7 @@
     tryReconnectBleThenAutoPrint_();
   };
 
-  log('腳本已載入；auto=1 每頁僅自動列印一次；chunk 間隔 30ms；58mm 熱感 CLS→SIZE→DIRECTION；單一 PRINT+END；成功後 3 秒可關閉分頁。');
+  log('腳本已載入；auto=1 用 globalPrintLock 僅一次；寫入特徵後單一 1.5s 排程；列印完成 alert 後 auto 分頁可關閉。');
 })();
   </script>
 </body>
