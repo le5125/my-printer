@@ -168,14 +168,8 @@
   'use strict';
 
   let isPrinting = false;
-  window.hasPrinted = false;
+  window.printed = false;
   window.isPrintProcessed = false;
-  var isIframeMode_ = false;
-  try {
-    isIframeMode_ = window.self !== window.top;
-  } catch (eFrame) {
-    isIframeMode_ = true;
-  }
   /** 自動列印成功送單時間戳，用於短時間內防重入（部分環境會重複觸發 print）。 */
   var _lastAutoPrintOkWallMs_ = 0;
 
@@ -196,8 +190,6 @@
   var rcUrlOrder_ = null;
   var rcUrlAuto_ = false;
   var rcDetailLengthWarn_ = '';
-  var RC_PRINT_TRIGGER_KEY = 'print_trigger';
-  var _lastStorageTaskId_ = '';
 
   function fmtErr_(e) {
     if (!e) return '';
@@ -218,39 +210,6 @@
         orderId: getCurrentOrderIdForDedup_() || ''
       }, '*');
     } catch (e) { /* 略 */ }
-  }
-
-  function consumeStoragePrintTask_(task, sourceLabel) {
-    if (!task || typeof task !== 'object') return;
-    var taskId = task.id != null ? String(task.id) : '';
-    if (taskId && taskId === _lastStorageTaskId_) {
-      log('storage 任務重複，略過。id=' + taskId, 'ok');
-      return;
-    }
-    var nextMode = String(task.mode || '').toLowerCase();
-    if (nextMode !== 'label' && nextMode !== 'detail') nextMode = 'detail';
-    var normalized = normalizeOrderFromJson_(task.data);
-    if (!normalized || !normalized.items || !normalized.items.length) {
-      log('storage 任務缺少有效品項，略過。', 'err');
-      postPrintBridgeStatus_('error', 'storage 任務資料無效');
-      return;
-    }
-    _lastStorageTaskId_ = taskId;
-    rcUrlMode_ = nextMode;
-    rcUrlOrder_ = normalized;
-    rcUrlAuto_ = true;
-    rcDetailLengthWarn_ = '';
-    window.hasPrinted = false;
-    window.isPrintProcessed = false;
-    _autoPrintScheduledThisLoad_ = false;
-    clearAutoPrintSchedule_();
-    try {
-      sessionStorage.removeItem('lastPrintedId');
-    } catch (eRm) { /* 略 */ }
-    refreshRcUi_();
-    log('偵測到新訂單（' + (sourceLabel || 'storage') + '），準備列印 ID: ' + (taskId || '(無)') + ' mode=' + nextMode, 'ok');
-    postPrintBridgeStatus_('ready', '收到新列印任務');
-    tryReconnectBleThenAutoPrint_();
   }
 
   function normalizeUuid128_(str) {
@@ -386,7 +345,7 @@
   /**
    * 熱感連續紙：僅設寬度、不設高度、無 GAP。
    * GP-2270T：前置 RT 與 SET REPRINT OFF，避免重印快取。
-   * 指令順序：RT → SET REPRINT OFF → CLS → SIZE → DIRECTION 1；結尾僅一組 PRINT 1,1 → END。
+   * 指令順序：RT → SET REPRINT OFF → CLS → SIZE → DIRECTION 1；結尾僅一組 PRINT 1,1。
    */
   var TSPL_PAPER_WIDTH_MM = 58;
 
@@ -398,9 +357,9 @@
     return bytes;
   }
 
-  /** 每份明細結尾：單一 PRINT 1,1 與 END（勿在迴圈內重複加入）。 */
+  /** 每份明細結尾：單一 PRINT 1,1（勿在迴圈內重複加入）。 */
   function tsplThermalFooterBytes_() {
-    return asciiBytes('PRINT 1,1\r\nEND\r\n');
+    return asciiBytes('PRINT 1,1\r\n');
   }
 
   /**
@@ -958,11 +917,11 @@
       }
     }
     if (!forceBypassDedup) {
-      if (window.hasPrinted) {
-        log('hasPrinted=true，略過重複列印。', 'ok');
+      if (window.printed) {
+        log('printed=true，略過重複列印。', 'ok');
         return;
       }
-      window.hasPrinted = true;
+      window.printed = true;
     }
     isPrinting = true;
     if (!forceBypassDedup) postPrintBridgeStatus_('printing', '開始送出列印');
@@ -987,18 +946,18 @@
       }
       refreshRcUi_();
       isPrinting = false;
-      /** iframe / auto 路徑：靜默完成，不 alert / confirm。 */
-      if (isIframeMode_ || (!forceBypassDedup && rcUrlAuto_)) {
-        log('列印完成。請從多工切回 POS 分頁繼續接單（本頁保持開啟，下次出單會更新同一視窗）。', 'ok');
-        setTimeout(function () {
-          try {
-            if (window.opener && !window.opener.closed) {
-              try {
-                window.opener.focus();
-              } catch (eFoc) { /* 略 */ }
+      if (!forceBypassDedup && rcUrlAuto_) {
+        var urlParams = new URLSearchParams(window.location.search);
+        var backUrl = urlParams.get('back');
+        if (backUrl) {
+          setTimeout(function () {
+            try {
+              window.location.href = decodeURIComponent(backUrl);
+            } catch (eBack) {
+              window.location.href = backUrl;
             }
-          } catch (eOp) { /* 略 */ }
-        }, 150);
+          }, 2000);
+        }
       } else {
         try {
           if (confirm('打印完成，是否關閉此頁面回到 POS？')) {
@@ -1032,7 +991,7 @@
         refreshRcUi_();
       }
     } catch (err) {
-      if (!forceBypassDedup) window.hasPrinted = false;
+      if (!forceBypassDedup) window.printed = false;
       isPrinting = false;
       log('列印失敗：' + (err && err.message ? err.message : String(err)), 'err');
       if (!forceBypassDedup) postPrintBridgeStatus_('error', (err && err.message ? err.message : String(err)));
@@ -1183,10 +1142,7 @@
     try {
       var urlParamsOnLoad = new URLSearchParams(window.location.search);
       if (urlParamsOnLoad.get('data') && rcUrlOrder_) {
-        if (isIframeMode_) {
-          rcUrlAuto_ = true;
-        }
-        window.hasPrinted = false;
+        window.printed = false;
         var curOid = getCurrentOrderIdForDedup_();
         var prevOid = '';
         try {
@@ -1201,25 +1157,7 @@
       log('onload 訂單鎖同步失敗：' + fmtErr_(eOn), 'err');
     }
     log('POS 列印接收中心就緒。');
-    window.addEventListener('storage', function (e) {
-      if (!e || e.key !== RC_PRINT_TRIGGER_KEY || !e.newValue) return;
-      try {
-        var task = JSON.parse(e.newValue);
-        consumeStoragePrintTask_(task, 'storage');
-      } catch (eParse) {
-        log('storage print_trigger 解析失敗：' + fmtErr_(eParse), 'err');
-      }
-    });
-    try {
-      var seedRaw = localStorage.getItem(RC_PRINT_TRIGGER_KEY);
-      if (seedRaw) {
-        var seedTask = JSON.parse(seedRaw);
-        consumeStoragePrintTask_(seedTask, 'onload');
-      }
-    } catch (eSeed) {
-      log('onload 讀取 print_trigger 失敗：' + fmtErr_(eSeed), 'err');
-    }
-    if (!rcUrlAuto_ && !(isIframeMode_ && rcUrlOrder_ && rcUrlOrder_.items && rcUrlOrder_.items.length)) return;
+    if (!rcUrlAuto_) return;
     tryReconnectBleThenAutoPrint_();
   };
 
