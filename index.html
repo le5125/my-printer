@@ -981,15 +981,23 @@
       if (!forceBypassDedup && rcUrlAuto_) {
         var urlParams = new URLSearchParams(window.location.search);
         var backUrl = urlParams.get('back');
-        if (backUrl) {
-          setTimeout(function () {
-            try {
-              window.location.href = decodeURIComponent(backUrl);
-            } catch (eBack) {
-              window.location.href = backUrl;
+        setTimeout(function () {
+          var backResolved = '';
+          try {
+            backResolved = backUrl ? decodeURIComponent(backUrl) : '';
+          } catch (eDec) {
+            backResolved = backUrl || '';
+          }
+          try {
+            if (window.opener && !window.opener.closed) {
+              if (backResolved) {
+                try { window.opener.location.href = backResolved; } catch (eOpNav) { /* 略 */ }
+              }
+              try { window.opener.focus(); } catch (eFocus) { /* 略 */ }
             }
-          }, 1500);
-        }
+          } catch (eOp) { /* 略 */ }
+          hideAutoStage_();
+        }, 1500);
       } else {
         hideAutoStage_();
       }
