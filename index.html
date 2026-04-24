@@ -638,14 +638,8 @@ function parseHashData() {
 }
 
 function decodeBase64ToText(b64) {
-  // Handle base64url (+ -> +, - -> +, _ -> /)
-  const standard = b64.replace(/-/g, '+').replace(/_/g, '/');
-  const binary   = atob(standard);
-  const bytes    = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return new TextDecoder('utf-8').decode(bytes);
+  // 依需求改用 escape 路徑，確保與 POS 端編碼相容
+  return decodeURIComponent(escape(atob(String(b64 || ''))));
 }
 
 function updateQueueDisplay(data) {
@@ -709,7 +703,8 @@ window.addEventListener('message', async (event) => {
 });
 
 // ── Hash Listener (Fallback Channel) ─────────────────────────
-function checkHashData() {
+function handleIncomingData() {
+  console.log('偵測到 Hash 變化，準備打印...');
   const data = parseHashData();
   if (!data || !data.text) return;
   if (data.ts && data.ts === lastPrintTs) return; // already processed
@@ -721,7 +716,7 @@ function checkHashData() {
 
 window.addEventListener('hashchange', () => {
   log('hashchange triggered', 'info');
-  checkHashData();
+  handleIncomingData();
 });
 
 // ── Manual Print Button ───────────────────────────────────────
@@ -761,7 +756,7 @@ function init() {
   log('Printer Bridge 就緒', 'ok');
   log('等待 POS 連線...', 'info');
   // Check if there's hash data on load (direct URL with data)
-  checkHashData();
+  handleIncomingData();
 }
 
 document.addEventListener('DOMContentLoaded', init);
