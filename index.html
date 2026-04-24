@@ -1173,6 +1173,7 @@
   });
 
   window.onload = function () {
+    try { window.name = 'PrinterWindow'; } catch (eWn) { /* 略 */ }
     // data：URLSearchParams → decodeURIComponent → JSON.parse（邏輯在 parseUrlParamsOnLoad_）；失敗時日誌會附原始 data
     parseUrlParamsOnLoad_();
     refreshRcUi_();
