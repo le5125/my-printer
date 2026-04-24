@@ -112,6 +112,9 @@
       <button id="connectBtn" type="button">連接打印機</button>
       <button id="printBtn" type="button" disabled>打印測試標籤</button>
     </div>
+    <button id="manualPrintBtn" type="button" style="display:none;margin-bottom:12px;background:#f59e0b;">
+      偵測到新訂單，點此列印
+    </button>
 
     <div id="statusBox" class="status">尚未連線</div>
   </main>
@@ -123,6 +126,7 @@
 
     const connectBtn = document.getElementById("connectBtn");
     const printBtn = document.getElementById("printBtn");
+    const manualPrintBtn = document.getElementById("manualPrintBtn");
     const statusBox = document.getElementById("statusBox");
 
     let bleDevice = null;
@@ -235,7 +239,14 @@
       if (!encodedData) return null;
       try {
         const decoded = decodeBase64Utf8(decodeURIComponent(encodedData));
-        return JSON.parse(decoded);
+        console.log("[Printer] got ?data= length:", encodedData.length);
+        try {
+          const parsed = JSON.parse(decoded);
+          if (parsed && Array.isArray(parsed.jobs)) return parsed;
+        } catch (eJson) {
+          // 新版 POS 只傳純文字，JSON 解析失敗屬預期
+        }
+        return { text: decoded };
       } catch (e) {
         setStatus(`data 解析失敗：${e.message || e}`, "err");
         return null;
@@ -243,22 +254,28 @@
     }
 
     async function printPayload(payload) {
-      if (!payload || !Array.isArray(payload.jobs) || payload.jobs.length === 0) {
-        setStatus("收到資料，但沒有可列印 jobs", "warn");
+      if (!payload) return;
+      if (typeof payload.text === "string") {
+        await sendRawText(payload.text + "\n");
         return;
       }
-      for (const job of payload.jobs) {
-        await sendRawText(String(job.command || "") + "\n");
+      if (Array.isArray(payload.jobs) && payload.jobs.length) {
+        for (const job of payload.jobs) {
+          await sendRawText(String(job.command || "") + "\n");
+        }
+        return;
       }
+      setStatus("收到資料，但內容不可列印", "warn");
     }
 
     async function tryAutoPrintFromPending() {
-      if (!pendingPayload || !isPrinterConnected() || isAutoPrinting) return;
+      if (!pendingPayload || !writeCharacteristic || isAutoPrinting) return;
       isAutoPrinting = true;
       try {
         setStatus("偵測到新 data 且藍牙已連線，開始自動列印...", "ok");
         await printPayload(pendingPayload);
         setStatus("自動列印完成", "ok");
+        manualPrintBtn.style.display = "none";
         const backToPos = lastBackUrl || "";
         if (backToPos) {
           const shouldBack = window.confirm("列印完成，是否返回 POS 頁面？");
@@ -279,6 +296,7 @@
       if (!payload) return;
       pendingPayload = payload;
       setStatus(`收到新打印資料（${payload.jobs?.length || 0} 個 job，來源: ${sourceTag}）`, "ok");
+      manualPrintBtn.style.display = "inline-block";
       if (isPrinterConnected()) {
         tryAutoPrintFromPending();
       } else {
@@ -327,8 +345,15 @@
 
     connectBtn.addEventListener("click", connectPrinter);
     printBtn.addEventListener("click", sendTestData);
+    manualPrintBtn.addEventListener("click", () => {
+      tryAutoPrintFromPending();
+    });
     window.addEventListener("popstate", syncPayloadFromUrl);
     window.addEventListener("hashchange", syncPayloadFromUrl);
+    window.addEventListener("pageshow", () => {
+      syncPayloadFromUrl();
+      tryAutoPrintFromPending();
+    });
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) syncPayloadFromUrl();
     });
