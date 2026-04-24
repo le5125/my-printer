@@ -302,8 +302,8 @@
     <div><label>chunk delay</label><br><input type="number" id="cfg-chunk-delay" value="30" min="10" max="200"></div>
   </div>
   <div class="setting-row">
-    <span>MTU 包大小 (bytes)</span>
-    <div><label>chunk size</label><br><input type="number" id="cfg-chunk-size" value="100" min="20" max="512"></div>
+    <span>BLE 分段大小</span>
+    <div><label>固定 20 bytes（低功耗 MTU 安全值）</label><br><input type="number" id="cfg-chunk-size" value="20" min="20" max="20" readonly title="寫入韌體每包上限 20 bytes，已鎖定"></div>
   </div>
   <div class="setting-row">
     <span>印完回 POS</span>
@@ -373,7 +373,6 @@ const returnPrompt= document.getElementById('return-prompt');
 const btnStay     = document.getElementById('btn-stay');
 const btnGoPos    = document.getElementById('btn-go-pos');
 const cfgDelay    = document.getElementById('cfg-chunk-delay');
-const cfgSize     = document.getElementById('cfg-chunk-size');
 const cfgReturn   = document.getElementById('cfg-auto-return');
 const btnClearLog = document.getElementById('btn-clear-log');
 
@@ -496,16 +495,19 @@ function onBleDisconnected() {
 }
 
 // ── Print Engine ──────────────────────────────────────────────
+/** BLE 寫入特徵值每段最大長度（MTU / ATT 限制，避免單次 write 丟包或斷線） */
+const BLE_WRITE_CHUNK_BYTES = 20;
+
 async function sendToprinter(text) {
   if (!bleChar) throw new Error('無 characteristic');
   if (!isConnected) throw new Error('BLE 未連線');
 
   const encoder = new TextEncoder();
   const bytes   = encoder.encode(text);
-  const CHUNK   = parseInt(cfgSize.value) || 100;
-  const DELAY   = parseInt(cfgDelay.value) || 30;
+  const CHUNK   = BLE_WRITE_CHUNK_BYTES;
+  const DELAY   = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
 
-  log('送印 ' + bytes.length + ' bytes，分 ' + Math.ceil(bytes.length/CHUNK) + ' 包', 'info');
+  log('送印 ' + bytes.length + ' bytes，每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
 
   for (let i = 0; i < bytes.length; i += CHUNK) {
     const chunk = bytes.slice(i, i + CHUNK);
@@ -516,7 +518,6 @@ async function sendToprinter(text) {
         await bleChar.writeValue(chunk);
       }
     } catch (e) {
-      // retry once
       await sleep(50);
       if (bleChar.properties.writeWithoutResponse) {
         await bleChar.writeValueWithoutResponse(chunk);
@@ -759,7 +760,30 @@ function init() {
   handleIncomingData();
 }
 
-document.addEventListener('DOMContentLoaded', init);
+/* 與 POS 同網域時可免彈窗即時收單；跨網域時仍以 postMessage / hash 為主 */
+let printBroadcastChannel = null;
+function initPrintBroadcastChannel_() {
+  try {
+    printBroadcastChannel = new BroadcastChannel('pos-ble-print-v1');
+    printBroadcastChannel.onmessage = function (ev) {
+      const msg = ev.data;
+      if (!msg || msg.type !== 'PRINT_JOB') return;
+      posOpener = null;
+      receivePrintData({
+        text: msg.text || '',
+        backUrl: msg.backUrl || '',
+        ts: msg.ts || Date.now()
+      });
+    };
+  } catch (e) {
+    log('BroadcastChannel 不可用（可略過）', 'warn');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  initPrintBroadcastChannel_();
+  init();
+});
 </script>
 </body>
 </html>
