@@ -290,6 +290,7 @@
   <div id="queue-display">
     <div class="empty-queue">等待 POS 送單...</div>
   </div>
+  <button class="btn btn-secondary" id="btn-test-print" disabled>測試打印（固定內容）</button>
   <button class="btn btn-warn" id="btn-manual-print" disabled>手動列印最新資料</button>
 </div>
 
@@ -363,6 +364,7 @@ const statusText  = document.getElementById('ble-status-text');
 const deviceName  = document.getElementById('ble-device-name');
 const btnConnect  = document.getElementById('btn-connect');
 const btnDisconn  = document.getElementById('btn-disconnect');
+const btnTest     = document.getElementById('btn-test-print');
 const btnManual   = document.getElementById('btn-manual-print');
 const queueDisp   = document.getElementById('queue-display');
 const logBox      = document.getElementById('log-box');
@@ -398,6 +400,7 @@ function setBleState(state) {
     btnConnect.disabled = false;
     isConnected = false;
     bleChar = null;
+    btnTest.disabled = true;
   } else if (state === 'connecting') {
     statusText.textContent = '連線中...';
     btnConnect.disabled = true;
@@ -407,6 +410,7 @@ function setBleState(state) {
     btnConnect.style.display = 'none';
     btnDisconn.style.display = '';
     isConnected = true;
+    btnTest.disabled = false;
   }
 }
 
@@ -726,6 +730,27 @@ btnManual.addEventListener('click', async () => {
   if (!isConnected) { log('請先連線打印機', 'err'); return; }
   log('手動觸發列印', 'info');
   await autoPrint(pendingData);
+});
+
+btnTest.addEventListener('click', async () => {
+  if (!isConnected || !bleChar) {
+    log('測試打印失敗：請先連線打印機', 'err');
+    return;
+  }
+  const testTspl = [
+    'SIZE 40 mm, 30 mm',
+    'GAP 2 mm, 0 mm',
+    'CLS',
+    'TEXT 30,50,"TSS24.BF2",0,1,1,"TEST PRINT"',
+    'PRINT 1'
+  ].join('\n') + '\n';
+  try {
+    log('送出測試打印...', 'info');
+    await sendToprinter(testTspl);
+    log('測試打印完成', 'ok');
+  } catch (e) {
+    log('測試打印失敗: ' + e.message, 'err');
+  }
 });
 
 // ── Clear Log ─────────────────────────────────────────────────
