@@ -1,381 +1,730 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bluefy 藍牙列印測試</title>
-  <style>
-    :root {
-      --bg: #0f172a;
-      --card: #111827;
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --ok: #22c55e;
-      --warn: #f59e0b;
-      --err: #ef4444;
-      --btn: #2563eb;
-      --btn-disabled: #475569;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>GP-2270T Printer</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a22;
+    --border: #2e2e3e;
+    --accent: #00d4aa;
+    --accent2: #ff6b35;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --success: #22c55e;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --radius: 10px;
+    --font: 'Courier New', monospace;
+  }
 
-    * {
-      box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
-    }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: var(--bg);
-      color: var(--text);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+  }
 
-    .card {
-      width: min(640px, 100%);
-      background: var(--card);
-      border: 1px solid #334155;
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    }
+  header {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
 
-    h1 {
-      margin: 0 0 14px;
-      font-size: 1.35rem;
-    }
+  .printer-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
 
-    .hint {
-      color: var(--muted);
-      margin-bottom: 16px;
-      line-height: 1.5;
-      font-size: 0.95rem;
-    }
+  .printer-icon svg { width: 22px; height: 22px; fill: #000; }
 
-    .actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
-    }
+  h1 { font-size: 1rem; letter-spacing: 0.08em; color: var(--accent); }
+  h1 span { color: var(--muted); font-size: 0.75rem; display: block; margin-top: 2px; }
 
-    button {
-      appearance: none;
-      border: 0;
-      border-radius: 10px;
-      padding: 12px 16px;
-      font-size: 0.98rem;
-      font-weight: 600;
-      color: #fff;
-      background: var(--btn);
-    }
+  .card {
+    width: 100%;
+    max-width: 480px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
 
-    button:disabled {
-      background: var(--btn-disabled);
-      cursor: not-allowed;
-    }
+  .card-title {
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
 
-    .status {
-      border: 1px solid #334155;
-      border-radius: 10px;
-      background: #020617;
-      padding: 12px;
-      min-height: 110px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.86rem;
-      line-height: 1.45;
-    }
+  /* Status indicator */
+  .ble-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
 
-    .ok { color: var(--ok); }
-    .warn { color: var(--warn); }
-    .err { color: var(--err); }
-  </style>
+  .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .dot.disconnected { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+  .dot.connecting   { background: var(--warn);   box-shadow: 0 0 6px var(--warn); animation: pulse 1s infinite; }
+  .dot.connected    { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+
+  #ble-status-text { font-size: 0.82rem; color: var(--text); }
+  #ble-device-name { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+  /* Buttons */
+  .btn {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--font);
+    font-size: 0.85rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 8px;
+  }
+
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:not(:disabled):hover { background: #00bfa0; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .btn-secondary:not(:disabled):hover { background: rgba(0,212,170,0.08); }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+
+  .btn-warn {
+    background: var(--accent2);
+    color: #fff;
+  }
+
+  /* Queue display */
+  .queue-item {
+    background: rgba(0,212,170,0.06);
+    border: 1px solid rgba(0,212,170,0.2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 0.78rem;
+  }
+
+  .queue-item .qi-label {
+    color: var(--accent);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+
+  .queue-item pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--muted);
+    font-size: 0.72rem;
+    max-height: 80px;
+    overflow: hidden;
+  }
+
+  .empty-queue {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    padding: 20px;
+  }
+
+  /* Log */
+  #log-box {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    height: 130px;
+    overflow-y: auto;
+    font-size: 0.7rem;
+    line-height: 1.6;
+  }
+
+  .log-line { color: var(--muted); }
+  .log-line.ok  { color: var(--success); }
+  .log-line.err { color: var(--danger); }
+  .log-line.info { color: var(--accent); }
+  .log-line.warn { color: var(--warn); }
+
+  /* ACK badge */
+  .ack-flash {
+    position: fixed;
+    top: 20px; right: 20px;
+    background: var(--success);
+    color: #000;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .ack-flash.show { opacity: 1; }
+
+  /* Return POS prompt */
+  .return-prompt {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 2px solid var(--accent);
+    padding: 16px;
+    z-index: 100;
+  }
+
+  .return-prompt p { font-size: 0.85rem; margin-bottom: 12px; text-align: center; }
+
+  .return-row { display: flex; gap: 8px; }
+  .return-row .btn { margin-bottom: 0; flex: 1; }
+
+  /* Settings */
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-row label { color: var(--muted); font-size: 0.72rem; }
+
+  input[type="number"] {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    width: 70px;
+    text-align: right;
+  }
+</style>
 </head>
 <body>
-  <main class="card">
-    <h1>Bluefy Web Bluetooth 列印測試</h1>
-    <div class="hint">
-      裝置：Printer_9AE9_BLE<br />
-      Service UUID：E7810A71-73AE-499D-8C15-FAA9AEF0C3F2<br />
-      Characteristic UUID：BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F
+
+<div class="ack-flash" id="ack-flash">Print OK</div>
+
+<header>
+  <div class="printer-icon">
+    <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
+  </div>
+  <div>
+    <h1>GP-2270T Receiver <span>Bluetooth Print Bridge</span></h1>
+  </div>
+</header>
+
+<!-- BLE Connection Card -->
+<div class="card">
+  <div class="card-title">[ 01 ] 藍牙連線</div>
+
+  <div class="ble-status">
+    <div class="dot disconnected" id="ble-dot"></div>
+    <div>
+      <div id="ble-status-text">尚未連線</div>
+      <div id="ble-device-name">--</div>
     </div>
-    <div id="printerMeta" class="hint" style="margin-top:-8px;">
-      視窗名稱：-<br />
-      已連線裝置：-
+  </div>
+
+  <button class="btn btn-primary" id="btn-connect">連線打印機</button>
+  <button class="btn btn-danger"  id="btn-disconnect" style="display:none">斷線</button>
+</div>
+
+<!-- Print Queue Card -->
+<div class="card">
+  <div class="card-title">[ 02 ] 待印佇列</div>
+  <div id="queue-display">
+    <div class="empty-queue">等待 POS 送單...</div>
+  </div>
+  <button class="btn btn-warn" id="btn-manual-print" disabled>手動列印最新資料</button>
+</div>
+
+<!-- Settings Card -->
+<div class="card">
+  <div class="card-title">[ 03 ] 設定</div>
+  <div class="setting-row">
+    <span>每包延遲 (ms)</span>
+    <div><label>chunk delay</label><br><input type="number" id="cfg-chunk-delay" value="30" min="10" max="200"></div>
+  </div>
+  <div class="setting-row">
+    <span>MTU 包大小 (bytes)</span>
+    <div><label>chunk size</label><br><input type="number" id="cfg-chunk-size" value="100" min="20" max="512"></div>
+  </div>
+  <div class="setting-row">
+    <span>印完回 POS</span>
+    <div>
+      <label>auto return</label><br>
+      <select id="cfg-auto-return" style="background:#000;color:var(--text);border:1px solid var(--border);padding:4px 8px;font-family:var(--font);font-size:0.8rem;border-radius:4px;">
+        <option value="ask">詢問</option>
+        <option value="yes">自動回</option>
+        <option value="no">不回</option>
+      </select>
     </div>
-    <div class="hint" style="margin-top:-8px;color:#fbbf24;">
-      請勿關閉或刷新此頁面，否則藍牙會斷開。
-    </div>
+  </div>
+</div>
 
-    <div class="actions">
-      <button id="connectBtn" type="button">連接打印機</button>
-      <button id="printBtn" type="button" disabled>打印測試標籤</button>
-    </div>
-    <button id="manualPrintBtn" type="button" style="display:none;margin-bottom:12px;background:#f59e0b;">
-      偵測到新訂單，點此列印
-    </button>
+<!-- Log Card -->
+<div class="card">
+  <div class="card-title">[ 04 ] 系統紀錄</div>
+  <div id="log-box"></div>
+  <button class="btn btn-secondary" id="btn-clear-log" style="margin-top:10px;font-size:0.75rem;padding:8px;">清除記錄</button>
+</div>
 
-    <div id="statusBox" class="status">尚未連線</div>
-  </main>
+<!-- Return to POS prompt -->
+<div class="return-prompt" id="return-prompt">
+  <p>列印完成，是否返回 POS？</p>
+  <div class="return-row">
+    <button class="btn btn-secondary" id="btn-stay">留在此頁</button>
+    <button class="btn btn-primary"   id="btn-go-pos">返回 POS</button>
+  </div>
+</div>
 
-  <script>
-    const DEVICE_NAME = "Printer_9AE9_BLE";
-    const SERVICE_UUID = "e7810a71-73ae-499d-8c15-faa9aef0c3f2";
-    const WRITE_CHAR_UUID = "bef8d6c9-9c21-4c9e-b632-bd58c1009f9f";
+<script>
+/* ============================================================
+   PRINTER BRIDGE — index.html
+   GP-2270T via Web Bluetooth (Bluefy on iOS)
+   ============================================================ */
 
-    const connectBtn = document.getElementById("connectBtn");
-    const printBtn = document.getElementById("printBtn");
-    const manualPrintBtn = document.getElementById("manualPrintBtn");
-    const statusBox = document.getElementById("statusBox");
+'use strict';
 
-    let bleDevice = null;
-    let gattServer = null;
-    let writeCharacteristic = null;
-    let pendingPayload = null;
-    let latestUrlToken = "";
-    let latestDataToken = "";
-    let isAutoPrinting = false;
-    let lastBackUrl = "";
+// ── BLE Constants ────────────────────────────────────────────
+const BLE_SERVICE_UUID  = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2';
+const BLE_CHAR_UUID     = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f';
+// GP-2270T 也可能用 SPP UUID: 00001101-0000-1000-8000-00805f9b34fb
+// 若上面不行可換成 SPP (需 Bluefy 支援)
 
-    function refreshPrinterMeta() {
-      const meta = document.getElementById("printerMeta");
-      if (!meta) return;
-      const winName = window.name || "(未命名)";
-      const devName = (bleDevice && bleDevice.name) ? bleDevice.name : (isPrinterConnected() ? "已連線(未命名裝置)" : "未連線");
-      meta.innerHTML = `視窗名稱：${winName}<br />已連線裝置：${devName}`;
+// ── State ────────────────────────────────────────────────────
+let bleDevice    = null;
+let bleServer    = null;
+let bleChar      = null;
+let isConnected  = false;
+let pendingData  = null;   // { text: string, backUrl: string, ts: number }
+let posOpener    = null;   // reference to POS window (from postMessage source)
+let lastPrintTs  = 0;
+let printLock    = false;
+
+// ── DOM ──────────────────────────────────────────────────────
+const dot         = document.getElementById('ble-dot');
+const statusText  = document.getElementById('ble-status-text');
+const deviceName  = document.getElementById('ble-device-name');
+const btnConnect  = document.getElementById('btn-connect');
+const btnDisconn  = document.getElementById('btn-disconnect');
+const btnManual   = document.getElementById('btn-manual-print');
+const queueDisp   = document.getElementById('queue-display');
+const logBox      = document.getElementById('log-box');
+const ackFlash    = document.getElementById('ack-flash');
+const returnPrompt= document.getElementById('return-prompt');
+const btnStay     = document.getElementById('btn-stay');
+const btnGoPos    = document.getElementById('btn-go-pos');
+const cfgDelay    = document.getElementById('cfg-chunk-delay');
+const cfgSize     = document.getElementById('cfg-chunk-size');
+const cfgReturn   = document.getElementById('cfg-auto-return');
+const btnClearLog = document.getElementById('btn-clear-log');
+
+// ── Logging ──────────────────────────────────────────────────
+function log(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = 'log-line ' + type;
+  const t = new Date().toTimeString().slice(0,8);
+  el.textContent = '[' + t + '] ' + msg;
+  logBox.appendChild(el);
+  logBox.scrollTop = logBox.scrollHeight;
+  // keep last 80 lines
+  while (logBox.children.length > 80) logBox.removeChild(logBox.firstChild);
+}
+
+// ── UI State ─────────────────────────────────────────────────
+function setBleState(state) {
+  dot.className = 'dot ' + state;
+  if (state === 'disconnected') {
+    statusText.textContent = '尚未連線';
+    deviceName.textContent = '--';
+    btnConnect.style.display = '';
+    btnDisconn.style.display = 'none';
+    btnConnect.disabled = false;
+    isConnected = false;
+    bleChar = null;
+  } else if (state === 'connecting') {
+    statusText.textContent = '連線中...';
+    btnConnect.disabled = true;
+  } else if (state === 'connected') {
+    statusText.textContent = '已連線';
+    deviceName.textContent = bleDevice ? bleDevice.name || '(no name)' : '--';
+    btnConnect.style.display = 'none';
+    btnDisconn.style.display = '';
+    isConnected = true;
+  }
+}
+
+function showAck() {
+  ackFlash.classList.add('show');
+  setTimeout(() => ackFlash.classList.remove('show'), 1800);
+}
+
+// ── BLE Connect ──────────────────────────────────────────────
+btnConnect.addEventListener('click', async () => {
+  if (!navigator.bluetooth) {
+    log('此瀏覽器不支援 Web Bluetooth', 'err');
+    alert('請使用 Bluefy 開啟此頁');
+    return;
+  }
+  setBleState('connecting');
+  log('掃描藍牙裝置...', 'info');
+  try {
+    bleDevice = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [BLE_SERVICE_UUID, '00001101-0000-1000-8000-00805f9b34fb']
+    });
+
+    bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
+
+    log('連接 GATT: ' + bleDevice.name, 'info');
+    bleServer = await bleDevice.gatt.connect();
+
+    let service;
+    // Try primary service UUID first
+    try {
+      service = await bleServer.getPrimaryService(BLE_SERVICE_UUID);
+      log('Service OK: 18f0', 'ok');
+    } catch (e) {
+      // fallback: list all services (Bluefy only)
+      log('18f0 不可用，嘗試取得所有服務...', 'warn');
+      const services = await bleServer.getPrimaryServices();
+      log('找到 ' + services.length + ' 個服務', 'info');
+      service = services[0];
+      log('使用服務: ' + service.uuid, 'info');
     }
 
-    function setStatus(message, level = "") {
-      const time = new Date().toLocaleTimeString();
-      const line = `[${time}] ${message}`;
-      const cssClass = level ? ` ${level}` : "";
-      statusBox.innerHTML += `\n<span class="${cssClass.trim()}">${line}</span>`;
-      statusBox.scrollTop = statusBox.scrollHeight;
-      console.log(message);
+    let char;
+    try {
+      char = await service.getCharacteristic(BLE_CHAR_UUID);
+      log('Characteristic OK: 2af1', 'ok');
+    } catch (e) {
+      const chars = await service.getCharacteristics();
+      log('找到 ' + chars.length + ' 個 characteristic', 'info');
+      // 找 writeable 的
+      char = chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
+      if (!char) char = chars[0];
+      log('使用 char: ' + char.uuid, 'info');
     }
 
-    function isPrinterConnected() {
-      return !!(gattServer && gattServer.connected && writeCharacteristic);
+    bleChar = char;
+    setBleState('connected');
+    log('打印機連線成功！', 'ok');
+
+    // If we have pending data from URL/message, auto print now
+    if (pendingData && !printLock) {
+      log('發現待印資料，開始列印...', 'info');
+      await autoPrint(pendingData);
     }
 
-    function updateUi(connected) {
-      printBtn.disabled = !connected;
-      connectBtn.disabled = false;
-      connectBtn.textContent = connected ? "重新連接打印機" : "連接打印機";
-      refreshPrinterMeta();
-    }
+  } catch (err) {
+    setBleState('disconnected');
+    log('連線失敗: ' + err.message, 'err');
+  }
+});
 
-    function handleDisconnected() {
-      setStatus("裝置已中斷連線", "warn");
-      writeCharacteristic = null;
-      gattServer = null;
-      updateUi(false);
-      refreshPrinterMeta();
-    }
+btnDisconn.addEventListener('click', async () => {
+  if (bleDevice && bleDevice.gatt.connected) {
+    bleDevice.gatt.disconnect();
+  }
+  setBleState('disconnected');
+  log('已手動斷線', 'warn');
+});
 
-    async function connectPrinter() {
-      if (!navigator.bluetooth) {
-        setStatus("此瀏覽器不支援 Web Bluetooth（請確認在 Bluefy 中開啟）", "err");
-        return;
-      }
+function onBleDisconnected() {
+  setBleState('disconnected');
+  log('藍牙連線中斷', 'warn');
+}
 
-      connectBtn.disabled = true;
-      setStatus("開始搜尋藍牙裝置...");
+// ── Print Engine ──────────────────────────────────────────────
+async function sendToprinter(text) {
+  if (!bleChar) throw new Error('無 characteristic');
+  if (!isConnected) throw new Error('BLE 未連線');
 
-      try {
-        bleDevice = await navigator.bluetooth.requestDevice({
-          filters: [
-            { name: DEVICE_NAME },
-            { services: [SERVICE_UUID] }
-          ],
-          optionalServices: [SERVICE_UUID]
-        });
+  const encoder = new TextEncoder();
+  const bytes   = encoder.encode(text);
+  const CHUNK   = parseInt(cfgSize.value) || 100;
+  const DELAY   = parseInt(cfgDelay.value) || 30;
 
-        bleDevice.removeEventListener("gattserverdisconnected", handleDisconnected);
-        bleDevice.addEventListener("gattserverdisconnected", handleDisconnected);
+  log('送印 ' + bytes.length + ' bytes，分 ' + Math.ceil(bytes.length/CHUNK) + ' 包', 'info');
 
-        setStatus(`已選擇裝置：${bleDevice.name || "(未命名)"}`, "ok");
-        setStatus("連線 GATT Server...");
-        gattServer = await bleDevice.gatt.connect();
-
-        setStatus("取得 Service...");
-        const service = await gattServer.getPrimaryService(SERVICE_UUID);
-
-        setStatus("取得可寫入 Characteristic...");
-        writeCharacteristic = await service.getCharacteristic(WRITE_CHAR_UUID);
-
-        setStatus("連線成功，可開始測試列印", "ok");
-        updateUi(true);
-        refreshPrinterMeta();
-        tryAutoPrintFromPending();
-      } catch (error) {
-        setStatus(`連線失敗：${error.message || error}`, "err");
-        updateUi(false);
-      } finally {
-        connectBtn.disabled = false;
-      }
-    }
-
-    async function sendRawText(commandText) {
-      if (!writeCharacteristic) {
-        throw new Error("尚未取得可寫入 Characteristic，請先連線。");
-      }
-      const payload = new TextEncoder().encode(commandText);
-      if (typeof writeCharacteristic.writeValueWithoutResponse === "function") {
-        await writeCharacteristic.writeValueWithoutResponse(payload);
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const chunk = bytes.slice(i, i + CHUNK);
+    try {
+      if (bleChar.properties.writeWithoutResponse) {
+        await bleChar.writeValueWithoutResponse(chunk);
       } else {
-        await writeCharacteristic.writeValue(payload);
+        await bleChar.writeValue(chunk);
       }
-    }
-
-    function decodeBase64Utf8(base64Text) {
-      const bin = atob(String(base64Text || ""));
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i += 1) {
-        bytes[i] = bin.charCodeAt(i);
-      }
-      return new TextDecoder("utf-8").decode(bytes);
-    }
-
-    function parseIncomingPayload() {
-      const rawHash = (window.location.hash || "").replace(/^#/, "");
-      const params = new URLSearchParams(rawHash);
-      const encodedData = params.get("data");
-      if (!encodedData) return null;
-      try {
-        const decoded = decodeBase64Utf8(decodeURIComponent(encodedData));
-        console.log("[Printer] got #data length:", encodedData.length);
-        try {
-          const parsed = JSON.parse(decoded);
-          if (parsed && Array.isArray(parsed.jobs)) return parsed;
-        } catch (eJson) {
-          // 新版 POS 只傳純文字，JSON 解析失敗屬預期
-        }
-        return { text: decoded };
-      } catch (e) {
-        setStatus(`data 解析失敗：${e.message || e}`, "err");
-        return null;
-      }
-    }
-
-    async function printPayload(payload) {
-      if (!payload) return;
-      if (typeof payload.text === "string") {
-        await sendRawText(payload.text + "\n");
-        return;
-      }
-      if (Array.isArray(payload.jobs) && payload.jobs.length) {
-        for (const job of payload.jobs) {
-          await sendRawText(String(job.command || "") + "\n");
-        }
-        return;
-      }
-      setStatus("收到資料，但內容不可列印", "warn");
-    }
-
-    async function tryAutoPrintFromPending() {
-      if (!pendingPayload || !writeCharacteristic || isAutoPrinting) return;
-      console.log("[Printer] tryAutoPrintFromPending", {
-        hasPending: !!pendingPayload,
-        hasCharacteristic: !!writeCharacteristic
-      });
-      isAutoPrinting = true;
-      try {
-        setStatus("偵測到新 data 且藍牙已連線，開始自動列印...", "ok");
-        await printPayload(pendingPayload);
-        setStatus("自動列印完成", "ok");
-        manualPrintBtn.style.display = "none";
-        const backToPos = lastBackUrl || "";
-        if (backToPos) {
-          const shouldBack = window.confirm("列印完成，是否返回 POS 頁面？");
-          if (shouldBack) {
-            window.location.href = backToPos;
-            return;
-          }
-        }
-        pendingPayload = null;
-      } catch (e) {
-        setStatus(`自動列印失敗：${e.message || e}`, "err");
-      } finally {
-        isAutoPrinting = false;
-      }
-    }
-
-    function acceptIncomingPayload(payload, sourceTag = "URL") {
-      if (!payload) return;
-      pendingPayload = payload;
-      const count = Array.isArray(payload.jobs) ? payload.jobs.length : 1;
-      setStatus(`收到新打印資料（${count} 個 job，來源: ${sourceTag}）`, "ok");
-      manualPrintBtn.style.display = "inline-block";
-      if (isPrinterConnected()) {
-        tryAutoPrintFromPending();
+    } catch (e) {
+      // retry once
+      await sleep(50);
+      if (bleChar.properties.writeWithoutResponse) {
+        await bleChar.writeValueWithoutResponse(chunk);
       } else {
-        setStatus("尚未連線藍牙，請先點「連接打印機」", "warn");
+        await bleChar.writeValue(chunk);
       }
     }
+    if (i + CHUNK < bytes.length) await sleep(DELAY);
+  }
+  log('送印完成', 'ok');
+}
 
-    function syncPayloadFromUrl() {
-      // 讓此頁固定成可被重用的命名視窗，避免 POS 每次開到新分頁
-      if (window.name !== "Gprinter_Handler") {
-        window.name = "Gprinter_Handler";
-      }
-      refreshPrinterMeta();
-      const token = window.location.hash || "";
-      if (token === latestUrlToken) return;
-      latestUrlToken = token;
-      const params = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
-      const dataToken = params.get("data") || "";
-      lastBackUrl = params.get("back") || lastBackUrl || "";
-      if (!dataToken || dataToken === latestDataToken) return;
-      latestDataToken = dataToken;
-      const payload = parseIncomingPayload();
-      if (!payload) return;
-      acceptIncomingPayload(payload, "URL");
-    }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-    async function sendTestData() {
-      try {
-        if (!isPrinterConnected()) {
-          throw new Error("藍牙尚未連線，請先點擊「連接打印機」。");
-        }
-        const tspl = [
-          "SIZE 40 mm, 30 mm",
-          "GAP 2 mm, 0 mm",
-          "CLS",
-          "TEXT 50,50,\"TSS24.BF2\",0,1,1,\"TEST PRINT\"",
-          "PRINT 1"
-        ].join("\n") + "\n";
-        setStatus("送出測試列印指令中...");
-        await sendRawText(tspl);
-        setStatus("測試列印指令送出成功", "ok");
-      } catch (error) {
-        setStatus(`打印失敗：${error.message || error}`, "err");
-      }
-    }
+// ── Auto Print Flow ───────────────────────────────────────────
+async function autoPrint(data) {
+  if (printLock) { log('列印鎖定中，略過', 'warn'); return; }
+  printLock = true;
 
-    connectBtn.addEventListener("click", connectPrinter);
-    printBtn.addEventListener("click", sendTestData);
-    manualPrintBtn.addEventListener("click", () => {
-      tryAutoPrintFromPending();
-    });
-    window.addEventListener("popstate", syncPayloadFromUrl);
-    window.addEventListener("hashchange", syncPayloadFromUrl);
-    window.addEventListener("pageshow", () => {
-      syncPayloadFromUrl();
-      tryAutoPrintFromPending();
-    });
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) syncPayloadFromUrl();
-    });
-    setInterval(syncPayloadFromUrl, 1000);
+  try {
+    await sendToprinter(data.text);
+    showAck();
+    lastPrintTs = data.ts;
+    pendingData = null;
+    updateQueueDisplay(null);
 
-    updateUi(false);
-    refreshPrinterMeta();
-    syncPayloadFromUrl();
-  </script>
+    // ACK back to POS
+    sendAckToPos('PRINT_ACK:success:' + data.ts);
+
+    // Return to POS logic
+    handleReturnToPos(data.backUrl);
+
+  } catch (err) {
+    log('列印失敗: ' + err.message, 'err');
+    sendAckToPos('PRINT_ACK:error:' + err.message);
+  } finally {
+    printLock = false;
+  }
+}
+
+function handleReturnToPos(backUrl) {
+  const mode = cfgReturn.value;
+  if (!backUrl) return;
+
+  if (mode === 'yes') {
+    setTimeout(() => { window.location.href = backUrl; }, 800);
+  } else if (mode === 'ask') {
+    showReturnPrompt(backUrl);
+  }
+  // mode === 'no': do nothing
+}
+
+function showReturnPrompt(backUrl) {
+  returnPrompt.style.display = 'block';
+  btnGoPos.onclick = () => {
+    returnPrompt.style.display = 'none';
+    window.location.href = backUrl;
+  };
+  btnStay.onclick = () => {
+    returnPrompt.style.display = 'none';
+  };
+}
+
+function sendAckToPos(msg) {
+  // Try postMessage to opener
+  if (posOpener && !posOpener.closed) {
+    try {
+      posOpener.postMessage({ type: 'PRINTER_ACK', payload: msg }, '*');
+      log('ACK 送回 POS (postMessage)', 'ok');
+      return;
+    } catch(e) {}
+  }
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage({ type: 'PRINTER_ACK', payload: msg }, '*');
+      log('ACK 送回 opener', 'ok');
+      return;
+    } catch(e) {}
+  }
+  log('ACK: 無法回傳 (opener 不可用)', 'warn');
+}
+
+// ── Data Reception ────────────────────────────────────────────
+function parseHashData() {
+  const hash = window.location.hash;
+  if (!hash || hash.length < 6) return null;
+
+  try {
+    // Format: #data=BASE64URL&back=URL&ts=TIMESTAMP
+    const params = new URLSearchParams(hash.slice(1)); // remove leading #
+    const dataB64 = params.get('data');
+    const backUrl = params.get('back') || '';
+    const ts      = parseInt(params.get('ts') || '0');
+
+    if (!dataB64) return null;
+
+    // Decode: base64url -> bytes -> text
+    const text = decodeBase64ToText(dataB64);
+    return { text, backUrl, ts };
+  } catch (e) {
+    log('Hash 解碼失敗: ' + e.message, 'err');
+    return null;
+  }
+}
+
+function decodeBase64ToText(b64) {
+  // Handle base64url (+ -> +, - -> +, _ -> /)
+  const standard = b64.replace(/-/g, '+').replace(/_/g, '/');
+  const binary   = atob(standard);
+  const bytes    = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+function updateQueueDisplay(data) {
+  if (!data) {
+    queueDisp.innerHTML = '<div class="empty-queue">等待 POS 送單...</div>';
+    btnManual.disabled = true;
+    return;
+  }
+  queueDisp.innerHTML = `
+    <div class="queue-item">
+      <div class="qi-label">待印資料 (ts: ${data.ts})</div>
+      <pre>${data.text.slice(0, 200)}${data.text.length > 200 ? '...' : ''}</pre>
+    </div>`;
+  btnManual.disabled = !isConnected;
+}
+
+async function receivePrintData(data) {
+  // Dedup: ignore same timestamp
+  if (data.ts && data.ts === lastPrintTs) {
+    log('重複資料 (ts=' + data.ts + ')，略過', 'warn');
+    return;
+  }
+
+  log('收到待印資料 (ts=' + data.ts + ')', 'info');
+  pendingData = data;
+  updateQueueDisplay(data);
+
+  if (isConnected && bleChar && !printLock) {
+    await autoPrint(data);
+  } else {
+    log('BLE 未連線，資料暫存。請先連線打印機。', 'warn');
+  }
+}
+
+// ── Message Listener (Primary Channel) ───────────────────────
+window.addEventListener('message', async (event) => {
+  // Accept any origin (POS is on different domain)
+  const msg = event.data;
+  if (!msg || typeof msg !== 'object') return;
+
+  if (msg.type === 'PRINT_JOB') {
+    log('收到 postMessage 列印任務', 'info');
+    // Save sender reference for ACK
+    posOpener = event.source;
+
+    const data = {
+      text   : msg.text    || '',
+      backUrl: msg.backUrl || '',
+      ts     : msg.ts      || Date.now()
+    };
+
+    if (!data.text) { log('postMessage: 空資料', 'err'); return; }
+    await receivePrintData(data);
+  }
+
+  if (msg.type === 'PRINTER_PING') {
+    // POS is checking if this window is alive
+    event.source.postMessage({ type: 'PRINTER_PONG', ready: isConnected }, '*');
+    log('PING received -> PONG sent (connected=' + isConnected + ')', 'info');
+  }
+});
+
+// ── Hash Listener (Fallback Channel) ─────────────────────────
+function checkHashData() {
+  const data = parseHashData();
+  if (!data || !data.text) return;
+  if (data.ts && data.ts === lastPrintTs) return; // already processed
+  receivePrintData(data);
+  // Clear hash after reading (prevents re-trigger on visibility change)
+  // Use replaceState to avoid adding history entry
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+
+window.addEventListener('hashchange', () => {
+  log('hashchange triggered', 'info');
+  checkHashData();
+});
+
+// ── Manual Print Button ───────────────────────────────────────
+btnManual.addEventListener('click', async () => {
+  if (!pendingData) { log('無待印資料', 'warn'); return; }
+  if (!isConnected) { log('請先連線打印機', 'err'); return; }
+  log('手動觸發列印', 'info');
+  await autoPrint(pendingData);
+});
+
+// ── Clear Log ─────────────────────────────────────────────────
+btnClearLog.addEventListener('click', () => { logBox.innerHTML = ''; });
+
+// ── Init ──────────────────────────────────────────────────────
+function init() {
+  log('Printer Bridge 就緒', 'ok');
+  log('等待 POS 連線...', 'info');
+  // Check if there's hash data on load (direct URL with data)
+  checkHashData();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
 </body>
 </html>
