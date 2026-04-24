@@ -128,6 +128,7 @@
     let latestUrlToken = "";
     let latestDataToken = "";
     let isAutoPrinting = false;
+    let lastBackUrl = "";
 
     function setStatus(message, level = "") {
       const time = new Date().toLocaleTimeString();
@@ -243,6 +244,14 @@
         setStatus("偵測到新 data 且藍牙已連線，開始自動列印...", "ok");
         await printPayload(pendingPayload);
         setStatus("自動列印完成", "ok");
+        const backToPos = lastBackUrl || "";
+        if (backToPos) {
+          const shouldBack = window.confirm("列印完成，是否返回 POS 頁面？");
+          if (shouldBack) {
+            window.location.href = backToPos;
+            return;
+          }
+        }
         pendingPayload = null;
       } catch (e) {
         setStatus(`自動列印失敗：${e.message || e}`, "err");
@@ -263,11 +272,16 @@
     }
 
     function syncPayloadFromUrl() {
+      // 讓此頁固定成可被重用的命名視窗，避免 POS 每次開到新分頁
+      if (window.name !== "Gprinter_Handler") {
+        window.name = "Gprinter_Handler";
+      }
       const token = window.location.search || "";
       if (token === latestUrlToken) return;
       latestUrlToken = token;
       const params = new URLSearchParams(window.location.search);
       const dataToken = params.get("data") || "";
+      lastBackUrl = params.get("back") || lastBackUrl || "";
       if (!dataToken || dataToken === latestDataToken) return;
       latestDataToken = dataToken;
       const payload = parseIncomingPayload();
