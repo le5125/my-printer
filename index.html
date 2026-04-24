@@ -124,6 +124,9 @@
     let bleDevice = null;
     let gattServer = null;
     let writeCharacteristic = null;
+    let pendingPayload = null;
+    let latestUrlToken = "";
+    let isAutoPrinting = false;
 
     function setStatus(message, level = "") {
       const time = new Date().toLocaleTimeString();
@@ -132,6 +135,10 @@
       statusBox.innerHTML += `\n<span class="${cssClass.trim()}">${line}</span>`;
       statusBox.scrollTop = statusBox.scrollHeight;
       console.log(message);
+    }
+
+    function isPrinterConnected() {
+      return !!(gattServer && gattServer.connected && writeCharacteristic);
     }
 
     function updateUi(connected) {
@@ -180,6 +187,7 @@
 
         setStatus("連線成功，可開始測試列印", "ok");
         updateUi(true);
+        tryAutoPrintFromPending();
       } catch (error) {
         setStatus(`連線失敗：${error.message || error}`, "err");
         updateUi(false);
@@ -192,11 +200,7 @@
       if (!writeCharacteristic) {
         throw new Error("尚未取得可寫入 Characteristic，請先連線。");
       }
-
-      const encoder = new TextEncoder();
-      const payload = encoder.encode(commandText);
-
-      // 優先使用 write without response（此裝置特性）。
+      const payload = new TextEncoder().encode(commandText);
       if (typeof writeCharacteristic.writeValueWithoutResponse === "function") {
         await writeCharacteristic.writeValueWithoutResponse(payload);
       } else {
@@ -204,12 +208,68 @@
       }
     }
 
+    function decodeBase64Utf8(base64Text) {
+      return decodeURIComponent(escape(atob(base64Text)));
+    }
+
+    function parseIncomingPayload() {
+      const params = new URLSearchParams(window.location.search);
+      const encodedData = params.get("data");
+      if (!encodedData) return null;
+      try {
+        const decoded = decodeBase64Utf8(decodeURIComponent(encodedData));
+        return JSON.parse(decoded);
+      } catch (e) {
+        setStatus(`data 解析失敗：${e.message || e}`, "err");
+        return null;
+      }
+    }
+
+    async function printPayload(payload) {
+      if (!payload || !Array.isArray(payload.jobs) || payload.jobs.length === 0) {
+        setStatus("收到資料，但沒有可列印 jobs", "warn");
+        return;
+      }
+      for (const job of payload.jobs) {
+        await sendRawText(String(job.command || "") + "\n");
+      }
+    }
+
+    async function tryAutoPrintFromPending() {
+      if (!pendingPayload || !isPrinterConnected() || isAutoPrinting) return;
+      isAutoPrinting = true;
+      try {
+        setStatus("偵測到新 data 且藍牙已連線，開始自動列印...", "ok");
+        await printPayload(pendingPayload);
+        setStatus("自動列印完成", "ok");
+        pendingPayload = null;
+      } catch (e) {
+        setStatus(`自動列印失敗：${e.message || e}`, "err");
+      } finally {
+        isAutoPrinting = false;
+      }
+    }
+
+    function syncPayloadFromUrl() {
+      const token = window.location.search || "";
+      if (token === latestUrlToken) return;
+      latestUrlToken = token;
+      const payload = parseIncomingPayload();
+      if (!payload) return;
+      pendingPayload = payload;
+      setStatus(`收到新打印資料（${payload.jobs?.length || 0} 個 job）`, "ok");
+      if (isPrinterConnected()) {
+        tryAutoPrintFromPending();
+      } else {
+        setStatus("尚未連線藍牙，請先點「連接打印機」", "warn");
+      }
+    }
+
     async function sendTestData() {
       try {
-        if (!gattServer || !gattServer.connected) {
+        if (!isPrinterConnected()) {
           throw new Error("藍牙尚未連線，請先點擊「連接打印機」。");
         }
-
         const tspl = [
           "SIZE 40 mm, 30 mm",
           "GAP 2 mm, 0 mm",
@@ -217,7 +277,6 @@
           "TEXT 50,50,\"TSS24.BF2\",0,1,1,\"TEST PRINT\"",
           "PRINT 1"
         ].join("\n") + "\n";
-
         setStatus("送出測試列印指令中...");
         await sendRawText(tspl);
         setStatus("測試列印指令送出成功", "ok");
@@ -228,7 +287,15 @@
 
     connectBtn.addEventListener("click", connectPrinter);
     printBtn.addEventListener("click", sendTestData);
+    window.addEventListener("popstate", syncPayloadFromUrl);
+    window.addEventListener("hashchange", syncPayloadFromUrl);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) syncPayloadFromUrl();
+    });
+    setInterval(syncPayloadFromUrl, 1000);
+
     updateUi(false);
+    syncPayloadFromUrl();
   </script>
 </body>
 </html>
