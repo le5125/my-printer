@@ -162,6 +162,12 @@
 
     <div id="log" aria-live="polite"></div>
   </div>
+  <div id="auto-stage-overlay" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.45);z-index:9999;padding:20px;">
+    <div style="max-width:680px;text-align:center;">
+      <div id="auto-stage-text" style="font-size:46px;font-weight:900;line-height:1.2;color:#f8fafc;text-shadow:0 4px 20px rgba(0,0,0,.45);">解析訂單中...</div>
+      <button id="auto-stage-action-btn" type="button" style="margin-top:22px;display:none;padding:20px 28px;font-size:34px;font-weight:900;border:none;border-radius:16px;background:#2563eb;color:#fff;box-shadow:0 12px 26px rgba(0,0,0,.35);">按此處列印並返回</button>
+    </div>
+  </div>
 
   <script>
 (function () {
@@ -265,6 +271,9 @@
   var btnDisconnect = document.getElementById('btn-disconnect');
   var btnPrint = document.getElementById('btn-print');
   var btnUnlock = document.getElementById('btn-unlock-ui');
+  var autoStageOverlay = document.getElementById('auto-stage-overlay');
+  var autoStageText = document.getElementById('auto-stage-text');
+  var autoStageActionBtn = document.getElementById('auto-stage-action-btn');
   var elMode = document.getElementById('rc-mode-display');
   var elPreview = document.getElementById('rc-preview');
   var elDetailWarn = document.getElementById('rc-detail-warn');
@@ -296,6 +305,14 @@
     span.textContent = line;
     logEl.appendChild(span);
     logEl.scrollTop = logEl.scrollHeight;
+  }
+  function showAutoStage_(text, showButton) {
+    if (autoStageText) autoStageText.textContent = text || '';
+    if (autoStageActionBtn) autoStageActionBtn.style.display = showButton ? 'inline-block' : 'none';
+    if (autoStageOverlay) autoStageOverlay.style.display = 'flex';
+  }
+  function hideAutoStage_() {
+    if (autoStageOverlay) autoStageOverlay.style.display = 'none';
   }
 
   /**
@@ -875,6 +892,20 @@
       postPrintBridgeStatus_('error', fmtErr_(e));
     }
   }
+  async function connectAndPrint_() {
+    showAutoStage_('解析訂單中...', false);
+    if (!rcUrlOrder_ || !rcUrlOrder_.items || !rcUrlOrder_.items.length) {
+      showAutoStage_('找不到訂單資料', false);
+      return;
+    }
+    showAutoStage_('連線印表機中...', false);
+    await tryReconnectBleThenAutoPrint_();
+    if (isGattReadyForWrite_()) {
+      showAutoStage_('列印中...', false);
+      return;
+    }
+    showAutoStage_('請按此列印並返回', true);
+  }
 
   /**
    * 送出目前 TSPL（手動按鈕與自動列印共用）。
@@ -932,6 +963,7 @@
       log('送出 TSPL ' + payload.length + ' bytes', 'ok');
       await writeChunks(writeCharacteristic, payload);
       log('列印指令已送出。', 'ok');
+      showAutoStage_('列印完成，準備返回...', false);
       postPrintBridgeStatus_('success', '列印送出成功');
       if (!forceBypassDedup && rcUrlAuto_) {
         window.isPrintProcessed = true;
@@ -956,26 +988,10 @@
             } catch (eBack) {
               window.location.href = backUrl;
             }
-          }, 2000);
+          }, 1500);
         }
       } else {
-        try {
-          if (confirm('打印完成，是否關閉此頁面回到 POS？')) {
-            try {
-              if (window.opener && !window.opener.closed) {
-                try {
-                  window.opener.focus();
-                } catch (eFoc2) { /* 略 */ }
-              }
-              window.close();
-              setTimeout(function () {
-                if (!window.closed) {
-                  alert('若分頁仍未關閉，請手動關閉本分頁或從多工切回 POS（跨網域時瀏覽器常阻擋 window.close）。');
-                }
-              }, 500);
-            } catch (eClose) { /* 略 */ }
-          }
-        } catch (eAlert) { /* 略 */ }
+        hideAutoStage_();
       }
       if (!forceBypassDedup && rcUrlAuto_) {
         try {
@@ -993,6 +1009,7 @@
     } catch (err) {
       if (!forceBypassDedup) window.printed = false;
       isPrinting = false;
+      showAutoStage_('列印失敗，請按按鈕重試', true);
       log('列印失敗：' + (err && err.message ? err.message : String(err)), 'err');
       if (!forceBypassDedup) postPrintBridgeStatus_('error', (err && err.message ? err.message : String(err)));
     } finally {
@@ -1125,6 +1142,18 @@
   btnDisconnect.addEventListener('click', disconnectPrinter);
   btnPrint.addEventListener('click', function () { print(true); });
   if (btnUnlock) btnUnlock.addEventListener('click', unlockUiFromStuck_);
+  if (autoStageActionBtn) {
+    autoStageActionBtn.addEventListener('click', async function () {
+      showAutoStage_('連線印表機中...', false);
+      await connectWithMode_('named');
+      if (isGattReadyForWrite_()) {
+        showAutoStage_('列印中...', false);
+        await print(false);
+      } else {
+        showAutoStage_('連線失敗，請再按一次', true);
+      }
+    });
+  }
 
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible') return;
@@ -1158,7 +1187,7 @@
     }
     log('POS 列印接收中心就緒。');
     if (!rcUrlAuto_) return;
-    tryReconnectBleThenAutoPrint_();
+    connectAndPrint_();
   };
 
   log('腳本已載入；auto=1 依 isPrintProcessed／lastOrderId；GATT 就緒必排程 print；印畢後 replaceState。');
