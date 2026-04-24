@@ -168,7 +168,7 @@
   'use strict';
 
   let isPrinting = false;
-  let globalPrintLock = false;
+  window.executedPrint = false;
 
   var PRINTER_NAME = 'Printer_9AE9';
   var PRINTER_NAME_BLE = 'Printer_9AE9_BLE';
@@ -323,7 +323,7 @@
   }
 
   /**
-   * 58mm 熱感收據：品名、數量、單價、小計；品項用 forEach 只產生 TEXT 行，PRINT 僅在 tsplThermalFooterBytes_ 一次。
+   * 58mm 熱感收據：先掃描品項成文字列再逐行 TEXT；PRINT 1,1 僅在迴圈外 tsplThermalFooterBytes_ 加入一次（絕不在 items 迴圈內）。
    * @param {string} title 標題列（label / detail 區分用）
    */
   function buildTsplThermalReceipt_(order, title) {
@@ -347,12 +347,16 @@
     if (!items.length) {
       line('（無品項）');
     } else {
+      var itemLineTexts = [];
       items.forEach(function (it) {
         var p = Number(it.price) || 0;
         var q = Number(it.quantity) || 0;
         var sub = p * q;
-        line(String(it.name || '').slice(0, 14) + ' 數量' + q + ' 單價' + p + ' 小計' + sub);
+        itemLineTexts.push(String(it.name || '').slice(0, 14) + ' 數量' + q + ' 單價' + p + ' 小計' + sub);
       });
+      for (var li = 0; li < itemLineTexts.length; li++) {
+        line(itemLineTexts[li]);
+      }
     }
     var tot = order && order.total != null ? order.total : items.reduce(function (s, it) {
       return s + (Number(it.price) || 0) * (Number(it.quantity) || 0);
@@ -836,12 +840,12 @@
 
   /**
    * 送出目前 TSPL（手動按鈕與自動列印共用）。
-   * @param {boolean} forceBypassDedup 為 true 時略過 orderId／lastPrintedId（手動「列印」可重複出單）。
-   * 自動路徑（auto=1）：開頭若 globalPrintLock 已設則 return；通過前置檢查後設 globalPrintLock，同頁僅實際送單一次。
+   * @param {boolean} forceBypassDedup 為 true 時略過 orderId／lastPrintedId 與 executedPrint（手動「列印」可重複出單）。
+   * 自動路徑（auto=1）：window.executedPrint 為 true 則禁止再次觸發；通過前置檢查後才設為 true。
    */
   async function print(forceBypassDedup) {
-    if (!forceBypassDedup && rcUrlAuto_ && globalPrintLock) {
-      log('auto=1：本頁已進入過自動列印流程，略過。', 'ok');
+    if (!forceBypassDedup && rcUrlAuto_ && window.executedPrint) {
+      log('auto=1：已執行過自動列印（executedPrint），略過。', 'ok');
       return;
     }
     if (isPrinting) {
@@ -870,7 +874,7 @@
       } catch (eSkip) { /* 略 */ }
     }
     if (!forceBypassDedup && rcUrlAuto_) {
-      globalPrintLock = true;
+      window.executedPrint = true;
     }
     isPrinting = true;
     btnPrint.disabled = true;
@@ -891,8 +895,7 @@
       refreshRcUi_();
       isPrinting = false;
       try {
-        alert('列印完成');
-        if (!forceBypassDedup && rcUrlAuto_) {
+        if (confirm('打印完成，是否關閉此頁面回到 POS？')) {
           try {
             window.close();
           } catch (eClose) { /* 略 */ }
@@ -1007,7 +1010,7 @@
       } else {
         await characteristic.writeValue(slice);
       }
-      await sleepMs_(30);
+      await sleepMs_(50);
     }
   }
 
@@ -1035,7 +1038,7 @@
     tryReconnectBleThenAutoPrint_();
   };
 
-  log('腳本已載入；auto=1 用 globalPrintLock 僅一次；寫入特徵後單一 1.5s 排程；列印完成 alert 後 auto 分頁可關閉。');
+  log('腳本已載入；auto=1 用 window.executedPrint 僅一次；chunk 間隔 50ms；列印完成以 confirm 決定是否關閉分頁。');
 })();
   </script>
 </body>
