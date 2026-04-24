@@ -482,6 +482,7 @@
 
   function parseUrlParamsOnLoad_() {
     clearUiBeforeNewOrder_();
+    _autoPrintScheduledThisLoad_ = false;
     rcUrlMode_ = '';
     rcUrlOrder_ = null;
     rcUrlAuto_ = false;
@@ -736,6 +737,7 @@
 
   function unlockUiFromStuck_() {
     clearAutoPrintSchedule_();
+    _autoPrintScheduledThisLoad_ = false;
     clearConnectWatchdog_();
     connectInProgress_ = false;
     try {
@@ -791,6 +793,8 @@
   }
 
   var _autoPrintScheduleTimer_ = null;
+  /** 同一頁載入週期內只排一次自動列印，避免多路徑同時呼叫 schedule 造成連印。 */
+  var _autoPrintScheduledThisLoad_ = false;
 
   function clearAutoPrintSchedule_() {
     if (_autoPrintScheduleTimer_) {
@@ -810,6 +814,11 @@
       log('auto=1：尚未取得寫入特徵，略過排程。', 'err');
       return;
     }
+    if (_autoPrintScheduledThisLoad_) {
+      log('本頁已排程過自動列印，略過重複排程。', 'ok');
+      return;
+    }
+    _autoPrintScheduledThisLoad_ = true;
     _autoPrintScheduleTimer_ = setTimeout(function () {
       _autoPrintScheduleTimer_ = null;
       print(false);
@@ -912,23 +921,37 @@
       }
       refreshRcUi_();
       isPrinting = false;
-      try {
-        if (confirm('打印完成，是否關閉此頁面回到 POS？')) {
+      /** auto=1（POS 橋接）：不 confirm、不關閉本分頁，避免 Bluefy 關錯分頁或切回變首頁；僅嘗試將焦點切回 POS。手動按「列印」仍可選擇關閉。 */
+      if (!forceBypassDedup && rcUrlAuto_) {
+        log('列印完成。請從多工切回 POS 分頁繼續接單（本頁保持開啟，下次出單會更新同一視窗）。', 'ok');
+        setTimeout(function () {
           try {
             if (window.opener && !window.opener.closed) {
               try {
                 window.opener.focus();
               } catch (eFoc) { /* 略 */ }
             }
-            window.close();
-            setTimeout(function () {
-              if (!window.closed) {
-                alert('若分頁仍未關閉，請手動關閉本分頁或從多工切回 POS（跨網域時瀏覽器常阻擋 window.close）。');
+          } catch (eOp) { /* 略 */ }
+        }, 150);
+      } else {
+        try {
+          if (confirm('打印完成，是否關閉此頁面回到 POS？')) {
+            try {
+              if (window.opener && !window.opener.closed) {
+                try {
+                  window.opener.focus();
+                } catch (eFoc2) { /* 略 */ }
               }
-            }, 500);
-          } catch (eClose) { /* 略 */ }
-        }
-      } catch (eAlert) { /* 略 */ }
+              window.close();
+              setTimeout(function () {
+                if (!window.closed) {
+                  alert('若分頁仍未關閉，請手動關閉本分頁或從多工切回 POS（跨網域時瀏覽器常阻擋 window.close）。');
+                }
+              }, 500);
+            } catch (eClose) { /* 略 */ }
+          }
+        } catch (eAlert) { /* 略 */ }
+      }
       if (!forceBypassDedup && rcUrlAuto_) {
         try {
           window.history.replaceState({}, document.title, window.location.pathname);
@@ -1003,6 +1026,7 @@
 
   function onDisconnected() {
     clearAutoPrintSchedule_();
+    _autoPrintScheduledThisLoad_ = false;
     log('GATT 已斷線', 'err');
     writeCharacteristic = null;
     btnPrint.disabled = true;
@@ -1014,6 +1038,7 @@
 
   async function disconnectPrinter() {
     clearAutoPrintSchedule_();
+    _autoPrintScheduledThisLoad_ = false;
     clearConnectWatchdog_();
     connectInProgress_ = false;
     try {
@@ -1032,14 +1057,14 @@
   }
 
   /**
-   * 與原頁相同：每塊 20 bytes、chunk 間隔 15ms，繁中位元組經 encodeBig5OrThrow 再送出。
+   * 寫入 GATT：佳博等機種若收到大量「極小段」寫入，韌體可能將每段當成獨立工作而連印多張（例如 payload≈260B、20B／段 ≈ 13 張）。
+   * 優先整包一次送出；失敗再改較大區塊分批。
    */
   async function writeChunks(characteristic, bytes) {
-    var chunkSize = 20;
+    if (!bytes || bytes.length === 0) return;
     var preferWo = characteristic.properties.writeWithoutResponse;
     var hasWrite = characteristic.properties.write;
-    for (var offset = 0; offset < bytes.length; offset += chunkSize) {
-      var slice = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
+    async function writeOne_(slice) {
       if (preferWo && hasWrite) {
         try {
           await characteristic.writeValueWithoutResponse(slice);
@@ -1051,8 +1076,21 @@
       } else {
         await characteristic.writeValue(slice);
       }
-      await sleepMs_(50);
     }
+    try {
+      await writeOne_(bytes);
+      await sleepMs_(100);
+      return;
+    } catch (eWhole) {
+      log('整包寫入失敗，改分批送出：' + fmtErr_(eWhole), 'err');
+    }
+    var chunkSize = 200;
+    for (var offset = 0; offset < bytes.length; offset += chunkSize) {
+      var slice = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
+      await writeOne_(slice);
+      await sleepMs_(45);
+    }
+    await sleepMs_(80);
   }
 
   btnConnect.addEventListener('click', function () { connectWithMode_('named'); });
