@@ -1,741 +1,143 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Bluefy · Web Bluetooth · TSPL 標籤印表機</title>
-  <!-- encoding-japanese：依任務載入；其 v2 不含 Unicode→BIG5。實際 Big5 使用下一行 codepage（CP950）。 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js"></script>
-  <style>
-    :root {
-      color-scheme: light dark;
-      --bg: #0f1419;
-      --card: #1a2332;
-      --text: #e8eef5;
-      --muted: #8b9cb3;
-      --accent: #3b82f6;
-      --ok: #22c55e;
-      --err: #ef4444;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: system-ui, "Segoe UI", "Noto Sans TC", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      padding: 20px;
-      line-height: 1.55;
-    }
-    h1 { font-size: 1.25rem; margin: 0 0 8px; font-weight: 700; }
-    .card {
-      max-width: 520px;
-      margin: 0 auto;
-      background: var(--card);
-      border-radius: 14px;
-      padding: 20px 18px;
-      border: 1px solid rgba(255,255,255,.08);
-    }
-    p { margin: 0 0 12px; color: var(--muted); font-size: 0.9rem; }
-    .warn-box {
-      font-size: 0.82rem;
-      color: #fecaca;
-      background: rgba(127, 29, 29, 0.35);
-      border: 1px solid rgba(248, 113, 113, 0.35);
-      border-radius: 10px;
-      padding: 12px 14px;
-      line-height: 1.5;
-    }
-    .warn-box strong { color: #fca5a5; }
-    .sdk-note {
-      font-size: 0.8rem;
-      color: #a5b4fc;
-      background: rgba(49, 46, 129, 0.35);
-      border: 1px solid rgba(129, 140, 248, 0.25);
-      border-radius: 10px;
-      padding: 12px 14px;
-      line-height: 1.5;
-    }
-    .sdk-note strong { color: #c7d2fe; }
-    .uuid-row {
-      margin: 14px 0 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .uuid-row label { font-size: 0.82rem; color: var(--muted); }
-    .uuid-input {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,.15);
-      background: rgba(0,0,0,.25);
-      color: var(--text);
-      font-family: ui-monospace, Consolas, monospace;
-      font-size: 13px;
-    }
-    .uuid-hint { font-size: 0.75rem; color: var(--muted); }
-    .uuid-explain {
-      font-size: 0.82rem;
-      color: #bae6fd;
-      background: rgba(12, 74, 110, 0.35);
-      border: 1px solid rgba(56, 189, 248, 0.25);
-      border-radius: 10px;
-      padding: 12px 14px;
-      line-height: 1.55;
-      margin: 0 0 12px;
-    }
-    .row { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
-    button {
-      flex: 1;
-      min-width: 140px;
-      padding: 12px 16px;
-      border: none;
-      border-radius: 10px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      background: var(--accent);
-      color: #fff;
-    }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
-    button.secondary { background: #334155; color: #e2e8f0; }
-    /* 解鎖鈕：勿與 disabled 的「中斷連線」視覺混淆，永遠可點 */
-    #btn-unlock-ui {
-      background: #78350f;
-      color: #fffbeb;
-      border: 2px solid #fbbf24;
-      box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.35);
-    }
-    #btn-unlock-ui:active { filter: brightness(1.08); }
-    #log {
-      margin-top: 14px;
-      padding: 12px;
-      border-radius: 10px;
-      background: rgba(0,0,0,.35);
-      font-family: ui-monospace, Consolas, monospace;
-      font-size: 12px;
-      white-space: pre-wrap;
-      word-break: break-all;
-      max-height: 220px;
-      overflow-y: auto;
-      color: #cbd5e1;
-    }
-    .ok { color: var(--ok); }
-    .err { color: var(--err); }
-    code { font-size: 0.85em; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.4); }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>POS 列印中心 (GP-2270T)</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #f4f4f9; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; width: 80%; max-width: 400px; }
+        h2 { color: #333; margin-bottom: 0.5rem; }
+        #status { color: #666; margin-bottom: 2rem; font-size: 0.9rem; }
+        .status-tag { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: bold; margin-bottom: 1rem; }
+        .online { background: #e6fffa; color: #38b2ac; }
+        .offline { background: #fff5f5; color: #e53e3e; }
+        #printBtn { 
+            background: #ff6b00; color: white; border: none; padding: 1.2rem 2rem; 
+            font-size: 1.5rem; font-weight: bold; border-radius: 50px; cursor: pointer;
+            width: 100%; box-shadow: 0 4px 15px rgba(255,107,0,0.3);
+            display: none; /* 初始隱藏，有資料才顯示 */
+        }
+        #printBtn:active { transform: scale(0.98); background: #e66000; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #ff6b00; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; display: none; margin: 10px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
 </head>
 <body>
-  <div class="card">
-    <h1>TSPL 標籤 · Web Bluetooth（Bluefy）</h1>
-    <p>
-      目標：<code>Printer_9AE9_BLE</code>（或 <code>Printer_9AE9</code>）· 標籤 <code>40×30 mm</code> · 指令 <code>TSPL</code>
-    </p>
-    <p class="warn-box">
-      <strong>若從 Google 部署網址（script.google.com）開本頁：</strong>選完印表機後有時<strong>只會出現 optionalServices 日誌、沒有後續</strong>，是內嵌 WebView 未把 <code>requestDevice</code> 結果交回頁面。已改為<strong>精簡 optionalServices</strong>並加<strong>約 38 秒逾時</strong>；仍卡住時請用本機 <code>serve_bluefy_printer.py --https</code> 開同一檔測試。
-    </p>
-    <p class="warn-box">
-      <strong>為什麼掃不到？</strong>瀏覽器的 Web Bluetooth <strong>只支援 BLE（低功耗藍牙）GATT</strong>，<strong>不支援</strong>傳統藍牙
-      「Serial Port Profile（SPP）」那條 <code>00001101-…</code> 經典通道。
-      若印表機只把 TSPL 放在 <strong>Bluetooth 3.0 / 經典</strong> 上，清單會是空的——請改用印表機廠的 App、USB、或電腦端經典藍牙列印。
-      自檢寫「USB &amp; BLUETOOTH 4.0 &amp; 3.0」時，請確認 <strong>4.0 BLE</strong> 也有開且手機已配對；若曾進「隨身碟模式」，請依自檢說明按 <strong>FEED</strong> 關閉。
-    </p>
-    <p>
-      自檢：Taiwanese BIG5 字型為 <code>TST24.BF2</code>；<code>TSS24.BF2</code> 多為 GB18030。本頁以 <code>TST24.BF2</code> 列印，內文轉成 Big5 位元組：
-      <code>encoding-japanese</code> v2 的 <code>Encoding.convert</code> 不支援 BIG5，故實際使用
-      <a href="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js" target="_blank" rel="noopener">codepage（CP950）</a>；
-      仍保留 encoding-japanese CDN 供日後偵測／日文編碼等用途。
-    </p>
-    <p class="sdk-note">
-      <strong>對照 <code>BLEConnecter.h</code>（GSDK）：</strong>標頭裡與「透明傳輸」有關的是
-      <code>transServiceUUID</code>／<code>transTxUUID</code>／<code>transRxUUID</code>，以及實際送資料的
-      <code>transparentDataWriteChar</code>、讀或通知的 <code>transparentDataReadOrNotifyChar</code>。
-      可用 <code>- configureTransparentServiceUUID:txUUID:rxUUID:</code> 指定三個 UUID（註解：service＝藍牙模組服務、tx＝具<strong>寫入</strong>權限的特徵、rx＝具<strong>讀／通知</strong>的特徵）。
-      <strong>預設 UUID 實作在 <code>GSDK.a</code></strong>，Demo 沒呼叫 <code>configure…</code> 時就是用庫內建預設。
-      <br /><strong>對應到本網頁：</strong>「自訂 Service UUID」請填與 <code>serviceUUID</code> 相同的那個；連上後本頁會在該服務底下找<strong>可寫入</strong>的特徵送 TSPL（等同 <code>txUUID</code> 那條）。Web Bluetooth 無法在選裝置前指定「只訂閱 rx」，若需讀回狀態仍以原生 SDK 較完整。
-      <br />原生路徑仍是 <code>scanForPeripheralsWithServices:</code> ＋ <code>connectPeripheral:</code> ＋ <code>write:</code>（見 <code>CtrlViewController.m</code>），與瀏覽器權限不同。
-    </p>
-    <p class="uuid-explain">
-      你截圖裡的是 <strong>GATT 位址（Service／Characteristic UUID）</strong>，用來<strong>連線與把資料寫進印表機</strong>；<strong>不是</strong> TSPL 文字指令（<code>SIZE</code>、<code>TEXT</code> 等仍由本頁程式組好再當 bytes 寫入下方「寫入特徵」）。
-      模組為 <strong>Feasycom FSC-BT986</strong> 時，常見為 <strong>ISSC</strong> 服務 <code>49535343-…E455</code> 與寫入特徵 <code>49535343-…29BB3</code>。
-    </p>
-    <div class="uuid-row">
-      <label for="custom-service-uuid">BLE Service UUID（建議：ISSC 透明傳輸）</label>
-      <input type="text" id="custom-service-uuid" class="uuid-input" value="49535343-fe7d-4ae5-8fa9-9fafd205e455" placeholder="49535343-fe7d-4ae5-8fa9-9fafd205e455" autocomplete="off" spellcheck="false" />
-      <span class="uuid-hint">與 nRF／LightBlue 截圖一致；廣播亦可能出現 <code>e7810a71-…</code>、<code>18F0</code>（已列入 optionalServices）。</span>
-    </div>
-    <div class="uuid-row">
-      <label for="custom-tx-char-uuid">寫入特徵 TX UUID（建議與截圖 Write 那一條一致）</label>
-      <input type="text" id="custom-tx-char-uuid" class="uuid-input" value="49535343-8841-43f4-a8d4-ecbe34729bb3" placeholder="49535343-8841-43f4-a8d4-ecbe34729bb3" autocomplete="off" spellcheck="false" />
-      <span class="uuid-hint">Notify 那條是 <code>49535343-1e4d-4bd9-ba61-23c647249616</code>（讀狀態用，送列印請用 Write 這條）。</span>
-    </div>
-    <div class="row">
-      <button type="button" id="btn-connect">連接（Printer_9AE9_BLE）</button>
-      <button type="button" id="btn-connect-scan" class="secondary">掃描全部 BLE（手動選）</button>
-    </div>
-    <div class="row">
-      <button type="button" id="btn-disconnect" class="secondary" disabled>中斷連線</button>
-      <button type="button" id="btn-unlock-ui">解鎖按鈕（選完裝置跳出後卡住時按）</button>
-    </div>
-    <div class="row">
-      <button type="button" id="btn-print" disabled>列印測試標籤</button>
-    </div>
-    <div id="log" aria-live="polite"></div>
-  </div>
 
-  <script>
-(function () {
-  'use strict';
+<div class="card">
+    <div id="statusTag" class="status-tag offline">尚未連線</div>
+    <h2>列印請求已就緒</h2>
+    <p id="status">等待執行操作...</p>
+    <div id="loader" class="loader"></div>
+    <button id="printBtn" onclick="handlePrintClick()">點擊連線並列印</button>
+</div>
 
-  var PRINTER_NAME = 'Printer_9AE9';
-  /** 截圖／廣播常為 BLE 名稱 */
-  var PRINTER_NAME_BLE = 'Printer_9AE9_BLE';
-  /**
-   * Web Bluetooth：optionalServices 過長時，部分內嵌瀏覽器（含 GAS 部署頁）在選完裝置後不會結束 requestDevice。
-   * 預設只保留與 Printer_9AE9_BLE（Feasycom／ISSC）最相關的少數 UUID；需要更多請在「Service」欄用逗號自行加。
-   */
-  var OPTIONAL_SERVICE_UUIDS = [
-    '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-    'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
-    '000018f0-0000-1000-8000-00805f9b34fb',
-    '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
-    '0000fff0-0000-1000-8000-00805f9b34fb'
-  ];
+<script>
+    let device = null;
+    let characteristic = null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderDataRaw = urlParams.get('data');
+    const backUrl = urlParams.get('back');
 
-  var OPTIONAL_SERVICES_MAX = 16;
-  /** 選完裝置若 Promise 永不回傳，逾時後進入 catch 以解鎖 UI（GAS WebView 常見） */
-  var REQUEST_DEVICE_TIMEOUT_MS = 38000;
-
-  function fmtErr_(e) {
-    if (!e) return '';
-    return (e.name ? e.name + ' — ' : '') + (e.message || String(e));
-  }
-
-  function sleepMs_(ms) {
-    return new Promise(function (resolve) { setTimeout(resolve, ms); });
-  }
-
-  /** 將 FFF0、8-4-4-4-12 等字串正規成小寫 128-bit UUID */
-  function normalizeUuid128_(str) {
-    var raw = String(str || '').trim().replace(/\s+/g, '').toLowerCase();
-    if (!raw) return null;
-    raw = raw.replace(/^0x/g, '');
-    if (raw.indexOf('-') >= 0) {
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(raw)) return raw;
-      return null;
-    }
-    if (raw.length === 32 && /^[0-9a-f]{32}$/.test(raw)) {
-      return raw.slice(0, 8) + '-' + raw.slice(8, 12) + '-' + raw.slice(12, 16) + '-' + raw.slice(16, 20) + '-' + raw.slice(20);
-    }
-    if (raw.length === 4 && /^[0-9a-f]{4}$/.test(raw)) {
-      return '0000' + raw + '-0000-1000-8000-00805f9b34fb';
-    }
-    if (raw.length === 8 && /^[0-9a-f]{8}$/.test(raw)) {
-      return raw.slice(0, 4) + raw.slice(4, 8) + '-0000-1000-8000-00805f9b34fb';
-    }
-    return null;
-  }
-
-  /** 合併自訂 UUID（逗號分隔多個）置於陣列前，並截斷至 OPTIONAL_SERVICES_MAX */
-  function buildOptionalServicesForRequest_() {
-    var out = [];
-    var seen = {};
-    var inp = document.getElementById('custom-service-uuid');
-    var customRaw = inp ? String(inp.value || '') : '';
-    if (customRaw) {
-      customRaw.split(/[,;，]/).forEach(function (piece) {
-        var u = normalizeUuid128_(piece);
-        if (u && !seen[u]) {
-          seen[u] = true;
-          out.push(u);
+    // 1. 初始化檢查
+    window.onload = () => {
+        if (orderDataRaw) {
+            document.getElementById('printBtn').style.display = 'block';
+            document.getElementById('status').innerText = '偵測到訂單，請點擊上方按鈕開始列印';
+        } else {
+            document.getElementById('status').innerText = '無待處理訂單，請回 POS 操作';
         }
-      });
-    }
-    var i;
-    for (i = 0; i < OPTIONAL_SERVICE_UUIDS.length; i++) {
-      var v = OPTIONAL_SERVICE_UUIDS[i];
-      if (!seen[v]) {
-        seen[v] = true;
-        out.push(v);
-      }
-      if (out.length >= OPTIONAL_SERVICES_MAX) break;
-    }
-    while (out.length > OPTIONAL_SERVICES_MAX) out.pop();
-    return out;
-  }
+    };
 
-  var logEl = document.getElementById('log');
-  var btnConnect = document.getElementById('btn-connect');
-  var btnConnectScan = document.getElementById('btn-connect-scan');
-  var btnDisconnect = document.getElementById('btn-disconnect');
-  var btnPrint = document.getElementById('btn-print');
-  var btnUnlock = document.getElementById('btn-unlock-ui');
-
-  function log(msg, cls) {
-    var line = '[' + new Date().toLocaleTimeString('zh-TW') + '] ' + msg + '\n';
-    var span = document.createElement('span');
-    if (cls) span.className = cls;
-    span.textContent = line;
-    logEl.appendChild(span);
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-
-  /**
-   * Unicode → Big5（CP950，與常見繁中 Big5 相容；供 TST24.BF2）。
-   * encoding-japanese v2 的 Encoding.convert 無 BIG5 目標，使用 cpexcel 的 cptable.utils.encode(950, …)。
-   */
-  function encodeBig5OrThrow(str) {
-    if (typeof cptable === 'undefined' || !cptable.utils || typeof cptable.utils.encode !== 'function') {
-      throw new Error('codepage（cpexcel）未載入：請確認 <head> 的 cpexcel.full.js 可連線。');
-    }
-    if (!cptable.utils.hascp(950)) {
-      throw new Error('CP950 編碼表未就緒。');
-    }
-    var bytes = cptable.utils.encode(950, str);
-    return new Uint8Array(bytes);
-  }
-
-  function concatUint8Arrays(parts) {
-    var total = 0;
-    for (var i = 0; i < parts.length; i++) total += parts[i].length;
-    var out = new Uint8Array(total);
-    var o = 0;
-    for (var j = 0; j < parts.length; j++) {
-      out.set(parts[j], o);
-      o += parts[j].length;
-    }
-    return out;
-  }
-
-  function asciiBytes(s) {
-    return new TextEncoder().encode(s);
-  }
-
-  /** 字型與自檢一致：BIG5 → TST24.BF2 */
-  var TSPL_FONT_BIG5 = 'TST24.BF2';
-
-  function formatTestDateTimeZhTw_() {
-    return new Date().toLocaleString('zh-TW', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-  }
-
-  function buildTsplPayload() {
-    var line1Big5 = encodeBig5OrThrow('測試列印成功');
-    var line2Big5 = encodeBig5OrThrow('繁體中文不亂碼');
-    var line3Big5 = encodeBig5OrThrow(formatTestDateTimeZhTw_());
-
-    var header = asciiBytes(
-      'SIZE 40 mm, 30 mm\r\n' +
-      'GAP 2 mm, 0 mm\r\n' +
-      'CLS\r\n'
-    );
-
-    var mid1 = asciiBytes('TEXT 40,40,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
-    var end1 = asciiBytes('"\r\n');
-    var mid2 = asciiBytes('TEXT 40,110,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
-    var end2 = asciiBytes('"\r\n');
-    var mid3 = asciiBytes('TEXT 40,180,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
-    var end3 = asciiBytes('"\r\n');
-
-    var footer = asciiBytes('PRINT 1,1\r\n');
-
-    return concatUint8Arrays([
-      header,
-      mid1, line1Big5, end1,
-      mid2, line2Big5, end2,
-      mid3, line3Big5, end3,
-      footer
-    ]);
-  }
-
-  function uuidCmpStrip_(uuid) {
-    return String(uuid || '').toLowerCase().replace(/-/g, '');
-  }
-
-  function getPreferredTxCharUuid_() {
-    var el = document.getElementById('custom-tx-char-uuid');
-    return el ? normalizeUuid128_(String(el.value || '').trim()) : null;
-  }
-
-  /** 若有指定 TX UUID（與截圖 Write 特徵一致），優先選該特徵再退回任意可寫入 */
-  function pickWritableCharacteristic(chars, preferredTxUuid) {
-    var i;
-    var c;
-    var want = preferredTxUuid ? uuidCmpStrip_(preferredTxUuid) : '';
-    if (want) {
-      for (i = 0; i < chars.length; i++) {
-        c = chars[i];
-        if (uuidCmpStrip_(c.uuid) === want && (c.properties.writeWithoutResponse || c.properties.write)) {
-          return c;
-        }
-      }
-    }
-    for (i = 0; i < chars.length; i++) {
-      c = chars[i];
-      if (c.properties.writeWithoutResponse) return c;
-    }
-    for (i = 0; i < chars.length; i++) {
-      c = chars[i];
-      if (c.properties.write) return c;
-    }
-    return null;
-  }
-
-  /** 連線成功但找不到寫入點時，列出瀏覽器允許讀取的服務／特徵（方便對照廠商文件） */
-  async function logGattServiceTree_(server) {
-    try {
-      var svcs = await server.getPrimaryServices();
-      log('── 除錯：目前可讀取的 GATT 主服務共 ' + svcs.length + ' 個 ──', 'ok');
-      if (svcs.length === 0) {
-        log('若為 0：代表選裝置時「optional services」未包含印表機實際服務。請在上方貼廠商 Service UUID 後再連。', 'err');
-        return;
-      }
-      var i;
-      var j;
-      for (i = 0; i < svcs.length; i++) {
-        log('服務 ' + svcs[i].uuid, 'ok');
+    // 2. 處理點擊動作（iOS 必須透過點擊啟動藍牙）
+    async function handlePrintClick() {
+        const btn = document.getElementById('printBtn');
+        const loader = document.getElementById('loader');
+        
         try {
-          var chs = await svcs[i].getCharacteristics();
-          for (j = 0; j < chs.length; j++) {
-            var ch = chs[j];
-            log('  特徵 ' + ch.uuid +
-              '  write=' + !!ch.properties.write +
-              ' writeNoResp=' + !!ch.properties.writeWithoutResponse +
-              ' notify=' + !!ch.properties.notify +
-              ' read=' + !!ch.properties.read, 'ok');
-          }
-        } catch (e1) {
-          log('  （無法讀取特徵）' + fmtErr_(e1), 'err');
+            btn.disabled = true;
+            loader.style.display = 'block';
+            document.getElementById('status').innerText = '正在尋找印表機...';
+
+            // 請求藍牙裝置
+            device = await navigator.bluetooth.requestDevice({
+                filters: [{ namePrefix: 'GP' }, { services: ['ff00'] }],
+                optionalServices: ['ff00']
+            });
+
+            const server = await device.gatt.connect();
+            const service = await server.getPrimaryService('ff00');
+            characteristic = await service.getCharacteristic('ff02');
+
+            updateStatus(true);
+            await executePrint();
+            
+        } catch (error) {
+            console.error(error);
+            alert('連線失敗：' + error.message);
+            btn.disabled = false;
+            loader.style.display = 'none';
         }
-      }
-    } catch (e0) {
-      log('列舉服務失敗：' + fmtErr_(e0), 'err');
-    }
-  }
-
-  /**
-   * 依序嘗試 known service UUID，再退回 getPrimaryServices 掃描（須已在 optionalServices 宣告）。
-   */
-  async function findWritableOnServer_(server) {
-    var u;
-    var svc;
-    var chars;
-    var chosen;
-    var lastErr = '';
-    var tryList = buildOptionalServicesForRequest_();
-    var prefTx = getPreferredTxCharUuid_();
-
-    for (u = 0; u < tryList.length; u++) {
-      try {
-        svc = await server.getPrimaryService(tryList[u]);
-        chars = await svc.getCharacteristics();
-        chosen = pickWritableCharacteristic(chars, prefTx);
-        if (chosen) {
-          log('已找到可寫入特徵（服務 ' + tryList[u] + '）', 'ok');
-          return chosen;
-        }
-      } catch (e) {
-        lastErr = (e && e.message) ? e.message : String(e);
-      }
     }
 
-    var allSvcs;
-    try {
-      allSvcs = await server.getPrimaryServices();
-    } catch (e2) {
-      await logGattServiceTree_(server);
-      throw new Error('無法列舉服務：' + fmtErr_(e2));
+    function updateStatus(isOnline) {
+        const tag = document.getElementById('statusTag');
+        tag.innerText = isOnline ? '已連線' : '尚未連線';
+        tag.className = 'status-tag ' + (isOnline ? 'online' : 'offline');
     }
 
-    var s;
-    for (s = 0; s < allSvcs.length; s++) {
-      try {
-        chars = await allSvcs[s].getCharacteristics();
-        chosen = pickWritableCharacteristic(chars, prefTx);
-        if (chosen) {
-          log('已找到可寫入特徵（掃描服務 ' + allSvcs[s].uuid + '）', 'ok');
-          return chosen;
-        }
-      } catch (e3) { /* 略過 */ }
-    }
-
-    await logGattServiceTree_(server);
-    throw new Error('找不到任何可寫入的 GATT 特徵。' + (lastErr ? '（getPrimaryService 最後錯誤：' + lastErr + '）' : '') +
-      ' 請將日誌裡的「服務 UUID」貼到上方自訂欄再試，或改用廠商 iOS／Android SDK。');
-  }
-
-  async function connectGattWithRetries_(device) {
-    if (device.gatt.connected) {
-      try {
-        device.gatt.disconnect();
-        await sleepMs_(500);
-      } catch (e0) { /* 略過 */ }
-    }
-    var attempt;
-    var lastErr;
-    for (attempt = 1; attempt <= 3; attempt++) {
-      try {
-        log('① GATT 連線（第 ' + attempt + '／3 次）…');
-        var server = await device.gatt.connect();
-        log('② GATT 已連線，等待韌體就緒…', 'ok');
-        await sleepMs_(400);
-        return server;
-      } catch (e) {
-        lastErr = e;
-        log('GATT 連線失敗：' + fmtErr_(e), 'err');
-        if (attempt < 3) {
-          log('600ms 後重試…', 'ok');
-          await sleepMs_(600);
-        }
-      }
-    }
-    throw lastErr;
-  }
-
-  var bluetoothDevice = null;
-  var writeCharacteristic = null;
-  /** 避免重入；若 WebView 未正確 reject requestDevice，需靠看門狗／解鎖鈕還原 UI */
-  var connectInProgress_ = false;
-  var connectWatchdogTimer_ = null;
-
-  function setBusy(loading) {
-    btnConnect.disabled = loading;
-    btnConnectScan.disabled = loading;
-  }
-
-  function clearConnectWatchdog_() {
-    if (connectWatchdogTimer_) {
-      clearTimeout(connectWatchdogTimer_);
-      connectWatchdogTimer_ = null;
-    }
-  }
-
-  function armConnectWatchdog_(ms) {
-    clearConnectWatchdog_();
-    connectWatchdogTimer_ = setTimeout(function () {
-      connectWatchdogTimer_ = null;
-      if (!connectInProgress_) return;
-      log('連線流程逾時（' + Math.round(ms / 1000) + ' 秒），已自動解鎖按鈕。', 'err');
-      connectInProgress_ = false;
-      try {
-        if (bluetoothDevice && bluetoothDevice.gatt && bluetoothDevice.gatt.connected) {
-          bluetoothDevice.gatt.disconnect();
-        }
-      } catch (e) {}
-      bluetoothDevice = null;
-      writeCharacteristic = null;
-      btnPrint.disabled = true;
-      btnDisconnect.disabled = true;
-      setBusy(false);
-    }, ms);
-  }
-
-  /** 從系統藍牙選單返回後，部分 WebView 不會結束 Promise：手動解鎖 */
-  function unlockUiFromStuck_() {
-    clearConnectWatchdog_();
-    connectInProgress_ = false;
-    try {
-      if (bluetoothDevice && bluetoothDevice.gatt && bluetoothDevice.gatt.connected) {
-        bluetoothDevice.gatt.disconnect();
-      }
-    } catch (e) {}
-    bluetoothDevice = null;
-    writeCharacteristic = null;
-    btnPrint.disabled = true;
-    btnDisconnect.disabled = true;
-    setBusy(false);
-    log('已解鎖按鈕，可再按「連接」或「掃描全部 BLE」。', 'ok');
-  }
-
-  function requestDeviceWithTimeout_(opts) {
-    return Promise.race([
-      navigator.bluetooth.requestDevice(opts),
-      new Promise(function (_, reject) {
-        setTimeout(function () {
-          reject(new Error(
-            'requestDevice 逾時（約 ' + Math.round(REQUEST_DEVICE_TIMEOUT_MS / 1000) + ' 秒）：' +
-            '選完印表機後若一直停在這裡，常見是 GAS／內嵌 WebView 未把結果交回網頁。' +
-            '請改用本機「serve_bluefy_printer.py --https」開同一 HTML 測試，或更新部署後重試。'
-          ));
-        }, REQUEST_DEVICE_TIMEOUT_MS);
-      })
-    ]);
-  }
-
-  async function requestBleDevice_(mode) {
-    var services = buildOptionalServicesForRequest_();
-    log('本次 optionalServices 數量：' + services.length + '（上限 ' + OPTIONAL_SERVICES_MAX + '）', 'ok');
-    var opts = { optionalServices: services };
-    if (mode === 'scan') {
-      opts.acceptAllDevices = true;
-    } else {
-      opts.filters = [
-        { name: PRINTER_NAME_BLE },
-        { name: PRINTER_NAME },
-        { namePrefix: 'Printer_' }
-      ];
-    }
-    log('正在呼叫 requestDevice（系統藍牙選單）…', 'ok');
-    var dev = await requestDeviceWithTimeout_(opts);
-    log('requestDevice 已回傳（已取得裝置物件）。', 'ok');
-    return dev;
-  }
-
-  async function connectWithMode_(mode) {
-    if (!navigator.bluetooth) {
-      log('此瀏覽器不支援 Web Bluetooth。請用 Bluefy 等支援的瀏覽器開啟本頁（需 HTTPS 或 localhost）。', 'err');
-      return;
-    }
-    if (connectInProgress_) {
-      log('上一段連線尚未結束；若按鈕灰掉無法操作，請按「解鎖按鈕」。', 'err');
-      return;
-    }
-
-    connectInProgress_ = true;
-    armConnectWatchdog_(75000);
-    setBusy(true);
-    writeCharacteristic = null;
-    log('若系統藍牙清單關閉後長時間沒下文，請按橘色「解鎖按鈕」。', 'ok');
-
-    try {
-      bluetoothDevice = await requestBleDevice_(mode);
-      log('已選擇：' + (bluetoothDevice.name || '(無廣播名稱)') + ' · id=' + (bluetoothDevice.id || ''));
-
-      if (mode === 'named' && bluetoothDevice.name && bluetoothDevice.name.indexOf('Printer') === -1) {
-        log('提示：裝置名稱與預期不同，仍可嘗試連線。', 'ok');
-      }
-
-      if (!bluetoothDevice._bluefyGattDiscListener) {
-        bluetoothDevice._bluefyGattDiscListener = true;
-        bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
-      }
-
-      var server = await connectGattWithRetries_(bluetoothDevice);
-      writeCharacteristic = await findWritableOnServer_(server);
-      log('③ 寫入特徵 UUID：' + writeCharacteristic.uuid, 'ok');
-
-      btnDisconnect.disabled = false;
-      btnPrint.disabled = false;
-    } catch (err) {
-      if (err && err.name === 'NotFoundError') {
-        log('沒有符合的裝置（清單為空或已取消）。若永遠為空：多數為「僅經典藍牙、無 BLE GATT」或手機藍牙／定位未開。', 'err');
-      } else if (err && err.name === 'NetworkError') {
-        log('NetworkError：常見為距離過遠、印表機已連別台、或需先到系統設定與印表機配對後再試。', 'err');
-        log('詳情：' + fmtErr_(err), 'err');
-      } else if (err && err.name === 'SecurityError') {
-        log('SecurityError：請確認網址為 HTTPS／localhost，且瀏覽器允許藍牙權限。', 'err');
-        log('詳情：' + fmtErr_(err), 'err');
-      } else {
-        log('連線／探索失敗：' + fmtErr_(err), 'err');
-        log('若已出現「GATT 已連線」但後續失敗：多為 Service UUID 未列入 optionalServices，請用上方自訂欄貼上廠商 UUID。', 'err');
-      }
-      try {
-        if (bluetoothDevice && bluetoothDevice.gatt && bluetoothDevice.gatt.connected) {
-          bluetoothDevice.gatt.disconnect();
-        }
-      } catch (e4) { /* 略過 */ }
-      bluetoothDevice = null;
-      writeCharacteristic = null;
-    } finally {
-      clearConnectWatchdog_();
-      connectInProgress_ = false;
-      setBusy(false);
-    }
-  }
-
-  function onDisconnected() {
-    log('GATT 已斷線', 'err');
-    writeCharacteristic = null;
-    btnPrint.disabled = true;
-    btnDisconnect.disabled = true;
-    connectInProgress_ = false;
-    clearConnectWatchdog_();
-    setBusy(false);
-  }
-
-  async function disconnectPrinter() {
-    clearConnectWatchdog_();
-    connectInProgress_ = false;
-    try {
-      if (bluetoothDevice && bluetoothDevice.gatt.connected) {
-        await bluetoothDevice.gatt.disconnect();
-      }
-    } catch (e) {
-      log('斷線時錯誤：' + (e && e.message ? e.message : String(e)), 'err');
-    }
-    bluetoothDevice = null;
-    writeCharacteristic = null;
-    btnPrint.disabled = true;
-    btnDisconnect.disabled = true;
-    setBusy(false);
-    log('已中斷', 'ok');
-  }
-
-  async function writeChunks(characteristic, bytes) {
-    var chunkSize = 20;
-    var preferWo = characteristic.properties.writeWithoutResponse;
-    var hasWrite = characteristic.properties.write;
-    for (var offset = 0; offset < bytes.length; offset += chunkSize) {
-      var slice = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
-      if (preferWo && hasWrite) {
+    // 3. 核心列印函數
+    async function executePrint() {
         try {
-          await characteristic.writeValueWithoutResponse(slice);
-        } catch (e0) {
-          await characteristic.writeValue(slice);
+            document.getElementById('status').innerText = '指令發送中...';
+            
+            // 解析訂單資料
+            const order = JSON.parse(decodeURIComponent(orderDataRaw));
+            
+            // TSPL 指令組裝 (GP-2270T 專用)
+            let tspl = `RT\r\n`;               // 強制重置機器快取 (解決13份問題)
+            tspl += `SIZE 40 mm, 30 mm\r\n`;   // 設定標籤尺寸
+            tspl += `GAP 2 mm, 0 mm\r\n`;      // 設定間隙
+            tspl += `CLS\r\n`;                 // 清除緩衝區
+            tspl += `CODEPAGE 1252\r\n`;
+            
+            // 標題與內容
+            tspl += `TEXT 20,20,"TSS24.BF2",0,1,1,"${order.title || 'ORDER'}"\r\n`;
+            tspl += `TEXT 20,60,"TSS24.BF2",0,1,1,"------------------"\r\n`;
+            
+            // 遍歷品項 (這裡絕對不放 PRINT)
+            let y = 90;
+            order.items.forEach(item => {
+                tspl += `TEXT 20,${y},"TSS24.BF2",0,1,1,"${item.name} x ${item.qty}"\r\n`;
+                y += 35;
+            });
+
+            tspl += `PRINT 1,1\r\n`;           // 關鍵：全份文件只准出現一次 PRINT
+            tspl += `END\r\n`;
+
+            // 分段發送防止藍牙溢位
+            const encoder = new TextEncoder();
+            const data = encoder.encode(tspl);
+            const chunkSize = 20;
+            for (let i = 0; i < data.length; i += chunkSize) {
+                await characteristic.writeValue(data.slice(i, i + chunkSize));
+            }
+
+            document.getElementById('status').innerText = '列印成功！即將返回 POS...';
+            
+            // 4. 自動跳回
+            if (backUrl) {
+                setTimeout(() => {
+                    window.location.href = decodeURIComponent(backUrl);
+                }, 1500);
+            }
+
+        } catch (error) {
+            alert('列印執行失敗：' + error.message);
         }
-      } else if (preferWo) {
-        await characteristic.writeValueWithoutResponse(slice);
-      } else {
-        await characteristic.writeValue(slice);
-      }
-      await sleepMs_(15);
     }
-  }
+</script>
 
-  async function printTestLabel() {
-    if (!writeCharacteristic) {
-      log('請先連接印表機。', 'err');
-      return;
-    }
-    btnPrint.disabled = true;
-    try {
-      var payload = buildTsplPayload();
-      log('送出 TSPL 共 ' + payload.length + ' bytes');
-      await writeChunks(writeCharacteristic, payload);
-      log('列印指令已送出。', 'ok');
-    } catch (err) {
-      log('列印失敗：' + (err && err.message ? err.message : String(err)), 'err');
-    } finally {
-      btnPrint.disabled = false;
-    }
-  }
-
-  btnConnect.addEventListener('click', function () { connectWithMode_('named'); });
-  btnConnectScan.addEventListener('click', function () { connectWithMode_('scan'); });
-  btnDisconnect.addEventListener('click', disconnectPrinter);
-  btnPrint.addEventListener('click', printTestLabel);
-  if (btnUnlock) btnUnlock.addEventListener('click', unlockUiFromStuck_);
-
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState !== 'visible') return;
-    if (connectInProgress_) return;
-    if (bluetoothDevice && bluetoothDevice.gatt && bluetoothDevice.gatt.connected) return;
-    if (!btnConnect.disabled || !btnConnectScan.disabled) return;
-    setBusy(false);
-    log('偵測到回到前景：已嘗試恢復連線／掃描按鈕。', 'ok');
-  });
-
-  log('就緒。若選完印表機後按鈕全灰：按「解鎖按鈕」；選單卡住約 ' + Math.round(REQUEST_DEVICE_TIMEOUT_MS / 1000) + ' 秒會自動逾時解鎖。');
-})();
-  </script>
 </body>
 </html>
