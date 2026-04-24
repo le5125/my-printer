@@ -1,75 +1,234 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hant">
 <head>
-  <meta charset="utf-8">
-  <title>BLE Printer Test</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bluefy 藍牙列印測試</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --btn: #2563eb;
+      --btn-disabled: #475569;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .card {
+      width: min(640px, 100%);
+      background: var(--card);
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: 1.35rem;
+    }
+
+    .hint {
+      color: var(--muted);
+      margin-bottom: 16px;
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--btn);
+    }
+
+    button:disabled {
+      background: var(--btn-disabled);
+      cursor: not-allowed;
+    }
+
+    .status {
+      border: 1px solid #334155;
+      border-radius: 10px;
+      background: #020617;
+      padding: 12px;
+      min-height: 110px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .err { color: var(--err); }
+  </style>
 </head>
 <body>
+  <main class="card">
+    <h1>Bluefy Web Bluetooth 列印測試</h1>
+    <div class="hint">
+      裝置：Printer_9AE9_BLE<br />
+      Service UUID：E7810A71-73AE-499D-8C15-FAA9AEF0C3F2<br />
+      Characteristic UUID：BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F
+    </div>
 
-<h2>BLE Printer Test</h2>
+    <div class="actions">
+      <button id="connectBtn" type="button">連接打印機</button>
+      <button id="printBtn" type="button" disabled>打印測試標籤</button>
+    </div>
 
-<button onclick="connect()">連接印表機</button>
-<button onclick="printTest()">測試列印</button>
+    <div id="statusBox" class="status">尚未連線</div>
+  </main>
 
-<script>
-let device;
-let characteristic;
+  <script>
+    const DEVICE_NAME = "Printer_9AE9_BLE";
+    const SERVICE_UUID = "e7810a71-73ae-499d-8c15-faa9aef0c3f2";
+    const WRITE_CHAR_UUID = "bef8d6c9-9c21-4c9e-b632-bd58c1009f9f";
 
-async function connect() {
-  try {
-    device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
-      optionalServices: [
-        '18f0',
-        'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
-      ]
-    });
+    const connectBtn = document.getElementById("connectBtn");
+    const printBtn = document.getElementById("printBtn");
+    const statusBox = document.getElementById("statusBox");
 
-    const server = await device.gatt.connect();
+    let bleDevice = null;
+    let gattServer = null;
+    let writeCharacteristic = null;
 
-    const service = await server.getPrimaryService(
-      'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
-    );
+    function setStatus(message, level = "") {
+      const time = new Date().toLocaleTimeString();
+      const line = `[${time}] ${message}`;
+      const cssClass = level ? ` ${level}` : "";
+      statusBox.innerHTML += `\n<span class="${cssClass.trim()}">${line}</span>`;
+      statusBox.scrollTop = statusBox.scrollHeight;
+      console.log(message);
+    }
 
-    characteristic = await service.getCharacteristic(
-      'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'
-    );
+    function updateUi(connected) {
+      printBtn.disabled = !connected;
+      connectBtn.disabled = false;
+      connectBtn.textContent = connected ? "重新連接打印機" : "連接打印機";
+    }
 
-    alert("已連接印表機");
-  } catch (error) {
-    console.log(error);
-    alert("連接失敗");
-  }
-}
+    function handleDisconnected() {
+      setStatus("裝置已中斷連線", "warn");
+      writeCharacteristic = null;
+      gattServer = null;
+      updateUi(false);
+    }
 
-async function printTest() {
-  if (!characteristic) {
-    alert("請先連接");
-    return;
-  }
+    async function connectPrinter() {
+      if (!navigator.bluetooth) {
+        setStatus("此瀏覽器不支援 Web Bluetooth（請確認在 Bluefy 中開啟）", "err");
+        return;
+      }
 
-  // ESC/POS 指令（初始化 + 文字 + 換行）
-  const encoder = new TextEncoder();
+      connectBtn.disabled = true;
+      setStatus("開始搜尋藍牙裝置...");
 
-  let data = new Uint8Array([
-    0x1B, 0x40, // 初始化
-  ]);
+      try {
+        bleDevice = await navigator.bluetooth.requestDevice({
+          filters: [
+            { name: DEVICE_NAME },
+            { services: [SERVICE_UUID] }
+          ],
+          optionalServices: [SERVICE_UUID]
+        });
 
-  let text = encoder.encode("TEST PRINT\nHello World\n\n\n");
+        bleDevice.removeEventListener("gattserverdisconnected", handleDisconnected);
+        bleDevice.addEventListener("gattserverdisconnected", handleDisconnected);
 
-  let finalData = new Uint8Array(data.length + text.length);
-  finalData.set(data);
-  finalData.set(text, data.length);
+        setStatus(`已選擇裝置：${bleDevice.name || "(未命名)"}`, "ok");
+        setStatus("連線 GATT Server...");
+        gattServer = await bleDevice.gatt.connect();
 
-  try {
-    await characteristic.writeValue(finalData);
-    alert("已送出列印");
-  } catch (error) {
-    console.log(error);
-    alert("列印失敗");
-  }
-}
-</script>
+        setStatus("取得 Service...");
+        const service = await gattServer.getPrimaryService(SERVICE_UUID);
 
+        setStatus("取得可寫入 Characteristic...");
+        writeCharacteristic = await service.getCharacteristic(WRITE_CHAR_UUID);
+
+        setStatus("連線成功，可開始測試列印", "ok");
+        updateUi(true);
+      } catch (error) {
+        setStatus(`連線失敗：${error.message || error}`, "err");
+        updateUi(false);
+      } finally {
+        connectBtn.disabled = false;
+      }
+    }
+
+    async function sendRawText(commandText) {
+      if (!writeCharacteristic) {
+        throw new Error("尚未取得可寫入 Characteristic，請先連線。");
+      }
+
+      const encoder = new TextEncoder();
+      const payload = encoder.encode(commandText);
+
+      // 優先使用 write without response（此裝置特性）。
+      if (typeof writeCharacteristic.writeValueWithoutResponse === "function") {
+        await writeCharacteristic.writeValueWithoutResponse(payload);
+      } else {
+        await writeCharacteristic.writeValue(payload);
+      }
+    }
+
+    async function sendTestData() {
+      try {
+        if (!gattServer || !gattServer.connected) {
+          throw new Error("藍牙尚未連線，請先點擊「連接打印機」。");
+        }
+
+        const tspl = [
+          "SIZE 40 mm, 30 mm",
+          "GAP 2 mm, 0 mm",
+          "CLS",
+          "TEXT 50,50,\"TSS24.BF2\",0,1,1,\"TEST PRINT\"",
+          "PRINT 1"
+        ].join("\n") + "\n";
+
+        setStatus("送出測試列印指令中...");
+        await sendRawText(tspl);
+        setStatus("測試列印指令送出成功", "ok");
+      } catch (error) {
+        setStatus(`打印失敗：${error.message || error}`, "err");
+      }
+    }
+
+    connectBtn.addEventListener("click", connectPrinter);
+    printBtn.addEventListener("click", sendTestData);
+    updateUi(false);
+  </script>
 </body>
 </html>
