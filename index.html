@@ -981,23 +981,27 @@
       if (!forceBypassDedup && rcUrlAuto_) {
         var urlParams = new URLSearchParams(window.location.search);
         var backUrl = urlParams.get('back');
-        setTimeout(function () {
-          var backResolved = '';
-          try {
-            backResolved = backUrl ? decodeURIComponent(backUrl) : '';
-          } catch (eDec) {
-            backResolved = backUrl || '';
-          }
-          try {
-            if (window.opener && !window.opener.closed) {
-              if (backResolved) {
-                try { window.opener.location.href = backResolved; } catch (eOpNav) { /* 略 */ }
-              }
-              try { window.opener.focus(); } catch (eFocus) { /* 略 */ }
+        if (backUrl) {
+          setTimeout(function () {
+            var backResolved = '';
+            try {
+              backResolved = decodeURIComponent(backUrl);
+            } catch (eDec) {
+              backResolved = backUrl;
             }
-          } catch (eOp) { /* 略 */ }
+            try {
+              if (confirm('列印完成，是否返回 POS 頁面？')) {
+                window.location.href = backResolved;
+              } else {
+                hideAutoStage_();
+              }
+            } catch (eCf) {
+              window.location.href = backResolved;
+            }
+          }, 1500);
+        } else {
           hideAutoStage_();
-        }, 1500);
+        }
       } else {
         hideAutoStage_();
       }
