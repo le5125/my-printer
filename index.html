@@ -107,6 +107,9 @@
       視窗名稱：-<br />
       已連線裝置：-
     </div>
+    <div class="hint" style="margin-top:-8px;color:#fbbf24;">
+      請勿關閉或刷新此頁面，否則藍牙會斷開。
+    </div>
 
     <div class="actions">
       <button id="connectBtn" type="button">連接打印機</button>
@@ -230,16 +233,22 @@
     }
 
     function decodeBase64Utf8(base64Text) {
-      return decodeURIComponent(escape(atob(base64Text)));
+      const bin = atob(String(base64Text || ""));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) {
+        bytes[i] = bin.charCodeAt(i);
+      }
+      return new TextDecoder("utf-8").decode(bytes);
     }
 
     function parseIncomingPayload() {
-      const params = new URLSearchParams(window.location.search);
+      const rawHash = (window.location.hash || "").replace(/^#/, "");
+      const params = new URLSearchParams(rawHash);
       const encodedData = params.get("data");
       if (!encodedData) return null;
       try {
         const decoded = decodeBase64Utf8(decodeURIComponent(encodedData));
-        console.log("[Printer] got ?data= length:", encodedData.length);
+        console.log("[Printer] got #data length:", encodedData.length);
         try {
           const parsed = JSON.parse(decoded);
           if (parsed && Array.isArray(parsed.jobs)) return parsed;
@@ -270,6 +279,10 @@
 
     async function tryAutoPrintFromPending() {
       if (!pendingPayload || !writeCharacteristic || isAutoPrinting) return;
+      console.log("[Printer] tryAutoPrintFromPending", {
+        hasPending: !!pendingPayload,
+        hasCharacteristic: !!writeCharacteristic
+      });
       isAutoPrinting = true;
       try {
         setStatus("偵測到新 data 且藍牙已連線，開始自動列印...", "ok");
@@ -295,7 +308,8 @@
     function acceptIncomingPayload(payload, sourceTag = "URL") {
       if (!payload) return;
       pendingPayload = payload;
-      setStatus(`收到新打印資料（${payload.jobs?.length || 0} 個 job，來源: ${sourceTag}）`, "ok");
+      const count = Array.isArray(payload.jobs) ? payload.jobs.length : 1;
+      setStatus(`收到新打印資料（${count} 個 job，來源: ${sourceTag}）`, "ok");
       manualPrintBtn.style.display = "inline-block";
       if (isPrinterConnected()) {
         tryAutoPrintFromPending();
@@ -310,10 +324,10 @@
         window.name = "Gprinter_Handler";
       }
       refreshPrinterMeta();
-      const token = window.location.search || "";
+      const token = window.location.hash || "";
       if (token === latestUrlToken) return;
       latestUrlToken = token;
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
       const dataToken = params.get("data") || "";
       lastBackUrl = params.get("back") || lastBackUrl || "";
       if (!dataToken || dataToken === latestDataToken) return;
