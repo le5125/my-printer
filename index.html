@@ -3,6 +3,747 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>GP-2270T 列印頁</title>
+  <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js"></script>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --text:#e5e7eb; --muted:#9ca3af; --ok:#22c55e; --err:#ef4444; --orange:#f97316; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; }
+    .wrap { max-width:760px; margin:16px auto; padding:12px; }
+    .card { background:var(--card); border:1px solid #1f2937; border-radius:14px; padding:14px; }
+    .hint { margin:6px 0; color:var(--muted); font-size:13px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    button { border:none; border-radius:10px; padding:10px 14px; font-weight:700; color:#fff; background:#2563eb; cursor:pointer; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .secondary { background:#374151; }
+    #log { margin-top:12px; max-height:260px; overflow:auto; white-space:pre-wrap; background:#020617; border:1px solid #1f2937; border-radius:10px; padding:10px; font-size:12px; }
+    #overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,.72); z-index:9999; padding:18px; }
+    #overlay-btn { width:min(94vw,680px); min-height:220px; border:none; border-radius:18px; background:var(--orange); color:#fff; font-size:clamp(30px,5vw,48px); font-weight:900; box-shadow:0 20px 45px rgba(0,0,0,.45); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2 style="margin:0 0 8px;">GP-2270T 列印服務</h2>
+      <p class="hint">請保持此分頁開啟，並確認藍牙已連線（綠燈）。</p>
+      <p class="hint">收到訂單後流程：點擊連線並列印 → 發送指令 → 1.5 秒返回 POS。</p>
+      <div class="row">
+        <button id="btn-connect">連線印表機</button>
+        <button id="btn-disconnect" class="secondary" disabled>中斷</button>
+        <button id="btn-print" class="secondary" disabled>手動列印</button>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <button id="overlay-btn">[ 訂單已送達，點擊此處立即列印 ]</button>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+    let isPrinting = false;
+    window.isPrinting = false;
+    const logEl = document.getElementById('log');
+    const btnConnect = document.getElementById('btn-connect');
+    const btnDisconnect = document.getElementById('btn-disconnect');
+    const btnPrint = document.getElementById('btn-print');
+    const overlay = document.getElementById('overlay');
+    const overlayBtn = document.getElementById('overlay-btn');
+    let device = null;
+    let writeChar = null;
+    let orderObj = null;
+    let printMode = 'detail';
+    let autoMode = false;
+    let backUrl = '';
+
+    function log(msg, cls) {
+      const t = '[' + new Date().toLocaleTimeString('zh-TW') + '] ' + msg + '\n';
+      const span = document.createElement('span');
+      if (cls) span.className = cls;
+      span.textContent = t;
+      logEl.appendChild(span);
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log('[Printer]', msg);
+    }
+    function parseOrderFromUrl() {
+      const qs = new URLSearchParams(window.location.search);
+      autoMode = String(qs.get('auto') || '') === '1';
+      printMode = (qs.get('mode') || 'detail').toLowerCase() === 'label' ? 'label' : 'detail';
+      backUrl = qs.get('back') || '';
+      const raw = qs.get('data');
+      if (!raw) return;
+      try { orderObj = JSON.parse(decodeURIComponent(raw)); log('解析訂單成功', 'ok'); }
+      catch (e) { log('解析訂單失敗: ' + String(e), 'err'); }
+    }
+    function ascii(s) { return new TextEncoder().encode(s); }
+    function encodeCn(str) {
+      if (typeof cptable !== 'undefined' && cptable.utils && cptable.utils.encode) {
+        if (cptable.utils.hascp(950)) return new Uint8Array(cptable.utils.encode(950, String(str)));
+        if (cptable.utils.hascp(936)) return new Uint8Array(cptable.utils.encode(936, String(str)));
+      }
+      return new TextEncoder().encode(String(str));
+    }
+    function concat(parts) {
+      let total = 0;
+      for (let i = 0; i < parts.length; i++) total += parts[i].length;
+      const out = new Uint8Array(total);
+      let o = 0;
+      for (let i = 0; i < parts.length; i++) { out.set(parts[i], o); o += parts[i].length; }
+      return out;
+    }
+    function buildTspl(order) {
+      const init = ['RT', 'SET REPRINT OFF', 'CLS', 'SIZE 58 mm, 120 mm', 'DIRECTION 1'];
+      const body = [];
+      body.push(printMode === 'label' ? '商品標籤' : '銷售明細');
+      body.push('單號: ' + (order.orderId || ''));
+      body.push('日期: ' + (order.date || ''));
+      (order.items || []).forEach(function (it) {
+        const p = Number(it.price) || 0;
+        const q = Number(it.quantity) || 0;
+        body.push(String(it.name || '').slice(0, 16) + ' x' + q + ' ' + (p * q));
+      });
+      body.push('總計 NT$' + (order.total != null ? order.total : ''));
+      const parts = [ascii(init.join('\r\n') + '\r\n')];
+      let y = 26;
+      body.forEach(function (line) {
+        parts.push(ascii('TEXT 10,' + y + ',"TST24.BF2",0,1,1,"'));
+        parts.push(encodeCn(line));
+        parts.push(ascii('"\r\n'));
+        y += 34;
+      });
+      parts.push(ascii('PRINT 1,1\r\n'));
+      return concat(parts);
+    }
+    async function connectPrinter() {
+      if (!navigator.bluetooth) throw new Error('此環境不支援 Web Bluetooth');
+      if (!device) {
+        log('連線印表機中...', 'ok');
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: 'Printer_' }],
+          optionalServices: ['49535343-fe7d-4ae5-8fa9-9fafd205e455','e7810a71-73ae-499d-8c15-faa9aef0c3f2','000018f0-0000-1000-8000-00805f9b34fb','6e400001-b5a3-f393-e0a9-e50e24dcca9e','0000fff0-0000-1000-8000-00805f9b34fb']
+        });
+      }
+      const server = await device.gatt.connect();
+      const services = await server.getPrimaryServices();
+      for (let i = 0; i < services.length; i++) {
+        const chars = await services[i].getCharacteristics();
+        for (let j = 0; j < chars.length; j++) {
+          const c = chars[j];
+          if (c.properties.writeWithoutResponse || c.properties.write) {
+            writeChar = c; btnDisconnect.disabled = false; btnPrint.disabled = false;
+            log('藍牙已連線: ' + (device.name || '(無名)') + ' / ' + c.uuid, 'ok');
+            return;
+          }
+        }
+      }
+      throw new Error('找不到可寫入特徵');
+    }
+    async function writeChunks(bytes) {
+      if (!writeChar) throw new Error('未連線印表機');
+      const canWo = !!writeChar.properties.writeWithoutResponse;
+      const canW = !!writeChar.properties.write;
+      async function writeOne(slice) {
+        if (canWo && canW) { try { await writeChar.writeValueWithoutResponse(slice); } catch (_) { await writeChar.writeValue(slice); } }
+        else if (canWo) await writeChar.writeValueWithoutResponse(slice);
+        else await writeChar.writeValue(slice);
+      }
+      try { await writeOne(bytes); return; } catch (e) { log('整包發送失敗，改分批: ' + String(e), 'err'); }
+      for (let i = 0; i < bytes.length; i += 200) { await writeOne(bytes.subarray(i, Math.min(i + 200, bytes.length))); await new Promise(r => setTimeout(r, 45)); }
+    }
+    async function printOrder() {
+      if (window.isPrinting || isPrinting) return;
+      if (!orderObj || !orderObj.items || !orderObj.items.length) { log('無訂單資料可列印', 'err'); return; }
+      isPrinting = true; window.isPrinting = true;
+      try {
+        const payload = buildTspl(orderObj);
+        log('送出 TSPL，bytes=' + payload.length);
+        await writeChunks(payload);
+        log('列印指令送出成功', 'ok');
+        if (backUrl) setTimeout(function () { try { window.location.href = decodeURIComponent(backUrl); } catch (_) { window.location.href = backUrl; } }, 1500);
+      } catch (e) {
+        log('列印失敗: ' + String(e), 'err');
+      } finally {
+        isPrinting = false; window.isPrinting = false;
+      }
+    }
+    async function connectAndPrint() {
+      try { await connectPrinter(); } catch (e) { log('自動連線失敗: ' + String(e), 'err'); overlay.style.display = 'flex'; return; }
+      await printOrder();
+    }
+
+    btnConnect.addEventListener('click', async function () { try { await connectPrinter(); } catch (e) { log(String(e), 'err'); } });
+    btnDisconnect.addEventListener('click', function () { try { if (device && device.gatt && device.gatt.connected) device.gatt.disconnect(); } catch (_) {} writeChar = null; btnDisconnect.disabled = true; btnPrint.disabled = true; log('已中斷', 'ok'); });
+    btnPrint.addEventListener('click', function () { printOrder(); });
+    overlayBtn.addEventListener('click', async function () { overlay.style.display = 'none'; await connectAndPrint(); });
+
+    window.onload = function () {
+      parseOrderFromUrl();
+      if (autoMode && orderObj) { overlay.style.display = 'flex'; connectAndPrint(); }
+    };
+  })();
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>GP-2270T 列印頁</title>
+  <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js"></script>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --text:#e5e7eb; --muted:#9ca3af; --ok:#22c55e; --err:#ef4444; --orange:#f97316; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; }
+    .wrap { max-width: 760px; margin: 16px auto; padding: 12px; }
+    .card { background:var(--card); border:1px solid #1f2937; border-radius:14px; padding:14px; }
+    .hint { margin:6px 0; color:var(--muted); font-size:13px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    button { border:none; border-radius:10px; padding:10px 14px; font-weight:700; color:#fff; background:#2563eb; cursor:pointer; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .secondary { background:#374151; }
+    #log { margin-top:12px; max-height:260px; overflow:auto; white-space:pre-wrap; background:#020617; border:1px solid #1f2937; border-radius:10px; padding:10px; font-size:12px; }
+    #overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,.72); z-index:9999; padding:18px; }
+    #overlay-btn { width:min(94vw,680px); min-height:220px; border:none; border-radius:18px; background:var(--orange); color:#fff; font-size:clamp(30px,5vw,48px); font-weight:900; box-shadow:0 20px 45px rgba(0,0,0,.45); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2 style="margin:0 0 8px;">GP-2270T 列印服務</h2>
+      <p class="hint">請保持此分頁開啟，並確認藍牙已連線（綠燈）。</p>
+      <p class="hint">收到訂單後流程：點擊連線並列印 → 發送指令 → 1.5 秒返回 POS。</p>
+      <div class="row">
+        <button id="btn-connect">連線印表機</button>
+        <button id="btn-disconnect" class="secondary" disabled>中斷</button>
+        <button id="btn-print" class="secondary" disabled>手動列印</button>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <button id="overlay-btn">[ 訂單已送達，點擊此處立即列印 ]</button>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    let isPrinting = false;
+    window.isPrinting = false;
+
+    const logEl = document.getElementById('log');
+    const btnConnect = document.getElementById('btn-connect');
+    const btnDisconnect = document.getElementById('btn-disconnect');
+    const btnPrint = document.getElementById('btn-print');
+    const overlay = document.getElementById('overlay');
+    const overlayBtn = document.getElementById('overlay-btn');
+
+    let device = null;
+    let writeChar = null;
+    let orderObj = null;
+    let printMode = 'detail';
+    let autoMode = false;
+    let backUrl = '';
+
+    function log(msg, cls) {
+      const t = '[' + new Date().toLocaleTimeString('zh-TW') + '] ' + msg + '\n';
+      const span = document.createElement('span');
+      if (cls) span.className = cls;
+      span.textContent = t;
+      logEl.appendChild(span);
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log('[Printer]', msg);
+    }
+
+    function parseOrderFromUrl() {
+      const qs = new URLSearchParams(window.location.search);
+      autoMode = String(qs.get('auto') || '') === '1';
+      printMode = (qs.get('mode') || 'detail').toLowerCase() === 'label' ? 'label' : 'detail';
+      backUrl = qs.get('back') || '';
+      const raw = qs.get('data');
+      if (!raw) return;
+      try {
+        orderObj = JSON.parse(decodeURIComponent(raw));
+        log('解析訂單成功', 'ok');
+      } catch (e) {
+        log('解析訂單失敗: ' + String(e), 'err');
+      }
+    }
+
+    function ascii(s) { return new TextEncoder().encode(s); }
+    function encodeCn(str) {
+      if (typeof cptable !== 'undefined' && cptable.utils && cptable.utils.encode) {
+        if (cptable.utils.hascp(950)) return new Uint8Array(cptable.utils.encode(950, String(str)));
+        if (cptable.utils.hascp(936)) return new Uint8Array(cptable.utils.encode(936, String(str)));
+      }
+      return new TextEncoder().encode(String(str));
+    }
+    function concat(parts) {
+      let total = 0;
+      for (let i = 0; i < parts.length; i++) total += parts[i].length;
+      const out = new Uint8Array(total);
+      let offset = 0;
+      for (let i = 0; i < parts.length; i++) { out.set(parts[i], offset); offset += parts[i].length; }
+      return out;
+    }
+
+    function buildTspl(order) {
+      const lines = [];
+      lines.push('RT');
+      lines.push('SET REPRINT OFF');
+      lines.push('CLS');
+      lines.push('SIZE 58 mm, 120 mm');
+      lines.push('DIRECTION 1');
+
+      const body = [];
+      body.push(printMode === 'label' ? '商品標籤' : '銷售明細');
+      body.push('單號: ' + (order.orderId || ''));
+      body.push('日期: ' + (order.date || ''));
+      (order.items || []).forEach(function (it) {
+        const p = Number(it.price) || 0;
+        const q = Number(it.quantity) || 0;
+        body.push(String(it.name || '').slice(0, 16) + ' x' + q + ' ' + (p * q));
+      });
+      body.push('總計 NT$' + (order.total != null ? order.total : ''));
+
+      const parts = [];
+      parts.push(ascii(lines.join('\r\n') + '\r\n'));
+      let y = 26;
+      body.forEach(function (line) {
+        parts.push(ascii('TEXT 10,' + y + ',"TST24.BF2",0,1,1,"'));
+        parts.push(encodeCn(line));
+        parts.push(ascii('"\r\n'));
+        y += 34;
+      });
+      // PRINT 僅一次，且在最末端
+      parts.push(ascii('PRINT 1,1\r\n'));
+      return concat(parts);
+    }
+
+    async function connectPrinter() {
+      if (!navigator.bluetooth) throw new Error('此環境不支援 Web Bluetooth');
+      if (!device) {
+        log('連線印表機中...', 'ok');
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: 'Printer_' }],
+          optionalServices: [
+            '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+            'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+            '000018f0-0000-1000-8000-00805f9b34fb',
+            '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+            '0000fff0-0000-1000-8000-00805f9b34fb'
+          ]
+        });
+      }
+      const server = await device.gatt.connect();
+      const services = await server.getPrimaryServices();
+      for (let i = 0; i < services.length; i++) {
+        const chars = await services[i].getCharacteristics();
+        for (let j = 0; j < chars.length; j++) {
+          const c = chars[j];
+          if (c.properties.writeWithoutResponse || c.properties.write) {
+            writeChar = c;
+            btnDisconnect.disabled = false;
+            btnPrint.disabled = false;
+            log('藍牙已連線: ' + (device.name || '(無名)') + ' / ' + c.uuid, 'ok');
+            return;
+          }
+        }
+      }
+      throw new Error('找不到可寫入特徵');
+    }
+
+    async function writeChunks(bytes) {
+      if (!writeChar) throw new Error('未連線印表機');
+      const canWo = !!writeChar.properties.writeWithoutResponse;
+      const canW = !!writeChar.properties.write;
+      async function writeOne(slice) {
+        if (canWo && canW) {
+          try { await writeChar.writeValueWithoutResponse(slice); }
+          catch (_) { await writeChar.writeValue(slice); }
+        } else if (canWo) {
+          await writeChar.writeValueWithoutResponse(slice);
+        } else {
+          await writeChar.writeValue(slice);
+        }
+      }
+      try { await writeOne(bytes); return; }
+      catch (e) { log('整包發送失敗，改分批: ' + String(e), 'err'); }
+      for (let i = 0; i < bytes.length; i += 200) {
+        const slice = bytes.subarray(i, Math.min(i + 200, bytes.length));
+        await writeOne(slice);
+        await new Promise(r => setTimeout(r, 45));
+      }
+    }
+
+    async function printOrder() {
+      if (window.isPrinting || isPrinting) return;
+      if (!orderObj || !orderObj.items || !orderObj.items.length) {
+        log('無訂單資料可列印', 'err');
+        return;
+      }
+      isPrinting = true;
+      window.isPrinting = true;
+      try {
+        const payload = buildTspl(orderObj);
+        log('送出 TSPL，bytes=' + payload.length);
+        await writeChunks(payload);
+        log('列印指令送出成功', 'ok');
+        if (backUrl) {
+          setTimeout(function () {
+            try { window.location.href = decodeURIComponent(backUrl); }
+            catch (e) { window.location.href = backUrl; }
+          }, 1500);
+        }
+      } catch (e) {
+        log('列印失敗: ' + String(e), 'err');
+      } finally {
+        isPrinting = false;
+        window.isPrinting = false;
+      }
+    }
+
+    async function connectAndPrint() {
+      try {
+        await connectPrinter();
+      } catch (e) {
+        log('自動連線失敗: ' + String(e), 'err');
+        overlay.style.display = 'flex';
+        return;
+      }
+      await printOrder();
+    }
+
+    btnConnect.addEventListener('click', async function () {
+      try { await connectPrinter(); } catch (e) { log(String(e), 'err'); }
+    });
+    btnDisconnect.addEventListener('click', function () {
+      try { if (device && device.gatt && device.gatt.connected) device.gatt.disconnect(); } catch (_) {}
+      writeChar = null;
+      btnDisconnect.disabled = true;
+      btnPrint.disabled = true;
+      log('已中斷', 'ok');
+    });
+    btnPrint.addEventListener('click', function () { printOrder(); });
+    overlayBtn.addEventListener('click', async function () {
+      overlay.style.display = 'none';
+      await connectAndPrint();
+    });
+
+    window.onload = function () {
+      parseOrderFromUrl();
+      if (autoMode && orderObj) {
+        overlay.style.display = 'flex';
+        connectAndPrint();
+      }
+    };
+  })();
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>GP-2270T 列印服務</title>
+  <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --ok: #22c55e;
+      --err: #ef4444;
+      --warn: #f59e0b;
+      --btn: #f97316;
+      --btn-hover: #ea580c;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+    .wrap { max-width: 760px; margin: 16px auto; padding: 12px; }
+    .card { background: var(--card); border-radius: 14px; border: 1px solid #1f2937; padding: 14px; }
+    .hint { color: var(--muted); font-size: 13px; margin: 6px 0; }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    button {
+      border: none; border-radius: 10px; padding: 10px 14px; font-weight: 700;
+      color: #fff; background: #2563eb; cursor: pointer;
+    }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .secondary { background: #374151; }
+    #log {
+      margin-top: 12px; max-height: 220px; overflow: auto; white-space: pre-wrap;
+      border-radius: 10px; background: #020617; border: 1px solid #1f2937; padding: 10px; font-size: 12px;
+    }
+    #overlay {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: rgba(2, 6, 23, 0.7); z-index: 9999; padding: 18px;
+    }
+    #overlay-btn {
+      width: min(92vw, 640px); min-height: 220px; border-radius: 18px; border: none;
+      background: var(--btn); color: #fff; font-size: clamp(28px, 5vw, 44px); font-weight: 900;
+      box-shadow: 0 20px 45px rgba(0,0,0,.45);
+    }
+    #overlay-btn:hover { background: var(--btn-hover); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2 style="margin:0 0 8px;">GP-2270T 列印服務</h2>
+      <p class="hint">請保持此分頁開啟，並確認藍牙已連線（綠燈）。</p>
+      <p class="hint">流程：解析訂單 → 連線印表機 → 列印 → 1.5 秒返回 POS。</p>
+      <div class="row">
+        <button id="btn-connect">連線印表機</button>
+        <button id="btn-disconnect" class="secondary" disabled>中斷</button>
+        <button id="btn-print" class="secondary" disabled>手動列印</button>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <button id="overlay-btn">[ 點擊連線並列印 ]</button>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    let isPrinting = false;
+    window.isPrinting = false;
+    const logEl = document.getElementById('log');
+    const btnConnect = document.getElementById('btn-connect');
+    const btnDisconnect = document.getElementById('btn-disconnect');
+    const btnPrint = document.getElementById('btn-print');
+    const overlay = document.getElementById('overlay');
+    const overlayBtn = document.getElementById('overlay-btn');
+
+    let device = null;
+    let writeChar = null;
+    let orderObj = null;
+    let printMode = 'detail';
+    let backUrl = '';
+    let auto = false;
+
+    function log(msg, cls) {
+      const line = '[' + new Date().toLocaleTimeString('zh-TW') + '] ' + msg + '\n';
+      const span = document.createElement('span');
+      if (cls) span.className = cls;
+      span.textContent = line;
+      logEl.appendChild(span);
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log('[Printer]', msg);
+    }
+
+    function parseUrl() {
+      const q = new URLSearchParams(window.location.search);
+      auto = String(q.get('auto') || '') === '1';
+      printMode = (q.get('mode') || 'detail').toLowerCase() === 'label' ? 'label' : 'detail';
+      backUrl = q.get('back') || '';
+      const raw = q.get('data');
+      if (!raw) return;
+      try {
+        orderObj = JSON.parse(decodeURIComponent(raw));
+        log('解析訂單成功', 'ok');
+      } catch (e) {
+        log('解析訂單失敗: ' + String(e), 'err');
+      }
+    }
+
+    function encodeTextBig5OrGb(str) {
+      if (typeof cptable === 'undefined' || !cptable.utils || !cptable.utils.encode) {
+        return new TextEncoder().encode(String(str));
+      }
+      if (cptable.utils.hascp(950)) return new Uint8Array(cptable.utils.encode(950, String(str)));
+      if (cptable.utils.hascp(936)) return new Uint8Array(cptable.utils.encode(936, String(str)));
+      return new TextEncoder().encode(String(str));
+    }
+    function ascii(s) { return new TextEncoder().encode(s); }
+    function concat(parts) {
+      let total = 0;
+      for (let i = 0; i < parts.length; i++) total += parts[i].length;
+      const out = new Uint8Array(total);
+      let o = 0;
+      for (let i = 0; i < parts.length; i++) { out.set(parts[i], o); o += parts[i].length; }
+      return out;
+    }
+
+    function buildPayload(order) {
+      const lines = [];
+      lines.push('RT');
+      lines.push('CLS');
+      lines.push('SIZE 58 mm, 120 mm');
+      lines.push('DIRECTION 1');
+      const body = [];
+      body.push('--- ' + (printMode === 'label' ? '品項標籤' : '銷售明細') + ' ---');
+      body.push('單號: ' + (order.orderId || ''));
+      body.push('日期: ' + (order.date || ''));
+      (order.items || []).forEach(function (it) {
+        const p = Number(it.price) || 0;
+        const q = Number(it.quantity) || 0;
+        const sub = p * q;
+        body.push(String(it.name || '').slice(0, 16) + ' x' + q + ' ' + sub);
+      });
+      body.push('總計: NT$' + (order.total != null ? order.total : ''));
+
+      const parts = [];
+      parts.push(ascii(lines.join('\r\n') + '\r\n'));
+      let y = 24;
+      body.forEach(function (line) {
+        parts.push(ascii('TEXT 10,' + y + ',"TST24.BF2",0,1,1,"'));
+        parts.push(encodeTextBig5OrGb(line));
+        parts.push(ascii('"\r\n'));
+        y += 34;
+      });
+      // PRINT 僅在最末端一次
+      parts.push(ascii('PRINT 1,1\r\n'));
+      return concat(parts);
+    }
+
+    async function writeChunks(bytes) {
+      if (!writeChar) throw new Error('write characteristic not ready');
+      const canWo = !!writeChar.properties.writeWithoutResponse;
+      const canW = !!writeChar.properties.write;
+      async function writeOne(slice) {
+        if (canWo && canW) {
+          try { await writeChar.writeValueWithoutResponse(slice); }
+          catch (_) { await writeChar.writeValue(slice); }
+        } else if (canWo) {
+          await writeChar.writeValueWithoutResponse(slice);
+        } else {
+          await writeChar.writeValue(slice);
+        }
+      }
+      try {
+        await writeOne(bytes);
+        return;
+      } catch (eWhole) {
+        log('整包送出失敗，改分批: ' + String(eWhole), 'err');
+      }
+      const step = 200;
+      for (let i = 0; i < bytes.length; i += step) {
+        const slice = bytes.subarray(i, Math.min(i + step, bytes.length));
+        await writeOne(slice);
+        await new Promise(r => setTimeout(r, 45));
+      }
+    }
+
+    async function connectPrinter() {
+      if (!navigator.bluetooth) throw new Error('瀏覽器不支援 Web Bluetooth');
+      if (!device) {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: 'Printer_' }],
+          optionalServices: [
+            '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+            'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+            '000018f0-0000-1000-8000-00805f9b34fb',
+            '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+            '0000fff0-0000-1000-8000-00805f9b34fb'
+          ]
+        });
+      }
+      const server = await device.gatt.connect();
+      const services = await server.getPrimaryServices();
+      for (let s = 0; s < services.length; s++) {
+        const chars = await services[s].getCharacteristics();
+        for (let c = 0; c < chars.length; c++) {
+          const ch = chars[c];
+          if (ch.properties.writeWithoutResponse || ch.properties.write) {
+            writeChar = ch;
+            btnDisconnect.disabled = false;
+            btnPrint.disabled = false;
+            log('已連線: ' + (device.name || '(無名)') + ' / ' + ch.uuid, 'ok');
+            return;
+          }
+        }
+      }
+      throw new Error('找不到可寫入特徵');
+    }
+
+    async function printNow() {
+      if (window.isPrinting || isPrinting) return;
+      if (!orderObj || !orderObj.items || !orderObj.items.length) {
+        log('無訂單資料可列印', 'err');
+        return;
+      }
+      isPrinting = true;
+      window.isPrinting = true;
+      try {
+        const bytes = buildPayload(orderObj);
+        log('送出 TSPL bytes=' + bytes.length);
+        await writeChunks(bytes);
+        log('列印指令送出成功', 'ok');
+        if (backUrl) {
+          setTimeout(function () {
+            try {
+              window.location.href = decodeURIComponent(backUrl);
+            } catch (e) {
+              window.location.href = backUrl;
+            }
+          }, 1500);
+        }
+      } catch (e) {
+        log('列印失敗: ' + String(e), 'err');
+      } finally {
+        isPrinting = false;
+        window.isPrinting = false;
+      }
+    }
+
+    async function connectAndPrint() {
+      log('connectAndPrint: start');
+      try {
+        await connectPrinter();
+      } catch (e) {
+        log('自動連線失敗，等待手動點擊: ' + String(e), 'err');
+        overlay.style.display = 'flex';
+        return;
+      }
+      await printNow();
+    }
+
+    btnConnect.addEventListener('click', async function () {
+      try { await connectPrinter(); } catch (e) { log(String(e), 'err'); }
+    });
+    btnDisconnect.addEventListener('click', async function () {
+      try {
+        if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+      } catch (_) {}
+      writeChar = null;
+      btnDisconnect.disabled = true;
+      btnPrint.disabled = true;
+      log('已中斷', 'ok');
+    });
+    btnPrint.addEventListener('click', function () { printNow(); });
+    overlayBtn.addEventListener('click', async function () {
+      overlay.style.display = 'none';
+      await connectAndPrint();
+    });
+
+    window.onload = function () {
+      parseUrl();
+      if (auto && orderObj) {
+        overlay.style.display = 'flex';
+        connectAndPrint();
+      }
+    };
+  })();
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>POS 列印接收中心 · GP-2270T / TSPL</title>
   <!-- 佳博 GP-2270T 等 2 吋機：熱感連續紙 TSPL；此頁 SIZE 寬度 58mm（僅寬、不設高度）。繁中：CP950→TST24.BF2。 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
