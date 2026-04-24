@@ -168,7 +168,7 @@
   'use strict';
 
   let isPrinting = false;
-  window.executedPrint = false;
+  window.isPrintProcessed = false;
 
   var PRINTER_NAME = 'Printer_9AE9';
   var PRINTER_NAME_BLE = 'Printer_9AE9_BLE';
@@ -265,7 +265,9 @@
     rcDetailLengthWarn_ = '';
   }
 
-  /** 從 URL 成功讀到新 data 後、列印前：清掉本頁用過的 session 鍵，避免沿用上一筆 lastPrintedId 等。 */
+  var RC_SESSION_LAST_ORDER_ID_KEY = 'lastOrderId';
+
+  /** 從 URL 成功讀到新 data 後、列印前：清掉 lastPrintedId，避免沿用上一筆去重狀態。 */
   function purgeStaleReceiverStorage_() {
     try {
       sessionStorage.removeItem('lastPrintedId');
@@ -806,26 +808,11 @@
       log('auto=1：尚未取得寫入特徵，略過排程。', 'err');
       return;
     }
-    if (!rcUrlMode_ || !rcUrlOrder_ || !rcUrlOrder_.items || !rcUrlOrder_.items.length) {
-      log('auto=1：需有效 mode 與 data（含 items）才會自動列印。', 'err');
-      return;
-    }
-    var curId = getCurrentOrderIdForDedup_();
-    if (!curId) {
-      log('auto=1：需有 orderId 才會自動列印（與 sessionStorage lastPrintedId 比對）。', 'err');
-      return;
-    }
-    try {
-      if (sessionStorage.getItem('lastPrintedId') === curId) {
-        log('lastPrintedId 與本筆 orderId 相同，不排程自動列印。', 'ok');
-        return;
-      }
-    } catch (e0) { /* 略 */ }
     _autoPrintScheduleTimer_ = setTimeout(function () {
       _autoPrintScheduleTimer_ = null;
       print(false);
     }, 1500);
-    log('已排程 1.5 秒後自動列印（寫入特徵已取得）。', 'ok');
+    log('已排程 1.5 秒後嘗試 print(false)（GATT 已取得寫入特徵）。', 'ok');
   }
 
   /** 僅恢復 GATT／裝置；自動列印改由取得寫入特徵後 scheduleAutoPrintOnceAfterBleReady_ 單一路徑排程。 */
@@ -864,12 +851,12 @@
 
   /**
    * 送出目前 TSPL（手動按鈕與自動列印共用）。
-   * @param {boolean} forceBypassDedup 為 true 時略過 orderId／lastPrintedId 與 executedPrint（手動「列印」可重複出單）。
-   * 自動路徑（auto=1）：window.executedPrint 為 true 則禁止再次觸發；通過前置檢查後才設為 true。
+   * @param {boolean} forceBypassDedup 為 true 時略過 orderId／lastPrintedId 與 isPrintProcessed（手動「列印」可重複出單）。
+   * 自動路徑（auto=1）：window.isPrintProcessed 為 true 則略過；新訂單於 onload 依 lastOrderId 重置。
    */
   async function print(forceBypassDedup) {
-    if (!forceBypassDedup && rcUrlAuto_ && window.executedPrint) {
-      log('auto=1：已執行過自動列印（executedPrint），略過。', 'ok');
+    if (!forceBypassDedup && rcUrlAuto_ && window.isPrintProcessed) {
+      log('auto=1：本筆已處理過（isPrintProcessed），略過。', 'ok');
       return;
     }
     if (isPrinting) {
@@ -898,7 +885,7 @@
       } catch (eSkip) { /* 略 */ }
     }
     if (!forceBypassDedup && rcUrlAuto_) {
-      window.executedPrint = true;
+      window.isPrintProcessed = true;
     }
     isPrinting = true;
     btnPrint.disabled = true;
@@ -913,13 +900,8 @@
         if (okId) {
           try {
             sessionStorage.setItem('lastPrintedId', okId);
+            sessionStorage.setItem(RC_SESSION_LAST_ORDER_ID_KEY, okId);
           } catch (eMark) { /* 略 */ }
-        }
-        try {
-          window.history.replaceState({}, document.title, window.location.pathname);
-          log('已以 replaceState 移除網址查詢字串，重新整理不會再依舊網址自動列印。', 'ok');
-        } catch (eHist) {
-          log('replaceState 失敗：' + fmtErr_(eHist), 'err');
         }
       }
       refreshRcUi_();
@@ -931,6 +913,14 @@
           } catch (eClose) { /* 略 */ }
         }
       } catch (eAlert) { /* 略 */ }
+      if (!forceBypassDedup && rcUrlAuto_) {
+        try {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          log('已以 replaceState 移除網址查詢字串（印畢後），重新整理不會再依舊網址自動列印。', 'ok');
+        } catch (eHist) {
+          log('replaceState 失敗：' + fmtErr_(eHist), 'err');
+        }
+      }
     } catch (err) {
       isPrinting = false;
       log('列印失敗：' + (err && err.message ? err.message : String(err)), 'err');
@@ -1063,12 +1053,28 @@
     // data：URLSearchParams → decodeURIComponent → JSON.parse（邏輯在 parseUrlParamsOnLoad_）；失敗時日誌會附原始 data
     parseUrlParamsOnLoad_();
     refreshRcUi_();
+    try {
+      var urlParamsOnLoad = new URLSearchParams(window.location.search);
+      if (urlParamsOnLoad.get('data') && rcUrlOrder_) {
+        var curOid = getCurrentOrderIdForDedup_();
+        var prevOid = '';
+        try {
+          prevOid = sessionStorage.getItem(RC_SESSION_LAST_ORDER_ID_KEY) || '';
+        } catch (eSo) { /* 略 */ }
+        if (curOid && curOid !== prevOid) {
+          window.isPrintProcessed = false;
+          log('偵測到新訂單 orderId（與 lastOrderId 不同），已重置 isPrintProcessed。', 'ok');
+        }
+      }
+    } catch (eOn) {
+      log('onload 訂單鎖同步失敗：' + fmtErr_(eOn), 'err');
+    }
     log('POS 列印接收中心就緒。');
     if (!rcUrlAuto_) return;
     tryReconnectBleThenAutoPrint_();
   };
 
-  log('腳本已載入；auto=1 用 window.executedPrint 僅一次；chunk 間隔 50ms；列印完成以 confirm 決定是否關閉分頁。');
+  log('腳本已載入；auto=1 依 isPrintProcessed／lastOrderId；GATT 就緒必排程 print；印畢後 replaceState。');
 })();
   </script>
 </body>
