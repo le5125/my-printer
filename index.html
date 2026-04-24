@@ -133,7 +133,7 @@
       <div class="label">目前接收模式</div>
       <div class="value" id="rc-mode-display">—</div>
     </div>
-    <p class="hint">支援網址參數：<code>mode</code>=detail｜label、<code>data</code>=訂單 JSON（URL 編碼）、<code>auto</code>=1（僅在藍牙已連線時自動列印）。</p>
+    <p class="hint">支援網址參數：<code>mode</code>=detail｜label、<code>data</code>=訂單 JSON（URL 編碼）、<code>auto</code>=1（GATT 就緒後延遲 1.5 秒自動列印）。輸出為 <strong>58mm 熱感收據</strong>（連續紙，無 GAP）。</p>
 
     <div class="uuid-row">
       <label for="custom-service-uuid">BLE Service UUID</label>
@@ -306,69 +306,64 @@
     });
   }
 
-  /** 標籤：每張僅一組 CLS→SIZE→GAP→內容→PRINT（不重複 SIZE／PRINT）；GAP 第二參數依印表機規格為 0 */
-  var TSPL_LABEL_HEADER_ = 'CLS\r\nSIZE 40 mm, 30 mm\r\nGAP 3 mm, 0\r\n';
-  var TSPL_LABEL_FOOTER_ = 'PRINT 1, 1\r\n';
+  /** 熱感連續紙：僅寬度、無 GAP；開頭 CLS + DIRECTION 1 */
+  function tsplThermalHeaderBytes_() {
+    return asciiBytes('CLS\r\nDIRECTION 1\r\nSIZE 58 mm,\r\nOFFSET 0\r\n');
+  }
 
-  /** 模板 A：40×30mm，每品項一張；品名置中放大（2×），下方日期 */
-  function buildTsplLabelTemplate(order) {
-    var dateStr = order && order.date ? String(order.date) : formatDateZhTw_();
-    var items = (order && order.items) ? order.items : [];
-    var blobs = [];
-    items.forEach(function (it) {
-      var name = String(it.name || '').slice(0, 12);
-      var parts = [];
-      parts.push(asciiBytes(TSPL_LABEL_HEADER_));
-      parts.push(asciiBytes('TEXT 24,72,"' + TSPL_FONT_BIG5 + '",0,2,2,"'));
-      parts.push(encodeBig5OrThrow(name));
-      parts.push(asciiBytes('"\r\n'));
-      parts.push(asciiBytes('TEXT 24,188,"' + TSPL_FONT_BIG5 + '",0,1,1,"'));
-      parts.push(encodeBig5OrThrow(dateStr.slice(0, 20)));
-      parts.push(asciiBytes('"\r\n' + TSPL_LABEL_FOOTER_));
-      blobs.push(concatUint8Arrays(parts));
-    });
-    if (!blobs.length) {
-      return asciiBytes(TSPL_LABEL_HEADER_ + TSPL_LABEL_FOOTER_);
-    }
-    return concatUint8Arrays(blobs);
+  /** 結尾走紙再出單（避免尾端空白過長／裁切位置） */
+  function tsplThermalFooterBytes_() {
+    return asciiBytes('FEED 48\r\nPRINT 1,1\r\n');
   }
 
   /**
-   * 模板 B：連續紙明細；頂「銷售明細」、品名＋小計、總金額。
-   * 行數過多時 rcDetailLengthWarn_ 供 UI 提醒檢查標籤長度。
+   * 58mm 熱感收據：品名、數量、單價、小計；單一 PRINT。
+   * @param {string} title 標題列（label / detail 區分用）
    */
-  function buildTsplDetailTemplate(order) {
-    var y = 32;
-    var lineGap = 40;
-    var maxY = 1500;
+  function buildTsplThermalReceipt_(order, title) {
     var parts = [];
-    parts.push(asciiBytes('SIZE 58 mm, 200 mm\r\nGAP 2 mm, 0 mm\r\nCLS\r\n'));
+    parts.push(tsplThermalHeaderBytes_());
+    var y = 24;
+    var lineGap = 40;
+    var maxY = 1380;
     function line(txt) {
       if (y > maxY) return;
       parts.push(asciiBytes('TEXT 12,' + y + ',"' + TSPL_FONT_BIG5 + '",0,1,1,"'));
-      parts.push(encodeBig5OrThrow(String(txt).slice(0, 42)));
+      parts.push(encodeBig5OrThrow(String(txt).slice(0, 48)));
       parts.push(asciiBytes('"\r\n'));
       y += lineGap;
     }
-    line('銷售明細');
+    line(title || '明細');
+    if (order && order.date) {
+      line('日期 ' + String(order.date).slice(0, 20));
+    }
     var items = (order && order.items) ? order.items : [];
-    items.forEach(function (it) {
-      var sub = (Number(it.price) || 0) * (Number(it.quantity) || 0);
-      var left = (it.name || '') + ' ×' + (it.quantity || 0);
-      line(left.slice(0, 22) + ' 小計 ' + sub);
-    });
+    if (!items.length) {
+      line('（無品項）');
+    } else {
+      items.forEach(function (it) {
+        var p = Number(it.price) || 0;
+        var q = Number(it.quantity) || 0;
+        var sub = p * q;
+        line(String(it.name || '').slice(0, 14) + ' 數量' + q + ' 單價' + p + ' 小計' + sub);
+      });
+    }
     var tot = order && order.total != null ? order.total : items.reduce(function (s, it) {
       return s + (Number(it.price) || 0) * (Number(it.quantity) || 0);
     }, 0);
     line('總計 NT$' + tot);
-    parts.push(asciiBytes('PRINT 1, 1\r\n'));
-    var estLines = 1 + items.length + 1;
-    if (estLines > 28 || y > maxY - 80) {
-      rcDetailLengthWarn_ = '明細行數較多，實際高度可能超過目前 SIZE（58×200mm）設定，請檢查印表機標籤紙長度與 SIZE／GAP 是否需調整。';
-    } else {
-      rcDetailLengthWarn_ = '';
-    }
+    parts.push(tsplThermalFooterBytes_());
     return concatUint8Arrays(parts);
+  }
+
+  /** mode=label：58mm 熱感收據（品項清單） */
+  function buildTsplLabelTemplate(order) {
+    return buildTsplThermalReceipt_(order, '品項清單');
+  }
+
+  /** mode=detail：58mm 熱感銷售明細 */
+  function buildTsplDetailTemplate(order) {
+    return buildTsplThermalReceipt_(order, '銷售明細');
   }
 
   function buildTsplPayloadFromRc_() {
@@ -378,46 +373,41 @@
   }
 
   function buildTsplTestPayload_() {
-    var line1Big5 = encodeBig5OrThrow('測試列印成功');
-    var line2Big5 = encodeBig5OrThrow('繁體中文不亂碼');
-    var line3Big5 = encodeBig5OrThrow(formatDateZhTw_());
-    var header = asciiBytes(
-      'CLS\r\nSIZE 40 mm, 30 mm\r\nGAP 3 mm, 0\r\n'
-    );
-    var mid1 = asciiBytes('TEXT 40,40,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
-    var end1 = asciiBytes('"\r\n');
-    var mid2 = asciiBytes('TEXT 40,110,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
-    var end2 = asciiBytes('"\r\n');
-    var mid3 = asciiBytes('TEXT 40,180,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
-    var end3 = asciiBytes('"\r\n');
-    var footer = asciiBytes('PRINT 1, 1\r\n');
-    return concatUint8Arrays([
-      header,
-      mid1, line1Big5, end1,
-      mid2, line2Big5, end2,
-      mid3, line3Big5, end3,
-      footer
-    ]);
+    var parts = [];
+    parts.push(tsplThermalHeaderBytes_());
+    var y = 24;
+    function line(txt) {
+      parts.push(asciiBytes('TEXT 12,' + y + ',"' + TSPL_FONT_BIG5 + '",0,1,1,"'));
+      parts.push(encodeBig5OrThrow(String(txt).slice(0, 48)));
+      parts.push(asciiBytes('"\r\n'));
+      y += 40;
+    }
+    line('58mm 熱感測試');
+    line('測試列印成功');
+    line('繁體中文不亂碼');
+    line(formatDateZhTw_());
+    parts.push(tsplThermalFooterBytes_());
+    return concatUint8Arrays(parts);
   }
 
   function previewTextForOrder_(mode, order) {
     if (!order || !order.items || !order.items.length) {
-      if (mode === 'label') return '（無品項，不會產生標籤內容）';
+      if (mode === 'label') return '（無品項）';
       if (mode === 'detail') return '（無品項）';
     }
     var lines = [];
     if (mode === 'label') {
-      lines.push('【標籤 40×30】每項一張');
+      lines.push('【58mm 熱感收據 · label】品項清單（連續紙）');
       order.items.forEach(function (it) {
         var sub = (Number(it.price) || 0) * (Number(it.quantity) || 0);
-        lines.push('品名: ' + (it.name || '') + '  單價:' + it.price + '  數量:' + it.quantity + '  小計:' + sub);
+        lines.push((it.name || '') + '  數量:' + it.quantity + '  單價:' + it.price + '  小計:' + sub);
       });
-      lines.push('日期（標籤下方）: ' + (order.date || formatDateZhTw_()));
+      lines.push('日期: ' + (order.date || formatDateZhTw_()));
     } else {
-      lines.push('銷售明細');
+      lines.push('【58mm 熱感收據 · detail】銷售明細');
       order.items.forEach(function (it) {
         var sub = (Number(it.price) || 0) * (Number(it.quantity) || 0);
-        lines.push((it.name || '') + ' ×' + (it.quantity || 0) + '  小計 ' + sub);
+        lines.push((it.name || '') + '  數量:' + it.quantity + '  單價:' + it.price + '  小計:' + sub);
       });
       lines.push('總計 NT$' + (order.total != null ? order.total : ''));
     }
@@ -463,7 +453,11 @@
       var urlParams = new URLSearchParams(window.location.search);
       var modeRaw = (urlParams.get('mode') || '').toLowerCase();
       if (modeRaw === 'label' || modeRaw === 'detail') rcUrlMode_ = modeRaw;
-      rcUrlAuto_ = urlParams.get('auto') === '1';
+      var autoParam = urlParams.get('auto');
+      rcUrlAuto_ = String(autoParam == null ? '' : autoParam).trim() === '1';
+      if (urlParams.has('auto')) {
+        log('網址 auto=' + JSON.stringify(autoParam) + ' → 自動列印' + (rcUrlAuto_ ? '啟用' : '未啟用（須為 1）'), rcUrlAuto_ ? 'ok' : 'err');
+      }
       var rawData = urlParams.get('data');
       if (rawData) {
         var decodedStr;
@@ -497,32 +491,32 @@
 
   function updateDetailLengthHintOnly_(order) {
     rcDetailLengthWarn_ = '';
-    if (rcUrlMode_ !== 'detail' || !order || !order.items) return;
+    if (!rcUrlMode_ || !order || !order.items) return;
     var n = order.items.length;
-    if (n > 26) {
-      rcDetailLengthWarn_ = '明細品項較多，實際列印高度可能超過目前 SIZE（58×200mm）設定，請檢查標籤紙長度與印表機 SIZE／GAP。';
+    if (n > 28) {
+      rcDetailLengthWarn_ = '品項列數較多，熱感連續紙單次版面可能不足，請留意印出是否截斷。';
     }
   }
 
   function refreshRcUi_() {
     if (!elMode || !elPreview) return;
     if (!rcUrlMode_) {
-      elMode.textContent = '（未指定 mode，列印為內建測試標籤）';
+      elMode.textContent = '（未指定 mode，列印為內建 58mm 熱感測試）';
     } else if (rcUrlMode_ === 'label') {
-      elMode.textContent = '標籤（label）— 每品項一張 40×30mm';
+      elMode.textContent = 'label — 58mm 熱感收據（品項清單）';
     } else {
-      elMode.textContent = '明細（detail）— 連續紙銷售明細';
+      elMode.textContent = 'detail — 58mm 熱感銷售明細';
     }
-    if (rcUrlMode_ === 'detail' && rcUrlOrder_) updateDetailLengthHintOnly_(rcUrlOrder_);
+    if (rcUrlOrder_) updateDetailLengthHintOnly_(rcUrlOrder_);
     if (rcUrlMode_ && rcUrlOrder_) {
       elPreview.textContent = previewTextForOrder_(rcUrlMode_, rcUrlOrder_);
     } else if (rcUrlOrder_ && !rcUrlMode_) {
       elPreview.textContent = '已解析 data，但未指定 mode=detail|label。\n' + previewTextForOrder_('detail', rcUrlOrder_);
     } else {
-      elPreview.textContent = '（無 URL 訂單資料；「列印」將送出內建測試標籤）';
+      elPreview.textContent = '（無 URL 訂單資料；「列印」將送出內建 58mm 熱感測試）';
     }
     if (elDetailWarn) {
-      if (rcUrlMode_ === 'detail' && rcDetailLengthWarn_) {
+      if (rcDetailLengthWarn_) {
         elDetailWarn.style.display = 'block';
         elDetailWarn.textContent = rcDetailLengthWarn_;
       } else {
@@ -789,20 +783,24 @@
   }
 
   /**
-   * GATT 已就緒且 auto=1 時，延遲 1 秒再 print(false)，讓寫入特徵穩定。
+   * GATT 已就緒且 rcUrlAuto_（網址 auto=1）為真時，延遲 1.5 秒再 print(false)，讓寫入特徵穩定。
    */
   function scheduleAutoPrintAfterConnect_() {
     clearAutoPrintSchedule_();
-    if (!rcUrlAuto_ || !writeCharacteristic) return;
+    if (!writeCharacteristic) {
+      if (rcUrlAuto_) log('auto=1：尚未取得寫入特徵，略過排程。', 'err');
+      return;
+    }
+    if (!rcUrlAuto_) return;
     if (!rcUrlMode_ || !rcUrlOrder_ || !rcUrlOrder_.items || !rcUrlOrder_.items.length) {
-      if (rcUrlAuto_) log('auto=1：需有效 mode 與 data（含 items）才會自動列印。', 'err');
+      log('auto=1：需有效 mode 與 data（含 items）才會自動列印。', 'err');
       return;
     }
     _autoPrintScheduleTimer_ = setTimeout(function () {
       _autoPrintScheduleTimer_ = null;
       print(false);
-    }, 1000);
-    log('auto=1：已排程 1 秒後自動列印（等待寫入特徵穩定）。', 'ok');
+    }, 1500);
+    log('auto=1 已確認：已排程 1.5 秒後自動列印（onConnect 成功後延遲）。', 'ok');
   }
 
   /** 若已授權過裝置，嘗試不經選單恢復 GATT（iframe 重載時可能成功） */
@@ -1006,7 +1004,7 @@
     tryReconnectBleThenAutoPrint_();
   };
 
-  log('腳本已載入；auto=1 時於 GATT 就緒後延遲 1 秒自動列印；同 orderId 重新整理不重複自動印。');
+  log('腳本已載入；auto=1 時於 GATT 就緒後延遲 1.5 秒自動列印；58mm 熱感連續紙；同 orderId 重新整理不重複自動印。');
 })();
   </script>
 </body>
