@@ -166,7 +166,7 @@
   <div id="auto-stage-overlay" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.45);z-index:9999;padding:20px;">
     <div style="max-width:680px;text-align:center;">
       <div id="auto-stage-text" style="font-size:46px;font-weight:900;line-height:1.2;color:#f8fafc;text-shadow:0 4px 20px rgba(0,0,0,.45);">解析訂單中...</div>
-      <button id="auto-stage-action-btn" type="button" style="margin-top:22px;display:none;padding:20px 28px;font-size:34px;font-weight:900;border:none;border-radius:16px;background:#2563eb;color:#fff;box-shadow:0 12px 26px rgba(0,0,0,.35);">按此處列印並返回</button>
+      <button id="auto-stage-action-btn" type="button" style="margin-top:22px;display:none;padding:20px 28px;font-size:34px;font-weight:900;border:none;border-radius:16px;background:#2563eb;color:#fff;box-shadow:0 12px 26px rgba(0,0,0,.35);">[ 訂單已送達，點擊此處立即列印 ]</button>
     </div>
   </div>
 
@@ -993,15 +993,7 @@
             } catch (eDec) {
               backResolved = backUrl;
             }
-            try {
-              if (confirm('列印完成，是否返回 POS 頁面？')) {
-                window.location.href = backResolved;
-              } else {
-                hideAutoStage_();
-              }
-            } catch (eCf) {
-              window.location.href = backResolved;
-            }
+            window.location.href = backResolved;
           }, 1500);
         } else {
           hideAutoStage_();
@@ -1205,6 +1197,9 @@
       log('onload 訂單鎖同步失敗：' + fmtErr_(eOn), 'err');
     }
     log('POS 列印接收中心就緒。');
+    if (rcUrlAuto_ && rcUrlOrder_ && rcUrlOrder_.items && rcUrlOrder_.items.length) {
+      showAutoStage_('訂單已送達，點擊此處立即列印', true);
+    }
     if (!rcUrlAuto_) return;
     connectAndPrint_();
   };
