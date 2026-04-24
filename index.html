@@ -426,12 +426,18 @@
 
   function normalizeOrderFromJson_(obj) {
     if (!obj || typeof obj !== 'object') return null;
-    var rawItems = Array.isArray(obj.items) ? obj.items : (Array.isArray(obj) ? obj : []);
+    var rawItems = Array.isArray(obj.items) ? obj.items
+      : (Array.isArray(obj.品項) ? obj.品項
+        : (Array.isArray(obj.商品) ? obj.商品
+          : (Array.isArray(obj) ? obj : [])));
     var items = rawItems.map(function (it) {
       if (!it || typeof it !== 'object') return { name: '', price: 0, quantity: 0 };
-      var name = it.name != null ? String(it.name) : (it.品名 != null ? String(it.品名) : '');
-      var price = Number(it.price != null ? it.price : it.單價) || 0;
-      var quantity = Number(it.quantity != null ? it.quantity : it.數量) || 0;
+      var name = it.name != null ? String(it.name)
+        : (it.品名 != null ? String(it.品名) : (it.productName != null ? String(it.productName) : ''));
+      var priceRaw = it.price != null ? it.price : (it.單價 != null ? it.單價 : it.unitPrice);
+      var qtyRaw = it.quantity != null ? it.quantity : (it.數量 != null ? it.數量 : it.qty);
+      var price = Number(priceRaw) || 0;
+      var quantity = Number(qtyRaw) || 0;
       return { name: name, price: price, quantity: quantity };
     });
     var total = obj.total != null ? obj.total : obj.總計;
@@ -454,19 +460,37 @@
     rcUrlAuto_ = false;
     rcDetailLengthWarn_ = '';
     try {
-      var q = new URLSearchParams(window.location.search);
-      var modeRaw = (q.get('mode') || '').toLowerCase();
+      var urlParams = new URLSearchParams(window.location.search);
+      var modeRaw = (urlParams.get('mode') || '').toLowerCase();
       if (modeRaw === 'label' || modeRaw === 'detail') rcUrlMode_ = modeRaw;
-      rcUrlAuto_ = q.get('auto') === '1';
-      var dataRaw = q.get('data');
-      if (dataRaw) {
-        var jsonStr = dataRaw;
-        try { jsonStr = decodeURIComponent(dataRaw); } catch (e0) { jsonStr = dataRaw; }
-        var parsed = JSON.parse(jsonStr);
+      rcUrlAuto_ = urlParams.get('auto') === '1';
+      var rawData = urlParams.get('data');
+      if (rawData) {
+        var decodedStr;
+        try {
+          decodedStr = decodeURIComponent(rawData);
+        } catch (de) {
+          log('decodeURIComponent(data) 失敗：' + fmtErr_(de) + '\n── 原始 data 參數 ──\n' + rawData, 'err');
+          decodedStr = rawData;
+        }
+        var parsed;
+        try {
+          parsed = JSON.parse(decodedStr);
+        } catch (je) {
+          log('JSON.parse 失敗（流程：先 decodeURIComponent，再 JSON.parse）：' + fmtErr_(je) + '\n── 解碼後字串（供檢查，最長 1200 字）──\n' +
+            decodedStr.slice(0, 1200) + (decodedStr.length > 1200 ? '\n…(截斷)' : '') +
+            '\n── 原始 data 參數（URL 上未再解碼的取值）──\n' + rawData, 'err');
+          throw je;
+        }
         rcUrlOrder_ = normalizeOrderFromJson_(parsed);
+        if (rcUrlOrder_ && (!rcUrlOrder_.items || !rcUrlOrder_.items.length)) {
+          log('data 已解析為 JSON，但找不到品項陣列（支援 items／品項／商品）。\n解碼後摘要：' + decodedStr.slice(0, 400), 'err');
+        }
       }
     } catch (e) {
-      log('解析網址參數失敗：' + fmtErr_(e), 'err');
+      if (e && e.name !== 'SyntaxError') {
+        log('解析網址參數失敗：' + fmtErr_(e), 'err');
+      }
       rcUrlOrder_ = null;
     }
   }
@@ -947,6 +971,7 @@
   });
 
   window.onload = function () {
+    // data：URLSearchParams → decodeURIComponent → JSON.parse（邏輯在 parseUrlParamsOnLoad_）；失敗時日誌會附原始 data
     parseUrlParamsOnLoad_();
     refreshRcUi_();
     log('POS 列印接收中心就緒。');
