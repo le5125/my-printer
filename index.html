@@ -311,7 +311,7 @@
       <label>auto return</label><br>
       <select id="cfg-auto-return" style="background:#000;color:var(--text);border:1px solid var(--border);padding:4px 8px;font-family:var(--font);font-size:0.8rem;border-radius:4px;">
         <option value="ask">詢問</option>
-        <option value="yes">自動回</option>
+        <option value="yes" selected>自動回 POS</option>
         <option value="no">不回</option>
       </select>
     </div>
@@ -341,6 +341,11 @@
    ============================================================ */
 
 'use strict';
+
+/** 與 POS 端 window.open(..., name) 一致：先自行開本頁時仍能被 POS 導向同分頁並帶 hash / postMessage */
+try {
+  window.name = 'PosPrinterBridge';
+} catch (eName) { /* 略 */ }
 
 // ── BLE Constants ────────────────────────────────────────────
 const BLE_SERVICE_UUID  = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2';
@@ -755,7 +760,19 @@ btnClearLog.addEventListener('click', () => { logBox.innerHTML = ''; });
 // ── Init ──────────────────────────────────────────────────────
 function init() {
   log('Printer Bridge 就緒', 'ok');
+  log('視窗名稱已設為 PosPrinterBridge（供 POS 結帳時切回本頁列印）', 'info');
   log('等待 POS 連線...', 'info');
+  try {
+    var cr = document.getElementById('cfg-auto-return');
+    if (cr) {
+      var saved = localStorage.getItem('printer_bridge_auto_return');
+      if (saved === 'yes' || saved === 'no' || saved === 'ask') cr.value = saved;
+      else cr.value = 'yes';
+      cr.addEventListener('change', function () {
+        try { localStorage.setItem('printer_bridge_auto_return', cr.value); } catch (e) { /* 略 */ }
+      });
+    }
+  } catch (eCfg) { /* 略 */ }
   // Check if there's hash data on load (direct URL with data)
   handleIncomingData();
 }
