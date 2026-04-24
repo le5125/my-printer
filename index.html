@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>POS 列印接收中心 · GP-2270T / TSPL</title>
-  <!-- 佳博 GP-2270T（2 吋熱敏標籤／票據雙模）：官網規格列印寬度最大 48mm、TSPL；此頁寬度與 SIZE 對齊 48mm。繁中：CP950→TST24.BF2。 -->
+  <!-- 佳博 GP-2270T 等 2 吋機：熱感連續紙 TSPL；此頁 SIZE 寬度 58mm（僅寬、不設高度）。繁中：CP950→TST24.BF2。 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js"></script>
   <style>
@@ -133,7 +133,7 @@
       <div class="label">目前接收模式</div>
       <div class="value" id="rc-mode-display">—</div>
     </div>
-    <p class="hint">支援網址參數：<code>mode</code>=detail｜label、<code>data</code>=訂單 JSON（URL 編碼）、<code>auto</code>=1（GATT 就緒後延遲 1.5 秒自動列印）。輸出對齊 <strong>佳博 GP-2270T</strong>：<strong>48mm</strong> 熱感連續紙／票據（無 GAP，TSPL）。</p>
+    <p class="hint">支援網址參數：<code>mode</code>=detail｜label、<code>data</code>=訂單 JSON（URL 編碼）、<code>auto</code>=1（GATT 就緒後延遲 1.5 秒自動列印）。輸出對齊 <strong>佳博 GP-2270T</strong>：<strong>58mm</strong> 熱感連續紙／票據（無 GAP，TSPL）。</p>
 
     <div class="uuid-row">
       <label for="custom-service-uuid">BLE Service UUID</label>
@@ -168,6 +168,7 @@
   'use strict';
 
   let isPrinting = false;
+  window.hasPrinted = false;
 
   var PRINTER_NAME = 'Printer_9AE9';
   var PRINTER_NAME_BLE = 'Printer_9AE9_BLE';
@@ -307,22 +308,22 @@
   }
 
   /**
-   * 熱感連續紙：僅寬度、無 GAP；開頭 CLS + DIRECTION 1。
-   * 寬度 48mm：佳博 GP-2270T 規格「列印寬度 48mm(max)」；若為其他幅寬機種請改 TSPL_PAPER_WIDTH_MM。
+   * 熱感連續紙：僅設寬度、不設高度、無 GAP。
+   * 指令順序：CLS → SIZE → DIRECTION 1；結尾僅一組 PRINT 1,1 → END（整份 payload 僅一處 PRINT）。
    */
-  var TSPL_PAPER_WIDTH_MM = 48;
+  var TSPL_PAPER_WIDTH_MM = 58;
 
   function tsplThermalHeaderBytes_() {
-    return asciiBytes('CLS\r\nDIRECTION 1\r\nSIZE ' + TSPL_PAPER_WIDTH_MM + ' mm,\r\nOFFSET 0\r\n');
+    return asciiBytes('CLS\r\nSIZE ' + TSPL_PAPER_WIDTH_MM + ' mm,\r\nDIRECTION 1\r\n');
   }
 
-  /** 結尾走紙再出單（避免尾端空白過長／裁切位置） */
+  /** 每份明細結尾：單一 PRINT 1,1 與 END（勿在迴圈內重複加入）。 */
   function tsplThermalFooterBytes_() {
-    return asciiBytes('FEED 48\r\nPRINT 1,1\r\n');
+    return asciiBytes('PRINT 1,1\r\nEND\r\n');
   }
 
   /**
-   * 48mm 熱感收據（GP-2270T 等 2 吋機）：品名、數量、單價、小計；單一 PRINT。
+   * 58mm 熱感收據：品名、數量、單價、小計；品項用 forEach 只產生 TEXT 行，PRINT 僅在 tsplThermalFooterBytes_ 一次。
    * @param {string} title 標題列（label / detail 區分用）
    */
   function buildTsplThermalReceipt_(order, title) {
@@ -361,12 +362,12 @@
     return concatUint8Arrays(parts);
   }
 
-  /** mode=label：48mm 熱感收據（品項清單） */
+  /** mode=label：58mm 熱感收據（品項清單） */
   function buildTsplLabelTemplate(order) {
     return buildTsplThermalReceipt_(order, '品項清單');
   }
 
-  /** mode=detail：48mm 熱感銷售明細 */
+  /** mode=detail：58mm 熱感銷售明細 */
   function buildTsplDetailTemplate(order) {
     return buildTsplThermalReceipt_(order, '銷售明細');
   }
@@ -387,7 +388,7 @@
       parts.push(asciiBytes('"\r\n'));
       y += 40;
     }
-    line('48mm 熱感測試 GP-2270T');
+    line('58mm 熱感測試 GP-2270T');
     line('測試列印成功');
     line('繁體中文不亂碼');
     line(formatDateZhTw_());
@@ -402,14 +403,14 @@
     }
     var lines = [];
     if (mode === 'label') {
-      lines.push('【48mm 熱感 · label】品項清單（連續紙，GP-2270T）');
+      lines.push('【58mm 熱感 · label】品項清單（連續紙，GP-2270T）');
       order.items.forEach(function (it) {
         var sub = (Number(it.price) || 0) * (Number(it.quantity) || 0);
         lines.push((it.name || '') + '  數量:' + it.quantity + '  單價:' + it.price + '  小計:' + sub);
       });
       lines.push('日期: ' + (order.date || formatDateZhTw_()));
     } else {
-      lines.push('【48mm 熱感 · detail】銷售明細（GP-2270T）');
+      lines.push('【58mm 熱感 · detail】銷售明細（GP-2270T）');
       order.items.forEach(function (it) {
         var sub = (Number(it.price) || 0) * (Number(it.quantity) || 0);
         lines.push((it.name || '') + '  數量:' + it.quantity + '  單價:' + it.price + '  小計:' + sub);
@@ -506,11 +507,11 @@
   function refreshRcUi_() {
     if (!elMode || !elPreview) return;
     if (!rcUrlMode_) {
-      elMode.textContent = '（未指定 mode，列印為內建 48mm 熱感測試）';
+      elMode.textContent = '（未指定 mode，列印為內建 58mm 熱感測試）';
     } else if (rcUrlMode_ === 'label') {
-      elMode.textContent = 'label — 48mm 熱感收據（品項清單 · GP-2270T）';
+      elMode.textContent = 'label — 58mm 熱感收據（品項清單 · GP-2270T）';
     } else {
-      elMode.textContent = 'detail — 48mm 熱感銷售明細（GP-2270T）';
+      elMode.textContent = 'detail — 58mm 熱感銷售明細（GP-2270T）';
     }
     if (rcUrlOrder_) updateDetailLengthHintOnly_(rcUrlOrder_);
     if (rcUrlMode_ && rcUrlOrder_) {
@@ -518,7 +519,7 @@
     } else if (rcUrlOrder_ && !rcUrlMode_) {
       elPreview.textContent = '已解析 data，但未指定 mode=detail|label。\n' + previewTextForOrder_('detail', rcUrlOrder_);
     } else {
-      elPreview.textContent = '（無 URL 訂單資料；「列印」將送出內建 48mm 熱感測試）';
+      elPreview.textContent = '（無 URL 訂單資料；「列印」將送出內建 58mm 熱感測試）';
     }
     if (elDetailWarn) {
       if (rcDetailLengthWarn_) {
@@ -835,10 +836,17 @@
 
   /**
    * 送出目前 TSPL（手動按鈕與自動列印共用）。
-   * @param {boolean} forceBypassDedup 為 true 時略過 orderId／lastPrintedId 檢查（手動按「列印」可強制再印）。
-   * 自動路徑：auto=1 時須有 orderId，且須與 sessionStorage lastPrintedId 不同；成功後寫入 lastPrintedId。
+   * @param {boolean} forceBypassDedup 為 true 時略過 orderId／lastPrintedId／window.hasPrinted（手動「列印」可重複出單）。
+   * 自動路徑（auto=1）：函式開頭即鎖 window.hasPrinted，同頁僅進入一次；另配合 lastPrintedId 與 isPrinting。
    */
   async function print(forceBypassDedup) {
+    if (!forceBypassDedup && rcUrlAuto_) {
+      if (window.hasPrinted) {
+        log('本頁 auto=1 僅執行一次列印流程，已略過。', 'ok');
+        return;
+      }
+      window.hasPrinted = true;
+    }
     if (isPrinting) {
       log('列印鎖：前一筆尚在緩衝中，略過重入。', 'ok');
       return;
@@ -881,8 +889,14 @@
         }
       }
       refreshRcUi_();
+      var closeAfterAuto_ = !forceBypassDedup && rcUrlAuto_;
       setTimeout(function () {
         isPrinting = false;
+        if (closeAfterAuto_) {
+          try {
+            window.close();
+          } catch (eClose) { /* 略 */ }
+        }
       }, 3000);
     } catch (err) {
       isPrinting = false;
@@ -993,7 +1007,7 @@
       } else {
         await characteristic.writeValue(slice);
       }
-      await sleepMs_(15);
+      await sleepMs_(30);
     }
   }
 
@@ -1021,7 +1035,7 @@
     tryReconnectBleThenAutoPrint_();
   };
 
-  log('腳本已載入；auto=1 時由控制中心延遲 1.5 秒自動列印；列印鎖 3 秒；lastPrintedId 與 orderId 去重；48mm 熱感（GP-2270T）。');
+  log('腳本已載入；auto=1 每頁僅自動列印一次；chunk 間隔 30ms；58mm 熱感 CLS→SIZE→DIRECTION；單一 PRINT+END；成功後 3 秒可關閉分頁。');
 })();
   </script>
 </body>
