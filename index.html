@@ -126,6 +126,7 @@
     let writeCharacteristic = null;
     let pendingPayload = null;
     let latestUrlToken = "";
+    let latestDataToken = "";
     let isAutoPrinting = false;
 
     function setStatus(message, level = "") {
@@ -261,16 +262,14 @@
       }
     }
 
-    function handleMessageEvent(event) {
-      const data = event && event.data ? event.data : null;
-      if (!data || data.type !== "POS_PRINT_DATA") return;
-      acceptIncomingPayload(data.payload || null, "postMessage");
-    }
-
     function syncPayloadFromUrl() {
       const token = window.location.search || "";
       if (token === latestUrlToken) return;
       latestUrlToken = token;
+      const params = new URLSearchParams(window.location.search);
+      const dataToken = params.get("data") || "";
+      if (!dataToken || dataToken === latestDataToken) return;
+      latestDataToken = dataToken;
       const payload = parseIncomingPayload();
       if (!payload) return;
       acceptIncomingPayload(payload, "URL");
@@ -298,7 +297,6 @@
 
     connectBtn.addEventListener("click", connectPrinter);
     printBtn.addEventListener("click", sendTestData);
-    window.addEventListener("message", handleMessageEvent);
     window.addEventListener("popstate", syncPayloadFromUrl);
     window.addEventListener("hashchange", syncPayloadFromUrl);
     document.addEventListener("visibilitychange", () => {
