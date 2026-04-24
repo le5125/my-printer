@@ -250,19 +250,30 @@
       }
     }
 
+    function acceptIncomingPayload(payload, sourceTag = "URL") {
+      if (!payload) return;
+      pendingPayload = payload;
+      setStatus(`收到新打印資料（${payload.jobs?.length || 0} 個 job，來源: ${sourceTag}）`, "ok");
+      if (isPrinterConnected()) {
+        tryAutoPrintFromPending();
+      } else {
+        setStatus("尚未連線藍牙，請先點「連接打印機」", "warn");
+      }
+    }
+
+    function handleMessageEvent(event) {
+      const data = event && event.data ? event.data : null;
+      if (!data || data.type !== "POS_PRINT_DATA") return;
+      acceptIncomingPayload(data.payload || null, "postMessage");
+    }
+
     function syncPayloadFromUrl() {
       const token = window.location.search || "";
       if (token === latestUrlToken) return;
       latestUrlToken = token;
       const payload = parseIncomingPayload();
       if (!payload) return;
-      pendingPayload = payload;
-      setStatus(`收到新打印資料（${payload.jobs?.length || 0} 個 job）`, "ok");
-      if (isPrinterConnected()) {
-        tryAutoPrintFromPending();
-      } else {
-        setStatus("尚未連線藍牙，請先點「連接打印機」", "warn");
-      }
+      acceptIncomingPayload(payload, "URL");
     }
 
     async function sendTestData() {
@@ -287,6 +298,7 @@
 
     connectBtn.addEventListener("click", connectPrinter);
     printBtn.addEventListener("click", sendTestData);
+    window.addEventListener("message", handleMessageEvent);
     window.addEventListener("popstate", syncPayloadFromUrl);
     window.addEventListener("hashchange", syncPayloadFromUrl);
     document.addEventListener("visibilitychange", () => {
