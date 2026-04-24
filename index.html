@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>POS 列印接收中心 · Web Bluetooth · TSPL</title>
-  <!-- 繁體中文列印：Unicode→Big5（CP950）與 pos 相同路徑；encoding-japanese 保留供日後擴充。 -->
+  <title>POS 列印接收中心 · GP-2270T / TSPL</title>
+  <!-- 佳博 GP-2270T（2 吋熱敏標籤／票據雙模）：官網規格列印寬度最大 48mm、TSPL；此頁寬度與 SIZE 對齊 48mm。繁中：CP950→TST24.BF2。 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js"></script>
   <style>
@@ -133,7 +133,7 @@
       <div class="label">目前接收模式</div>
       <div class="value" id="rc-mode-display">—</div>
     </div>
-    <p class="hint">支援網址參數：<code>mode</code>=detail｜label、<code>data</code>=訂單 JSON（URL 編碼）、<code>auto</code>=1（GATT 就緒後延遲 1.5 秒自動列印）。輸出為 <strong>58mm 熱感收據</strong>（連續紙，無 GAP）。</p>
+    <p class="hint">支援網址參數：<code>mode</code>=detail｜label、<code>data</code>=訂單 JSON（URL 編碼）、<code>auto</code>=1（GATT 就緒後延遲 1.5 秒自動列印）。輸出對齊 <strong>佳博 GP-2270T</strong>：<strong>48mm</strong> 熱感連續紙／票據（無 GAP，TSPL）。</p>
 
     <div class="uuid-row">
       <label for="custom-service-uuid">BLE Service UUID</label>
@@ -306,9 +306,14 @@
     });
   }
 
-  /** 熱感連續紙：僅寬度、無 GAP；開頭 CLS + DIRECTION 1 */
+  /**
+   * 熱感連續紙：僅寬度、無 GAP；開頭 CLS + DIRECTION 1。
+   * 寬度 48mm：佳博 GP-2270T 規格「列印寬度 48mm(max)」；若為其他幅寬機種請改 TSPL_PAPER_WIDTH_MM。
+   */
+  var TSPL_PAPER_WIDTH_MM = 48;
+
   function tsplThermalHeaderBytes_() {
-    return asciiBytes('CLS\r\nDIRECTION 1\r\nSIZE 58 mm,\r\nOFFSET 0\r\n');
+    return asciiBytes('CLS\r\nDIRECTION 1\r\nSIZE ' + TSPL_PAPER_WIDTH_MM + ' mm,\r\nOFFSET 0\r\n');
   }
 
   /** 結尾走紙再出單（避免尾端空白過長／裁切位置） */
@@ -317,7 +322,7 @@
   }
 
   /**
-   * 58mm 熱感收據：品名、數量、單價、小計；單一 PRINT。
+   * 48mm 熱感收據（GP-2270T 等 2 吋機）：品名、數量、單價、小計；單一 PRINT。
    * @param {string} title 標題列（label / detail 區分用）
    */
   function buildTsplThermalReceipt_(order, title) {
@@ -356,12 +361,12 @@
     return concatUint8Arrays(parts);
   }
 
-  /** mode=label：58mm 熱感收據（品項清單） */
+  /** mode=label：48mm 熱感收據（品項清單） */
   function buildTsplLabelTemplate(order) {
     return buildTsplThermalReceipt_(order, '品項清單');
   }
 
-  /** mode=detail：58mm 熱感銷售明細 */
+  /** mode=detail：48mm 熱感銷售明細 */
   function buildTsplDetailTemplate(order) {
     return buildTsplThermalReceipt_(order, '銷售明細');
   }
@@ -382,7 +387,7 @@
       parts.push(asciiBytes('"\r\n'));
       y += 40;
     }
-    line('58mm 熱感測試');
+    line('48mm 熱感測試 GP-2270T');
     line('測試列印成功');
     line('繁體中文不亂碼');
     line(formatDateZhTw_());
@@ -397,14 +402,14 @@
     }
     var lines = [];
     if (mode === 'label') {
-      lines.push('【58mm 熱感收據 · label】品項清單（連續紙）');
+      lines.push('【48mm 熱感 · label】品項清單（連續紙，GP-2270T）');
       order.items.forEach(function (it) {
         var sub = (Number(it.price) || 0) * (Number(it.quantity) || 0);
         lines.push((it.name || '') + '  數量:' + it.quantity + '  單價:' + it.price + '  小計:' + sub);
       });
       lines.push('日期: ' + (order.date || formatDateZhTw_()));
     } else {
-      lines.push('【58mm 熱感收據 · detail】銷售明細');
+      lines.push('【48mm 熱感 · detail】銷售明細（GP-2270T）');
       order.items.forEach(function (it) {
         var sub = (Number(it.price) || 0) * (Number(it.quantity) || 0);
         lines.push((it.name || '') + '  數量:' + it.quantity + '  單價:' + it.price + '  小計:' + sub);
@@ -501,11 +506,11 @@
   function refreshRcUi_() {
     if (!elMode || !elPreview) return;
     if (!rcUrlMode_) {
-      elMode.textContent = '（未指定 mode，列印為內建 58mm 熱感測試）';
+      elMode.textContent = '（未指定 mode，列印為內建 48mm 熱感測試）';
     } else if (rcUrlMode_ === 'label') {
-      elMode.textContent = 'label — 58mm 熱感收據（品項清單）';
+      elMode.textContent = 'label — 48mm 熱感收據（品項清單 · GP-2270T）';
     } else {
-      elMode.textContent = 'detail — 58mm 熱感銷售明細';
+      elMode.textContent = 'detail — 48mm 熱感銷售明細（GP-2270T）';
     }
     if (rcUrlOrder_) updateDetailLengthHintOnly_(rcUrlOrder_);
     if (rcUrlMode_ && rcUrlOrder_) {
@@ -513,7 +518,7 @@
     } else if (rcUrlOrder_ && !rcUrlMode_) {
       elPreview.textContent = '已解析 data，但未指定 mode=detail|label。\n' + previewTextForOrder_('detail', rcUrlOrder_);
     } else {
-      elPreview.textContent = '（無 URL 訂單資料；「列印」將送出內建 58mm 熱感測試）';
+      elPreview.textContent = '（無 URL 訂單資料；「列印」將送出內建 48mm 熱感測試）';
     }
     if (elDetailWarn) {
       if (rcDetailLengthWarn_) {
@@ -1004,7 +1009,7 @@
     tryReconnectBleThenAutoPrint_();
   };
 
-  log('腳本已載入；auto=1 時於 GATT 就緒後延遲 1.5 秒自動列印；58mm 熱感連續紙；同 orderId 重新整理不重複自動印。');
+  log('腳本已載入；auto=1 時於 GATT 就緒後延遲 1.5 秒自動列印；48mm 熱感連續紙（GP-2270T）；同 orderId 重新整理不重複自動印。');
 })();
   </script>
 </body>
