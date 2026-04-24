@@ -134,6 +134,7 @@
       <div class="value" id="rc-mode-display">—</div>
     </div>
     <p class="hint">支援網址參數：<code>mode</code>=detail｜label、<code>data</code>=訂單 JSON（URL 編碼）、<code>auto</code>=1（GATT 就緒後延遲 1.5 秒自動列印）。輸出對齊 <strong>佳博 GP-2270T</strong>：<strong>58mm</strong> 熱感連續紙／票據（無 GAP，TSPL）。</p>
+    <p class="hint" style="color:#86efac;">請保持此分頁開啟，並確認藍牙已連線（綠燈）。</p>
 
     <div class="uuid-row">
       <label for="custom-service-uuid">BLE Service UUID</label>
@@ -174,8 +175,11 @@
   'use strict';
 
   let isPrinting = false;
+  window.isPrinting = false;
   window.printed = false;
   window.isPrintProcessed = false;
+  const printerChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('printer_sync') : null;
+  var _lastBroadcastTs_ = 0;
   /** 自動列印成功送單時間戳，用於短時間內防重入（部分環境會重複觸發 print）。 */
   var _lastAutoPrintOkWallMs_ = 0;
 
@@ -216,6 +220,28 @@
         orderId: getCurrentOrderIdForDedup_() || ''
       }, '*');
     } catch (e) { /* 略 */ }
+  }
+  function applyBroadcastOrderTask_(payload) {
+    if (!payload || typeof payload !== 'object') return;
+    var mode = String(payload.mode || '').toLowerCase();
+    if (mode !== 'label' && mode !== 'detail') mode = 'detail';
+    var normalized = normalizeOrderFromJson_(payload.data);
+    if (!normalized || !normalized.items || !normalized.items.length) {
+      log('廣播任務資料無效，略過。', 'err');
+      return;
+    }
+    rcUrlMode_ = mode;
+    rcUrlOrder_ = normalized;
+    rcUrlAuto_ = true;
+    rcDetailLengthWarn_ = '';
+    window.printed = false;
+    window.isPrintProcessed = false;
+    _autoPrintScheduledThisLoad_ = false;
+    clearAutoPrintSchedule_();
+    try { sessionStorage.removeItem('lastPrintedId'); } catch (eRm) { /* 略 */ }
+    refreshRcUi_();
+    showAutoStage_('收到 POS 廣播，準備列印...', false);
+    connectAndPrint_();
   }
 
   function normalizeUuid128_(str) {
@@ -913,6 +939,7 @@
    * 自動路徑（auto=1）：window.isPrintProcessed 為 true 則略過；新訂單於 onload 依 lastOrderId 重置。
    */
   async function print(forceBypassDedup) {
+    if (window.isPrinting) return;
     if (!forceBypassDedup && rcUrlAuto_ && window.isPrintProcessed) {
       log('auto=1：本筆已處理過（isPrintProcessed），略過。', 'ok');
       return;
@@ -955,6 +982,7 @@
       window.printed = true;
     }
     isPrinting = true;
+    window.isPrinting = true;
     if (!forceBypassDedup) postPrintBridgeStatus_('printing', '開始送出列印');
     btnPrint.disabled = true;
     try {
@@ -1021,10 +1049,12 @@
     } catch (err) {
       if (!forceBypassDedup) window.printed = false;
       isPrinting = false;
+      window.isPrinting = false;
       showAutoStage_('列印失敗，請按按鈕重試', true);
       log('列印失敗：' + (err && err.message ? err.message : String(err)), 'err');
       if (!forceBypassDedup) postPrintBridgeStatus_('error', (err && err.message ? err.message : String(err)));
     } finally {
+      window.isPrinting = false;
       btnPrint.disabled = false;
     }
   }
@@ -1199,6 +1229,19 @@
       log('onload 訂單鎖同步失敗：' + fmtErr_(eOn), 'err');
     }
     log('POS 列印接收中心就緒。');
+    if (printerChannel) {
+      printerChannel.onmessage = function (event) {
+        var msg = event && event.data;
+        if (!msg || msg.type !== 'PRINT_ORDER') return;
+        var ts = Number(msg.timestamp) || 0;
+        if (ts && ts <= _lastBroadcastTs_) return;
+        _lastBroadcastTs_ = ts;
+        log('收到 POS 廣播，準備列印... ts=' + ts, 'ok');
+        applyBroadcastOrderTask_(msg.data);
+      };
+    } else {
+      log('此環境不支援 BroadcastChannel，無法接收 POS 廣播。', 'err');
+    }
     if (!rcUrlAuto_) return;
     connectAndPrint_();
   };
