@@ -1,142 +1,74 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>POS 列印中心 (GP-2270T)</title>
-    <style>
-        body { font-family: -apple-system, sans-serif; background: #f4f4f9; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; width: 80%; max-width: 400px; }
-        h2 { color: #333; margin-bottom: 0.5rem; }
-        #status { color: #666; margin-bottom: 2rem; font-size: 0.9rem; }
-        .status-tag { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: bold; margin-bottom: 1rem; }
-        .online { background: #e6fffa; color: #38b2ac; }
-        .offline { background: #fff5f5; color: #e53e3e; }
-        #printBtn { 
-            background: #ff6b00; color: white; border: none; padding: 1.2rem 2rem; 
-            font-size: 1.5rem; font-weight: bold; border-radius: 50px; cursor: pointer;
-            width: 100%; box-shadow: 0 4px 15px rgba(255,107,0,0.3);
-            display: none; /* 初始隱藏，有資料才顯示 */
-        }
-        #printBtn:active { transform: scale(0.98); background: #e66000; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #ff6b00; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; display: none; margin: 10px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+  <meta charset="utf-8">
+  <title>BLE Printer Test</title>
 </head>
 <body>
 
-<div class="card">
-    <div id="statusTag" class="status-tag offline">尚未連線</div>
-    <h2>列印請求已就緒</h2>
-    <p id="status">等待執行操作...</p>
-    <div id="loader" class="loader"></div>
-    <button id="printBtn" onclick="handlePrintClick()">點擊連線並列印</button>
-</div>
+<h2>BLE Printer Test</h2>
+
+<button onclick="connect()">連接印表機</button>
+<button onclick="printTest()">測試列印</button>
 
 <script>
-    let device = null;
-    let characteristic = null;
-    const urlParams = new URLSearchParams(window.location.search);
-    const orderDataRaw = urlParams.get('data');
-    const backUrl = urlParams.get('back');
+let device;
+let characteristic;
 
-    // 1. 初始化檢查
-    window.onload = () => {
-        if (orderDataRaw) {
-            document.getElementById('printBtn').style.display = 'block';
-            document.getElementById('status').innerText = '偵測到訂單，請點擊上方按鈕開始列印';
-        } else {
-            document.getElementById('status').innerText = '無待處理訂單，請回 POS 操作';
-        }
-    };
+async function connect() {
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [
+        '18f0',
+        'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
+      ]
+    });
 
-    // 2. 處理點擊動作（iOS 必須透過點擊啟動藍牙）
-    async function handlePrintClick() {
-        const btn = document.getElementById('printBtn');
-        const loader = document.getElementById('loader');
-        
-        try {
-            btn.disabled = true;
-            loader.style.display = 'block';
-            document.getElementById('status').innerText = '正在尋找印表機...';
+    const server = await device.gatt.connect();
 
-            // 請求藍牙裝置
-            device = await navigator.bluetooth.requestDevice({
-                filters: [{ namePrefix: 'GP' }, { services: ['ff00'] }],
-                optionalServices: ['ff00']
-            });
+    const service = await server.getPrimaryService(
+      'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
+    );
 
-            const server = await device.gatt.connect();
-            const service = await server.getPrimaryService('ff00');
-            characteristic = await service.getCharacteristic('ff02');
+    characteristic = await service.getCharacteristic(
+      'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'
+    );
 
-            updateStatus(true);
-            await executePrint();
-            
-        } catch (error) {
-            console.error(error);
-            alert('連線失敗：' + error.message);
-            btn.disabled = false;
-            loader.style.display = 'none';
-        }
-    }
+    alert("已連接印表機");
+  } catch (error) {
+    console.log(error);
+    alert("連接失敗");
+  }
+}
 
-    function updateStatus(isOnline) {
-        const tag = document.getElementById('statusTag');
-        tag.innerText = isOnline ? '已連線' : '尚未連線';
-        tag.className = 'status-tag ' + (isOnline ? 'online' : 'offline');
-    }
+async function printTest() {
+  if (!characteristic) {
+    alert("請先連接");
+    return;
+  }
 
-    // 3. 核心列印函數
-    async function executePrint() {
-        try {
-            document.getElementById('status').innerText = '指令發送中...';
-            
-            // 解析訂單資料
-            const order = JSON.parse(decodeURIComponent(orderDataRaw));
-            
-            // TSPL 指令組裝 (GP-2270T 專用)
-            let tspl = `RT\r\n`;               // 強制重置機器快取 (解決13份問題)
-            tspl += `SIZE 40 mm, 30 mm\r\n`;   // 設定標籤尺寸
-            tspl += `GAP 2 mm, 0 mm\r\n`;      // 設定間隙
-            tspl += `CLS\r\n`;                 // 清除緩衝區
-            tspl += `CODEPAGE 1252\r\n`;
-            
-            // 標題與內容
-            tspl += `TEXT 20,20,"TSS24.BF2",0,1,1,"${order.title || 'ORDER'}"\r\n`;
-            tspl += `TEXT 20,60,"TSS24.BF2",0,1,1,"------------------"\r\n`;
-            
-            // 遍歷品項 (這裡絕對不放 PRINT)
-            let y = 90;
-            order.items.forEach(item => {
-                tspl += `TEXT 20,${y},"TSS24.BF2",0,1,1,"${item.name} x ${item.qty}"\r\n`;
-                y += 35;
-            });
+  // ESC/POS 指令（初始化 + 文字 + 換行）
+  const encoder = new TextEncoder();
 
-            tspl += `PRINT 1,1\r\n`;           // 關鍵：全份文件只准出現一次 PRINT
-            tspl += `END\r\n`;
+  let data = new Uint8Array([
+    0x1B, 0x40, // 初始化
+  ]);
 
-            // 分段發送防止藍牙溢位
-            const encoder = new TextEncoder();
-            const data = encoder.encode(tspl);
-            const chunkSize = 20;
-            for (let i = 0; i < data.length; i += chunkSize) {
-                await characteristic.writeValue(data.slice(i, i + chunkSize));
-            }
+  let text = encoder.encode("TEST PRINT\nHello World\n\n\n");
 
-            document.getElementById('status').innerText = '列印成功！即將返回 POS...';
-            
-            // 4. 自動跳回
-            if (backUrl) {
-                setTimeout(() => {
-                    window.location.href = decodeURIComponent(backUrl);
-                }, 1500);
-            }
+  let finalData = new Uint8Array(data.length + text.length);
+  finalData.set(data);
+  finalData.set(text, data.length);
 
-        } catch (error) {
-            alert('列印執行失敗：' + error.message);
-        }
-    }
+  try {
+    await characteristic.writeValue(finalData);
+    alert("已送出列印");
+  } catch (error) {
+    console.log(error);
+    alert("列印失敗");
+  }
+}
 </script>
 
 </body>
