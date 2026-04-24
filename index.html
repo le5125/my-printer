@@ -196,6 +196,8 @@
   var rcUrlOrder_ = null;
   var rcUrlAuto_ = false;
   var rcDetailLengthWarn_ = '';
+  var RC_PRINT_TRIGGER_KEY = 'print_trigger';
+  var _lastStorageTaskId_ = '';
 
   function fmtErr_(e) {
     if (!e) return '';
@@ -216,6 +218,39 @@
         orderId: getCurrentOrderIdForDedup_() || ''
       }, '*');
     } catch (e) { /* 略 */ }
+  }
+
+  function consumeStoragePrintTask_(task, sourceLabel) {
+    if (!task || typeof task !== 'object') return;
+    var taskId = task.id != null ? String(task.id) : '';
+    if (taskId && taskId === _lastStorageTaskId_) {
+      log('storage 任務重複，略過。id=' + taskId, 'ok');
+      return;
+    }
+    var nextMode = String(task.mode || '').toLowerCase();
+    if (nextMode !== 'label' && nextMode !== 'detail') nextMode = 'detail';
+    var normalized = normalizeOrderFromJson_(task.data);
+    if (!normalized || !normalized.items || !normalized.items.length) {
+      log('storage 任務缺少有效品項，略過。', 'err');
+      postPrintBridgeStatus_('error', 'storage 任務資料無效');
+      return;
+    }
+    _lastStorageTaskId_ = taskId;
+    rcUrlMode_ = nextMode;
+    rcUrlOrder_ = normalized;
+    rcUrlAuto_ = true;
+    rcDetailLengthWarn_ = '';
+    window.hasPrinted = false;
+    window.isPrintProcessed = false;
+    _autoPrintScheduledThisLoad_ = false;
+    clearAutoPrintSchedule_();
+    try {
+      sessionStorage.removeItem('lastPrintedId');
+    } catch (eRm) { /* 略 */ }
+    refreshRcUi_();
+    log('偵測到新訂單（' + (sourceLabel || 'storage') + '），準備列印 ID: ' + (taskId || '(無)') + ' mode=' + nextMode, 'ok');
+    postPrintBridgeStatus_('ready', '收到新列印任務');
+    tryReconnectBleThenAutoPrint_();
   }
 
   function normalizeUuid128_(str) {
@@ -1166,6 +1201,24 @@
       log('onload 訂單鎖同步失敗：' + fmtErr_(eOn), 'err');
     }
     log('POS 列印接收中心就緒。');
+    window.addEventListener('storage', function (e) {
+      if (!e || e.key !== RC_PRINT_TRIGGER_KEY || !e.newValue) return;
+      try {
+        var task = JSON.parse(e.newValue);
+        consumeStoragePrintTask_(task, 'storage');
+      } catch (eParse) {
+        log('storage print_trigger 解析失敗：' + fmtErr_(eParse), 'err');
+      }
+    });
+    try {
+      var seedRaw = localStorage.getItem(RC_PRINT_TRIGGER_KEY);
+      if (seedRaw) {
+        var seedTask = JSON.parse(seedRaw);
+        consumeStoragePrintTask_(seedTask, 'onload');
+      }
+    } catch (eSeed) {
+      log('onload 讀取 print_trigger 失敗：' + fmtErr_(eSeed), 'err');
+    }
     if (!rcUrlAuto_ && !(isIframeMode_ && rcUrlOrder_ && rcUrlOrder_.items && rcUrlOrder_.items.length)) return;
     tryReconnectBleThenAutoPrint_();
   };
