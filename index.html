@@ -306,9 +306,9 @@
     });
   }
 
-  /** 標籤紙開頭固定：40×30、GAP 3；每筆以 CLS 清緩衝，結尾 PRINT 1,1 ＋ END（無多餘迴圈重複 PRINT） */
-  var TSPL_LABEL_HEADER_ = 'SIZE 40 mm, 30 mm\r\nGAP 3 mm, 0 mm\r\nCLS\r\n';
-  var TSPL_LABEL_FOOTER_ = 'PRINT 1, 1\r\nEND\r\n';
+  /** 標籤：每張僅一組 CLS→SIZE→GAP→內容→PRINT（不重複 SIZE／PRINT）；GAP 第二參數依印表機規格為 0 */
+  var TSPL_LABEL_HEADER_ = 'CLS\r\nSIZE 40 mm, 30 mm\r\nGAP 3 mm, 0\r\n';
+  var TSPL_LABEL_FOOTER_ = 'PRINT 1, 1\r\n';
 
   /** 模板 A：40×30mm，每品項一張；品名置中放大（2×），下方日期 */
   function buildTsplLabelTemplate(order) {
@@ -361,7 +361,7 @@
       return s + (Number(it.price) || 0) * (Number(it.quantity) || 0);
     }, 0);
     line('總計 NT$' + tot);
-    parts.push(asciiBytes('PRINT 1, 1\r\nEND\r\n'));
+    parts.push(asciiBytes('PRINT 1, 1\r\n'));
     var estLines = 1 + items.length + 1;
     if (estLines > 28 || y > maxY - 80) {
       rcDetailLengthWarn_ = '明細行數較多，實際高度可能超過目前 SIZE（58×200mm）設定，請檢查印表機標籤紙長度與 SIZE／GAP 是否需調整。';
@@ -382,7 +382,7 @@
     var line2Big5 = encodeBig5OrThrow('繁體中文不亂碼');
     var line3Big5 = encodeBig5OrThrow(formatDateZhTw_());
     var header = asciiBytes(
-      'SIZE 40 mm, 30 mm\r\nGAP 3 mm, 0 mm\r\nCLS\r\n'
+      'CLS\r\nSIZE 40 mm, 30 mm\r\nGAP 3 mm, 0\r\n'
     );
     var mid1 = asciiBytes('TEXT 40,40,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
     var end1 = asciiBytes('"\r\n');
@@ -390,7 +390,7 @@
     var end2 = asciiBytes('"\r\n');
     var mid3 = asciiBytes('TEXT 40,180,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
     var end3 = asciiBytes('"\r\n');
-    var footer = asciiBytes('PRINT 1, 1\r\nEND\r\n');
+    var footer = asciiBytes('PRINT 1, 1\r\n');
     return concatUint8Arrays([
       header,
       mid1, line1Big5, end1,
@@ -703,6 +703,7 @@
   }
 
   function unlockUiFromStuck_() {
+    clearAutoPrintSchedule_();
     clearConnectWatchdog_();
     connectInProgress_ = false;
     try {
@@ -769,7 +770,8 @@
     }
   }
 
-  function markOrderPrintedDedup_() {
+  /** 僅在自動列印（print(false)）成功後寫入，重新整理同 orderId 時略過自動列印 */
+  function markAutoPrintOrderDedup_() {
     var oid = getCurrentOrderIdForDedup_();
     if (!oid) return;
     try {
@@ -777,12 +779,38 @@
     } catch (e) { /* 略 */ }
   }
 
+  var _autoPrintScheduleTimer_ = null;
+
+  function clearAutoPrintSchedule_() {
+    if (_autoPrintScheduleTimer_) {
+      clearTimeout(_autoPrintScheduleTimer_);
+      _autoPrintScheduleTimer_ = null;
+    }
+  }
+
+  /**
+   * GATT 已就緒且 auto=1 時，延遲 1 秒再 print(false)，讓寫入特徵穩定。
+   */
+  function scheduleAutoPrintAfterConnect_() {
+    clearAutoPrintSchedule_();
+    if (!rcUrlAuto_ || !writeCharacteristic) return;
+    if (!rcUrlMode_ || !rcUrlOrder_ || !rcUrlOrder_.items || !rcUrlOrder_.items.length) {
+      if (rcUrlAuto_) log('auto=1：需有效 mode 與 data（含 items）才會自動列印。', 'err');
+      return;
+    }
+    _autoPrintScheduleTimer_ = setTimeout(function () {
+      _autoPrintScheduleTimer_ = null;
+      print(false);
+    }, 1000);
+    log('auto=1：已排程 1 秒後自動列印（等待寫入特徵穩定）。', 'ok');
+  }
+
   /** 若已授權過裝置，嘗試不經選單恢復 GATT（iframe 重載時可能成功） */
   async function tryReconnectBleThenAutoPrint_() {
     if (!rcUrlAuto_ || !navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') return;
     if (isGattReadyForWrite_()) {
       if (rcUrlMode_ && rcUrlOrder_ && rcUrlOrder_.items && rcUrlOrder_.items.length) {
-        await print(false);
+        scheduleAutoPrintAfterConnect_();
       }
       return;
     }
@@ -801,21 +829,10 @@
       log('寫入特徵（自動恢復）：' + writeCharacteristic.uuid, 'ok');
       btnDisconnect.disabled = false;
       btnPrint.disabled = false;
-      if (rcUrlMode_ && rcUrlOrder_ && rcUrlOrder_.items && rcUrlOrder_.items.length) {
-        await print(false);
-      }
+      scheduleAutoPrintAfterConnect_();
     } catch (e) {
       log('自動恢復藍牙失敗，請手動連接：' + fmtErr_(e), 'err');
     }
-  }
-
-  async function tryAutoPrintFromUrl_() {
-    if (!rcUrlAuto_ || !writeCharacteristic) return;
-    if (!rcUrlMode_ || !rcUrlOrder_ || !rcUrlOrder_.items || !rcUrlOrder_.items.length) {
-      if (rcUrlAuto_) log('auto=1：需有效 mode 與 data（含 items）才會自動列印。', 'err');
-      return;
-    }
-    await print(false);
   }
 
   /**
@@ -843,7 +860,9 @@
       log('送出 TSPL ' + payload.length + ' bytes', 'ok');
       await writeChunks(writeCharacteristic, payload);
       log('列印指令已送出。', 'ok');
-      markOrderPrintedDedup_();
+      if (!forceBypassDedup) {
+        markAutoPrintOrderDedup_();
+      }
       refreshRcUi_();
     } catch (err) {
       log('列印失敗：' + (err && err.message ? err.message : String(err)), 'err');
@@ -882,7 +901,7 @@
 
       btnDisconnect.disabled = false;
       btnPrint.disabled = false;
-      await tryAutoPrintFromUrl_();
+      scheduleAutoPrintAfterConnect_();
     } catch (err) {
       if (err && err.name === 'NotFoundError') {
         log('未選擇裝置或清單為空。', 'err');
@@ -904,6 +923,7 @@
   }
 
   function onDisconnected() {
+    clearAutoPrintSchedule_();
     log('GATT 已斷線', 'err');
     writeCharacteristic = null;
     btnPrint.disabled = true;
@@ -914,6 +934,7 @@
   }
 
   async function disconnectPrinter() {
+    clearAutoPrintSchedule_();
     clearConnectWatchdog_();
     connectInProgress_ = false;
     try {
@@ -978,14 +999,14 @@
     if (!rcUrlAuto_) return;
     if (isGattReadyForWrite_()) {
       if (rcUrlMode_ && rcUrlOrder_ && rcUrlOrder_.items && rcUrlOrder_.items.length) {
-        print(false);
+        scheduleAutoPrintAfterConnect_();
       }
       return;
     }
     tryReconnectBleThenAutoPrint_();
   };
 
-  log('腳本已載入；auto=1 且藍牙已連線時將直接列印；否則嘗試 getDevices 恢復連線。');
+  log('腳本已載入；auto=1 時於 GATT 就緒後延遲 1 秒自動列印；同 orderId 重新整理不重複自動印。');
 })();
   </script>
 </body>
