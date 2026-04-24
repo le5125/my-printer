@@ -206,6 +206,18 @@
     return new Promise(function (resolve) { setTimeout(resolve, ms); });
   }
 
+  function postPrintBridgeStatus_(status, message) {
+    try {
+      if (!window.parent || window.parent === window) return;
+      window.parent.postMessage({
+        source: 'pos-print-bridge',
+        status: status || 'ready',
+        message: message || '',
+        orderId: getCurrentOrderIdForDedup_() || ''
+      }, '*');
+    } catch (e) { /* 略 */ }
+  }
+
   function normalizeUuid128_(str) {
     var raw = String(str || '').trim().replace(/\s+/g, '').toLowerCase();
     if (!raw) return null;
@@ -860,11 +872,13 @@
       var server = await connectGattWithRetries_(bluetoothDevice);
       writeCharacteristic = await findWritableOnServer_(server);
       log('寫入特徵（自動恢復）：' + writeCharacteristic.uuid, 'ok');
+      postPrintBridgeStatus_('ready', '印表機連線完成');
       btnDisconnect.disabled = false;
       btnPrint.disabled = false;
       scheduleAutoPrintOnceAfterBleReady_();
     } catch (e) {
       log('自動恢復藍牙失敗，請手動連接：' + fmtErr_(e), 'err');
+      postPrintBridgeStatus_('error', fmtErr_(e));
     }
   }
 
@@ -916,6 +930,7 @@
       window.hasPrinted = true;
     }
     isPrinting = true;
+    if (!forceBypassDedup) postPrintBridgeStatus_('printing', '開始送出列印');
     btnPrint.disabled = true;
     try {
       rcDetailLengthWarn_ = '';
@@ -923,6 +938,7 @@
       log('送出 TSPL ' + payload.length + ' bytes', 'ok');
       await writeChunks(writeCharacteristic, payload);
       log('列印指令已送出。', 'ok');
+      postPrintBridgeStatus_('success', '列印送出成功');
       if (!forceBypassDedup && rcUrlAuto_) {
         window.isPrintProcessed = true;
         _lastAutoPrintOkWallMs_ = Date.now();
@@ -984,6 +1000,7 @@
       if (!forceBypassDedup) window.hasPrinted = false;
       isPrinting = false;
       log('列印失敗：' + (err && err.message ? err.message : String(err)), 'err');
+      if (!forceBypassDedup) postPrintBridgeStatus_('error', (err && err.message ? err.message : String(err)));
     } finally {
       btnPrint.disabled = false;
     }
