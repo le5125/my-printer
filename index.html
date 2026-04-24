@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>Bluefy · Web Bluetooth · TSPL 標籤印表機</title>
+  <!-- encoding-japanese：依任務載入；其 v2 不含 Unicode→BIG5。實際 Big5 使用下一行 codepage（CP950）。 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js"></script>
   <style>
     :root {
       color-scheme: light dark;
@@ -140,8 +143,10 @@
       自檢寫「USB &amp; BLUETOOTH 4.0 &amp; 3.0」時，請確認 <strong>4.0 BLE</strong> 也有開且手機已配對；若曾進「隨身碟模式」，請依自檢說明按 <strong>FEED</strong> 關閉。
     </p>
     <p>
-      自檢：Taiwanese BIG5 字型為 <code>TST24.BF2</code>；<code>TSS24.BF2</code> 多為 GB18030。本頁測試列印使用 <code>TST24.BF2</code> + Big5 位元組。
-      <code>TextEncoder('big5')</code> 多數瀏覽器不支援時，改用具名對照表。
+      自檢：Taiwanese BIG5 字型為 <code>TST24.BF2</code>；<code>TSS24.BF2</code> 多為 GB18030。本頁以 <code>TST24.BF2</code> 列印，內文轉成 Big5 位元組：
+      <code>encoding-japanese</code> v2 的 <code>Encoding.convert</code> 不支援 BIG5，故實際使用
+      <a href="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js" target="_blank" rel="noopener">codepage（CP950）</a>；
+      仍保留 encoding-japanese CDN 供日後偵測／日文編碼等用途。
     </p>
     <p class="sdk-note">
       <strong>對照 <code>BLEConnecter.h</code>（GSDK）：</strong>標頭裡與「透明傳輸」有關的是
@@ -277,35 +282,19 @@
     logEl.scrollTop = logEl.scrollHeight;
   }
 
-  /** 常見繁體字 → Big5（自檢：Taiwanese BIG5 用 TST24.BF2） */
-  var BIG5_MAP = {
-    '測': [0xB4, 0xFA],
-    '試': [0xB8, 0xD5],
-    '列': [0xA6, 0xC8],
-    '印': [0xA5, 0xF4]
-  };
-
+  /**
+   * Unicode → Big5（CP950，與常見繁中 Big5 相容；供 TST24.BF2）。
+   * encoding-japanese v2 的 Encoding.convert 無 BIG5 目標，使用 cpexcel 的 cptable.utils.encode(950, …)。
+   */
   function encodeBig5OrThrow(str) {
-    try {
-      var enc = new TextEncoder('big5');
-      if (enc && enc.encode) return enc.encode(str);
-    } catch (e) { /* 多數瀏覽器不支援 */ }
-
-    var out = [];
-    for (var i = 0; i < str.length; i++) {
-      var ch = str[i];
-      var code = ch.charCodeAt(0);
-      if (code <= 0x7F) {
-        out.push(code);
-        continue;
-      }
-      var pair = BIG5_MAP[ch];
-      if (!pair) {
-        throw new Error('Big5 對照表缺少字元：「' + ch + '」。請在 BIG5_MAP 補碼。');
-      }
-      out.push(pair[0], pair[1]);
+    if (typeof cptable === 'undefined' || !cptable.utils || typeof cptable.utils.encode !== 'function') {
+      throw new Error('codepage（cpexcel）未載入：請確認 <head> 的 cpexcel.full.js 可連線。');
     }
-    return new Uint8Array(out);
+    if (!cptable.utils.hascp(950)) {
+      throw new Error('CP950 編碼表未就緒。');
+    }
+    var bytes = cptable.utils.encode(950, str);
+    return new Uint8Array(bytes);
   }
 
   function concatUint8Arrays(parts) {
@@ -327,9 +316,22 @@
   /** 字型與自檢一致：BIG5 → TST24.BF2 */
   var TSPL_FONT_BIG5 = 'TST24.BF2';
 
+  function formatTestDateTimeZhTw_() {
+    return new Date().toLocaleString('zh-TW', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  }
+
   function buildTsplPayload() {
-    var line1Big5 = encodeBig5OrThrow('測試列印');
-    var line2Ascii = encodeBig5OrThrow('2026-04-24');
+    var line1Big5 = encodeBig5OrThrow('測試列印成功');
+    var line2Big5 = encodeBig5OrThrow('繁體中文不亂碼');
+    var line3Big5 = encodeBig5OrThrow(formatTestDateTimeZhTw_());
 
     var header = asciiBytes(
       'SIZE 40 mm, 30 mm\r\n' +
@@ -339,13 +341,20 @@
 
     var mid1 = asciiBytes('TEXT 40,40,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
     var end1 = asciiBytes('"\r\n');
-
-    var mid2 = asciiBytes('TEXT 40,120,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
+    var mid2 = asciiBytes('TEXT 40,110,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
     var end2 = asciiBytes('"\r\n');
+    var mid3 = asciiBytes('TEXT 40,180,"' + TSPL_FONT_BIG5 + '",0,1,1,"');
+    var end3 = asciiBytes('"\r\n');
 
     var footer = asciiBytes('PRINT 1,1\r\n');
 
-    return concatUint8Arrays([header, mid1, line1Big5, end1, mid2, line2Ascii, end2, footer]);
+    return concatUint8Arrays([
+      header,
+      mid1, line1Big5, end1,
+      mid2, line2Big5, end2,
+      mid3, line3Big5, end3,
+      footer
+    ]);
   }
 
   function uuidCmpStrip_(uuid) {
