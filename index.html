@@ -167,6 +167,8 @@
 (function () {
   'use strict';
 
+  let isPrinting = false;
+
   var PRINTER_NAME = 'Printer_9AE9';
   var PRINTER_NAME_BLE = 'Printer_9AE9_BLE';
   var OPTIONAL_SERVICE_UUIDS = [
@@ -291,8 +293,6 @@
   }
 
   var TSPL_FONT_BIG5 = 'TST24.BF2';
-  /** 與上一筆相同訂單編號則不重印（避免重新整理／iframe 重載重複出單） */
-  var RC_LAST_PRINT_ORDER_KEY = 'rc_pos_last_print_order_id';
 
   function formatDateZhTw_() {
     return new Date().toLocaleString('zh-TW', {
@@ -757,27 +757,6 @@
     return oid;
   }
 
-  function shouldSkipDuplicateAutoPrint_() {
-    if (!rcUrlAuto_ || !rcUrlMode_ || !rcUrlOrder_) return false;
-    var oid = getCurrentOrderIdForDedup_();
-    if (!oid) return false;
-    try {
-      var last = sessionStorage.getItem(RC_LAST_PRINT_ORDER_KEY);
-      return last === oid;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /** 僅在自動列印（print(false)）成功後寫入，重新整理同 orderId 時略過自動列印 */
-  function markAutoPrintOrderDedup_() {
-    var oid = getCurrentOrderIdForDedup_();
-    if (!oid) return;
-    try {
-      sessionStorage.setItem(RC_LAST_PRINT_ORDER_KEY, oid);
-    } catch (e) { /* 略 */ }
-  }
-
   var _autoPrintScheduleTimer_ = null;
 
   function clearAutoPrintSchedule_() {
@@ -788,38 +767,54 @@
   }
 
   /**
-   * GATT 已就緒且 rcUrlAuto_（網址 auto=1）為真時，延遲 1.5 秒再 print(false)，讓寫入特徵穩定。
+   * 自動列印控制中心：全頁僅此一處 setTimeout 觸發 print(false)。
+   * 每次呼叫先 clear 再排程，避免 onConnect／onload／重連各建一個 timer。
    */
-  function scheduleAutoPrintAfterConnect_() {
+  function requestAutoPrintFromCentral_() {
     clearAutoPrintSchedule_();
+    if (!rcUrlAuto_) return;
     if (!writeCharacteristic) {
-      if (rcUrlAuto_) log('auto=1：尚未取得寫入特徵，略過排程。', 'err');
+      log('auto=1：尚未取得寫入特徵，略過排程。', 'err');
       return;
     }
-    if (!rcUrlAuto_) return;
     if (!rcUrlMode_ || !rcUrlOrder_ || !rcUrlOrder_.items || !rcUrlOrder_.items.length) {
       log('auto=1：需有效 mode 與 data（含 items）才會自動列印。', 'err');
       return;
     }
+    var curId = getCurrentOrderIdForDedup_();
+    if (!curId) {
+      log('auto=1：需有 orderId 才會自動列印（與 sessionStorage lastPrintedId 比對）。', 'err');
+      return;
+    }
+    try {
+      if (sessionStorage.getItem('lastPrintedId') === curId) {
+        log('lastPrintedId 與本筆 orderId 相同，不排程自動列印。', 'ok');
+        return;
+      }
+    } catch (e0) { /* 略 */ }
     _autoPrintScheduleTimer_ = setTimeout(function () {
       _autoPrintScheduleTimer_ = null;
       print(false);
     }, 1500);
-    log('auto=1 已確認：已排程 1.5 秒後自動列印（onConnect 成功後延遲）。', 'ok');
+    log('控制中心：已排程 1.5 秒後自動列印。', 'ok');
   }
 
-  /** 若已授權過裝置，嘗試不經選單恢復 GATT（iframe 重載時可能成功） */
+  /** 若已授權過裝置，嘗試不經選單恢復 GATT（iframe 重載時可能成功）；自動列印僅經 requestAutoPrintFromCentral_ 排程。 */
   async function tryReconnectBleThenAutoPrint_() {
-    if (!rcUrlAuto_ || !navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') return;
+    if (!rcUrlAuto_) return;
     if (isGattReadyForWrite_()) {
-      if (rcUrlMode_ && rcUrlOrder_ && rcUrlOrder_.items && rcUrlOrder_.items.length) {
-        scheduleAutoPrintAfterConnect_();
-      }
+      requestAutoPrintFromCentral_();
       return;
     }
+    if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') return;
     if (connectInProgress_) return;
     try {
       var list = await navigator.bluetooth.getDevices();
+      if (connectInProgress_) return;
+      if (isGattReadyForWrite_()) {
+        requestAutoPrintFromCentral_();
+        return;
+      }
       if (!list || !list.length) return;
       var dev = list[0];
       bluetoothDevice = dev;
@@ -832,7 +827,7 @@
       log('寫入特徵（自動恢復）：' + writeCharacteristic.uuid, 'ok');
       btnDisconnect.disabled = false;
       btnPrint.disabled = false;
-      scheduleAutoPrintAfterConnect_();
+      requestAutoPrintFromCentral_();
     } catch (e) {
       log('自動恢復藍牙失敗，請手動連接：' + fmtErr_(e), 'err');
     }
@@ -840,10 +835,14 @@
 
   /**
    * 送出目前 TSPL（手動按鈕與自動列印共用）。
-   * @param {boolean} forceBypassDedup 為 true 時略過去重（手動按「列印」可強制再印）。
-   * 自動路徑：auto=1 且訂單編號與 session 上一筆相同時略過，避免重新整理／iframe 重設 src 重複出單。
+   * @param {boolean} forceBypassDedup 為 true 時略過 orderId／lastPrintedId 檢查（手動按「列印」可強制再印）。
+   * 自動路徑：auto=1 時須有 orderId，且須與 sessionStorage lastPrintedId 不同；成功後寫入 lastPrintedId。
    */
   async function print(forceBypassDedup) {
+    if (isPrinting) {
+      log('列印鎖：前一筆尚在緩衝中，略過重入。', 'ok');
+      return;
+    }
     if (!writeCharacteristic) {
       log('請先連接印表機。', 'err');
       return;
@@ -852,10 +851,20 @@
       log('藍牙尚未連線，無法列印。', 'err');
       return;
     }
-    if (!forceBypassDedup && shouldSkipDuplicateAutoPrint_()) {
-      log('同訂單編號已列印過，略過重複列印。', 'ok');
-      return;
+    if (!forceBypassDedup && rcUrlAuto_) {
+      var curIdForAuto = getCurrentOrderIdForDedup_();
+      if (!curIdForAuto) {
+        log('自動列印：無 orderId，略過。', 'err');
+        return;
+      }
+      try {
+        if (sessionStorage.getItem('lastPrintedId') === curIdForAuto) {
+          log('已列印過相同 orderId（lastPrintedId），略過。', 'ok');
+          return;
+        }
+      } catch (eSkip) { /* 略 */ }
     }
+    isPrinting = true;
     btnPrint.disabled = true;
     try {
       rcDetailLengthWarn_ = '';
@@ -863,11 +872,20 @@
       log('送出 TSPL ' + payload.length + ' bytes', 'ok');
       await writeChunks(writeCharacteristic, payload);
       log('列印指令已送出。', 'ok');
-      if (!forceBypassDedup) {
-        markAutoPrintOrderDedup_();
+      if (!forceBypassDedup && rcUrlAuto_) {
+        var okId = getCurrentOrderIdForDedup_();
+        if (okId) {
+          try {
+            sessionStorage.setItem('lastPrintedId', okId);
+          } catch (eMark) { /* 略 */ }
+        }
       }
       refreshRcUi_();
+      setTimeout(function () {
+        isPrinting = false;
+      }, 3000);
     } catch (err) {
+      isPrinting = false;
       log('列印失敗：' + (err && err.message ? err.message : String(err)), 'err');
     } finally {
       btnPrint.disabled = false;
@@ -904,7 +922,7 @@
 
       btnDisconnect.disabled = false;
       btnPrint.disabled = false;
-      scheduleAutoPrintAfterConnect_();
+      requestAutoPrintFromCentral_();
     } catch (err) {
       if (err && err.name === 'NotFoundError') {
         log('未選擇裝置或清單為空。', 'err');
@@ -1000,16 +1018,10 @@
     refreshRcUi_();
     log('POS 列印接收中心就緒。');
     if (!rcUrlAuto_) return;
-    if (isGattReadyForWrite_()) {
-      if (rcUrlMode_ && rcUrlOrder_ && rcUrlOrder_.items && rcUrlOrder_.items.length) {
-        scheduleAutoPrintAfterConnect_();
-      }
-      return;
-    }
     tryReconnectBleThenAutoPrint_();
   };
 
-  log('腳本已載入；auto=1 時於 GATT 就緒後延遲 1.5 秒自動列印；48mm 熱感連續紙（GP-2270T）；同 orderId 重新整理不重複自動印。');
+  log('腳本已載入；auto=1 時由控制中心延遲 1.5 秒自動列印；列印鎖 3 秒；lastPrintedId 與 orderId 去重；48mm 熱感（GP-2270T）。');
 })();
   </script>
 </body>
