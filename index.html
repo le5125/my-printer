@@ -103,6 +103,10 @@
       Service UUID：E7810A71-73AE-499D-8C15-FAA9AEF0C3F2<br />
       Characteristic UUID：BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F
     </div>
+    <div id="printerMeta" class="hint" style="margin-top:-8px;">
+      視窗名稱：-<br />
+      已連線裝置：-
+    </div>
 
     <div class="actions">
       <button id="connectBtn" type="button">連接打印機</button>
@@ -130,6 +134,14 @@
     let isAutoPrinting = false;
     let lastBackUrl = "";
 
+    function refreshPrinterMeta() {
+      const meta = document.getElementById("printerMeta");
+      if (!meta) return;
+      const winName = window.name || "(未命名)";
+      const devName = (bleDevice && bleDevice.name) ? bleDevice.name : (isPrinterConnected() ? "已連線(未命名裝置)" : "未連線");
+      meta.innerHTML = `視窗名稱：${winName}<br />已連線裝置：${devName}`;
+    }
+
     function setStatus(message, level = "") {
       const time = new Date().toLocaleTimeString();
       const line = `[${time}] ${message}`;
@@ -147,6 +159,7 @@
       printBtn.disabled = !connected;
       connectBtn.disabled = false;
       connectBtn.textContent = connected ? "重新連接打印機" : "連接打印機";
+      refreshPrinterMeta();
     }
 
     function handleDisconnected() {
@@ -154,6 +167,7 @@
       writeCharacteristic = null;
       gattServer = null;
       updateUi(false);
+      refreshPrinterMeta();
     }
 
     async function connectPrinter() {
@@ -189,6 +203,7 @@
 
         setStatus("連線成功，可開始測試列印", "ok");
         updateUi(true);
+        refreshPrinterMeta();
         tryAutoPrintFromPending();
       } catch (error) {
         setStatus(`連線失敗：${error.message || error}`, "err");
@@ -276,6 +291,7 @@
       if (window.name !== "Gprinter_Handler") {
         window.name = "Gprinter_Handler";
       }
+      refreshPrinterMeta();
       const token = window.location.search || "";
       if (token === latestUrlToken) return;
       latestUrlToken = token;
@@ -319,6 +335,7 @@
     setInterval(syncPayloadFromUrl, 1000);
 
     updateUi(false);
+    refreshPrinterMeta();
     syncPayloadFromUrl();
   </script>
 </body>
