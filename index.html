@@ -947,9 +947,9 @@ window.addEventListener('message', async (event) => {
   }
 
   if (msg.type === 'PRINTER_PING') {
-    // POS 僅需確認打印頁 DOM 已就緒可收訊息；不代表 BLE 一定已連線。
-    event.source.postMessage({ type: 'PRINTER_PONG', ready: true, connected: isConnected }, '*');
-    log('PING received -> PONG sent', 'info');
+    // POS is checking if this window is alive
+    event.source.postMessage({ type: 'PRINTER_PONG', ready: isConnected }, '*');
+    log('PING received -> PONG sent (connected=' + isConnected + ')', 'info');
   }
 });
 
