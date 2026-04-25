@@ -19,9 +19,7 @@
     --radius: 10px;
     --font: 'Courier New', monospace;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
     background: var(--bg);
     color: var(--text);
@@ -32,7 +30,6 @@
     align-items: center;
     padding: 16px;
   }
-
   header {
     width: 100%;
     max-width: 480px;
@@ -43,19 +40,15 @@
     border-bottom: 1px solid var(--border);
     margin-bottom: 20px;
   }
-
   .printer-icon {
     width: 36px; height: 36px;
     background: var(--accent);
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
   }
-
   .printer-icon svg { width: 22px; height: 22px; fill: #000; }
-
   h1 { font-size: 1rem; letter-spacing: 0.08em; color: var(--accent); }
   h1 span { color: var(--muted); font-size: 0.75rem; display: block; margin-top: 2px; }
-
   .card {
     width: 100%;
     max-width: 480px;
@@ -65,7 +58,6 @@
     padding: 16px;
     margin-bottom: 14px;
   }
-
   .card-title {
     font-size: 0.7rem;
     letter-spacing: 0.12em;
@@ -73,8 +65,6 @@
     color: var(--muted);
     margin-bottom: 12px;
   }
-
-  /* Status indicator */
   .ble-status {
     display: flex;
     align-items: center;
@@ -85,26 +75,18 @@
     border: 1px solid var(--border);
     margin-bottom: 12px;
   }
-
   .dot {
     width: 10px; height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
     transition: background 0.3s;
   }
-
   .dot.disconnected { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
   .dot.connecting   { background: var(--warn);   box-shadow: 0 0 6px var(--warn); animation: pulse 1s infinite; }
   .dot.connected    { background: var(--success); box-shadow: 0 0 8px var(--success); }
-
-  @keyframes pulse {
-    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
-  }
-
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
   #ble-status-text { font-size: 0.82rem; color: var(--text); }
   #ble-device-name { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
-
-  /* Buttons */
   .btn {
     width: 100%;
     padding: 13px;
@@ -118,35 +100,14 @@
     transition: all 0.15s;
     margin-bottom: 8px;
   }
-
   .btn:active { transform: scale(0.97); }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-  .btn-primary {
-    background: var(--accent);
-    color: #000;
-  }
+  .btn-primary { background: var(--accent); color: #000; }
   .btn-primary:not(:disabled):hover { background: #00bfa0; }
-
-  .btn-secondary {
-    background: transparent;
-    color: var(--accent);
-    border: 1px solid var(--accent);
-  }
+  .btn-secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
   .btn-secondary:not(:disabled):hover { background: rgba(0,212,170,0.08); }
-
-  .btn-danger {
-    background: transparent;
-    color: var(--danger);
-    border: 1px solid var(--danger);
-  }
-
-  .btn-warn {
-    background: var(--accent2);
-    color: #fff;
-  }
-
-  /* Queue display */
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-warn { background: var(--accent2); color: #fff; }
   .queue-item {
     background: rgba(0,212,170,0.06);
     border: 1px solid rgba(0,212,170,0.2);
@@ -155,14 +116,12 @@
     margin-bottom: 8px;
     font-size: 0.78rem;
   }
-
   .queue-item .qi-label {
     color: var(--accent);
     font-size: 0.68rem;
     letter-spacing: 0.1em;
     margin-bottom: 4px;
   }
-
   .queue-item pre {
     white-space: pre-wrap;
     word-break: break-all;
@@ -171,33 +130,27 @@
     max-height: 80px;
     overflow: hidden;
   }
-
   .empty-queue {
     text-align: center;
     color: var(--muted);
     font-size: 0.78rem;
     padding: 20px;
   }
-
-  /* Log */
   #log-box {
     background: rgba(0,0,0,0.4);
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 10px;
-    height: 130px;
+    height: 150px;
     overflow-y: auto;
     font-size: 0.7rem;
     line-height: 1.6;
   }
-
   .log-line { color: var(--muted); }
-  .log-line.ok  { color: var(--success); }
-  .log-line.err { color: var(--danger); }
+  .log-line.ok   { color: var(--success); }
+  .log-line.err  { color: var(--danger); }
   .log-line.info { color: var(--accent); }
   .log-line.warn { color: var(--warn); }
-
-  /* ACK badge */
   .ack-flash {
     position: fixed;
     top: 20px; right: 20px;
@@ -213,24 +166,6 @@
     z-index: 999;
   }
   .ack-flash.show { opacity: 1; }
-
-  /* Return POS prompt */
-  .return-prompt {
-    display: none;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: var(--surface);
-    border-top: 2px solid var(--accent);
-    padding: 16px;
-    z-index: 100;
-  }
-
-  .return-prompt p { font-size: 0.85rem; margin-bottom: 12px; text-align: center; }
-
-  .return-row { display: flex; gap: 8px; }
-  .return-row .btn { margin-bottom: 0; flex: 1; }
-
-  /* Settings */
   .setting-row {
     display: flex;
     align-items: center;
@@ -241,8 +176,17 @@
   }
   .setting-row:last-child { border-bottom: none; }
   .setting-row label { color: var(--muted); font-size: 0.72rem; }
-
-  input[type="number"] {
+  .hint-box {
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.72rem;
+    color: var(--warn);
+    margin-bottom: 12px;
+    line-height: 1.6;
+  }
+  input[type="number"], select {
     background: rgba(0,0,0,0.4);
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -250,30 +194,34 @@
     font-family: var(--font);
     font-size: 0.8rem;
     padding: 4px 8px;
-    width: 70px;
+    width: 120px;
     text-align: right;
   }
+  select { text-align: left; cursor: pointer; }
 </style>
-<!-- 僅 codepage cpexcel（CP950）；避免與 encoding-japanese 雙庫分支 -->
+<!-- codepage CP950 Big5 編碼庫 -->
 <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-<div class="ack-flash" id="ack-flash">Print OK</div>
+<div class="ack-flash" id="ack-flash">列印成功</div>
 
 <header>
   <div class="printer-icon">
-    <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 6 2 18 2 18 9"/>
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+      <rect x="6" y="14" width="12" height="8"/>
+    </svg>
   </div>
   <div>
-    <h1>GP-2270T Receiver <span>Bluetooth Print Bridge</span></h1>
+    <h1>GP-2270T 列印橋接器 <span>Bluetooth Print Bridge — 繁體中文修正版</span></h1>
   </div>
 </header>
 
-<!-- BLE Connection Card -->
+<!-- BLE 連線卡片 -->
 <div class="card">
   <div class="card-title">[ 01 ] 藍牙連線</div>
-
   <div class="ble-status">
     <div class="dot disconnected" id="ble-dot"></div>
     <div>
@@ -281,35 +229,54 @@
       <div id="ble-device-name">--</div>
     </div>
   </div>
-
   <button class="btn btn-primary" id="btn-connect">連線打印機</button>
-  <button class="btn btn-danger"  id="btn-disconnect" style="display:none">斷線</button>
+  <button class="btn btn-danger"  id="btn-disconnect" style="display:none">中斷連線</button>
 </div>
 
-<!-- Print Queue Card -->
+<!-- 待印佇列卡片 -->
 <div class="card">
   <div class="card-title">[ 02 ] 待印佇列</div>
   <div id="queue-display">
     <div class="empty-queue">等待 POS 送單...</div>
   </div>
-  <button class="btn btn-secondary" id="btn-test-print" disabled>測試打印（固定內容）</button>
+  <button class="btn btn-secondary" id="btn-test-print" disabled>測試列印（繁體中文）</button>
   <button class="btn btn-warn" id="btn-manual-print" disabled>手動列印最新資料</button>
 </div>
 
-<!-- Settings Card -->
+<!-- 設定卡片 -->
 <div class="card">
   <div class="card-title">[ 03 ] 設定</div>
+  <div class="hint-box">
+    若仍出現亂碼，請嘗試切換字型。多數 GP/TSC 機型用 TSS24.BF2；若無效改用 TST24.BF2 或數字索引 3。
+  </div>
+  <div class="setting-row">
+    <span>中文字型</span>
+    <select id="cfg-font">
+      <option value="TSS24.BF2">TSS24.BF2 (預設)</option>
+      <option value="TST24.BF2">TST24.BF2 (備選)</option>
+      <option value="3">3 (內建索引)</option>
+      <option value="2">2 (內建索引)</option>
+      <option value="4">4 (內建索引)</option>
+    </select>
+  </div>
+  <div class="setting-row">
+    <span>紙張寬度 (mm)</span>
+    <select id="cfg-width">
+      <option value="58" selected>58 mm</option>
+      <option value="80">80 mm</option>
+    </select>
+  </div>
   <div class="setting-row">
     <span>每包延遲 (ms)</span>
-    <div><label>chunk delay</label><br><input type="number" id="cfg-chunk-delay" value="30" min="10" max="200"></div>
+    <div><label>chunk delay</label><br><input type="number" id="cfg-chunk-delay" value="30" min="10" max="300"></div>
   </div>
   <div class="setting-row">
     <span>BLE 分段大小</span>
-    <div><label>固定 20 bytes（低功耗 MTU 安全值）</label><br><input type="number" id="cfg-chunk-size" value="20" min="20" max="20" readonly title="寫入韌體每包上限 20 bytes，已鎖定"></div>
+    <div><label>固定 20 bytes（MTU 安全值）</label></div>
   </div>
 </div>
 
-<!-- Log Card -->
+<!-- 系統紀錄卡片 -->
 <div class="card">
   <div class="card-title">[ 04 ] 系統紀錄</div>
   <div id="log-box"></div>
@@ -317,36 +284,39 @@
 </div>
 
 <script>
-/* ============================================================
-   PRINTER BRIDGE — index.html
-   GP-2270T via Web Bluetooth (Bluefy on iOS)
-   ============================================================ */
-
 'use strict';
 
-// ── BLE Constants ────────────────────────────────────────────
-const BLE_SERVICE_UUID  = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2';
-const BLE_CHAR_UUID     = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f';
-// GP-2270T 也可能用 SPP UUID: 00001101-0000-1000-8000-00805f9b34fb
-// 若上面不行可換成 SPP (需 Bluefy 支援)
-/** 熱感捲紙寬（mm）；若為 80mm 紙請改 80 */
-const TSPL_ROLL_WIDTH_MM = 58;
-/** 內建字型：多數 GP/TSC 用 TSS24.BF2；仍亂碼可試 "TST24.BF2" 或 "3" */
-const TSPL_FONT_ZH = 'TSS24.BF2';
+/* ============================================================
+   GP-2270T BLE 列印橋接器 — 繁體中文（Big5/CP950）修正版
+   ============================================================
+   核心修正：
+   1. TSPL 指令加入 CODEPAGE 950，明確告訴打印機用 Big5 解碼
+   2. 編碼策略：TSPL 指令列保持 ASCII，TEXT 內文才轉 CP950
+   3. decodeBase64ToText 改用 TextDecoder，不再使用廢棄的 escape()
+   4. 字型可於設定切換，方便排查亂碼
+   ============================================================ */
 
-// ── State ────────────────────────────────────────────────────
-let bleDevice    = null;
-let bleServer    = null;
-let bleChar      = null;
-let isConnected  = false;
-let pendingData  = null;   // { text: string, backUrl: string, ts: number }
-let posOpener    = null;   // reference to POS window (from postMessage source)
-let lastPrintTs  = 0;
-let printLock    = false;
-const LS_BLE_LAST_DEVICE_ID = 'gp2270t_ble_last_device_id';
-let _bleAutoReconnectBusy = false;
+// ── BLE UUID ──────────────────────────────────────────────────
+const BLE_SERVICE_UUID = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2';
+const BLE_CHAR_UUID    = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f';
 
-// ── DOM ──────────────────────────────────────────────────────
+// ── 常數 ──────────────────────────────────────────────────────
+const BLE_WRITE_CHUNK_BYTES     = 20;
+const LS_BLE_LAST_DEVICE_ID     = 'gp2270t_ble_last_device_id';
+const TSPL_DIRECTION_MODE       = 0;
+
+// ── 狀態 ──────────────────────────────────────────────────────
+let bleDevice              = null;
+let bleServer              = null;
+let bleChar                = null;
+let isConnected            = false;
+let pendingData            = null;
+let posOpener              = null;
+let lastPrintTs            = 0;
+let printLock              = false;
+let _bleAutoReconnectBusy  = false;
+
+// ── DOM ───────────────────────────────────────────────────────
 const dot         = document.getElementById('ble-dot');
 const statusText  = document.getElementById('ble-status-text');
 const deviceName  = document.getElementById('ble-device-name');
@@ -358,21 +328,27 @@ const queueDisp   = document.getElementById('queue-display');
 const logBox      = document.getElementById('log-box');
 const ackFlash    = document.getElementById('ack-flash');
 const cfgDelay    = document.getElementById('cfg-chunk-delay');
+const cfgFont     = document.getElementById('cfg-font');
+const cfgWidth    = document.getElementById('cfg-width');
 const btnClearLog = document.getElementById('btn-clear-log');
 
-// ── Logging ──────────────────────────────────────────────────
-function log(msg, type = '') {
+// ── 取得目前設定值 ─────────────────────────────────────────────
+function getFont()  { return cfgFont.value  || 'TSS24.BF2'; }
+function getWidth() { return parseInt(cfgWidth.value, 10) || 58; }
+
+// ── 日誌 ──────────────────────────────────────────────────────
+function log(msg, type) {
+  type = type || '';
   const el = document.createElement('div');
   el.className = 'log-line ' + type;
-  const t = new Date().toTimeString().slice(0,8);
+  const t = new Date().toTimeString().slice(0, 8);
   el.textContent = '[' + t + '] ' + msg;
   logBox.appendChild(el);
   logBox.scrollTop = logBox.scrollHeight;
-  // keep last 80 lines
-  while (logBox.children.length > 80) logBox.removeChild(logBox.firstChild);
+  while (logBox.children.length > 100) logBox.removeChild(logBox.firstChild);
 }
 
-// ── UI State ─────────────────────────────────────────────────
+// ── UI 狀態 ───────────────────────────────────────────────────
 function setBleState(state) {
   dot.className = 'dot ' + state;
   if (state === 'disconnected') {
@@ -389,7 +365,7 @@ function setBleState(state) {
     btnConnect.disabled = true;
   } else if (state === 'connected') {
     statusText.textContent = '已連線';
-    deviceName.textContent = bleDevice ? bleDevice.name || '(no name)' : '--';
+    deviceName.textContent = (bleDevice && bleDevice.name) ? bleDevice.name : '(未知裝置)';
     btnConnect.style.display = 'none';
     btnDisconn.style.display = '';
     isConnected = true;
@@ -399,11 +375,210 @@ function setBleState(state) {
 
 function showAck() {
   ackFlash.classList.add('show');
-  setTimeout(() => ackFlash.classList.remove('show'), 1800);
+  setTimeout(function () { ackFlash.classList.remove('show'); }, 1800);
 }
 
-// ── BLE Connect ──────────────────────────────────────────────
-async function connectGattFromDevice_(device) {
+// ── ================================================================
+//    核心修正 1：Big5 / CP950 編碼引擎
+//    策略：TSPL 指令列（ASCII）用 TextEncoder，TEXT 內文才轉 CP950
+// ================================================================
+
+/** 把純 JavaScript 字串中的 TSPL TEXT 引號內容轉為 CP950 位元組 */
+function u8concat(arrays) {
+  let len = 0;
+  for (let i = 0; i < arrays.length; i++) len += arrays[i].length;
+  const out = new Uint8Array(len);
+  let off = 0;
+  for (let i = 0; i < arrays.length; i++) { out.set(arrays[i], off); off += arrays[i].length; }
+  return out;
+}
+
+/**
+ * 核心編碼函式：
+ * - TSPL 指令部分（TEXT 10,20,"TSS24.BF2",0,1,1,"）→ ASCII / UTF-8 不動
+ * - 最後一組引號內的中文內容 → CP950 Big5 位元組
+ * - 其餘非 TEXT 行 → UTF-8（等同 ASCII，TSPL 指令全是英數）
+ *
+ * 修正重點：正則表達式放寬，不強制要求數字欄位精確計數。
+ */
+function encodeTsplWithBig5Content(tsplText) {
+  if (typeof cptable === 'undefined' || !cptable.utils || typeof cptable.utils.encode !== 'function') {
+    log('警告：cptable 庫未載入，改用 UTF-8（可能仍亂碼）', 'warn');
+    return new TextEncoder().encode(tsplText);
+  }
+
+  const normalized = String(tsplText == null ? '' : tsplText)
+    .replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  const lines = normalized.split('\n');
+  const te = new TextEncoder();
+  const chunks = [];
+
+  // 匹配 TEXT 指令行：TEXT x,y,"字型",旋轉,倍寬,倍高,"內容"
+  // 放寬：只要以 TEXT 開頭，最後一個引號對是內文
+  const textLineRe = /^(\s*TEXT\b.*,\s*")((?:\\.|[^"\\])*)(")(\s*)$/i;
+
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    const eol  = (li < lines.length - 1) ? '\n' : '';
+    const m = line.match(textLineRe);
+    if (m) {
+      // m[1] = 'TEXT 10,20,"TSS24.BF2",0,1,1,"'  → ASCII，安全用 UTF-8
+      // m[2] = '繁體中文內容'                     → 必須轉 CP950
+      // m[3] = '"'                                → ASCII
+      // m[4] = 尾部空白
+      const prefix  = m[1];
+      const content = m[2].replace(/\\"/g, '"').replace(/\\\\/g, '\\'); // 反轉義
+      const suffix  = m[3] + m[4];
+
+      let contentBytes;
+      try {
+        contentBytes = new Uint8Array(cptable.utils.encode(950, content.normalize('NFC')));
+      } catch (e) {
+        log('CP950 編碼失敗（' + content.slice(0, 10) + '）: ' + e.message, 'warn');
+        contentBytes = te.encode(content);
+      }
+
+      chunks.push(te.encode(prefix));
+      chunks.push(contentBytes);
+      chunks.push(te.encode(suffix + eol));
+    } else {
+      // 非 TEXT 行：全部 ASCII/UTF-8 即可（TSPL 指令不含中文）
+      chunks.push(te.encode(line + eol));
+    }
+  }
+
+  return u8concat(chunks);
+}
+
+// ── ================================================================
+//    核心修正 2：TSPL 指令加入 CODEPAGE 950
+//    這是最關鍵的修正——明確告訴打印機韌體用 Big5 解碼接收到的位元組
+// ================================================================
+
+function buildTsplHeader(widthMm, heightMm) {
+  return [
+    'SET TEAR ON',
+    'SIZE ' + widthMm + ' mm, ' + heightMm + ' mm',
+    'GAP 0 mm, 0 mm',
+    'CODEPAGE 950',          // ★ 關鍵修正：宣告 Big5 / CP950 編碼頁
+    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
+    'REFERENCE 0,0',
+    'OFFSET 0',
+    'CLS'
+  ].join('\n');
+}
+
+function buildRollTsplBlock(lines, startIdx, count, widthMm) {
+  const font   = getFont();
+  const x0     = 10;
+  const y0     = 20;
+  const stepY  = 40;
+  const tailDots  = 100;
+  const totalDots = y0 + (count > 0 ? (count - 1) * stepY : 0) + tailDots;
+  const hMm    = Math.min(3200, Math.max(16, Math.ceil(totalDots / 8)));
+
+  const parts = [buildTsplHeader(widthMm, hMm)];
+
+  for (let k = 0; k < count; k++) {
+    const raw = String(lines[startIdx + k]);
+    // 轉義 TSPL 字串內的特殊字元
+    let esc = raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    if (esc.length > 120) esc = esc.slice(0, 120) + '...';
+    const y = y0 + k * stepY;
+    parts.push('TEXT ' + x0 + ',' + y + ',"' + font + '",0,1,1,"' + esc + '"');
+  }
+
+  parts.push('PRINT 1,1');
+  return parts.join('\n');
+}
+
+function tsplMinimalRoll() {
+  const widthMm = getWidth();
+  return [
+    buildTsplHeader(widthMm, 18),
+    'PRINT 1,1',
+    ''
+  ].join('\n');
+}
+
+/** 純文字 → 包裝成 TSPL 捲紙格式（含 CODEPAGE 950） */
+function ensureTsplForPrint(raw) {
+  const s = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (!s.trim()) return '\n';
+
+  // 若已是完整 TSPL 任務（含 PRINT 指令）則直接送出
+  if (/(?:^|\n)\s*PRINT\s+\d+/im.test(s)) {
+    // ★ 即使是外來 TSPL，若沒有 CODEPAGE 行，補插在 CLS 之前
+    if (!/(?:^|\n)\s*CODEPAGE\b/im.test(s)) {
+      const patched = s.replace(
+        /((?:^|\n)\s*CLS\b)/im,
+        '\nCODEPAGE 950$1'
+      );
+      if (patched !== s) {
+        log('已自動補插 CODEPAGE 950 至外來 TSPL', 'info');
+        return patched.endsWith('\n') ? patched : patched + '\n';
+      }
+    }
+    return s.endsWith('\n') ? s : s + '\n';
+  }
+
+  // 純文字 → 拆行，每行包成 TEXT 指令
+  const widthMm = getWidth();
+  const rawLines = s.split('\n').map(function (ln) { return ln.replace(/\r$/, ''); });
+  const nonempty = rawLines.filter(function (ln) { return ln.trim().length > 0; });
+  if (!nonempty.length) return tsplMinimalRoll();
+
+  const maxLinesPerBlock = 48;
+  const blocks = [];
+  let idx = 0;
+  while (idx < nonempty.length) {
+    const take = Math.min(maxLinesPerBlock, nonempty.length - idx);
+    blocks.push(buildRollTsplBlock(nonempty, idx, take, widthMm));
+    idx += take;
+  }
+  log('純文字已包成 TSPL（' + blocks.length + ' 段，CODEPAGE 950，寬 ' + widthMm + ' mm）', 'info');
+  return blocks.join('\n') + '\n';
+}
+
+// ── BLE 送印 ──────────────────────────────────────────────────
+async function sendRawText(tsplText) {
+  if (!bleChar)    throw new Error('無 BLE characteristic');
+  if (!isConnected) throw new Error('BLE 未連線');
+
+  // ★ 用混合編碼：TSPL 指令 ASCII，TEXT 內文 CP950
+  const bytes = encodeTsplWithBig5Content(tsplText);
+  const CHUNK  = BLE_WRITE_CHUNK_BYTES;
+  const DELAY  = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
+  const total  = Math.ceil(bytes.length / CHUNK);
+
+  log('送印 ' + bytes.length + ' bytes，每包 ' + CHUNK + ' bytes，共 ' + total + ' 包，CODEPAGE 950', 'info');
+
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const chunk = bytes.slice(i, i + CHUNK);
+    try {
+      if (bleChar.properties.writeWithoutResponse) {
+        await bleChar.writeValueWithoutResponse(chunk);
+      } else {
+        await bleChar.writeValue(chunk);
+      }
+    } catch (e) {
+      await sleep(80);
+      if (bleChar.properties.writeWithoutResponse) {
+        await bleChar.writeValueWithoutResponse(chunk);
+      } else {
+        await bleChar.writeValue(chunk);
+      }
+    }
+    if (i + CHUNK < bytes.length) await sleep(DELAY);
+  }
+  log('送印完成', 'ok');
+}
+
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+// ── BLE 連線 ──────────────────────────────────────────────────
+async function connectGattFromDevice(device) {
   bleDevice = device;
   if (!device._gp2270DisconnectBound) {
     device._gp2270DisconnectBound = true;
@@ -416,11 +591,12 @@ async function connectGattFromDevice_(device) {
   let service;
   try {
     service = await bleServer.getPrimaryService(BLE_SERVICE_UUID);
-    log('Service OK: 18f0', 'ok');
+    log('Service 取得成功', 'ok');
   } catch (e) {
-    log('18f0 不可用，嘗試取得所有服務...', 'warn');
+    log('指定 UUID 不可用，嘗試取得所有服務...', 'warn');
     const services = await bleServer.getPrimaryServices();
     log('找到 ' + services.length + ' 個服務', 'info');
+    if (!services.length) throw new Error('找不到任何 GATT 服務');
     service = services[0];
     log('使用服務: ' + service.uuid, 'info');
   }
@@ -428,22 +604,21 @@ async function connectGattFromDevice_(device) {
   let char;
   try {
     char = await service.getCharacteristic(BLE_CHAR_UUID);
-    log('Characteristic OK: 2af1', 'ok');
+    log('Characteristic 取得成功', 'ok');
   } catch (e) {
     const chars = await service.getCharacteristics();
     log('找到 ' + chars.length + ' 個 characteristic', 'info');
-    char = chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
+    char = chars.find(function (c) { return c.properties.write || c.properties.writeWithoutResponse; });
     if (!char) char = chars[0];
+    if (!char) throw new Error('找不到可寫入的 Characteristic');
     log('使用 char: ' + char.uuid, 'info');
   }
 
   bleChar = char;
-  try {
-    localStorage.setItem(LS_BLE_LAST_DEVICE_ID, bleDevice.id);
-  } catch (eLs) { /* 略 */ }
+  try { localStorage.setItem(LS_BLE_LAST_DEVICE_ID, bleDevice.id); } catch (e) { /* 略 */ }
 
   setBleState('connected');
-  log('打印機連線成功！已記住裝置 ID（供自動回連）', 'ok');
+  log('打印機連線成功！字型: ' + getFont() + '，紙寬: ' + getWidth() + ' mm', 'ok');
 
   if (pendingData && !printLock) {
     updateQueueDisplay(pendingData);
@@ -451,33 +626,25 @@ async function connectGattFromDevice_(device) {
       log('有待印資料，連線後自動送印', 'info');
       await autoPrint(pendingData);
     } catch (eAuto) {
-      log('自動送印: ' + (eAuto && eAuto.message ? eAuto.message : String(eAuto)), 'warn');
+      log('自動送印失敗: ' + (eAuto && eAuto.message ? eAuto.message : String(eAuto)), 'warn');
     }
   }
 }
 
-async function tryAutoReconnectBle_() {
+async function tryAutoReconnectBle() {
   if (!navigator.bluetooth || isConnected || _bleAutoReconnectBusy) return;
   let id = '';
-  try {
-    id = localStorage.getItem(LS_BLE_LAST_DEVICE_ID) || '';
-  } catch (e) { return; }
+  try { id = localStorage.getItem(LS_BLE_LAST_DEVICE_ID) || ''; } catch (e) { return; }
   if (!id) return;
-  if (!navigator.bluetooth.getDevices) {
-    log('此瀏覽器不支援 Bluetooth.getDevices，無法自動回連', 'warn');
-    return;
-  }
+  if (!navigator.bluetooth.getDevices) { log('此瀏覽器不支援自動回連 (getDevices)', 'warn'); return; }
   _bleAutoReconnectBusy = true;
   try {
     const list = await navigator.bluetooth.getDevices();
-    const dev = list.find(d => d && d.id === id);
-    if (!dev) {
-      log('未找到已授權的記憶裝置，請再手動連線一次', 'info');
-      return;
-    }
+    const dev  = list.find(function (d) { return d && d.id === id; });
+    if (!dev) { log('未找到已授權裝置，請手動連線', 'info'); return; }
     setBleState('connecting');
-    log('自動回連：' + (dev.name || id), 'info');
-    await connectGattFromDevice_(dev);
+    log('自動回連: ' + (dev.name || id), 'info');
+    await connectGattFromDevice(dev);
   } catch (e) {
     setBleState('disconnected');
     log('自動回連失敗: ' + (e && e.message ? e.message : e), 'warn');
@@ -486,10 +653,10 @@ async function tryAutoReconnectBle_() {
   }
 }
 
-btnConnect.addEventListener('click', async () => {
+btnConnect.addEventListener('click', async function () {
   if (!navigator.bluetooth) {
     log('此瀏覽器不支援 Web Bluetooth', 'err');
-    alert('請使用 Bluefy 開啟此頁');
+    alert('請使用 Bluefy 開啟此頁面');
     return;
   }
   setBleState('connecting');
@@ -499,279 +666,36 @@ btnConnect.addEventListener('click', async () => {
       acceptAllDevices: true,
       optionalServices: [BLE_SERVICE_UUID, '00001101-0000-1000-8000-00805f9b34fb']
     });
-    await connectGattFromDevice_(dev);
+    await connectGattFromDevice(dev);
   } catch (err) {
     setBleState('disconnected');
     log('連線失敗: ' + err.message, 'err');
   }
 });
 
-btnDisconn.addEventListener('click', async () => {
-  if (bleDevice && bleDevice.gatt.connected) {
-    bleDevice.gatt.disconnect();
-  }
+btnDisconn.addEventListener('click', function () {
+  if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
   setBleState('disconnected');
-  log('已手動斷線', 'warn');
+  log('已手動中斷連線', 'warn');
 });
 
 function onBleDisconnected() {
   setBleState('disconnected');
-  log('藍牙連線中斷', 'warn');
+  log('藍牙連線已中斷', 'warn');
 }
 
-// ── Print Engine ──────────────────────────────────────────────
-/** BLE 寫入特徵值每段最大長度（MTU / ATT 限制，避免單次 write 丟包或斷線） */
-const BLE_WRITE_CHUNK_BYTES = 20;
-
-/**
- * BLE 送印位元組：優先 codepage **CP950（繁體 Big5）**；encoding-japanese 的 BIG5 常不可靠勿放最前。
- * 主控台可設 window.GP2270T_FORCE_UTF8 = true 強制 UTF-8（少數新韌體用 UTF-8 內文）。
- * TSPL 工作：僅將 TEXT 指令最後一個引號內文轉 CP950，指令列其餘字元維持 UTF-8（等同 ASCII），避免整段混編造成亂碼。
- */
-function u8concat_(arrays) {
-  let len = 0;
-  for (let i = 0; i < arrays.length; i++) len += arrays[i].length;
-  const out = new Uint8Array(len);
-  let off = 0;
-  for (let i = 0; i < arrays.length; i++) {
-    out.set(arrays[i], off);
-    off += arrays[i].length;
-  }
-  return out;
-}
-
-function unescapeTsplTextInner_(raw) {
-  let out = '';
-  for (let i = 0; i < raw.length; i++) {
-    if (raw[i] === '\\' && i + 1 < raw.length) {
-      const n = raw[++i];
-      if (n === '"' || n === '\\') out += n;
-      else out += '\\' + n;
-    } else out += raw[i];
-  }
-  return out;
-}
-
-/** @returns {Uint8Array|null} */
-function encodeTsplBig5TextQuotesOnly_(s) {
-  if (typeof cptable === 'undefined' || !cptable.utils || typeof cptable.utils.encode !== 'function') return null;
-  const t = String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const lines = t.split('\n');
-  const lineRe = /^\s*(TEXT\s+\d+,\d+,\s*"(?:\\.|[^"\\])*",\s*\d+,\s*\d+,\s*\d+,\s*")((?:\\.|[^"\\])*)("\s*)$/i;
-  const te = new TextEncoder();
-  const chunks = [];
-  for (let li = 0; li < lines.length; li++) {
-    const line = lines[li];
-    const sep = li < lines.length - 1 ? '\n' : '';
-    if (/^\s*TEXT\b/i.test(line) && !lineRe.test(line)) return null;
-    const m = line.match(lineRe);
-    if (m) {
-      const inner = unescapeTsplTextInner_(m[2]);
-      let innerBytes;
-      try {
-        innerBytes = new Uint8Array(cptable.utils.encode(950, inner.normalize('NFC')));
-      } catch (eIn) {
-        return null;
-      }
-      chunks.push(te.encode(m[1]));
-      chunks.push(innerBytes);
-      chunks.push(te.encode(m[3] + sep));
-    } else {
-      chunks.push(te.encode(line + sep));
-    }
-  }
-  return u8concat_(chunks);
-}
-
-function encodePrinterBytes_(text) {
-  const s = String(text == null ? '' : text);
-  try {
-    if (window.GP2270T_FORCE_UTF8 === true) {
-      log('已強制 UTF-8（GP2270T_FORCE_UTF8）', 'info');
-      return new TextEncoder().encode(s);
-    }
-  } catch (eF) { /* 略 */ }
-  try {
-    if (typeof cptable !== 'undefined' && cptable.utils && typeof cptable.utils.encode === 'function') {
-      try {
-        if (isProbablyTsplJob_(s)) {
-          const splitBytes = encodeTsplBig5TextQuotesOnly_(s);
-          if (splitBytes !== null) return splitBytes;
-        }
-        const out = cptable.utils.encode(950, s);
-        if (out != null && (typeof out.length === 'number' || typeof out.byteLength === 'number')) {
-          return new Uint8Array(out);
-        }
-      } catch (e950) {
-        try {
-          const out2 = cptable.utils.encode(54936, s);
-          if (out2 != null && (typeof out2.length === 'number' || typeof out2.byteLength === 'number')) {
-            log('CP950 例外，已改用 GB18030', 'warn');
-            return new Uint8Array(out2);
-          }
-        } catch (eGb) { /* 略 */ }
-      }
-    }
-  } catch (e) { /* 略 */ }
-  try {
-    if (typeof Encoding !== 'undefined' && Encoding.convert) {
-      try {
-        const utf8bytes = new TextEncoder().encode(s);
-        const big5a = Encoding.convert(utf8bytes, 'BIG5', 'UTF8');
-        if (big5a && big5a.length) {
-          log('已用 encoding-japanese BIG5（codepage 不可用時）', 'warn');
-          return new Uint8Array(big5a);
-        }
-      } catch (eA) { /* 略 */ }
-      if (Encoding.stringToCode) {
-        try {
-          const uni = Encoding.stringToCode(s);
-          const big5b = Encoding.convert(uni, { to: 'BIG5', from: 'UNICODE' });
-          if (big5b && big5b.length) {
-            log('已用 encoding-japanese UNICODE→BIG5', 'warn');
-            return new Uint8Array(big5b);
-          }
-        } catch (eB) { /* 略 */ }
-      }
-    }
-  } catch (e0) { /* 略 */ }
-  log('無可用 Big5 表，改用 UTF-8', 'warn');
-  return new TextEncoder().encode(s);
-}
-
-/** 送原始列印位元組（Big5 優先）；等同舊 sendToprinter */
-async function sendRawText(text) {
-  if (!bleChar) throw new Error('無 characteristic');
-  if (!isConnected) throw new Error('BLE 未連線');
-
-  const bytes = encodePrinterBytes_(text);
-  const CHUNK   = BLE_WRITE_CHUNK_BYTES;
-  const DELAY   = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
-
-  log('送印 ' + bytes.length + ' bytes（CP950/Big5 優先），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
-
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    const chunk = bytes.slice(i, i + CHUNK);
-    try {
-      if (bleChar.properties.writeWithoutResponse) {
-        await bleChar.writeValueWithoutResponse(chunk);
-      } else {
-        await bleChar.writeValue(chunk);
-      }
-    } catch (e) {
-      await sleep(50);
-      if (bleChar.properties.writeWithoutResponse) {
-        await bleChar.writeValueWithoutResponse(chunk);
-      } else {
-        await bleChar.writeValue(chunk);
-      }
-    }
-    if (i + CHUNK < bytes.length) await sleep(DELAY);
-  }
-  log('送印完成', 'ok');
-}
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-/** 已有完整 TSPL（行首 PRINT）則不重包；避免英文句中 print 誤判 */
-function isProbablyTsplJob_(raw) {
-  const t = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  return /(?:^|\n)\s*PRINT\s+\d+/im.test(t);
-}
-
-/**
- * 捲紙一張：DIRECTION 0,0 多數為「由上往下」正讀；若仍顛倒可改 TSPL_DIRECTION_MODE 為 1。
- * TEXT 用 TST24.BF2 + 送印端 CP950 位元組，對應繁中內建字型。
- */
-const TSPL_DIRECTION_MODE = 0;
-function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
-  const x0 = 10;
-  const y0 = 20;
-  const stepY = 40;
-  const font = TSPL_FONT_ZH;
-  const n = count;
-  const tailDots = 100;
-  const totalDots = y0 + (n > 0 ? (n - 1) * stepY : 0) + tailDots;
-  const hMm = Math.min(3200, Math.max(16, Math.ceil(totalDots / 8)));
-
-  const parts = [];
-  parts.push('SET TEAR ON');
-  parts.push('SIZE ' + widthMm + ' mm, ' + hMm + ' mm');
-  parts.push('GAP 0 mm, 0 mm');
-  parts.push('CLS');
-  parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
-  parts.push('REFERENCE 0,0');
-  parts.push('OFFSET 0');
-  for (let k = 0; k < n; k++) {
-    const line = lines[startIdx + k];
-    let esc = String(line).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    if (esc.length > 120) esc = esc.slice(0, 120) + '...';
-    const y = y0 + k * stepY;
-    parts.push('TEXT ' + x0 + ',' + y + ',"' + font + '",0,1,1,"' + esc + '"');
-  }
-  parts.push('PRINT 1,1');
-  return parts.join('\n');
-}
-
-function tsplMinimalRoll_() {
-  return [
-    'SET TEAR ON',
-    'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 18 mm',
-    'GAP 0 mm, 0 mm',
-    'CLS',
-    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
-    'REFERENCE 0,0',
-    'OFFSET 0',
-    'PRINT 1,1',
-    ''
-  ].join('\n');
-}
-
-/**
- * 熱感捲紙：DIRECTION 0,0（由上往下）；內文 TST24.BF2 + 送印 CP950/Big5。
- * 原稿若已含行首 PRINT n（POS 標籤模板等）則原樣送出。
- */
-function ensureTsplForManualPrint_(raw) {
-  const s = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  if (!s.trim()) return '\n';
-  if (isProbablyTsplJob_(s)) {
-    return s.endsWith('\n') ? s : s + '\n';
-  }
-
-  const lines = s.split('\n').map(function (ln) { return ln.replace(/\r$/, ''); });
-  const nonempty = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim()) nonempty.push(lines[i]);
-  }
-  if (!nonempty.length) return tsplMinimalRoll_();
-
-  const maxLinesPerBlock = 48;
-  const blocks = [];
-  let idx = 0;
-  while (idx < nonempty.length) {
-    const take = Math.min(maxLinesPerBlock, nonempty.length - idx);
-    blocks.push(buildRollTsplBlock_(nonempty, idx, take, TSPL_ROLL_WIDTH_MM));
-    idx += take;
-  }
-  log('純文字已包成捲紙 TSPL（' + blocks.length + ' 段；寬 ' + TSPL_ROLL_WIDTH_MM + ' mm、PRINT 1,1）', 'info');
-  return blocks.join('\n') + '\n';
-}
-
-// ── Auto Print Flow ───────────────────────────────────────────
+// ── 列印流程 ──────────────────────────────────────────────────
 async function autoPrint(data) {
   if (printLock) { log('列印鎖定中，略過', 'warn'); return; }
   printLock = true;
-
   try {
-    const payload = ensureTsplForManualPrint_(data.text);
+    const payload = ensureTsplForPrint(data.text);
     await sendRawText(payload);
     showAck();
     lastPrintTs = data.ts;
     pendingData = null;
     updateQueueDisplay(null);
-
     sendAckToPos('PRINT_ACK:success:' + data.ts);
-
   } catch (err) {
     log('列印失敗: ' + err.message, 'err');
     sendAckToPos('PRINT_ACK:error:' + err.message);
@@ -781,50 +705,53 @@ async function autoPrint(data) {
 }
 
 function sendAckToPos(msg) {
-  // Try postMessage to opener
   if (posOpener && !posOpener.closed) {
-    try {
-      posOpener.postMessage({ type: 'PRINTER_ACK', payload: msg }, '*');
-      log('ACK 送回 POS (postMessage)', 'ok');
-      return;
-    } catch(e) {}
+    try { posOpener.postMessage({ type: 'PRINTER_ACK', payload: msg }, '*'); log('ACK -> POS (postMessage)', 'ok'); return; } catch (e) { /* 略 */ }
   }
   if (window.opener && !window.opener.closed) {
-    try {
-      window.opener.postMessage({ type: 'PRINTER_ACK', payload: msg }, '*');
-      log('ACK 送回 opener', 'ok');
-      return;
-    } catch(e) {}
+    try { window.opener.postMessage({ type: 'PRINTER_ACK', payload: msg }, '*'); log('ACK -> opener', 'ok'); return; } catch (e) { /* 略 */ }
   }
-  log('ACK: 無法回傳 (opener 不可用)', 'warn');
+  log('ACK: 無法回傳（opener 不可用）', 'warn');
 }
 
-// ── Data Reception ────────────────────────────────────────────
+// ── ================================================================
+//    核心修正 3：Base64 解碼改用 TextDecoder
+//    舊版 escape(atob()) 對 UTF-8 繁體字不穩定
+// ================================================================
+function decodeBase64ToText(b64) {
+  try {
+    // 方法 1：TextDecoder（現代、正確）
+    const binary = atob(String(b64 || '').replace(/-/g, '+').replace(/_/g, '/'));
+    const bytes  = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+  } catch (e1) {
+    try {
+      // 方法 2：舊式 fallback
+      return decodeURIComponent(escape(atob(String(b64 || ''))));
+    } catch (e2) {
+      log('Base64 解碼失敗: ' + e2.message, 'err');
+      return '';
+    }
+  }
+}
+
+// ── 資料接收 ──────────────────────────────────────────────────
 function parseHashData() {
   const hash = window.location.hash;
   if (!hash || hash.length < 6) return null;
-
   try {
-    // Format: #data=BASE64URL&back=URL&ts=TIMESTAMP
-    const params = new URLSearchParams(hash.slice(1)); // remove leading #
+    const params = new URLSearchParams(hash.slice(1));
     const dataB64 = params.get('data');
     const backUrl = params.get('back') || '';
-    const ts      = parseInt(params.get('ts') || '0');
-
+    const ts      = parseInt(params.get('ts') || '0', 10);
     if (!dataB64) return null;
-
-    // Decode: base64url -> bytes -> text
     const text = decodeBase64ToText(dataB64);
-    return { text, backUrl, ts };
+    return { text: text, backUrl: backUrl, ts: ts };
   } catch (e) {
     log('Hash 解碼失敗: ' + e.message, 'err');
     return null;
   }
-}
-
-function decodeBase64ToText(b64) {
-  // 依需求改用 escape 路徑，確保與 POS 端編碼相容
-  return decodeURIComponent(escape(atob(String(b64 || ''))));
 }
 
 function updateQueueDisplay(data) {
@@ -833,129 +760,129 @@ function updateQueueDisplay(data) {
     btnManual.disabled = true;
     return;
   }
-  queueDisp.innerHTML = `
-    <div class="queue-item">
-      <div class="qi-label">待印資料 (ts: ${data.ts})</div>
-      <pre>${data.text.slice(0, 200)}${data.text.length > 200 ? '...' : ''}</pre>
-    </div>`;
-  // 有待印資料時務必保持可按：未連線時按了會在 log 提示先連線；若先前因「先送單後連線」被灰掉，連上後也不會永遠無法按
+  const preview  = data.text.slice(0, 300);
+  const ellipsis = data.text.length > 300 ? '...' : '';
+  queueDisp.innerHTML =
+    '<div class="queue-item">' +
+    '<div class="qi-label">待印資料 (ts: ' + data.ts + ')</div>' +
+    '<pre>' + preview + ellipsis + '</pre>' +
+    '</div>';
   btnManual.disabled = false;
 }
 
 async function receivePrintData(data) {
-  // Dedup: ignore same timestamp
   if (data.ts && data.ts === lastPrintTs) {
     log('重複資料 (ts=' + data.ts + ')，略過', 'warn');
     return;
   }
-
   log('收到待印資料 (ts=' + data.ts + ')', 'info');
   pendingData = data;
   updateQueueDisplay(data);
 
   if (isConnected && bleChar) {
-    log('待印資料已更新，請按「手動列印最新資料」。', 'info');
+    log('資料已就緒，請按「手動列印最新資料」', 'info');
   } else {
-    log('BLE 未連線，資料已暫存。請先連線打印機後再手動列印。', 'warn');
+    log('BLE 未連線，資料已暫存。請連線後手動列印。', 'warn');
     setTimeout(function () {
-      tryAutoReconnectBle_().catch(function () { /* 略 */ });
+      tryAutoReconnectBle().catch(function () { /* 略 */ });
     }, 400);
   }
 }
 
-// ── Message Listener (Primary Channel) ───────────────────────
-window.addEventListener('message', async (event) => {
-  // Accept any origin (POS is on different domain)
+// ── 訊息監聽 ──────────────────────────────────────────────────
+window.addEventListener('message', async function (event) {
   const msg = event.data;
   if (!msg || typeof msg !== 'object') return;
 
   if (msg.type === 'PRINT_JOB') {
     log('收到 postMessage 列印任務', 'info');
-    // Save sender reference for ACK
     posOpener = event.source;
-
-    const data = {
-      text   : msg.text    || '',
-      backUrl: msg.backUrl || '',
-      ts     : msg.ts      || Date.now()
-    };
-
-    if (!data.text) { log('postMessage: 空資料', 'err'); return; }
+    const data = { text: msg.text || '', backUrl: msg.backUrl || '', ts: msg.ts || Date.now() };
+    if (!data.text) { log('postMessage: 資料為空', 'err'); return; }
     await receivePrintData(data);
   }
 
   if (msg.type === 'PRINTER_PING') {
-    // POS is checking if this window is alive
     event.source.postMessage({ type: 'PRINTER_PONG', ready: isConnected }, '*');
-    log('PING received -> PONG sent (connected=' + isConnected + ')', 'info');
+    log('PING -> PONG (connected=' + isConnected + ')', 'info');
   }
 });
 
-// ── Hash Listener (Fallback Channel) ─────────────────────────
+// ── Hash 監聽 ─────────────────────────────────────────────────
 function handleIncomingData() {
-  console.log('偵測到 Hash 變化，準備打印...');
   const data = parseHashData();
   if (!data || !data.text) return;
-  if (data.ts && data.ts === lastPrintTs) return; // already processed
+  if (data.ts && data.ts === lastPrintTs) return;
   receivePrintData(data);
-  // Clear hash after reading (prevents re-trigger on visibility change)
-  // Use replaceState to avoid adding history entry
   history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
-window.addEventListener('hashchange', () => {
-  log('hashchange triggered', 'info');
+window.addEventListener('hashchange', function () {
+  log('hashchange 觸發', 'info');
   handleIncomingData();
 });
 
-// ── Manual Print Button ───────────────────────────────────────
-btnManual.addEventListener('click', async () => {
+// ── 手動列印按鈕 ──────────────────────────────────────────────
+btnManual.addEventListener('click', async function () {
   if (!pendingData) { log('無待印資料', 'warn'); return; }
   if (!isConnected || !bleChar) {
-    log('請先按「連線打印機」完成藍牙連線後再手動列印', 'err');
+    log('請先連線打印機再手動列印', 'err');
     return;
   }
   log('手動觸發列印', 'info');
   await autoPrint(pendingData);
 });
 
-btnTest.addEventListener('click', async () => {
+// ── 測試列印（繁體中文） ───────────────────────────────────────
+btnTest.addEventListener('click', async function () {
   if (!isConnected || !bleChar) {
-    log('測試打印失敗：請先連線打印機', 'err');
+    log('請先連線打印機', 'err');
     return;
   }
-  const testTspl = [
-    'SET TEAR ON',
-    'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 30 mm',
-    'GAP 0 mm, 0 mm',
-    'CLS',
-    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
-    'REFERENCE 0,0',
-    'OFFSET 0',
-    'TEXT 10,20,"' + TSPL_FONT_ZH + '",0,1,1,"上往下 測試 PRINT"',
-    'PRINT 1,1'
-  ].join('\n') + '\n';
+  const font  = getFont();
+  const width = getWidth();
+
+  // 測試內容：包含繁體中文、數字、英文，驗證編碼是否正確
+  const testLines = [
+    '測試列印',
+    '繁體中文正常',
+    '繁體字 Big5',
+    'GP-2270T OK',
+    '金額: $1,234',
+    '謝謝惠顧',
+    'Font: ' + font
+  ];
+
+  const parts = [
+    buildTsplHeader(width, 60),
+  ];
+  testLines.forEach(function (line, k) {
+    let esc = line.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    parts.push('TEXT 10,' + (20 + k * 36) + ',"' + font + '",0,1,1,"' + esc + '"');
+  });
+  parts.push('PRINT 1,1');
+  const testTspl = parts.join('\n') + '\n';
+
   try {
-    log('送出測試打印...', 'info');
+    log('送出繁體中文測試列印...', 'info');
     await sendRawText(testTspl);
-    log('測試打印完成', 'ok');
+    log('測試列印完成', 'ok');
   } catch (e) {
-    log('測試打印失敗: ' + e.message, 'err');
+    log('測試列印失敗: ' + e.message, 'err');
   }
 });
 
-// ── Clear Log ─────────────────────────────────────────────────
-btnClearLog.addEventListener('click', () => { logBox.innerHTML = ''; });
+// ── 清除記錄 ──────────────────────────────────────────────────
+btnClearLog.addEventListener('click', function () { logBox.innerHTML = ''; });
 
-// ── Init ──────────────────────────────────────────────────────
+// ── 初始化 ────────────────────────────────────────────────────
 function init() {
-  try {
-    window.name = 'Gprinter_Handler';
-  } catch (e) { /* 略 */ }
-  log('Printer Bridge 就緒', 'ok');
-  log('收到 POS 資料後請按「手動列印最新資料」送印（不自動列印、不跳回 POS）。', 'info');
+  try { window.name = 'Gprinter_Handler'; } catch (e) { /* 略 */ }
+  log('GP-2270T 列印橋接器就緒（繁體中文修正版）', 'ok');
+  log('修正內容：CODEPAGE 950 + CP950 Big5 編碼 + TextDecoder 解碼', 'info');
+  log('收到資料後請按「手動列印最新資料」', 'info');
   handleIncomingData();
-  tryAutoReconnectBle_().catch(function () { /* 略 */ });
+  tryAutoReconnectBle().catch(function () { /* 略 */ });
 }
 
 document.addEventListener('visibilitychange', function () {
@@ -963,33 +890,30 @@ document.addEventListener('visibilitychange', function () {
   if (isConnected || !pendingData) return;
   try {
     if (localStorage.getItem(LS_BLE_LAST_DEVICE_ID)) {
-      tryAutoReconnectBle_().catch(function () { /* 略 */ });
+      tryAutoReconnectBle().catch(function () { /* 略 */ });
     }
   } catch (e) { /* 略 */ }
 });
 
-/* 與 POS 同網域時可免彈窗即時收單；跨網域時仍以 postMessage / hash 為主 */
+// ── BroadcastChannel（同網域 POS 用）────────────────────────
 let printBroadcastChannel = null;
-function initPrintBroadcastChannel_() {
+function initPrintBroadcastChannel() {
   try {
     printBroadcastChannel = new BroadcastChannel('pos-ble-print-v1');
     printBroadcastChannel.onmessage = function (ev) {
       const msg = ev.data;
       if (!msg || msg.type !== 'PRINT_JOB') return;
       posOpener = null;
-      receivePrintData({
-        text: msg.text || '',
-        backUrl: msg.backUrl || '',
-        ts: msg.ts || Date.now()
-      });
+      receivePrintData({ text: msg.text || '', backUrl: msg.backUrl || '', ts: msg.ts || Date.now() });
     };
+    log('BroadcastChannel 已啟用', 'info');
   } catch (e) {
     log('BroadcastChannel 不可用（可略過）', 'warn');
   }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  initPrintBroadcastChannel_();
+  initPrintBroadcastChannel();
   init();
 });
 </script>
