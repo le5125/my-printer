@@ -340,7 +340,7 @@ let bleServer    = null;
 let bleChar      = null;
 let isConnected  = false;
 let pendingData  = null;   // { text: string, backUrl: string, ts: number }
-// posOpener 在 hash 模式下不使用（無反向 postMessage 通道）
+let posOpener    = null;   // reference to POS window (from postMessage source)
 let lastPrintTs  = 0;
 let printLock    = false;
 const LS_BLE_LAST_DEVICE_ID = 'gp2270t_ble_last_device_id';
@@ -699,11 +699,10 @@ function ensureTsplCodepage950_(tspl) {
 }
 
 /**
- * 捲紙列印方向：
- *   DIRECTION 1,0 → 由下往上送紙（GP-2270T 在 Bluefy 環境下正讀方向）
- *   若印出來是顛倒的，改回 0。
+ * 捲紙一張：DIRECTION 0,0 多數為「由上往下」正讀；若仍顛倒可改 TSPL_DIRECTION_MODE 為 1。
+ * TEXT 用 TST24.BF2 + 送印端 CP950 位元組，對應繁中內建字型。
  */
-const TSPL_DIRECTION_MODE = 1;
+const TSPL_DIRECTION_MODE = 0;
 function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
   const x0 = 10;
   const y0 = 20;
@@ -717,11 +716,11 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
   const parts = [];
   parts.push('SET TEAR ON');
   parts.push('SIZE ' + widthMm + ' mm, ' + hMm + ' mm');
-  parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
-  parts.push('REFERENCE 0,0');
   parts.push('GAP 0 mm, 0 mm');
   parts.push('CLS');
   parts.push('CODEPAGE 950');
+  parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
+  parts.push('REFERENCE 0,0');
   parts.push('OFFSET 0');
   for (let k = 0; k < n; k++) {
     const line = lines[startIdx + k];
@@ -738,11 +737,11 @@ function tsplMinimalRoll_() {
   return [
     'SET TEAR ON',
     'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 18 mm',
-    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
-    'REFERENCE 0,0',
     'GAP 0 mm, 0 mm',
     'CLS',
     'CODEPAGE 950',
+    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
+    'REFERENCE 0,0',
     'OFFSET 0',
     'PRINT 1,1',
     ''
@@ -804,9 +803,22 @@ async function autoPrint(data) {
 }
 
 function sendAckToPos(msg) {
-  // Hash 模式（Bluefy 跨網域）：無可靠反向通道，ACK 不送回 POS。
-  // POS 以「toast 提示 + 下次送單前確認橋接頁有資料」作為確認機制。
-  log('ACK（hash 模式，不回傳）: ' + msg, 'info');
+  // Try postMessage to opener
+  if (posOpener && !posOpener.closed) {
+    try {
+      posOpener.postMessage({ type: 'PRINTER_ACK', payload: msg }, '*');
+      log('ACK 送回 POS (postMessage)', 'ok');
+      return;
+    } catch(e) {}
+  }
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage({ type: 'PRINTER_ACK', payload: msg }, '*');
+      log('ACK 送回 opener', 'ok');
+      return;
+    } catch(e) {}
+  }
+  log('ACK: 無法回傳 (opener 不可用)', 'warn');
 }
 
 // ── Data Reception ────────────────────────────────────────────
@@ -815,31 +827,16 @@ function parseHashData() {
   if (!hash || hash.length < 6) return null;
 
   try {
-    // Format: #data=ENCODED&ts=TIMESTAMP
+    // Format: #data=BASE64URL&back=URL&ts=TIMESTAMP
     const params = new URLSearchParams(hash.slice(1)); // remove leading #
-    const dataRaw = params.get('data');
+    const dataB64 = params.get('data');
     const backUrl = params.get('back') || '';
     const ts      = parseInt(params.get('ts') || '0');
 
-    if (!dataRaw) return null;
+    if (!dataB64) return null;
 
-    // 解碼：優先嘗試 decodeURIComponent（POS 新版 encodeURIComponent 格式）
-    // 若失敗或結果看起來不像文字，改用 base64url 解碼（舊版相容）
-    let text = '';
-    let decoded = false;
-    try {
-      const uri = decodeURIComponent(dataRaw);
-      // 若解碼後含有可見字元（非純 binary），視為成功
-      if (uri && /[\x20-\x7e\u0080-\uffff]/.test(uri)) {
-        text = uri;
-        decoded = true;
-      }
-    } catch (eUri) { /* 繼續嘗試 base64url */ }
-
-    if (!decoded) {
-      text = decodeBase64ToText(dataRaw);
-    }
-
+    // Decode: base64url -> bytes -> text
+    const text = decodeBase64ToText(dataB64);
     return { text, backUrl, ts };
   } catch (e) {
     log('Hash 解碼失敗: ' + e.message, 'err');
@@ -893,38 +890,63 @@ async function receivePrintData(data) {
   }
 }
 
-// ── Message Listener（已移除）────────────────────────────────
-// Bluefy 跨網域：postMessage 不可靠、BroadcastChannel 跨域無效。
-// 唯一通訊管道為 hashchange（見下方）。不保留任何 postMessage 監聽。
+// ── Message Listener (Primary Channel) ───────────────────────
+window.addEventListener('message', async (event) => {
+  // Accept any origin (POS is on different domain)
+  const msg = event.data;
+  if (!msg || typeof msg !== 'object') return;
 
-// ── Hash Listener (PRIMARY Channel for Bluefy cross-origin) ──
-//
-// 為何 Hash 是 Bluefy 跨網域的唯一可靠通道：
-//   1. POS (Google) → 橋接頁 (GitHub)：跨網域，BroadcastChannel 無效。
-//   2. Bluefy 的 cross-origin window.open 引用無法可靠地 postMessage。
-//   3. window.open(url + '#hash', 'windowName') 僅改變 hash，不重載頁面，
-//      Web Bluetooth 連線因此不會斷開。
-//
-// 去重：以 ts 毫秒時間戳判斷，忽略重複觸發的 hashchange。
+  if (msg.type === 'PRINT_JOB') {
+    log('收到 postMessage 列印任務', 'info');
+    // 更新 POS 視窗引用（每次都更新，避免 POS 重整後引用過期）
+    if (event.source && !event.source.closed) {
+      posOpener = event.source;
+    }
+
+    const data = {
+      text   : msg.text    || '',
+      backUrl: msg.backUrl || '',
+      ts     : msg.ts      || Date.now()
+    };
+
+    if (!data.text) { log('postMessage: 空資料', 'err'); return; }
+    await receivePrintData(data);
+    return;
+  }
+
+  if (msg.type === 'PRINTER_PING') {
+    // POS 以 PONG 判斷頁面已就緒可接收 PRINT_JOB；BLE 連線狀態附帶回傳。
+    // 同時更新 posOpener 引用（POS 重整後再送 PING，我們藉此拿到新引用）
+    if (event.source && !event.source.closed) {
+      posOpener = event.source;
+    }
+    const pongMsg = { type: 'PRINTER_PONG', ready: true, connected: isConnected };
+    try {
+      event.source.postMessage(pongMsg, '*');
+      log('PING received → PONG sent (connected=' + isConnected + ')', 'info');
+    } catch (e) {
+      log('PONG 回傳失敗: ' + e.message, 'warn');
+    }
+    return;
+  }
+});
+
+// ── Hash Listener (Fallback Channel) ─────────────────────────
 function handleIncomingData() {
-  console.log('[Bridge] handleIncomingData: 解析 hash...');
+  console.log('偵測到 Hash 變化，準備打印...');
   const data = parseHashData();
-  if (!data || !data.text) {
-    console.log('[Bridge] hash 無有效資料，略過');
-    return;
-  }
-  if (data.ts && data.ts === lastPrintTs) {
-    log('重複資料 (ts=' + data.ts + ')，略過', 'warn');
-    return;
-  }
-  log('Hash 收到新列印資料 (ts=' + data.ts + ')', 'info');
+  if (!data || !data.text) return;
+  if (data.ts && data.ts === lastPrintTs) return; // already processed
   receivePrintData(data);
-  // 清除 hash（避免 visibility change 或 focus 再次觸發）
+  // Clear hash after reading (prevents re-trigger on visibility change)
+  // Use replaceState to avoid adding history entry
   history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
-// BroadcastChannel 在 Bluefy 跨網域環境完全無效，已移除。
-// 所有通訊統一走 hashchange（由 POS 端 window.open(url+hash, name) 觸發）。
+window.addEventListener('hashchange', () => {
+  log('hashchange triggered', 'info');
+  handleIncomingData();
+});
 
 // ── Manual Print Button ───────────────────────────────────────
 btnManual.addEventListener('click', async () => {
@@ -945,11 +967,11 @@ btnTest.addEventListener('click', async () => {
   const testTspl = [
     'SET TEAR ON',
     'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 30 mm',
-    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
-    'REFERENCE 0,0',
     'GAP 0 mm, 0 mm',
     'CLS',
     'CODEPAGE 950',
+    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
+    'REFERENCE 0,0',
     'OFFSET 0',
     'TEXT 10,20,"' + TSPL_FONT_ZH + '",0,1,1,"上往下 測試 PRINT"',
     'PRINT 1,1'
@@ -971,16 +993,39 @@ function init() {
   try {
     window.name = 'Gprinter_Handler';
   } catch (e) { /* 略 */ }
-  log('打印頁就緒 (Hash 監聽模式)', 'ok');
-  log('POS 送單後此頁會自動收到資料（hashchange）。請按「手動列印最新資料」送印。', 'info');
+  log('Printer Bridge 就緒', 'ok');
+  log('收到 POS 資料後請按「手動列印最新資料」送印（不自動列印、不跳回 POS）。', 'info');
 
-  window.addEventListener('hashchange', function () {
-    log('偵測到新訂單傳入...', 'info');
-    handleIncomingData();
-  });
+  // 主動通知所有可能的 POS 視窗：橋接頁已就緒
+  // 這樣即使 POS 重整後 printerWin 引用失效，一旦 POS 再送 PING 就能立即拿到引用
+  _broadcastReadyToOpener_();
 
   handleIncomingData();
   tryAutoReconnectBle_().catch(function () { /* 略 */ });
+}
+
+/**
+ * 在橋接頁載入完成時，主動向 opener（POS 主頁）回傳 PRINTER_READY 訊號。
+ * POS 的 message listener 收到後會自動更新 printerWin 引用。
+ * 同時也透過 BroadcastChannel 廣播，以應對 opener 不可用的情況。
+ */
+function _broadcastReadyToOpener_() {
+  const readyMsg = { type: 'PRINTER_READY', ready: true, connected: isConnected };
+
+  // 嘗試通知 opener
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage(readyMsg, '*');
+      log('已向 POS opener 廣播 PRINTER_READY', 'ok');
+    } catch (e) {
+      log('向 opener 廣播 READY 失敗（跨網域限制）', 'warn');
+    }
+  }
+
+  // 也透過 BroadcastChannel（同網域備用）
+  if (printBroadcastChannel) {
+    try { printBroadcastChannel.postMessage(readyMsg); } catch (e) { /* 略 */ }
+  }
 }
 
 document.addEventListener('visibilitychange', function () {
@@ -993,9 +1038,42 @@ document.addEventListener('visibilitychange', function () {
   } catch (e) { /* 略 */ }
 });
 
-/* BroadcastChannel 在 Bluefy 跨網域環境無效，已移除。 */
+/* 與 POS 同網域時可免彈窗即時收單；跨網域時仍以 postMessage / hash 為主 */
+let printBroadcastChannel = null;
+function initPrintBroadcastChannel_() {
+  try {
+    printBroadcastChannel = new BroadcastChannel('pos-ble-print-v1');
+    printBroadcastChannel.onmessage = function (ev) {
+      const msg = ev.data;
+      if (!msg) return;
+
+      if (msg.type === 'PRINT_JOB') {
+        posOpener = null; // BroadcastChannel 無 source 引用
+        receivePrintData({
+          text: msg.text || '',
+          backUrl: msg.backUrl || '',
+          ts: msg.ts || Date.now()
+        });
+        return;
+      }
+
+      // 同網域：POS 廣播 PING 時也回 PONG（透過 BroadcastChannel）
+      if (msg.type === 'PRINTER_PING') {
+        try {
+          printBroadcastChannel.postMessage({
+            type: 'PRINTER_PONG', ready: true, connected: isConnected
+          });
+        } catch (e) { /* 略 */ }
+        return;
+      }
+    };
+  } catch (e) {
+    log('BroadcastChannel 不可用（可略過）', 'warn');
+  }
+}
 
 document.addEventListener('DOMContentLoaded', function () {
+  initPrintBroadcastChannel_();
   init();
 });
 </script>
