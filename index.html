@@ -496,7 +496,7 @@ btnConnect.addEventListener('click', async () => {
   log('掃描藍牙裝置...', 'info');
   try {
     const dev = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'Printer_9AE9_BLE' }],
+      filters: [{ name: 'Printer_9AE9_BLE' }],
       optionalServices: ['0000ff00-0000-1000-8000-00805f9b34fb']
     });
     await connectGattFromDevice_(dev);
