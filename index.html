@@ -254,6 +254,8 @@
     text-align: right;
   }
 </style>
+<!-- CP950（繁體 Big5）編碼；失敗時 sendRawText 會退回 UTF-8 -->
+<script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -337,6 +339,8 @@ let pendingData  = null;   // { text: string, backUrl: string, ts: number }
 let posOpener    = null;   // reference to POS window (from postMessage source)
 let lastPrintTs  = 0;
 let printLock    = false;
+const LS_BLE_LAST_DEVICE_ID = 'gp2270t_ble_last_device_id';
+let _bleAutoReconnectBusy = false;
 
 // ── DOM ──────────────────────────────────────────────────────
 const dot         = document.getElementById('ble-dot');
@@ -395,6 +399,89 @@ function showAck() {
 }
 
 // ── BLE Connect ──────────────────────────────────────────────
+async function connectGattFromDevice_(device) {
+  bleDevice = device;
+  if (!device._gp2270DisconnectBound) {
+    device._gp2270DisconnectBound = true;
+    device.addEventListener('gattserverdisconnected', onBleDisconnected);
+  }
+
+  log('連接 GATT: ' + (bleDevice.name || bleDevice.id || '?'), 'info');
+  bleServer = await device.gatt.connect();
+
+  let service;
+  try {
+    service = await bleServer.getPrimaryService(BLE_SERVICE_UUID);
+    log('Service OK: 18f0', 'ok');
+  } catch (e) {
+    log('18f0 不可用，嘗試取得所有服務...', 'warn');
+    const services = await bleServer.getPrimaryServices();
+    log('找到 ' + services.length + ' 個服務', 'info');
+    service = services[0];
+    log('使用服務: ' + service.uuid, 'info');
+  }
+
+  let char;
+  try {
+    char = await service.getCharacteristic(BLE_CHAR_UUID);
+    log('Characteristic OK: 2af1', 'ok');
+  } catch (e) {
+    const chars = await service.getCharacteristics();
+    log('找到 ' + chars.length + ' 個 characteristic', 'info');
+    char = chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
+    if (!char) char = chars[0];
+    log('使用 char: ' + char.uuid, 'info');
+  }
+
+  bleChar = char;
+  try {
+    localStorage.setItem(LS_BLE_LAST_DEVICE_ID, bleDevice.id);
+  } catch (eLs) { /* 略 */ }
+
+  setBleState('connected');
+  log('打印機連線成功！已記住裝置 ID（供自動回連）', 'ok');
+
+  if (pendingData && !printLock) {
+    updateQueueDisplay(pendingData);
+    try {
+      log('有待印資料，連線後自動送印', 'info');
+      await autoPrint(pendingData);
+    } catch (eAuto) {
+      log('自動送印: ' + (eAuto && eAuto.message ? eAuto.message : String(eAuto)), 'warn');
+    }
+  }
+}
+
+async function tryAutoReconnectBle_() {
+  if (!navigator.bluetooth || isConnected || _bleAutoReconnectBusy) return;
+  let id = '';
+  try {
+    id = localStorage.getItem(LS_BLE_LAST_DEVICE_ID) || '';
+  } catch (e) { return; }
+  if (!id) return;
+  if (!navigator.bluetooth.getDevices) {
+    log('此瀏覽器不支援 Bluetooth.getDevices，無法自動回連', 'warn');
+    return;
+  }
+  _bleAutoReconnectBusy = true;
+  try {
+    const list = await navigator.bluetooth.getDevices();
+    const dev = list.find(d => d && d.id === id);
+    if (!dev) {
+      log('未找到已授權的記憶裝置，請再手動連線一次', 'info');
+      return;
+    }
+    setBleState('connecting');
+    log('自動回連：' + (dev.name || id), 'info');
+    await connectGattFromDevice_(dev);
+  } catch (e) {
+    setBleState('disconnected');
+    log('自動回連失敗: ' + (e && e.message ? e.message : e), 'warn');
+  } finally {
+    _bleAutoReconnectBusy = false;
+  }
+}
+
 btnConnect.addEventListener('click', async () => {
   if (!navigator.bluetooth) {
     log('此瀏覽器不支援 Web Bluetooth', 'err');
@@ -404,57 +491,11 @@ btnConnect.addEventListener('click', async () => {
   setBleState('connecting');
   log('掃描藍牙裝置...', 'info');
   try {
-    bleDevice = await navigator.bluetooth.requestDevice({
+    const dev = await navigator.bluetooth.requestDevice({
       acceptAllDevices: true,
       optionalServices: [BLE_SERVICE_UUID, '00001101-0000-1000-8000-00805f9b34fb']
     });
-
-    bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
-
-    log('連接 GATT: ' + bleDevice.name, 'info');
-    bleServer = await bleDevice.gatt.connect();
-
-    let service;
-    // Try primary service UUID first
-    try {
-      service = await bleServer.getPrimaryService(BLE_SERVICE_UUID);
-      log('Service OK: 18f0', 'ok');
-    } catch (e) {
-      // fallback: list all services (Bluefy only)
-      log('18f0 不可用，嘗試取得所有服務...', 'warn');
-      const services = await bleServer.getPrimaryServices();
-      log('找到 ' + services.length + ' 個服務', 'info');
-      service = services[0];
-      log('使用服務: ' + service.uuid, 'info');
-    }
-
-    let char;
-    try {
-      char = await service.getCharacteristic(BLE_CHAR_UUID);
-      log('Characteristic OK: 2af1', 'ok');
-    } catch (e) {
-      const chars = await service.getCharacteristics();
-      log('找到 ' + chars.length + ' 個 characteristic', 'info');
-      // 找 writeable 的
-      char = chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
-      if (!char) char = chars[0];
-      log('使用 char: ' + char.uuid, 'info');
-    }
-
-    bleChar = char;
-    setBleState('connected');
-    log('打印機連線成功！', 'ok');
-
-    if (pendingData && !printLock) {
-      updateQueueDisplay(pendingData);
-      try {
-        log('有待印資料，連線後自動送印', 'info');
-        await autoPrint(pendingData);
-      } catch (eAuto) {
-        log('自動送印: ' + (eAuto && eAuto.message ? eAuto.message : String(eAuto)), 'warn');
-      }
-    }
-
+    await connectGattFromDevice_(dev);
   } catch (err) {
     setBleState('disconnected');
     log('連線失敗: ' + err.message, 'err');
@@ -478,16 +519,42 @@ function onBleDisconnected() {
 /** BLE 寫入特徵值每段最大長度（MTU / ATT 限制，避免單次 write 丟包或斷線） */
 const BLE_WRITE_CHUNK_BYTES = 20;
 
-async function sendToprinter(text) {
+/** TSPL 中文多為 Big5(CP950)；缺字時改 GB18030(54936)；無 cptable 或皆失敗則 UTF-8 */
+function encodePrinterBytes_(text) {
+  const s = String(text == null ? '' : text);
+  try {
+    if (typeof cptable !== 'undefined' && cptable.utils && typeof cptable.utils.encode === 'function') {
+      try {
+        const out = cptable.utils.encode(950, s);
+        if (out != null && (typeof out.length === 'number' || typeof out.byteLength === 'number')) {
+          return new Uint8Array(out);
+        }
+      } catch (e950) {
+        try {
+          const out2 = cptable.utils.encode(54936, s);
+          if (out2 != null && (typeof out2.length === 'number' || typeof out2.byteLength === 'number')) {
+            log('CP950 編碼例外，已改用 GB18030', 'warn');
+            return new Uint8Array(out2);
+          }
+        } catch (eGb) { /* 略 */ }
+      }
+    }
+  } catch (e) {
+    log('編碼失敗，改用 UTF-8：' + e.message, 'warn');
+  }
+  return new TextEncoder().encode(s);
+}
+
+/** 送原始列印位元組（Big5 優先）；等同舊 sendToprinter */
+async function sendRawText(text) {
   if (!bleChar) throw new Error('無 characteristic');
   if (!isConnected) throw new Error('BLE 未連線');
 
-  const encoder = new TextEncoder();
-  const bytes   = encoder.encode(text);
+  const bytes = encodePrinterBytes_(text);
   const CHUNK   = BLE_WRITE_CHUNK_BYTES;
   const DELAY   = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
 
-  log('送印 ' + bytes.length + ' bytes，每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
+  log('送印 ' + bytes.length + ' bytes（' + (typeof cptable !== 'undefined' && cptable.utils ? 'CP950/Big5' : 'UTF-8') + '），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
 
   for (let i = 0; i < bytes.length; i += CHUNK) {
     const chunk = bytes.slice(i, i + CHUNK);
@@ -561,7 +628,7 @@ async function autoPrint(data) {
 
   try {
     const payload = ensureTsplForManualPrint_(data.text);
-    await sendToprinter(payload);
+    await sendRawText(payload);
     showAck();
     lastPrintTs = data.ts;
     pendingData = null;
@@ -654,6 +721,9 @@ async function receivePrintData(data) {
     log('待印資料已更新，請按「手動列印最新資料」。', 'info');
   } else {
     log('BLE 未連線，資料已暫存。請先連線打印機後再手動列印。', 'warn');
+    setTimeout(function () {
+      tryAutoReconnectBle_().catch(function () { /* 略 */ });
+    }, 400);
   }
 }
 
@@ -727,7 +797,7 @@ btnTest.addEventListener('click', async () => {
   ].join('\n') + '\n';
   try {
     log('送出測試打印...', 'info');
-    await sendToprinter(testTspl);
+    await sendRawText(testTspl);
     log('測試打印完成', 'ok');
   } catch (e) {
     log('測試打印失敗: ' + e.message, 'err');
@@ -739,14 +809,24 @@ btnClearLog.addEventListener('click', () => { logBox.innerHTML = ''; });
 
 // ── Init ──────────────────────────────────────────────────────
 function init() {
-  // 讓 POS 端 window.open(完整網址, 'PosPrinterBridge') 能導向「已開啟的」此分頁並載入 #data=…（跨網域時 BroadcastChannel 無效）
   try {
-    window.name = 'PosPrinterBridge';
+    window.name = 'Gprinter_Handler';
   } catch (e) { /* 略 */ }
   log('Printer Bridge 就緒', 'ok');
   log('收到 POS 資料後請按「手動列印最新資料」送印（不自動列印、不跳回 POS）。', 'info');
   handleIncomingData();
+  tryAutoReconnectBle_().catch(function () { /* 略 */ });
 }
+
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState !== 'visible') return;
+  if (isConnected || !pendingData) return;
+  try {
+    if (localStorage.getItem(LS_BLE_LAST_DEVICE_ID)) {
+      tryAutoReconnectBle_().catch(function () { /* 略 */ });
+    }
+  } catch (e) { /* 略 */ }
+});
 
 /* 與 POS 同網域時可免彈窗即時收單；跨網域時仍以 postMessage / hash 為主 */
 let printBroadcastChannel = null;
