@@ -292,8 +292,7 @@
   <div id="queue-display">
     <div class="empty-queue">等待 POS 送單...</div>
   </div>
-  <textarea id="testTspl" style="display:none"></textarea>
-  <button class="btn btn-secondary" id="btnTestPrint" disabled>測試打印（固定內容）</button>
+  <button class="btn btn-secondary" id="btn-test-print" disabled>測試打印（固定內容）</button>
   <button class="btn btn-warn" id="btn-manual-print" disabled>手動列印最新資料</button>
 </div>
 
@@ -341,6 +340,7 @@ let bleServer    = null;
 let bleChar      = null;
 let isConnected  = false;
 let pendingData  = null;   // { text: string, backUrl: string, ts: number }
+let posOpener    = null;   // reference to POS window (from postMessage source)
 let lastPrintTs  = 0;
 let printLock    = false;
 const LS_BLE_LAST_DEVICE_ID = 'gp2270t_ble_last_device_id';
@@ -352,14 +352,13 @@ const statusText  = document.getElementById('ble-status-text');
 const deviceName  = document.getElementById('ble-device-name');
 const btnConnect  = document.getElementById('btn-connect');
 const btnDisconn  = document.getElementById('btn-disconnect');
-const btnTest     = document.getElementById('btnTestPrint') || document.getElementById('btn-test-print');
+const btnTest     = document.getElementById('btn-test-print');
 const btnManual   = document.getElementById('btn-manual-print');
 const queueDisp   = document.getElementById('queue-display');
 const logBox      = document.getElementById('log-box');
 const ackFlash    = document.getElementById('ack-flash');
 const cfgDelay    = document.getElementById('cfg-chunk-delay');
 const btnClearLog = document.getElementById('btn-clear-log');
-const testTsplEl  = document.getElementById('testTspl');
 
 // ── Logging ──────────────────────────────────────────────────
 function log(msg, type = '') {
@@ -804,7 +803,55 @@ async function autoPrint(data) {
 }
 
 function sendAckToPos(msg) {
-  log('ACK: ' + String(msg || ''), 'info');
+  // Try postMessage to opener
+  if (posOpener && !posOpener.closed) {
+    try {
+      posOpener.postMessage({ type: 'PRINTER_ACK', payload: msg }, '*');
+      log('ACK 送回 POS (postMessage)', 'ok');
+      return;
+    } catch(e) {}
+  }
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage({ type: 'PRINTER_ACK', payload: msg }, '*');
+      log('ACK 送回 opener', 'ok');
+      return;
+    } catch(e) {}
+  }
+  log('ACK: 無法回傳 (opener 不可用)', 'warn');
+}
+
+// ── Data Reception ────────────────────────────────────────────
+function parseHashData() {
+  const hash = window.location.hash;
+  if (!hash || hash.length < 6) return null;
+
+  try {
+    // Format: #data=BASE64URL&back=URL&ts=TIMESTAMP
+    const params = new URLSearchParams(hash.slice(1)); // remove leading #
+    const dataB64 = params.get('data');
+    const backUrl = params.get('back') || '';
+    const ts      = parseInt(params.get('ts') || '0');
+
+    if (!dataB64) return null;
+
+    // Decode: base64url -> bytes -> text
+    const text = decodeBase64ToText(dataB64);
+    return { text, backUrl, ts };
+  } catch (e) {
+    log('Hash 解碼失敗: ' + e.message, 'err');
+    return null;
+  }
+}
+
+function decodeBase64ToText(b64) {
+  let norm = String(b64 || '').trim().replace(/-/g, '+').replace(/_/g, '/');
+  if (!norm) return '';
+  while (norm.length % 4) norm += '=';
+  const bin = atob(norm);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i) & 255;
+  return new TextDecoder('utf-8', { fatal: false }).decode(u8);
 }
 
 function updateQueueDisplay(data) {
@@ -843,6 +890,64 @@ async function receivePrintData(data) {
   }
 }
 
+// ── Message Listener (Primary Channel) ───────────────────────
+window.addEventListener('message', async (event) => {
+  // Accept any origin (POS is on different domain)
+  const msg = event.data;
+  if (!msg || typeof msg !== 'object') return;
+
+  if (msg.type === 'PRINT_JOB') {
+    log('收到 postMessage 列印任務', 'info');
+    // 更新 POS 視窗引用（每次都更新，避免 POS 重整後引用過期）
+    if (event.source && !event.source.closed) {
+      posOpener = event.source;
+    }
+
+    const data = {
+      text   : msg.text    || '',
+      backUrl: msg.backUrl || '',
+      ts     : msg.ts      || Date.now()
+    };
+
+    if (!data.text) { log('postMessage: 空資料', 'err'); return; }
+    await receivePrintData(data);
+    return;
+  }
+
+  if (msg.type === 'PRINTER_PING') {
+    // POS 以 PONG 判斷頁面已就緒可接收 PRINT_JOB；BLE 連線狀態附帶回傳。
+    // 同時更新 posOpener 引用（POS 重整後再送 PING，我們藉此拿到新引用）
+    if (event.source && !event.source.closed) {
+      posOpener = event.source;
+    }
+    const pongMsg = { type: 'PRINTER_PONG', ready: true, connected: isConnected };
+    try {
+      event.source.postMessage(pongMsg, '*');
+      log('PING received → PONG sent (connected=' + isConnected + ')', 'info');
+    } catch (e) {
+      log('PONG 回傳失敗: ' + e.message, 'warn');
+    }
+    return;
+  }
+});
+
+// ── Hash Listener (Fallback Channel) ─────────────────────────
+function handleIncomingData() {
+  console.log('偵測到 Hash 變化，準備打印...');
+  const data = parseHashData();
+  if (!data || !data.text) return;
+  if (data.ts && data.ts === lastPrintTs) return; // already processed
+  receivePrintData(data);
+  // Clear hash after reading (prevents re-trigger on visibility change)
+  // Use replaceState to avoid adding history entry
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+
+window.addEventListener('hashchange', () => {
+  log('hashchange triggered', 'info');
+  handleIncomingData();
+});
+
 // ── Manual Print Button ───────────────────────────────────────
 btnManual.addEventListener('click', async () => {
   if (!pendingData) { log('無待印資料', 'warn'); return; }
@@ -855,13 +960,11 @@ btnManual.addEventListener('click', async () => {
 });
 
 btnTest.addEventListener('click', async () => {
-  log('收到 POS 遠端觸發列印', 'info');
   if (!isConnected || !bleChar) {
     log('測試打印失敗：請先連線打印機', 'err');
     return;
   }
-  const remoteTspl = testTsplEl ? String(testTsplEl.value || '') : '';
-  const testTspl = remoteTspl || ([
+  const testTspl = [
     'SET TEAR ON',
     'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 30 mm',
     'GAP 0 mm, 0 mm',
@@ -872,7 +975,7 @@ btnTest.addEventListener('click', async () => {
     'OFFSET 0',
     'TEXT 10,20,"' + TSPL_FONT_ZH + '",0,1,1,"上往下 測試 PRINT"',
     'PRINT 1,1'
-  ].join('\n') + '\n');
+  ].join('\n') + '\n';
   try {
     log('送出測試打印...', 'info');
     await sendRawText(testTspl);
@@ -891,8 +994,38 @@ function init() {
     window.name = 'Gprinter_Handler';
   } catch (e) { /* 略 */ }
   log('Printer Bridge 就緒', 'ok');
-  log('等待 POS 直接寫入 testTspl 並觸發 btnTestPrint。', 'info');
+  log('收到 POS 資料後請按「手動列印最新資料」送印（不自動列印、不跳回 POS）。', 'info');
+
+  // 主動通知所有可能的 POS 視窗：橋接頁已就緒
+  // 這樣即使 POS 重整後 printerWin 引用失效，一旦 POS 再送 PING 就能立即拿到引用
+  _broadcastReadyToOpener_();
+
+  handleIncomingData();
   tryAutoReconnectBle_().catch(function () { /* 略 */ });
+}
+
+/**
+ * 在橋接頁載入完成時，主動向 opener（POS 主頁）回傳 PRINTER_READY 訊號。
+ * POS 的 message listener 收到後會自動更新 printerWin 引用。
+ * 同時也透過 BroadcastChannel 廣播，以應對 opener 不可用的情況。
+ */
+function _broadcastReadyToOpener_() {
+  const readyMsg = { type: 'PRINTER_READY', ready: true, connected: isConnected };
+
+  // 嘗試通知 opener
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage(readyMsg, '*');
+      log('已向 POS opener 廣播 PRINTER_READY', 'ok');
+    } catch (e) {
+      log('向 opener 廣播 READY 失敗（跨網域限制）', 'warn');
+    }
+  }
+
+  // 也透過 BroadcastChannel（同網域備用）
+  if (printBroadcastChannel) {
+    try { printBroadcastChannel.postMessage(readyMsg); } catch (e) { /* 略 */ }
+  }
 }
 
 document.addEventListener('visibilitychange', function () {
@@ -905,7 +1038,42 @@ document.addEventListener('visibilitychange', function () {
   } catch (e) { /* 略 */ }
 });
 
+/* 與 POS 同網域時可免彈窗即時收單；跨網域時仍以 postMessage / hash 為主 */
+let printBroadcastChannel = null;
+function initPrintBroadcastChannel_() {
+  try {
+    printBroadcastChannel = new BroadcastChannel('pos-ble-print-v1');
+    printBroadcastChannel.onmessage = function (ev) {
+      const msg = ev.data;
+      if (!msg) return;
+
+      if (msg.type === 'PRINT_JOB') {
+        posOpener = null; // BroadcastChannel 無 source 引用
+        receivePrintData({
+          text: msg.text || '',
+          backUrl: msg.backUrl || '',
+          ts: msg.ts || Date.now()
+        });
+        return;
+      }
+
+      // 同網域：POS 廣播 PING 時也回 PONG（透過 BroadcastChannel）
+      if (msg.type === 'PRINTER_PING') {
+        try {
+          printBroadcastChannel.postMessage({
+            type: 'PRINTER_PONG', ready: true, connected: isConnected
+          });
+        } catch (e) { /* 略 */ }
+        return;
+      }
+    };
+  } catch (e) {
+    log('BroadcastChannel 不可用（可略過）', 'warn');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+  initPrintBroadcastChannel_();
   init();
 });
 </script>
