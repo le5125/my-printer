@@ -923,11 +923,6 @@ function handleIncomingData() {
   history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
-window.addEventListener('hashchange', function() {
-  log('偵測到新資料傳入！', 'ok');
-  handleIncomingData();
-});
-
 // BroadcastChannel 在 Bluefy 跨網域環境完全無效，已移除。
 // 所有通訊統一走 hashchange（由 POS 端 window.open(url+hash, name) 觸發）。
 
@@ -976,9 +971,14 @@ function init() {
   try {
     window.name = 'Gprinter_Handler';
   } catch (e) { /* 略 */ }
-  log('Printer Bridge 就緒（Bluefy Hash 模式）', 'ok');
+  log('打印頁就緒 (Hash 監聽模式)', 'ok');
   log('POS 送單後此頁會自動收到資料（hashchange）。請按「手動列印最新資料」送印。', 'info');
-  // 頁面剛載入時讀一次 hash（首次開啟 / POS 先送資料再開頁面的情境）
+
+  window.addEventListener('hashchange', function () {
+    log('偵測到新訂單傳入...', 'info');
+    handleIncomingData();
+  });
+
   handleIncomingData();
   tryAutoReconnectBle_().catch(function () { /* 略 */ });
 }
