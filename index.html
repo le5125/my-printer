@@ -292,7 +292,8 @@
   <div id="queue-display">
     <div class="empty-queue">等待 POS 送單...</div>
   </div>
-  <button class="btn btn-secondary" id="btn-test-print" disabled>測試打印（固定內容）</button>
+  <textarea id="testTspl" style="display:none" aria-hidden="true"></textarea>
+  <button class="btn btn-secondary" id="btnTestPrint" disabled>測試打印（固定內容）</button>
   <button class="btn btn-warn" id="btn-manual-print" disabled>手動列印最新資料</button>
 </div>
 
@@ -352,13 +353,14 @@ const statusText  = document.getElementById('ble-status-text');
 const deviceName  = document.getElementById('ble-device-name');
 const btnConnect  = document.getElementById('btn-connect');
 const btnDisconn  = document.getElementById('btn-disconnect');
-const btnTest     = document.getElementById('btn-test-print');
+const btnTest     = document.getElementById('btnTestPrint') || document.getElementById('btn-test-print');
 const btnManual   = document.getElementById('btn-manual-print');
 const queueDisp   = document.getElementById('queue-display');
 const logBox      = document.getElementById('log-box');
 const ackFlash    = document.getElementById('ack-flash');
 const cfgDelay    = document.getElementById('cfg-chunk-delay');
 const btnClearLog = document.getElementById('btn-clear-log');
+const testTsplEl  = document.getElementById('testTspl');
 
 // ── Logging ──────────────────────────────────────────────────
 function log(msg, type = '') {
@@ -821,39 +823,6 @@ function sendAckToPos(msg) {
   log('ACK: 無法回傳 (opener 不可用)', 'warn');
 }
 
-// ── Data Reception ────────────────────────────────────────────
-function parseHashData() {
-  const hash = window.location.hash;
-  if (!hash || hash.length < 6) return null;
-
-  try {
-    // Format: #data=BASE64URL&back=URL&ts=TIMESTAMP
-    const params = new URLSearchParams(hash.slice(1)); // remove leading #
-    const dataB64 = params.get('data');
-    const backUrl = params.get('back') || '';
-    const ts      = parseInt(params.get('ts') || '0');
-
-    if (!dataB64) return null;
-
-    // Decode: base64url -> bytes -> text
-    const text = decodeBase64ToText(dataB64);
-    return { text, backUrl, ts };
-  } catch (e) {
-    log('Hash 解碼失敗: ' + e.message, 'err');
-    return null;
-  }
-}
-
-function decodeBase64ToText(b64) {
-  let norm = String(b64 || '').trim().replace(/-/g, '+').replace(/_/g, '/');
-  if (!norm) return '';
-  while (norm.length % 4) norm += '=';
-  const bin = atob(norm);
-  const u8 = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i) & 255;
-  return new TextDecoder('utf-8', { fatal: false }).decode(u8);
-}
-
 function updateQueueDisplay(data) {
   if (!data) {
     queueDisp.innerHTML = '<div class="empty-queue">等待 POS 送單...</div>';
@@ -931,23 +900,6 @@ window.addEventListener('message', async (event) => {
   }
 });
 
-// ── Hash Listener (Fallback Channel) ─────────────────────────
-function handleIncomingData() {
-  console.log('偵測到 Hash 變化，準備打印...');
-  const data = parseHashData();
-  if (!data || !data.text) return;
-  if (data.ts && data.ts === lastPrintTs) return; // already processed
-  receivePrintData(data);
-  // Clear hash after reading (prevents re-trigger on visibility change)
-  // Use replaceState to avoid adding history entry
-  history.replaceState(null, '', window.location.pathname + window.location.search);
-}
-
-window.addEventListener('hashchange', () => {
-  log('hashchange triggered', 'info');
-  handleIncomingData();
-});
-
 // ── Manual Print Button ───────────────────────────────────────
 btnManual.addEventListener('click', async () => {
   if (!pendingData) { log('無待印資料', 'warn'); return; }
@@ -960,11 +912,13 @@ btnManual.addEventListener('click', async () => {
 });
 
 btnTest.addEventListener('click', async () => {
+  log('收到 POS 遠端觸發列印', 'info');
   if (!isConnected || !bleChar) {
     log('測試打印失敗：請先連線打印機', 'err');
     return;
   }
-  const testTspl = [
+  const remoteTspl = testTsplEl ? String(testTsplEl.value || '') : '';
+  const testTspl = remoteTspl || [
     'SET TEAR ON',
     'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 30 mm',
     'GAP 0 mm, 0 mm',
@@ -1000,7 +954,6 @@ function init() {
   // 這樣即使 POS 重整後 printerWin 引用失效，一旦 POS 再送 PING 就能立即拿到引用
   _broadcastReadyToOpener_();
 
-  handleIncomingData();
   tryAutoReconnectBle_().catch(function () { /* 略 */ });
 }
 
