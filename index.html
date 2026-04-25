@@ -305,17 +305,6 @@
     <span>BLE 分段大小</span>
     <div><label>固定 20 bytes（低功耗 MTU 安全值）</label><br><input type="number" id="cfg-chunk-size" value="20" min="20" max="20" readonly title="寫入韌體每包上限 20 bytes，已鎖定"></div>
   </div>
-  <div class="setting-row">
-    <span>印完回 POS</span>
-    <div>
-      <label>auto return</label><br>
-      <select id="cfg-auto-return" style="background:#000;color:var(--text);border:1px solid var(--border);padding:4px 8px;font-family:var(--font);font-size:0.8rem;border-radius:4px;">
-        <option value="ask">詢問</option>
-        <option value="yes" selected>自動回 POS</option>
-        <option value="no">不回</option>
-      </select>
-    </div>
-  </div>
 </div>
 
 <!-- Log Card -->
@@ -325,15 +314,6 @@
   <button class="btn btn-secondary" id="btn-clear-log" style="margin-top:10px;font-size:0.75rem;padding:8px;">清除記錄</button>
 </div>
 
-<!-- Return to POS prompt -->
-<div class="return-prompt" id="return-prompt">
-  <p>列印完成，是否返回 POS？</p>
-  <div class="return-row">
-    <button class="btn btn-secondary" id="btn-stay">留在此頁</button>
-    <button class="btn btn-primary"   id="btn-go-pos">返回 POS</button>
-  </div>
-</div>
-
 <script>
 /* ============================================================
    PRINTER BRIDGE — index.html
@@ -341,11 +321,6 @@
    ============================================================ */
 
 'use strict';
-
-/** 與 POS 端 window.open(..., name) 一致：先自行開本頁時仍能被 POS 導向同分頁並帶 hash / postMessage */
-try {
-  window.name = 'PosPrinterBridge';
-} catch (eName) { /* 略 */ }
 
 // ── BLE Constants ────────────────────────────────────────────
 const BLE_SERVICE_UUID  = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2';
@@ -374,11 +349,7 @@ const btnManual   = document.getElementById('btn-manual-print');
 const queueDisp   = document.getElementById('queue-display');
 const logBox      = document.getElementById('log-box');
 const ackFlash    = document.getElementById('ack-flash');
-const returnPrompt= document.getElementById('return-prompt');
-const btnStay     = document.getElementById('btn-stay');
-const btnGoPos    = document.getElementById('btn-go-pos');
 const cfgDelay    = document.getElementById('cfg-chunk-delay');
-const cfgReturn   = document.getElementById('cfg-auto-return');
 const btnClearLog = document.getElementById('btn-clear-log');
 
 // ── Logging ──────────────────────────────────────────────────
@@ -474,10 +445,8 @@ btnConnect.addEventListener('click', async () => {
     setBleState('connected');
     log('打印機連線成功！', 'ok');
 
-    // If we have pending data from URL/message, auto print now
     if (pendingData && !printLock) {
-      log('發現待印資料，開始列印...', 'info');
-      await autoPrint(pendingData);
+      log('有待印資料，請按「手動列印最新資料」。', 'info');
     }
 
   } catch (err) {
@@ -549,11 +518,7 @@ async function autoPrint(data) {
     pendingData = null;
     updateQueueDisplay(null);
 
-    // ACK back to POS
     sendAckToPos('PRINT_ACK:success:' + data.ts);
-
-    // Return to POS logic
-    handleReturnToPos(data.backUrl);
 
   } catch (err) {
     log('列印失敗: ' + err.message, 'err');
@@ -561,44 +526,6 @@ async function autoPrint(data) {
   } finally {
     printLock = false;
   }
-}
-
-function handleReturnToPos(backUrl) {
-  const mode = cfgReturn.value;
-  if (!backUrl) return;
-
-  if (mode === 'yes') {
-    setTimeout(() => { goBackToPos(backUrl); }, 800);
-  } else if (mode === 'ask') {
-    showReturnPrompt(backUrl);
-  }
-  // mode === 'no': do nothing
-}
-
-function goBackToPos(backUrl) {
-  if (!backUrl) return;
-  try {
-    if (window.opener && !window.opener.closed) {
-      window.opener.location.href = backUrl;
-      try { window.opener.focus(); } catch (eF) {}
-      try { window.close(); } catch (eC) {}
-      return;
-    }
-  } catch (e) {
-    log('透過 opener 返回失敗，改用本頁跳轉', 'warn');
-  }
-  window.location.href = backUrl;
-}
-
-function showReturnPrompt(backUrl) {
-  returnPrompt.style.display = 'block';
-  btnGoPos.onclick = () => {
-    returnPrompt.style.display = 'none';
-    goBackToPos(backUrl);
-  };
-  btnStay.onclick = () => {
-    returnPrompt.style.display = 'none';
-  };
 }
 
 function sendAckToPos(msg) {
@@ -673,10 +600,10 @@ async function receivePrintData(data) {
   pendingData = data;
   updateQueueDisplay(data);
 
-  if (isConnected && bleChar && !printLock) {
-    await autoPrint(data);
+  if (isConnected && bleChar) {
+    log('待印資料已更新，請按「手動列印最新資料」。', 'info');
   } else {
-    log('BLE 未連線，資料暫存。請先連線打印機。', 'warn');
+    log('BLE 未連線，資料已暫存。請先連線打印機後再手動列印。', 'warn');
   }
 }
 
@@ -760,20 +687,7 @@ btnClearLog.addEventListener('click', () => { logBox.innerHTML = ''; });
 // ── Init ──────────────────────────────────────────────────────
 function init() {
   log('Printer Bridge 就緒', 'ok');
-  log('視窗名稱已設為 PosPrinterBridge（供 POS 結帳時切回本頁列印）', 'info');
-  log('等待 POS 連線...', 'info');
-  try {
-    var cr = document.getElementById('cfg-auto-return');
-    if (cr) {
-      var saved = localStorage.getItem('printer_bridge_auto_return');
-      if (saved === 'yes' || saved === 'no' || saved === 'ask') cr.value = saved;
-      else cr.value = 'yes';
-      cr.addEventListener('change', function () {
-        try { localStorage.setItem('printer_bridge_auto_return', cr.value); } catch (e) { /* 略 */ }
-      });
-    }
-  } catch (eCfg) { /* 略 */ }
-  // Check if there's hash data on load (direct URL with data)
+  log('收到 POS 資料後請按「手動列印最新資料」送印（不自動列印、不跳回 POS）。', 'info');
   handleIncomingData();
 }
 
