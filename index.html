@@ -332,6 +332,8 @@ const BLE_CHAR_UUID     = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f';
 // 若上面不行可換成 SPP (需 Bluefy 支援)
 /** 熱感捲紙寬（mm）；若為 80mm 紙請改 80 */
 const TSPL_ROLL_WIDTH_MM = 58;
+/** 繁體內建字型（若亂碼可試改 "TSS24.BF2"） */
+const TSPL_FONT_ZH = 'TST24.BF2';
 
 // ── State ────────────────────────────────────────────────────
 let bleDevice    = null;
@@ -523,26 +525,17 @@ function onBleDisconnected() {
 const BLE_WRITE_CHUNK_BYTES = 20;
 
 /**
- * BLE 送印位元組：優先 BIG5（encoding-japanese：UTF8→BIG5 或 UNICODE→BIG5），失敗則 codepage CP950，最後 UTF-8。
+ * BLE 送印位元組：優先 codepage **CP950（繁體 Big5）**；encoding-japanese 的 BIG5 常不可靠勿放最前。
+ * 主控台可設 window.GP2270T_FORCE_UTF8 = true 強制 UTF-8（少數新韌體用 UTF-8 內文）。
  */
 function encodePrinterBytes_(text) {
   const s = String(text == null ? '' : text);
   try {
-    if (typeof Encoding !== 'undefined' && Encoding.convert) {
-      try {
-        const utf8bytes = new TextEncoder().encode(s);
-        const big5a = Encoding.convert(utf8bytes, 'BIG5', 'UTF8');
-        if (big5a && big5a.length) return new Uint8Array(big5a);
-      } catch (eA) { /* 略 */ }
-      if (Encoding.stringToCode) {
-        try {
-          const uni = Encoding.stringToCode(s);
-          const big5b = Encoding.convert(uni, { to: 'BIG5', from: 'UNICODE' });
-          if (big5b && big5b.length) return new Uint8Array(big5b);
-        } catch (eB) { /* 略 */ }
-      }
+    if (window.GP2270T_FORCE_UTF8 === true) {
+      log('已強制 UTF-8（GP2270T_FORCE_UTF8）', 'info');
+      return new TextEncoder().encode(s);
     }
-  } catch (e0) { /* 略 */ }
+  } catch (eF) { /* 略 */ }
   try {
     if (typeof cptable !== 'undefined' && cptable.utils && typeof cptable.utils.encode === 'function') {
       try {
@@ -560,9 +553,30 @@ function encodePrinterBytes_(text) {
         } catch (eGb) { /* 略 */ }
       }
     }
-  } catch (e) {
-    log('編碼失敗，改用 UTF-8：' + e.message, 'warn');
-  }
+  } catch (e) { /* 略 */ }
+  try {
+    if (typeof Encoding !== 'undefined' && Encoding.convert) {
+      try {
+        const utf8bytes = new TextEncoder().encode(s);
+        const big5a = Encoding.convert(utf8bytes, 'BIG5', 'UTF8');
+        if (big5a && big5a.length) {
+          log('已用 encoding-japanese BIG5（codepage 不可用時）', 'warn');
+          return new Uint8Array(big5a);
+        }
+      } catch (eA) { /* 略 */ }
+      if (Encoding.stringToCode) {
+        try {
+          const uni = Encoding.stringToCode(s);
+          const big5b = Encoding.convert(uni, { to: 'BIG5', from: 'UNICODE' });
+          if (big5b && big5b.length) {
+            log('已用 encoding-japanese UNICODE→BIG5', 'warn');
+            return new Uint8Array(big5b);
+          }
+        } catch (eB) { /* 略 */ }
+      }
+    }
+  } catch (e0) { /* 略 */ }
+  log('無可用 Big5 表，改用 UTF-8', 'warn');
   return new TextEncoder().encode(s);
 }
 
@@ -575,7 +589,7 @@ async function sendRawText(text) {
   const CHUNK   = BLE_WRITE_CHUNK_BYTES;
   const DELAY   = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
 
-  log('送印 ' + bytes.length + ' bytes（Big5 優先），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
+  log('送印 ' + bytes.length + ' bytes（CP950/Big5 優先），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
 
   for (let i = 0; i < bytes.length; i += CHUNK) {
     const chunk = bytes.slice(i, i + CHUNK);
@@ -606,12 +620,16 @@ function isProbablyTsplJob_(raw) {
   return /(?:^|\n)\s*PRINT\s+\d+/im.test(t);
 }
 
-/** 捲紙一張工作：SET TEAR → SIZE 寬×動態高 → GAP 0 → CLS → DIRECTION 1,0 → REFERENCE → OFFSET → TEXT… → PRINT 1,1 */
+/**
+ * 捲紙一張：DIRECTION 0,0 多數為「由上往下」正讀；若仍顛倒可改 TSPL_DIRECTION_MODE 為 1。
+ * TEXT 用 TST24.BF2 + 送印端 CP950 位元組，對應繁中內建字型。
+ */
+const TSPL_DIRECTION_MODE = 0;
 function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
   const x0 = 10;
   const y0 = 20;
   const stepY = 40;
-  const font = 'TSS24.BF2';
+  const font = TSPL_FONT_ZH;
   const n = count;
   const tailDots = 100;
   const totalDots = y0 + (n > 0 ? (n - 1) * stepY : 0) + tailDots;
@@ -622,7 +640,7 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
   parts.push('SIZE ' + widthMm + ' mm, ' + hMm + ' mm');
   parts.push('GAP 0 mm, 0 mm');
   parts.push('CLS');
-  parts.push('DIRECTION 1,0');
+  parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
   parts.push('REFERENCE 0,0');
   parts.push('OFFSET 0');
   for (let k = 0; k < n; k++) {
@@ -642,7 +660,7 @@ function tsplMinimalRoll_() {
     'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 18 mm',
     'GAP 0 mm, 0 mm',
     'CLS',
-    'DIRECTION 1,0',
+    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
     'REFERENCE 0,0',
     'OFFSET 0',
     'PRINT 1,1',
@@ -651,7 +669,7 @@ function tsplMinimalRoll_() {
 }
 
 /**
- * 熱感捲紙：DIRECTION 1,0 + REFERENCE 0,0 + 動態高度；內文用 TSS24.BF2（送印時 encodePrinterBytes_ 轉 Big5）。
+ * 熱感捲紙：DIRECTION 0,0（由上往下）；內文 TST24.BF2 + 送印 CP950/Big5。
  * 原稿若已含行首 PRINT n（POS 標籤模板等）則原樣送出。
  */
 function ensureTsplForManualPrint_(raw) {
@@ -849,13 +867,13 @@ btnTest.addEventListener('click', async () => {
   }
   const testTspl = [
     'SET TEAR ON',
-    'SIZE 58 mm, 30 mm',
+    'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 30 mm',
     'GAP 0 mm, 0 mm',
     'CLS',
-    'DIRECTION 1,0',
+    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
     'REFERENCE 0,0',
     'OFFSET 0',
-    'TEXT 10,20,"TSS24.BF2",0,1,1,"TEST PRINT 測試"',
+    'TEXT 10,20,"' + TSPL_FONT_ZH + '",0,1,1,"上往下 測試 PRINT"',
     'PRINT 1,1'
   ].join('\n') + '\n';
   try {
