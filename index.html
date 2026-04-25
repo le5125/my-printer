@@ -677,27 +677,10 @@ async function sendRawText(text) {
     }
     if (i + CHUNK < bytes.length) await sleep(DELAY);
   }
-  // 送完所有 BLE chunk 後再等一下，降低打印機緩衝區尾端資料遺失風險。
-  await sleep(500);
   log('送印完成', 'ok');
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-function parseBoolLike_(v) {
-  if (v == null) return false;
-  const t = String(v).trim().toLowerCase();
-  return t === '1' || t === 'true' || t === 'yes' || t === 'y' || t === 'on';
-}
-
-function resolveAutoPrintFlag_(params) {
-  if (params && params.get && params.has('autoPrint')) return parseBoolLike_(params.get('autoPrint'));
-  try {
-    const q = new URLSearchParams(window.location.search || '');
-    if (q.has('autoPrint')) return parseBoolLike_(q.get('autoPrint'));
-  } catch (eQ) { /* 略 */ }
-  return false;
-}
 
 /** 已有完整 TSPL（行首 PRINT）則不重包；避免英文句中 print 誤判 */
 function isProbablyTsplJob_(raw) {
@@ -811,17 +794,6 @@ async function autoPrint(data) {
 
     sendAckToPos('PRINT_ACK:success:' + data.ts);
 
-    // 僅自動送單（autoPrint=true）才自動關閉；手動測試/手動列印不關閉。
-    if (data && data.autoPrint === true) {
-      log('autoPrint=true：準備自動關閉分頁', 'info');
-      await sleep(120);
-      try {
-        window.close();
-      } catch (eClose) {
-        log('自動關閉失敗（可忽略）', 'warn');
-      }
-    }
-
   } catch (err) {
     log('列印失敗: ' + err.message, 'err');
     sendAckToPos('PRINT_ACK:error:' + err.message);
@@ -860,13 +832,12 @@ function parseHashData() {
     const dataB64 = params.get('data');
     const backUrl = params.get('back') || '';
     const ts      = parseInt(params.get('ts') || '0');
-    const autoPrint = resolveAutoPrintFlag_(params);
 
     if (!dataB64) return null;
 
     // Decode: base64url -> bytes -> text
     const text = decodeBase64ToText(dataB64);
-    return { text, backUrl, ts, autoPrint };
+    return { text, backUrl, ts };
   } catch (e) {
     log('Hash 解碼失敗: ' + e.message, 'err');
     return null;
@@ -910,11 +881,6 @@ async function receivePrintData(data) {
   updateQueueDisplay(data);
 
   if (isConnected && bleChar) {
-    if (data && data.autoPrint === true) {
-      log('autoPrint=true：收到資料後自動送印', 'info');
-      await autoPrint(data);
-      return;
-    }
     log('待印資料已更新，請按「手動列印最新資料」。', 'info');
   } else {
     log('BLE 未連線，資料已暫存。請先連線打印機後再手動列印。', 'warn');
@@ -938,8 +904,7 @@ window.addEventListener('message', async (event) => {
     const data = {
       text   : msg.text    || '',
       backUrl: msg.backUrl || '',
-      ts     : msg.ts      || Date.now(),
-      autoPrint: msg.autoPrint === true
+      ts     : msg.ts      || Date.now()
     };
 
     if (!data.text) { log('postMessage: 空資料', 'err'); return; }
@@ -1043,8 +1008,7 @@ function initPrintBroadcastChannel_() {
       receivePrintData({
         text: msg.text || '',
         backUrl: msg.backUrl || '',
-        ts: msg.ts || Date.now(),
-        autoPrint: msg.autoPrint === true
+        ts: msg.ts || Date.now()
       });
     };
   } catch (e) {
