@@ -341,7 +341,7 @@ let bleServer    = null;
 let bleChar      = null;
 let isConnected  = false;
 let pendingData  = null;   // { text: string, backUrl: string, ts: number }
-let posOpener    = null;   // reference to POS window (from postMessage source)
+// posOpener 在 hash 模式下不使用（無反向 postMessage 通道）
 let lastPrintTs  = 0;
 let printLock    = false;
 const LS_BLE_LAST_DEVICE_ID = 'gp2270t_ble_last_device_id';
@@ -700,10 +700,11 @@ function ensureTsplCodepage950_(tspl) {
 }
 
 /**
- * 捲紙一張：DIRECTION 0,0 多數為「由上往下」正讀；若仍顛倒可改 TSPL_DIRECTION_MODE 為 1。
- * TEXT 用 TST24.BF2 + 送印端 CP950 位元組，對應繁中內建字型。
+ * 捲紙列印方向：
+ *   DIRECTION 1,0 → 由下往上送紙（GP-2270T 在 Bluefy 環境下正讀方向）
+ *   若印出來是顛倒的，改回 0。
  */
-const TSPL_DIRECTION_MODE = 0;
+const TSPL_DIRECTION_MODE = 1;
 function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
   const x0 = 10;
   const y0 = 20;
@@ -716,12 +717,12 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
 
   const parts = [];
   parts.push('SET TEAR ON');
+  parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');  // 方向必須在 SIZE 前設定
+  parts.push('REFERENCE 0,0');
   parts.push('SIZE ' + widthMm + ' mm, ' + hMm + ' mm');
   parts.push('GAP 0 mm, 0 mm');
   parts.push('CLS');
   parts.push('CODEPAGE 950');
-  parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
-  parts.push('REFERENCE 0,0');
   parts.push('OFFSET 0');
   for (let k = 0; k < n; k++) {
     const line = lines[startIdx + k];
@@ -737,12 +738,12 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
 function tsplMinimalRoll_() {
   return [
     'SET TEAR ON',
+    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
+    'REFERENCE 0,0',
     'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 18 mm',
     'GAP 0 mm, 0 mm',
     'CLS',
     'CODEPAGE 950',
-    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
-    'REFERENCE 0,0',
     'OFFSET 0',
     'PRINT 1,1',
     ''
@@ -878,27 +879,9 @@ async function receivePrintData(data) {
   }
 }
 
-// ── Message Listener ─────────────────────────────────────────
-// Bluefy 跨網域環境下 postMessage 不穩定；主要通訊管道為 hashchange。
-// 此監聽器保留為相容備援（同網域或未來改善後可自動生效）。
-window.addEventListener('message', async (event) => {
-  const msg = event.data;
-  if (!msg || typeof msg !== 'object') return;
-
-  // 僅處理 PRINT_JOB（若 postMessage 意外可用時的備援）
-  if (msg.type === 'PRINT_JOB') {
-    log('收到 postMessage 列印任務（備援通道）', 'info');
-    if (event.source && !event.source.closed) posOpener = event.source;
-    const data = {
-      text   : msg.text    || '',
-      backUrl: msg.backUrl || '',
-      ts     : msg.ts      || Date.now()
-    };
-    if (!data.text) { log('postMessage: 空資料', 'err'); return; }
-    await receivePrintData(data);
-  }
-  // PING/PONG 在 Bluefy 跨網域下無效，不處理
-});
+// ── Message Listener（已移除）────────────────────────────────
+// Bluefy 跨網域：postMessage 不可靠、BroadcastChannel 跨域無效。
+// 唯一通訊管道為 hashchange（見下方）。不保留任何 postMessage 監聽。
 
 // ── Hash Listener (PRIMARY Channel for Bluefy cross-origin) ──
 //
@@ -952,12 +935,12 @@ btnTest.addEventListener('click', async () => {
   }
   const testTspl = [
     'SET TEAR ON',
+    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
+    'REFERENCE 0,0',
     'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 30 mm',
     'GAP 0 mm, 0 mm',
     'CLS',
     'CODEPAGE 950',
-    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
-    'REFERENCE 0,0',
     'OFFSET 0',
     'TEXT 10,20,"' + TSPL_FONT_ZH + '",0,1,1,"上往下 測試 PRINT"',
     'PRINT 1,1'
