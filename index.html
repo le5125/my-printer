@@ -330,6 +330,8 @@ const BLE_SERVICE_UUID  = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2';
 const BLE_CHAR_UUID     = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f';
 // GP-2270T 也可能用 SPP UUID: 00001101-0000-1000-8000-00805f9b34fb
 // 若上面不行可換成 SPP (需 Bluefy 支援)
+/** 熱感捲紙寬（mm）；若為 80mm 紙請改 80 */
+const TSPL_ROLL_WIDTH_MM = 58;
 
 // ── State ────────────────────────────────────────────────────
 let bleDevice    = null;
@@ -521,20 +523,24 @@ function onBleDisconnected() {
 const BLE_WRITE_CHUNK_BYTES = 20;
 
 /**
- * BLE 送印位元組：優先 BIG5（encoding-japanese UNICODE→BIG5，或 codepage CP950），再 UTF-8。
- * TSPL 搭配 TSS24.BF2 時韌體多預期 Big5 位元組而非 UTF-8。
+ * BLE 送印位元組：優先 BIG5（encoding-japanese：UTF8→BIG5 或 UNICODE→BIG5），失敗則 codepage CP950，最後 UTF-8。
  */
 function encodePrinterBytes_(text) {
   const s = String(text == null ? '' : text);
   try {
-    if (typeof Encoding !== 'undefined' && Encoding.stringToCode && Encoding.convert) {
+    if (typeof Encoding !== 'undefined' && Encoding.convert) {
       try {
-        const uni = Encoding.stringToCode(s);
-        const big5 = Encoding.convert(uni, { to: 'BIG5', from: 'UNICODE' });
-        if (big5 && big5.length) {
-          return new Uint8Array(big5);
-        }
-      } catch (eEnc) { /* 略，改試 codepage */ }
+        const utf8bytes = new TextEncoder().encode(s);
+        const big5a = Encoding.convert(utf8bytes, 'BIG5', 'UTF8');
+        if (big5a && big5a.length) return new Uint8Array(big5a);
+      } catch (eA) { /* 略 */ }
+      if (Encoding.stringToCode) {
+        try {
+          const uni = Encoding.stringToCode(s);
+          const big5b = Encoding.convert(uni, { to: 'BIG5', from: 'UNICODE' });
+          if (big5b && big5b.length) return new Uint8Array(big5b);
+        } catch (eB) { /* 略 */ }
+      }
     }
   } catch (e0) { /* 略 */ }
   try {
@@ -542,7 +548,6 @@ function encodePrinterBytes_(text) {
       try {
         const out = cptable.utils.encode(950, s);
         if (out != null && (typeof out.length === 'number' || typeof out.byteLength === 'number')) {
-          log('Encoding.js 無 BIG5 或失敗，已用 CP950', 'info');
           return new Uint8Array(out);
         }
       } catch (e950) {
@@ -607,9 +612,9 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
   const y0 = 20;
   const stepY = 40;
   const font = 'TSS24.BF2';
-  const n = Math.max(1, count);
+  const n = count;
   const tailDots = 100;
-  const totalDots = y0 + (n - 1) * stepY + tailDots;
+  const totalDots = y0 + (n > 0 ? (n - 1) * stepY : 0) + tailDots;
   const hMm = Math.min(3200, Math.max(16, Math.ceil(totalDots / 8)));
 
   const parts = [];
@@ -634,7 +639,7 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
 function tsplMinimalRoll_() {
   return [
     'SET TEAR ON',
-    'SIZE 58 mm, 18 mm',
+    'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 18 mm',
     'GAP 0 mm, 0 mm',
     'CLS',
     'DIRECTION 1,0',
@@ -663,16 +668,15 @@ function ensureTsplForManualPrint_(raw) {
   }
   if (!nonempty.length) return tsplMinimalRoll_();
 
-  const paperW = 58;
   const maxLinesPerBlock = 48;
   const blocks = [];
   let idx = 0;
   while (idx < nonempty.length) {
     const take = Math.min(maxLinesPerBlock, nonempty.length - idx);
-    blocks.push(buildRollTsplBlock_(nonempty, idx, take, paperW));
+    blocks.push(buildRollTsplBlock_(nonempty, idx, take, TSPL_ROLL_WIDTH_MM));
     idx += take;
   }
-  log('純文字已包成捲紙 TSPL（' + blocks.length + ' 段；寬 ' + paperW + ' mm、PRINT 1,1）', 'info');
+  log('純文字已包成捲紙 TSPL（' + blocks.length + ' 段；寬 ' + TSPL_ROLL_WIDTH_MM + ' mm、PRINT 1,1）', 'info');
   return blocks.join('\n') + '\n';
 }
 
@@ -844,11 +848,15 @@ btnTest.addEventListener('click', async () => {
     return;
   }
   const testTspl = [
-    'SIZE 40 mm, 30 mm',
-    'GAP 2 mm, 0 mm',
+    'SET TEAR ON',
+    'SIZE 58 mm, 30 mm',
+    'GAP 0 mm, 0 mm',
     'CLS',
-    'TEXT 30,50,"TSS24.BF2",0,1,1,"TEST PRINT"',
-    'PRINT 1'
+    'DIRECTION 1,0',
+    'REFERENCE 0,0',
+    'OFFSET 0',
+    'TEXT 10,20,"TSS24.BF2",0,1,1,"TEST PRINT 測試"',
+    'PRINT 1,1'
   ].join('\n') + '\n';
   try {
     log('送出測試打印...', 'info');
