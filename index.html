@@ -447,6 +447,7 @@ btnConnect.addEventListener('click', async () => {
 
     if (pendingData && !printLock) {
       log('有待印資料，請按「手動列印最新資料」。', 'info');
+      updateQueueDisplay(pendingData);
     }
 
   } catch (err) {
@@ -586,7 +587,8 @@ function updateQueueDisplay(data) {
       <div class="qi-label">待印資料 (ts: ${data.ts})</div>
       <pre>${data.text.slice(0, 200)}${data.text.length > 200 ? '...' : ''}</pre>
     </div>`;
-  btnManual.disabled = !isConnected;
+  // 有待印資料時務必保持可按：未連線時按了會在 log 提示先連線；若先前因「先送單後連線」被灰掉，連上後也不會永遠無法按
+  btnManual.disabled = false;
 }
 
 async function receivePrintData(data) {
@@ -655,7 +657,10 @@ window.addEventListener('hashchange', () => {
 // ── Manual Print Button ───────────────────────────────────────
 btnManual.addEventListener('click', async () => {
   if (!pendingData) { log('無待印資料', 'warn'); return; }
-  if (!isConnected) { log('請先連線打印機', 'err'); return; }
+  if (!isConnected || !bleChar) {
+    log('請先按「連線打印機」完成藍牙連線後再手動列印', 'err');
+    return;
+  }
   log('手動觸發列印', 'info');
   await autoPrint(pendingData);
 });
