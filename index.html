@@ -815,16 +815,31 @@ function parseHashData() {
   if (!hash || hash.length < 6) return null;
 
   try {
-    // Format: #data=BASE64URL&back=URL&ts=TIMESTAMP
+    // Format: #data=ENCODED&ts=TIMESTAMP
     const params = new URLSearchParams(hash.slice(1)); // remove leading #
-    const dataB64 = params.get('data');
+    const dataRaw = params.get('data');
     const backUrl = params.get('back') || '';
     const ts      = parseInt(params.get('ts') || '0');
 
-    if (!dataB64) return null;
+    if (!dataRaw) return null;
 
-    // Decode: base64url -> bytes -> text
-    const text = decodeBase64ToText(dataB64);
+    // 解碼：優先嘗試 decodeURIComponent（POS 新版 encodeURIComponent 格式）
+    // 若失敗或結果看起來不像文字，改用 base64url 解碼（舊版相容）
+    let text = '';
+    let decoded = false;
+    try {
+      const uri = decodeURIComponent(dataRaw);
+      // 若解碼後含有可見字元（非純 binary），視為成功
+      if (uri && /[\x20-\x7e\u0080-\uffff]/.test(uri)) {
+        text = uri;
+        decoded = true;
+      }
+    } catch (eUri) { /* 繼續嘗試 base64url */ }
+
+    if (!decoded) {
+      text = decodeBase64ToText(dataRaw);
+    }
+
     return { text, backUrl, ts };
   } catch (e) {
     log('Hash 解碼失敗: ' + e.message, 'err');
@@ -908,8 +923,8 @@ function handleIncomingData() {
   history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
-window.addEventListener('hashchange', () => {
-  log('hashchange 觸發 → 嘗試讀取列印資料', 'info');
+window.addEventListener('hashchange', function() {
+  log('偵測到新資料傳入！', 'ok');
   handleIncomingData();
 });
 
