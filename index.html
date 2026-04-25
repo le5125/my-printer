@@ -686,6 +686,10 @@ btnClearLog.addEventListener('click', () => { logBox.innerHTML = ''; });
 
 // ── Init ──────────────────────────────────────────────────────
 function init() {
+  // 讓 POS 端 window.open(完整網址, 'PosPrinterBridge') 能導向「已開啟的」此分頁並載入 #data=…（跨網域時 BroadcastChannel 無效）
+  try {
+    window.name = 'PosPrinterBridge';
+  } catch (e) { /* 略 */ }
   log('Printer Bridge 就緒', 'ok');
   log('收到 POS 資料後請按「手動列印最新資料」送印（不自動列印、不跳回 POS）。', 'info');
   handleIncomingData();
