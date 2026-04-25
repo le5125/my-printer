@@ -254,7 +254,8 @@
     text-align: right;
   }
 </style>
-<!-- CP950（繁體 Big5）編碼；失敗時 sendRawText 會退回 UTF-8 -->
+<!-- encoding-japanese：UNICODE→BIG5；失敗則 codepage CP950；最後 UTF-8 -->
+<script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.2.0/encoding.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -519,21 +520,36 @@ function onBleDisconnected() {
 /** BLE 寫入特徵值每段最大長度（MTU / ATT 限制，避免單次 write 丟包或斷線） */
 const BLE_WRITE_CHUNK_BYTES = 20;
 
-/** TSPL 中文多為 Big5(CP950)；缺字時改 GB18030(54936)；無 cptable 或皆失敗則 UTF-8 */
+/**
+ * BLE 送印位元組：優先 BIG5（encoding-japanese UNICODE→BIG5，或 codepage CP950），再 UTF-8。
+ * TSPL 搭配 TSS24.BF2 時韌體多預期 Big5 位元組而非 UTF-8。
+ */
 function encodePrinterBytes_(text) {
   const s = String(text == null ? '' : text);
+  try {
+    if (typeof Encoding !== 'undefined' && Encoding.stringToCode && Encoding.convert) {
+      try {
+        const uni = Encoding.stringToCode(s);
+        const big5 = Encoding.convert(uni, { to: 'BIG5', from: 'UNICODE' });
+        if (big5 && big5.length) {
+          return new Uint8Array(big5);
+        }
+      } catch (eEnc) { /* 略，改試 codepage */ }
+    }
+  } catch (e0) { /* 略 */ }
   try {
     if (typeof cptable !== 'undefined' && cptable.utils && typeof cptable.utils.encode === 'function') {
       try {
         const out = cptable.utils.encode(950, s);
         if (out != null && (typeof out.length === 'number' || typeof out.byteLength === 'number')) {
+          log('Encoding.js 無 BIG5 或失敗，已用 CP950', 'info');
           return new Uint8Array(out);
         }
       } catch (e950) {
         try {
           const out2 = cptable.utils.encode(54936, s);
           if (out2 != null && (typeof out2.length === 'number' || typeof out2.byteLength === 'number')) {
-            log('CP950 編碼例外，已改用 GB18030', 'warn');
+            log('CP950 例外，已改用 GB18030', 'warn');
             return new Uint8Array(out2);
           }
         } catch (eGb) { /* 略 */ }
@@ -554,7 +570,7 @@ async function sendRawText(text) {
   const CHUNK   = BLE_WRITE_CHUNK_BYTES;
   const DELAY   = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
 
-  log('送印 ' + bytes.length + ' bytes（' + (typeof cptable !== 'undefined' && cptable.utils ? 'CP950/Big5' : 'UTF-8') + '），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
+  log('送印 ' + bytes.length + ' bytes（Big5 優先），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
 
   for (let i = 0; i < bytes.length; i += CHUNK) {
     const chunk = bytes.slice(i, i + CHUNK);
@@ -579,45 +595,84 @@ async function sendRawText(text) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+/** 已有完整 TSPL（行首 PRINT）則不重包；避免英文句中 print 誤判 */
+function isProbablyTsplJob_(raw) {
+  const t = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  return /(?:^|\n)\s*PRINT\s+\d+/im.test(t);
+}
+
+/** 捲紙一張工作：SET TEAR → SIZE 寬×動態高 → GAP 0 → CLS → DIRECTION 1,0 → REFERENCE → OFFSET → TEXT… → PRINT 1,1 */
+function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
+  const x0 = 10;
+  const y0 = 20;
+  const stepY = 40;
+  const font = 'TSS24.BF2';
+  const n = Math.max(1, count);
+  const tailDots = 100;
+  const totalDots = y0 + (n - 1) * stepY + tailDots;
+  const hMm = Math.min(3200, Math.max(16, Math.ceil(totalDots / 8)));
+
+  const parts = [];
+  parts.push('SET TEAR ON');
+  parts.push('SIZE ' + widthMm + ' mm, ' + hMm + ' mm');
+  parts.push('GAP 0 mm, 0 mm');
+  parts.push('CLS');
+  parts.push('DIRECTION 1,0');
+  parts.push('REFERENCE 0,0');
+  parts.push('OFFSET 0');
+  for (let k = 0; k < n; k++) {
+    const line = lines[startIdx + k];
+    let esc = String(line).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    if (esc.length > 120) esc = esc.slice(0, 120) + '...';
+    const y = y0 + k * stepY;
+    parts.push('TEXT ' + x0 + ',' + y + ',"' + font + '",0,1,1,"' + esc + '"');
+  }
+  parts.push('PRINT 1,1');
+  return parts.join('\n');
+}
+
+function tsplMinimalRoll_() {
+  return [
+    'SET TEAR ON',
+    'SIZE 58 mm, 18 mm',
+    'GAP 0 mm, 0 mm',
+    'CLS',
+    'DIRECTION 1,0',
+    'REFERENCE 0,0',
+    'OFFSET 0',
+    'PRINT 1,1',
+    ''
+  ].join('\n');
+}
+
 /**
- * GP-2270T 走 TSPL：僅送純文字（無 PRINT）時印表機會略過不吐紙；測試列印因含完整 TSPL 才正常。
- * 若內容已含 PRINT 指令（含標籤模板）則原樣送出。
+ * 熱感捲紙：DIRECTION 1,0 + REFERENCE 0,0 + 動態高度；內文用 TSS24.BF2（送印時 encodePrinterBytes_ 轉 Big5）。
+ * 原稿若已含行首 PRINT n（POS 標籤模板等）則原樣送出。
  */
 function ensureTsplForManualPrint_(raw) {
   const s = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   if (!s.trim()) return '\n';
-  if (/\bPRINT\b/i.test(s)) {
+  if (isProbablyTsplJob_(s)) {
     return s.endsWith('\n') ? s : s + '\n';
   }
 
-  const lines = s.split('\n');
-  const blocks = [];
-  let cur = ['SIZE 58 mm, 200 mm', 'GAP 2 mm, 0 mm', 'DIRECTION 1', 'CLS'];
-  let y = 30;
-  const step = 38;
-  const maxY = 1850;
-
-  function flushBlock() {
-    cur.push('PRINT 1');
-    blocks.push(cur.join('\n'));
-    cur = ['SIZE 58 mm, 200 mm', 'GAP 2 mm, 0 mm', 'DIRECTION 1', 'CLS'];
-    y = 30;
-  }
-
+  const lines = s.split('\n').map(function (ln) { return ln.replace(/\r$/, ''); });
+  const nonempty = [];
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].replace(/\r$/, '');
-    if (!line.trim()) continue;
-    let esc = line.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    if (esc.length > 100) esc = esc.slice(0, 100) + '…';
-    if (y > maxY) flushBlock();
-    cur.push('TEXT 15,' + y + ',"TSS24.BF2",0,1,1,"' + esc + '"');
-    y += step;
+    if (lines[i].trim()) nonempty.push(lines[i]);
   }
-  if (cur.length > 4) flushBlock();
-  if (!blocks.length) {
-    return 'SIZE 40 mm, 30 mm\nGAP 2 mm, 0 mm\nCLS\nPRINT 1\n';
+  if (!nonempty.length) return tsplMinimalRoll_();
+
+  const paperW = 58;
+  const maxLinesPerBlock = 48;
+  const blocks = [];
+  let idx = 0;
+  while (idx < nonempty.length) {
+    const take = Math.min(maxLinesPerBlock, nonempty.length - idx);
+    blocks.push(buildRollTsplBlock_(nonempty, idx, take, paperW));
+    idx += take;
   }
-  log('原稿無 PRINT，已自動包成 TSPL（' + blocks.length + ' 張標籤工作）', 'info');
+  log('純文字已包成捲紙 TSPL（' + blocks.length + ' 段；寬 ' + paperW + ' mm、PRINT 1,1）', 'info');
   return blocks.join('\n') + '\n';
 }
 
