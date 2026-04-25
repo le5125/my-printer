@@ -446,8 +446,13 @@ btnConnect.addEventListener('click', async () => {
     log('打印機連線成功！', 'ok');
 
     if (pendingData && !printLock) {
-      log('有待印資料，請按「手動列印最新資料」。', 'info');
       updateQueueDisplay(pendingData);
+      try {
+        log('有待印資料，連線後自動送印', 'info');
+        await autoPrint(pendingData);
+      } catch (eAuto) {
+        log('自動送印: ' + (eAuto && eAuto.message ? eAuto.message : String(eAuto)), 'warn');
+      }
     }
 
   } catch (err) {
