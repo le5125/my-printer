@@ -524,28 +524,58 @@ function onBleDisconnected() {
 const BLE_WRITE_CHUNK_BYTES = 20;
 
 /**
- * BLE 送印位元組：整段 TSPL 走 **CP950（Big5）**；ASCII 指令在 CP950 仍為單 byte。
- * window.GP2270T_FORCE_UTF8 === true 時改 UTF-8（韌體若為 UTF-8／GBK 模式再測）。
+ * BLE 送印位元組：優先 codepage **CP950（繁體 Big5）**；encoding-japanese 的 BIG5 常不可靠勿放最前。
+ * 主控台可設 window.GP2270T_FORCE_UTF8 = true 強制 UTF-8（少數新韌體用 UTF-8 內文）。
  */
 function encodePrinterBytes_(text) {
   const s = String(text == null ? '' : text);
-  if (window.GP2270T_FORCE_UTF8 === true) {
-    log('已強制 UTF-8（GP2270T_FORCE_UTF8）', 'info');
-    return new TextEncoder().encode(s);
-  }
+  try {
+    if (window.GP2270T_FORCE_UTF8 === true) {
+      log('已強制 UTF-8（GP2270T_FORCE_UTF8）', 'info');
+      return new TextEncoder().encode(s);
+    }
+  } catch (eF) { /* 略 */ }
   try {
     if (typeof cptable !== 'undefined' && cptable.utils && typeof cptable.utils.encode === 'function') {
-      const out = cptable.utils.encode(950, s);
-      if (out != null && (typeof out.length === 'number' || typeof out.byteLength === 'number')) {
-        return new Uint8Array(out);
+      try {
+        const out = cptable.utils.encode(950, s);
+        if (out != null && (typeof out.length === 'number' || typeof out.byteLength === 'number')) {
+          return new Uint8Array(out);
+        }
+      } catch (e950) {
+        try {
+          const out2 = cptable.utils.encode(54936, s);
+          if (out2 != null && (typeof out2.length === 'number' || typeof out2.byteLength === 'number')) {
+            log('CP950 例外，已改用 GB18030', 'warn');
+            return new Uint8Array(out2);
+          }
+        } catch (eGb) { /* 略 */ }
       }
     }
-  } catch (e) {
-    try {
-      console.error('CP950 Encode Error, fallback to UTF-8', e);
-    } catch (e2) { /* 略 */ }
-    log('CP950 失敗改 UTF-8：' + (e && e.message ? e.message : e), 'warn');
-  }
+  } catch (e) { /* 略 */ }
+  try {
+    if (typeof Encoding !== 'undefined' && Encoding.convert) {
+      try {
+        const utf8bytes = new TextEncoder().encode(s);
+        const big5a = Encoding.convert(utf8bytes, 'BIG5', 'UTF8');
+        if (big5a && big5a.length) {
+          log('已用 encoding-japanese BIG5（codepage 不可用時）', 'warn');
+          return new Uint8Array(big5a);
+        }
+      } catch (eA) { /* 略 */ }
+      if (Encoding.stringToCode) {
+        try {
+          const uni = Encoding.stringToCode(s);
+          const big5b = Encoding.convert(uni, { to: 'BIG5', from: 'UNICODE' });
+          if (big5b && big5b.length) {
+            log('已用 encoding-japanese UNICODE→BIG5', 'warn');
+            return new Uint8Array(big5b);
+          }
+        } catch (eB) { /* 略 */ }
+      }
+    }
+  } catch (e0) { /* 略 */ }
+  log('無可用 Big5 表，改用 UTF-8', 'warn');
   return new TextEncoder().encode(s);
 }
 
@@ -555,10 +585,10 @@ async function sendRawText(text) {
   if (!isConnected) throw new Error('BLE 未連線');
 
   const bytes = encodePrinterBytes_(text);
-  const CHUNK = BLE_WRITE_CHUNK_BYTES;
-  const interChunkMs = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
+  const CHUNK   = BLE_WRITE_CHUNK_BYTES;
+  const DELAY   = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
 
-  log('送印 ' + bytes.length + ' bytes（CP950 或 UTF-8 後備），每包≤' + CHUNK + ' bytes，包間≥' + interChunkMs + 'ms，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
+  log('送印 ' + bytes.length + ' bytes（CP950/Big5 優先），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
 
   for (let i = 0; i < bytes.length; i += CHUNK) {
     const chunk = bytes.slice(i, i + CHUNK);
@@ -576,7 +606,7 @@ async function sendRawText(text) {
         await bleChar.writeValue(chunk);
       }
     }
-    await sleep(interChunkMs);
+    if (i + CHUNK < bytes.length) await sleep(DELAY);
   }
   log('送印完成', 'ok');
 }
@@ -590,10 +620,10 @@ function isProbablyTsplJob_(raw) {
 }
 
 /**
- * 熱感捲紙：DIRECTION 1,0 以出紙口左上為原點，文字由上往下（與 DIRECTION 0 相反）。
- * REFERENCE 0,0 必保留；若 POS 自帶 TSPL 內含 DIRECTION，以 POS 為準。
+ * 捲紙一張：DIRECTION 0,0 多數為「由上往下」正讀；若仍顛倒可改 TSPL_DIRECTION_MODE 為 1。
+ * TEXT 用 TST24.BF2 + 送印端 CP950 位元組，對應繁中內建字型。
  */
-const TSPL_DIRECTION_MODE = 1;
+const TSPL_DIRECTION_MODE = 0;
 function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
   const x0 = 10;
   const y0 = 20;
@@ -638,7 +668,8 @@ function tsplMinimalRoll_() {
 }
 
 /**
- * 純文字才包捲紙 TSPL；已含行首 PRINT n 則原樣送出（請在 POS 端避免 DIRECTION 0 與橋接衝突）。
+ * 熱感捲紙：DIRECTION 0,0（由上往下）；內文 TST24.BF2 + 送印 CP950/Big5。
+ * 原稿若已含行首 PRINT n（POS 標籤模板等）則原樣送出。
  */
 function ensureTsplForManualPrint_(raw) {
   const s = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
