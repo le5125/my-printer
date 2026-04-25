@@ -526,7 +526,63 @@ const BLE_WRITE_CHUNK_BYTES = 20;
 /**
  * BLE 送印位元組：優先 codepage **CP950（繁體 Big5）**；encoding-japanese 的 BIG5 常不可靠勿放最前。
  * 主控台可設 window.GP2270T_FORCE_UTF8 = true 強制 UTF-8（少數新韌體用 UTF-8 內文）。
+ * TSPL 工作：僅將 TEXT 指令最後一個引號內文轉 CP950，指令列其餘字元維持 UTF-8（等同 ASCII），避免整段混編造成亂碼。
  */
+function u8concat_(arrays) {
+  let len = 0;
+  for (let i = 0; i < arrays.length; i++) len += arrays[i].length;
+  const out = new Uint8Array(len);
+  let off = 0;
+  for (let i = 0; i < arrays.length; i++) {
+    out.set(arrays[i], off);
+    off += arrays[i].length;
+  }
+  return out;
+}
+
+function unescapeTsplTextInner_(raw) {
+  let out = '';
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] === '\\' && i + 1 < raw.length) {
+      const n = raw[++i];
+      if (n === '"' || n === '\\') out += n;
+      else out += '\\' + n;
+    } else out += raw[i];
+  }
+  return out;
+}
+
+/** @returns {Uint8Array|null} */
+function encodeTsplBig5TextQuotesOnly_(s) {
+  if (typeof cptable === 'undefined' || !cptable.utils || typeof cptable.utils.encode !== 'function') return null;
+  const t = String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = t.split('\n');
+  const lineRe = /^\s*(TEXT\s+\d+,\d+,\s*"(?:\\.|[^"\\])*",\s*\d+,\s*\d+,\s*\d+,\s*")((?:\\.|[^"\\])*)("\s*)$/i;
+  const te = new TextEncoder();
+  const chunks = [];
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    const sep = li < lines.length - 1 ? '\n' : '';
+    if (/^\s*TEXT\b/i.test(line) && !lineRe.test(line)) return null;
+    const m = line.match(lineRe);
+    if (m) {
+      const inner = unescapeTsplTextInner_(m[2]);
+      let innerBytes;
+      try {
+        innerBytes = new Uint8Array(cptable.utils.encode(950, inner.normalize('NFC')));
+      } catch (eIn) {
+        return null;
+      }
+      chunks.push(te.encode(m[1]));
+      chunks.push(innerBytes);
+      chunks.push(te.encode(m[3] + sep));
+    } else {
+      chunks.push(te.encode(line + sep));
+    }
+  }
+  return u8concat_(chunks);
+}
+
 function encodePrinterBytes_(text) {
   const s = String(text == null ? '' : text);
   try {
@@ -538,6 +594,10 @@ function encodePrinterBytes_(text) {
   try {
     if (typeof cptable !== 'undefined' && cptable.utils && typeof cptable.utils.encode === 'function') {
       try {
+        if (isProbablyTsplJob_(s)) {
+          const splitBytes = encodeTsplBig5TextQuotesOnly_(s);
+          if (splitBytes !== null) return splitBytes;
+        }
         const out = cptable.utils.encode(950, s);
         if (out != null && (typeof out.length === 'number' || typeof out.byteLength === 'number')) {
           return new Uint8Array(out);
