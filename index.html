@@ -104,27 +104,6 @@
   #ble-status-text { font-size: 0.82rem; color: var(--text); }
   #ble-device-name { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
 
-  .recv-status {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 8px;
-    font-size: 0.78rem;
-    color: var(--muted);
-  }
-  .recv-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: var(--danger);
-    box-shadow: 0 0 6px var(--danger);
-    transition: background 0.2s ease, box-shadow 0.2s ease;
-  }
-  .recv-dot.on {
-    background: var(--success);
-    box-shadow: 0 0 8px var(--success);
-  }
-
   /* Buttons */
   .btn {
     width: 100%;
@@ -310,10 +289,6 @@
 <!-- Print Queue Card -->
 <div class="card">
   <div class="card-title">[ 02 ] 待印佇列</div>
-  <div class="recv-status">
-    <div class="recv-dot" id="pos-recv-dot"></div>
-    <div id="pos-recv-text">尚未接收 POS 資料</div>
-  </div>
   <div id="queue-display">
     <div class="empty-queue">等待 POS 送單...</div>
   </div>
@@ -380,8 +355,6 @@ const btnDisconn  = document.getElementById('btn-disconnect');
 const btnTest     = document.getElementById('btn-test-print');
 const btnManual   = document.getElementById('btn-manual-print');
 const queueDisp   = document.getElementById('queue-display');
-const recvDot     = document.getElementById('pos-recv-dot');
-const recvText    = document.getElementById('pos-recv-text');
 const logBox      = document.getElementById('log-box');
 const ackFlash    = document.getElementById('ack-flash');
 const cfgDelay    = document.getElementById('cfg-chunk-delay');
@@ -427,17 +400,6 @@ function setBleState(state) {
 function showAck() {
   ackFlash.classList.add('show');
   setTimeout(() => ackFlash.classList.remove('show'), 1800);
-}
-
-function setPosReceivedUi(received) {
-  if (!recvDot || !recvText) return;
-  if (received) {
-    recvDot.classList.add('on');
-    recvText.textContent = '已接收 POS 資料';
-  } else {
-    recvDot.classList.remove('on');
-    recvText.textContent = '尚未接收 POS 資料';
-  }
 }
 
 // ── BLE Connect ──────────────────────────────────────────────
@@ -632,15 +594,57 @@ function encodeTsplBig5TextQuotesOnly_(s) {
 
 function encodePrinterBytes_(text) {
   const s = String(text == null ? '' : text);
-  if (typeof cptable !== 'undefined' && cptable.utils && typeof cptable.utils.encode === 'function') {
-    if (isProbablyTsplJob_(s)) {
-      const splitBytes = encodeTsplBig5TextQuotesOnly_(s);
-      if (splitBytes !== null) return splitBytes;
+  try {
+    if (window.GP2270T_FORCE_UTF8 === true) {
+      log('已強制 UTF-8（GP2270T_FORCE_UTF8）', 'info');
+      return new TextEncoder().encode(s);
     }
-    const out = cptable.utils.encode(950, s);
-    return new Uint8Array(out);
-  }
-  log('找不到 cptable，暫用 UTF-8（建議檢查 cpexcel 載入）', 'warn');
+  } catch (eF) { /* 略 */ }
+  try {
+    if (typeof cptable !== 'undefined' && cptable.utils && typeof cptable.utils.encode === 'function') {
+      try {
+        if (isProbablyTsplJob_(s)) {
+          const splitBytes = encodeTsplBig5TextQuotesOnly_(s);
+          if (splitBytes !== null) return splitBytes;
+        }
+        const out = cptable.utils.encode(950, s);
+        if (out != null && (typeof out.length === 'number' || typeof out.byteLength === 'number')) {
+          return new Uint8Array(out);
+        }
+      } catch (e950) {
+        try {
+          const out2 = cptable.utils.encode(54936, s);
+          if (out2 != null && (typeof out2.length === 'number' || typeof out2.byteLength === 'number')) {
+            log('CP950 例外，已改用 GB18030', 'warn');
+            return new Uint8Array(out2);
+          }
+        } catch (eGb) { /* 略 */ }
+      }
+    }
+  } catch (e) { /* 略 */ }
+  try {
+    if (typeof Encoding !== 'undefined' && Encoding.convert) {
+      try {
+        const utf8bytes = new TextEncoder().encode(s);
+        const big5a = Encoding.convert(utf8bytes, 'BIG5', 'UTF8');
+        if (big5a && big5a.length) {
+          log('已用 encoding-japanese BIG5（codepage 不可用時）', 'warn');
+          return new Uint8Array(big5a);
+        }
+      } catch (eA) { /* 略 */ }
+      if (Encoding.stringToCode) {
+        try {
+          const uni = Encoding.stringToCode(s);
+          const big5b = Encoding.convert(uni, { to: 'BIG5', from: 'UNICODE' });
+          if (big5b && big5b.length) {
+            log('已用 encoding-japanese UNICODE→BIG5', 'warn');
+            return new Uint8Array(big5b);
+          }
+        } catch (eB) { /* 略 */ }
+      }
+    }
+  } catch (e0) { /* 略 */ }
+  log('無可用 Big5 表，改用 UTF-8', 'warn');
   return new TextEncoder().encode(s);
 }
 
@@ -695,10 +699,10 @@ function ensureTsplCodepage950_(tspl) {
 }
 
 /**
- * 捲紙一張：固定 DIRECTION 1,0（依現場流程圖要求）。
+ * 捲紙一張：DIRECTION 0,0 多數為「由上往下」正讀；若仍顛倒可改 TSPL_DIRECTION_MODE 為 1。
  * TEXT 用 TST24.BF2 + 送印端 CP950 位元組，對應繁中內建字型。
  */
-const TSPL_DIRECTION_MODE = 1;
+const TSPL_DIRECTION_MODE = 0;
 function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
   const x0 = 10;
   const y0 = 20;
@@ -873,7 +877,6 @@ async function receivePrintData(data) {
   }
 
   log('收到待印資料 (ts=' + data.ts + ')', 'info');
-  setPosReceivedUi(true);
   pendingData = data;
   updateQueueDisplay(data);
 
@@ -909,9 +912,9 @@ window.addEventListener('message', async (event) => {
   }
 
   if (msg.type === 'PRINTER_PING') {
-    // POS 只需確認頁面可收訊息；BLE 連線狀態另附帶回傳。
-    event.source.postMessage({ type: 'PRINTER_PONG', ready: true, connected: isConnected }, '*');
-    log('PING received -> PONG sent', 'info');
+    // POS is checking if this window is alive
+    event.source.postMessage({ type: 'PRINTER_PONG', ready: isConnected }, '*');
+    log('PING received -> PONG sent (connected=' + isConnected + ')', 'info');
   }
 });
 
@@ -979,7 +982,6 @@ function init() {
   } catch (e) { /* 略 */ }
   log('Printer Bridge 就緒', 'ok');
   log('收到 POS 資料後請按「手動列印最新資料」送印（不自動列印、不跳回 POS）。', 'info');
-  setPosReceivedUi(false);
   handleIncomingData();
   tryAutoReconnectBle_().catch(function () { /* 略 */ });
 }
