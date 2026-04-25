@@ -507,13 +507,56 @@ async function sendToprinter(text) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+/**
+ * GP-2270T 走 TSPL：僅送純文字（無 PRINT）時印表機會略過不吐紙；測試列印因含完整 TSPL 才正常。
+ * 若內容已含 PRINT 指令（含標籤模板）則原樣送出。
+ */
+function ensureTsplForManualPrint_(raw) {
+  const s = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (!s.trim()) return '\n';
+  if (/\bPRINT\b/i.test(s)) {
+    return s.endsWith('\n') ? s : s + '\n';
+  }
+
+  const lines = s.split('\n');
+  const blocks = [];
+  let cur = ['SIZE 58 mm, 200 mm', 'GAP 2 mm, 0 mm', 'DIRECTION 1', 'CLS'];
+  let y = 30;
+  const step = 38;
+  const maxY = 1850;
+
+  function flushBlock() {
+    cur.push('PRINT 1');
+    blocks.push(cur.join('\n'));
+    cur = ['SIZE 58 mm, 200 mm', 'GAP 2 mm, 0 mm', 'DIRECTION 1', 'CLS'];
+    y = 30;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].replace(/\r$/, '');
+    if (!line.trim()) continue;
+    let esc = line.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    if (esc.length > 100) esc = esc.slice(0, 100) + '…';
+    if (y > maxY) flushBlock();
+    cur.push('TEXT 15,' + y + ',"TSS24.BF2",0,1,1,"' + esc + '"');
+    y += step;
+  }
+  if (cur.length > 4) flushBlock();
+  if (!blocks.length) {
+    return 'SIZE 40 mm, 30 mm\nGAP 2 mm, 0 mm\nCLS\nPRINT 1\n';
+  }
+  log('原稿無 PRINT，已自動包成 TSPL（' + blocks.length + ' 張標籤工作）', 'info');
+  return blocks.join('\n') + '\n';
+}
+
 // ── Auto Print Flow ───────────────────────────────────────────
 async function autoPrint(data) {
   if (printLock) { log('列印鎖定中，略過', 'warn'); return; }
   printLock = true;
 
   try {
-    await sendToprinter(data.text);
+    const payload = ensureTsplForManualPrint_(data.text);
+    await sendToprinter(payload);
     showAck();
     lastPrintTs = data.ts;
     pendingData = null;
