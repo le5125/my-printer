@@ -944,9 +944,7 @@ btnClearLog.addEventListener('click', () => { logBox.innerHTML = ''; });
 
 // ── Init ──────────────────────────────────────────────────────
 function init() {
-  try {
-    window.name = 'Gprinter_Handler';
-  } catch (e) { /* 略 */ }
+  window.name = "Gprinter_Handler";
   log('Printer Bridge 就緒', 'ok');
   log('收到 POS 資料後請按「手動列印最新資料」送印（不自動列印、不跳回 POS）。', 'info');
 
