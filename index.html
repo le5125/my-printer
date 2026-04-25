@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -717,9 +716,9 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
 
   const parts = [];
   parts.push('SET TEAR ON');
-  parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');  // 方向必須在 SIZE 前設定
-  parts.push('REFERENCE 0,0');
   parts.push('SIZE ' + widthMm + ' mm, ' + hMm + ' mm');
+  parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
+  parts.push('REFERENCE 0,0');
   parts.push('GAP 0 mm, 0 mm');
   parts.push('CLS');
   parts.push('CODEPAGE 950');
@@ -738,9 +737,9 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
 function tsplMinimalRoll_() {
   return [
     'SET TEAR ON',
+    'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 18 mm',
     'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
     'REFERENCE 0,0',
-    'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 18 mm',
     'GAP 0 mm, 0 mm',
     'CLS',
     'CODEPAGE 950',
@@ -935,9 +934,9 @@ btnTest.addEventListener('click', async () => {
   }
   const testTspl = [
     'SET TEAR ON',
+    'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 30 mm',
     'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
     'REFERENCE 0,0',
-    'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 30 mm',
     'GAP 0 mm, 0 mm',
     'CLS',
     'CODEPAGE 950',
