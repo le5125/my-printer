@@ -364,14 +364,6 @@ function log(msg, type = '') {
   while (logBox.children.length > 80) logBox.removeChild(logBox.firstChild);
 }
 
-function escapeHtml_(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 // ── UI State ─────────────────────────────────────────────────
 function setBleState(state) {
   dot.className = 'dot ' + state;
@@ -515,68 +507,45 @@ async function sendToprinter(text) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-/** 僅「行首 PRINT n」視為已有 TSPL；勿用 /\bPRINT\b/i 以免英文句中 print 誤判 */
-function isProbablyTsplJob_(raw) {
-  const s = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  return /(?:^|\n)\s*PRINT\s+\d+/im.test(s);
-}
-
 /**
- * 純文字轉 TSPL：不用 DIRECTION 1（易造成由下往上／留白過大）；REFERENCE+DIRECTION 0 + 依行數縮小紙張高度、緊湊行距，Y 由上往下遞增。
+ * GP-2270T 走 TSPL：僅送純文字（無 PRINT）時印表機會略過不吐紙；測試列印因含完整 TSPL 才正常。
+ * 若內容已含 PRINT 指令（含標籤模板）則原樣送出。
  */
 function ensureTsplForManualPrint_(raw) {
   const s = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   if (!s.trim()) return '\n';
-  if (isProbablyTsplJob_(s)) {
+  if (/\bPRINT\b/i.test(s)) {
     return s.endsWith('\n') ? s : s + '\n';
   }
 
   const lines = s.split('\n');
-  const nonempty = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].replace(/\r$/, '');
-    if (line.trim()) nonempty.push(line);
-  }
-  const n = nonempty.length;
-  if (!n) {
-    return 'SIZE 40 mm, 30 mm\nGAP 2 mm, 0 mm\nREFERENCE 0,0\nDIRECTION 0\nCLS\nPRINT 1\n';
-  }
-
-  const step = 28;
-  const x0 = 12;
-  const y0 = 20;
-  const dotsPerBlock = 2400;
   const blocks = [];
+  let cur = ['SIZE 58 mm, 200 mm', 'GAP 2 mm, 0 mm', 'DIRECTION 1', 'CLS'];
+  let y = 30;
+  const step = 38;
+  const maxY = 1850;
 
-  function buildBlock(startIdx, count) {
-    const hMm = Math.min(200, Math.max(28, Math.round(10 + count * 3.6)));
-    const cur = [
-      'SIZE 58 mm, ' + hMm + ' mm',
-      'GAP 2 mm, 0 mm',
-      'REFERENCE 0,0',
-      'DIRECTION 0',
-      'CLS'
-    ];
-    for (let k = 0; k < count; k++) {
-      const line = nonempty[startIdx + k];
-      let esc = line.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      if (esc.length > 100) esc = esc.slice(0, 100) + '...';
-      const y = y0 + k * step;
-      cur.push('TEXT ' + x0 + ',' + y + ',"TSS24.BF2",0,1,1,"' + esc + '"');
-    }
+  function flushBlock() {
     cur.push('PRINT 1');
-    return cur.join('\n');
+    blocks.push(cur.join('\n'));
+    cur = ['SIZE 58 mm, 200 mm', 'GAP 2 mm, 0 mm', 'DIRECTION 1', 'CLS'];
+    y = 30;
   }
 
-  const maxLinesPerBlock = Math.max(1, Math.floor((dotsPerBlock - y0 - 24) / step));
-  let idx = 0;
-  while (idx < n) {
-    const take = Math.min(maxLinesPerBlock, n - idx);
-    blocks.push(buildBlock(idx, take));
-    idx += take;
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].replace(/\r$/, '');
+    if (!line.trim()) continue;
+    let esc = line.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    if (esc.length > 100) esc = esc.slice(0, 100) + '…';
+    if (y > maxY) flushBlock();
+    cur.push('TEXT 15,' + y + ',"TSS24.BF2",0,1,1,"' + esc + '"');
+    y += step;
   }
-
-  log('純文字已包成 TSPL（' + blocks.length + ' 段，上往下、緊湊高度）', 'info');
+  if (cur.length > 4) flushBlock();
+  if (!blocks.length) {
+    return 'SIZE 40 mm, 30 mm\nGAP 2 mm, 0 mm\nCLS\nPRINT 1\n';
+  }
+  log('原稿無 PRINT，已自動包成 TSPL（' + blocks.length + ' 張標籤工作）', 'info');
   return blocks.join('\n') + '\n';
 }
 
@@ -656,11 +625,10 @@ function updateQueueDisplay(data) {
     btnManual.disabled = true;
     return;
   }
-  const preview = escapeHtml_(data.text.slice(0, 200) + (data.text.length > 200 ? '...' : ''));
   queueDisp.innerHTML = `
     <div class="queue-item">
-      <div class="qi-label">待印資料 (ts: ${escapeHtml_(String(data.ts))})</div>
-      <pre>${preview}</pre>
+      <div class="qi-label">待印資料 (ts: ${data.ts})</div>
+      <pre>${data.text.slice(0, 200)}${data.text.length > 200 ? '...' : ''}</pre>
     </div>`;
   // 有待印資料時務必保持可按：未連線時按了會在 log 提示先連線；若先前因「先送單後連線」被灰掉，連上後也不會永遠無法按
   btnManual.disabled = false;
