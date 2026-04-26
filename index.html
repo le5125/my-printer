@@ -952,6 +952,10 @@ function ensureTsplCodepage950_(tspl) {
  * TEXT 用 TST24.BF2 + 送印端 CP950 位元組，對應繁中內建字型。
  */
 const TSPL_DIRECTION_MODE = 0;
+/** 多張商品標籤之間的分隔（TSPL 打包時一張一 PRINT） */
+const TSPL_LABEL_JOB_SEPARATOR = '\n<<<__POS_LABEL_BREAK__>>>\n';
+/** 203dpi 熱感機常見：約 8 dots/mm */
+const TSPL_DOTS_PER_MM = 8;
 // 目前列印作業要套用哪一份字體設定（'detail' / 'label'）。
 // 由呼叫 ensureTsplForManualPrint_ 之前的入口設定（例如 manual reprint、auto print、polling）。
 let _activeTsplFontProfile_ = 'detail';
@@ -968,11 +972,62 @@ function getActiveFontCfg_() {
 }
 
 /**
- * 用 styled lines（每行 segments）建出 TSPL 區塊：
- * - 每段 segment 用自己的放大倍數 + 粗體
- * - 一行的「行高」取該行所有段落 yMul 最大值
- * - 各段水平 x 累加（用 estimateSegmentDots_ 推進）
+ * 單張「模切／有縫隙」標籤：SIZE 寬高固定為紙張尺寸，GAP 為縫隙；每張結尾 PRINT 1,1 才會在縫隙處停。
+ * （舊版把多張標籤當成一長段捲紙、高度用內容推算，會一直走紙停不下來。）
  */
+function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm) {
+  const x0 = 10;
+  const y0 = 20;
+  const font = TSPL_FONT_ZH;
+  const maxY = Math.floor(Number(heightMm) * TSPL_DOTS_PER_MM) - 4;
+  const g = (Number(gapMm) > 0 && Number(gapMm) <= 25) ? Number(gapMm) : 0;
+  const parts = [];
+  if (g > 0) {
+    parts.push('SET TEAR OFF');
+    parts.push('SIZE ' + widthMm + ' mm, ' + heightMm + ' mm');
+    parts.push('GAP ' + g + ' mm, 0 mm');
+  } else {
+    parts.push('SET TEAR ON');
+    parts.push('SIZE ' + widthMm + ' mm, ' + heightMm + ' mm');
+    parts.push('GAP 0 mm, 0 mm');
+  }
+  parts.push('CLS');
+  parts.push('CODEPAGE 950');
+  parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
+  parts.push('REFERENCE 0,0');
+  parts.push('OFFSET 0');
+  let y = y0;
+  const n = styledLines.length;
+  for (let k = 0; k < n; k++) {
+    const segs = styledLines[k] || [];
+    let maxMul = 1;
+    for (let i = 0; i < segs.length; i++) {
+      const mul = fontSizeToTsplMul_(segs[i].size);
+      if (mul > maxMul) maxMul = mul;
+    }
+    const lineHeight = 24 * maxMul + 8;
+    if (y + lineHeight > maxY) break;
+    let xCur = x0;
+    for (let i = 0; i < segs.length; i++) {
+      const s = segs[i];
+      let txt = String(s.text || '');
+      if (!txt) continue;
+      let esc = txt.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      if (esc.length > 120) esc = esc.slice(0, 120) + '...';
+      const mul = fontSizeToTsplMul_(s.size);
+      parts.push('TEXT ' + xCur + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
+      if (s.bold) {
+        parts.push('TEXT ' + (xCur + 1) + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
+      }
+      xCur += estimateSegmentDots_(txt, mul);
+    }
+    y += lineHeight;
+  }
+  parts.push('PRINT 1,1');
+  return parts.join('\n');
+}
+
+/** 捲紙明細：每段依內容推算紙張高度；行內多段各自放大／粗體。 */
 function buildRollTsplBlockFromStyled_(styledLines, startIdx, count, widthMm) {
   const x0 = 10;
   const y0 = 20;
@@ -994,7 +1049,7 @@ function buildRollTsplBlockFromStyled_(styledLines, startIdx, count, widthMm) {
   let totalDots = y0;
   for (let k = 0; k < n; k++) totalDots += lineHeights[k];
   totalDots += tailDots;
-  const hMm = Math.min(3200, Math.max(16, Math.ceil(totalDots / 8)));
+  const hMm = Math.min(3200, Math.max(16, Math.ceil(totalDots / TSPL_DOTS_PER_MM)));
 
   const parts = [];
   parts.push('SET TEAR ON');
@@ -1068,17 +1123,45 @@ function ensureTsplForManualPrint_(raw) {
     return withCp.endsWith('\n') ? withCp : withCp + '\n';
   }
 
-  // 依目前作業 profile 決定寬度與「base 字體」
-  let widthMm = TSPL_ROLL_WIDTH_MM;
+  const baseFc = getActiveFontCfg_();
+
+  // —— 商品標籤：每張獨立 SIZE／GAP／PRINT，依縫隙停紙 ——
   if (_activeTsplFontProfile_ === 'label') {
     const sz = getLabelSize_();
-    widthMm = Number(sz.width) > 0 ? Number(sz.width) : TSPL_ROLL_WIDTH_MM;
+    const widthMm = Number(sz.width) > 0 ? Number(sz.width) : 40;
+    const heightMm = Number(sz.height) > 0 ? Number(sz.height) : 30;
+    let gapMm = Number(sz.gap);
+    if (!(gapMm >= 0) || isNaN(gapMm)) gapMm = 3;
+    const sepRe = /\n<<<__POS_LABEL_BREAK__>>>\n/;
+    let chunks = s.split(sepRe);
+    if (chunks.length === 1 && s.indexOf('<<<__POS_LABEL_BREAK__>>>') === -1) {
+      chunks = [s];
+    }
+    const blocks = [];
+    for (let ci = 0; ci < chunks.length; ci++) {
+      const chunk = String(chunks[ci] || '').trim();
+      if (!chunk) continue;
+      const styledAll = parseStyledLines_(chunk, baseFc);
+      const styledLines = styledAll.filter(function (segs) {
+        if (!segs || !segs.length) return false;
+        for (let i = 0; i < segs.length; i++) {
+          if (String(segs[i].text || '').trim()) return true;
+        }
+        return false;
+      });
+      if (!styledLines.length) continue;
+      blocks.push(buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm));
+    }
+    if (!blocks.length) return tsplMinimalRoll_();
+    log('標籤 TSPL：共 ' + blocks.length + ' 張；紙張 ' + widthMm + '×' + heightMm + 'mm、縫隙 ' + gapMm + 'mm', 'info');
+    return blocks.join('\n') + '\n';
   }
-  const baseFc = getActiveFontCfg_();
+
+  // —— 明細捲紙：依內容推算高度 ——
+  let widthMm = TSPL_ROLL_WIDTH_MM;
 
   // ⬇ 解析樣式 token：把 raw text 變成 [[{text,size,bold}, ...], ...]（每行）
   const styledAll = parseStyledLines_(s, baseFc);
-  // 過濾完全沒有實際文字的空行（避免印一堆空白）
   const styledLines = styledAll.filter(function (segs) {
     if (!segs || !segs.length) return false;
     for (let i = 0; i < segs.length; i++) {
@@ -1097,7 +1180,7 @@ function ensureTsplForManualPrint_(raw) {
     blocks.push(buildRollTsplBlockFromStyled_(styledLines, idx, take, widthMm));
     idx += take;
   }
-  log('已包成 TSPL（profile=' + _activeTsplFontProfile_ + '；' + blocks.length + ' 段；寬 ' + widthMm + ' mm；行內樣式生效）', 'info');
+  log('已包成 TSPL（profile=detail；' + blocks.length + ' 段；寬 ' + widthMm + ' mm；行內樣式生效）', 'info');
   return blocks.join('\n') + '\n';
 }
 
@@ -1883,14 +1966,17 @@ function getLabelSize_() {
     if (v) {
       const o = JSON.parse(v);
       if (o && (o.width || o.height)) {
+        let g = Number(o.gap);
+        if (!(g >= 0) || isNaN(g)) g = 3;
         return {
           width:  Number(o.width)  > 0 ? Number(o.width)  : 40,
-          height: Number(o.height) > 0 ? Number(o.height) : 30
+          height: Number(o.height) > 0 ? Number(o.height) : 30,
+          gap:    g
         };
       }
     }
   } catch (e) { /* 略 */ }
-  return { width: 40, height: 30 };
+  return { width: 40, height: 30, gap: 3 };
 }
 
 /** 字體設定：明細 / 標籤 各自的 size + bold */
@@ -2090,7 +2176,7 @@ function renderLabelsFromOrder_(ord) {
     const repeat = Math.max(1, parseInt(q, 10) || 1);
     for (let r = 0; r < repeat; r++) out.push(_renderTemplate_(tpl, map));
   }
-  return out.join('\n');
+  return out.join(TSPL_LABEL_JOB_SEPARATOR);
 }
 
 function buildPrintTextFromBackendOrder_(ord) {
@@ -2128,9 +2214,12 @@ async function syncPrintSettingsFromBackend_() {
       localStorage.setItem(LS_STORE_NAME, data.storeName);
     }
     if (data.labelSize && typeof data.labelSize === 'object') {
+      let g = Number(data.labelSize.gap);
+      if (!(g >= 0) || isNaN(g)) g = 3;
       localStorage.setItem(LS_LABEL_SIZE, JSON.stringify({
         width:  Number(data.labelSize.width)  > 0 ? Number(data.labelSize.width)  : 40,
-        height: Number(data.labelSize.height) > 0 ? Number(data.labelSize.height) : 30
+        height: Number(data.labelSize.height) > 0 ? Number(data.labelSize.height) : 30,
+        gap:    g
       }));
     }
     if (data.fontConfig && typeof data.fontConfig === 'object') {
