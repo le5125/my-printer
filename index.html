@@ -1119,7 +1119,9 @@ const LS_POLL_ENABLED      = 'gp2270t_poll_enabled';
 const LS_DETAIL_TEMPLATE   = 'gp2270t_detail_template_v1';
 const LS_LABEL_TEMPLATE    = 'gp2270t_label_template_v1';
 const LS_PRINT_MODE        = 'gp2270t_print_mode'; // 'detail' | 'label'
-const POLL_INTERVAL_MS     = 1500;
+const LS_STORE_NAME        = 'gp2270t_store_name';
+const POLL_INTERVAL_MS     = 1000;
+const SETTINGS_SYNC_EVERY_N_POLLS = 30; // 每 30 秒從後端同步一次樣版/店名
 
 let pollTimer    = null;
 let pollInFlight = false;
@@ -1163,6 +1165,7 @@ function addPrintedOrderId_(id) {
  * `{品項}` 會自動展開為多行的「品名 x數量／選項／備註」區塊。
  */
 const DEFAULT_DETAIL_TEMPLATE = [
+  '== {店名} ==',
   '訂單 #{訂單編號}',
   '時間: {時間}',
   '取餐時間: {取餐時間}',
@@ -1172,6 +1175,7 @@ const DEFAULT_DETAIL_TEMPLATE = [
   '{品項}',
   '----------------',
   '總計: ${總計}',
+  '謝謝光臨！',
   '',
   '',
   ''
@@ -1179,15 +1183,24 @@ const DEFAULT_DETAIL_TEMPLATE = [
 
 /**
  * 預設「商品標籤」樣版（每張一個品項）
- * 支援：{品名} {數量} {選項} {備註} {訂單編號} {訂單短碼} {時間} {日期}
+ * 支援：{店名} {品名} {數量} {選項} {備註} {訂單編號} {訂單短碼} {時間} {日期}
  */
 const DEFAULT_LABEL_TEMPLATE = [
+  '{店名}',
   '#{訂單編號}  {日期}',
   '{品名} x{數量}',
   '{選項}',
   '{備註}',
   ''
 ].join('\n');
+
+function getStoreName_() {
+  try {
+    const v = localStorage.getItem(LS_STORE_NAME);
+    if (typeof v === 'string') return v;
+  } catch (e) { /* 略 */ }
+  return '';
+}
 
 function getDetailTemplate_() {
   try {
@@ -1250,6 +1263,7 @@ function _renderTemplate_(tpl, map) {
 function renderDetailFromOrder_(ord) {
   const ft = _formatOrderTime_(ord.timestamp);
   const map = {
+    '店名'    : getStoreName_(),
     '訂單編號': ord.shortId || ord.orderId || '',
     '訂單短碼': ord.shortId || '',
     '時間'    : ft.date + ' ' + ft.time,
@@ -1266,6 +1280,7 @@ function renderDetailFromOrder_(ord) {
 function renderLabelsFromOrder_(ord) {
   const tpl = getLabelTemplate_();
   const ft = _formatOrderTime_(ord.timestamp);
+  const sn = getStoreName_();
   const items = Array.isArray(ord.items) ? ord.items : [];
   const out = [];
   for (let k = 0; k < items.length; k++) {
@@ -1277,6 +1292,7 @@ function renderLabelsFromOrder_(ord) {
     }).filter(Boolean).join(' / ');
 
     const map = {
+      '店名'    : sn,
       '訂單編號': ord.shortId || ord.orderId || '',
       '訂單短碼': ord.shortId || '',
       '時間'    : ft.date + ' ' + ft.time,
@@ -1301,6 +1317,39 @@ function buildPrintTextFromBackendOrder_(ord) {
   return renderDetailFromOrder_(ord);
 }
 
+/**
+ * 從後端拉「打印設定」（樣版＋店名）寫進 localStorage，
+ * 確保不同裝置（電腦／iPad／橋接頁）拿到同一份。
+ */
+async function syncPrintSettingsFromBackend_() {
+  const url = (cfgBackendUrl && cfgBackendUrl.value || '').trim();
+  if (!url) return false;
+  try {
+    const sep = url.indexOf('?') >= 0 ? '&' : '?';
+    const res = await fetch(url + sep + 'action=getPrintSettings&_=' + Date.now(),
+      { method: 'GET', cache: 'no-store' });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data || data.result !== 'success') return false;
+    if (typeof data.detailTemplate === 'string' && data.detailTemplate.length) {
+      localStorage.setItem(LS_DETAIL_TEMPLATE, data.detailTemplate);
+    }
+    if (typeof data.labelTemplate === 'string' && data.labelTemplate.length) {
+      localStorage.setItem(LS_LABEL_TEMPLATE, data.labelTemplate);
+    }
+    if (data.printMode === 'detail' || data.printMode === 'label') {
+      localStorage.setItem(LS_PRINT_MODE, data.printMode);
+    }
+    if (typeof data.storeName === 'string') {
+      localStorage.setItem(LS_STORE_NAME, data.storeName);
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+let _pollTickCount_ = 0;
 async function pollPendingOrdersOnce_() {
   if (pollInFlight || pollProcessing) return;
   const url = (cfgBackendUrl && cfgBackendUrl.value || '').trim();
@@ -1308,6 +1357,11 @@ async function pollPendingOrdersOnce_() {
     setPollStatus_('未設定 Web App URL', 'err');
     return;
   }
+  // 週期同步樣版（首次 + 每 N 次輪詢）
+  if (_pollTickCount_ === 0 || (_pollTickCount_ % SETTINGS_SYNC_EVERY_N_POLLS) === 0) {
+    syncPrintSettingsFromBackend_().catch(function () { /* 略 */ });
+  }
+  _pollTickCount_++;
   pollInFlight = true;
   try {
     const sep = url.indexOf('?') >= 0 ? '&' : '?';
