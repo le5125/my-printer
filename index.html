@@ -89,17 +89,13 @@
   }
   .auto-toggle:active .auto-toggle-pill { transform: scale(0.97); }
 
-  /* ── 主版型：左 380px / 右 1fr ───────────────────────── */
+  /* ── 主版型：桌機左 380px / 右 1fr；手機改單欄並把歷史置頂 ─────────── */
   .layout {
     display: grid;
     grid-template-columns: 380px 1fr;
     gap: 18px;
     align-items: start;
   }
-  @media (max-width: 1000px) {
-    .layout { grid-template-columns: 1fr; }
-  }
-
   .col-left {
     display: flex;
     flex-direction: column;
@@ -107,12 +103,33 @@
     position: sticky;
     top: 8px;
   }
-
   /* 右側歷史欄滿版高度 */
   .col-right {
     display: flex;
     flex-direction: column;
     min-height: calc(100vh - 100px);
+  }
+
+  /* 手機（含 iPad 直立）：單欄、歷史排第一、功能排後面、不再 sticky 否則會把歷史擠下去 */
+  @media (max-width: 1000px) {
+    .layout {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    /* 用 order 讓歷史在前、功能在後 */
+    .col-right { order: 1; min-height: 0; }
+    .col-left  { order: 2; position: static; top: auto; }
+    /* 縮小字體與內距，提升手機可讀 */
+    .col-right .card.full { padding: 14px 12px; }
+    #history-display { max-height: 65vh; overflow-y: auto; }
+    .history-item { padding: 12px 10px; }
+    .hi-content { font-size: 12px; }
+    .history-reprint-btn { padding: 10px 14px; font-size: 14px; }
+    /* 手機標頭縮小 */
+    header { padding: 10px 14px; }
+    h1 { font-size: 1.05rem; }
+    h1 span { font-size: 0.72rem; }
+    .auto-toggle-pill { font-size: 0.78rem; padding: 5px 12px; }
   }
 
   /* ── 卡片 ───────────────────────────────────────────── */
@@ -935,12 +952,31 @@ function ensureTsplCodepage950_(tspl) {
  * TEXT 用 TST24.BF2 + 送印端 CP950 位元組，對應繁中內建字型。
  */
 const TSPL_DIRECTION_MODE = 0;
+// 目前列印作業要套用哪一份字體設定（'detail' / 'label'）。
+// 由呼叫 ensureTsplForManualPrint_ 之前的入口設定（例如 manual reprint、auto print、polling）。
+let _activeTsplFontProfile_ = 'detail';
+
+function setActiveTsplFontProfile_(p) {
+  _activeTsplFontProfile_ = (p === 'label') ? 'label' : 'detail';
+}
+
+function getActiveFontCfg_() {
+  const all = getFontConfig_();
+  return _activeTsplFontProfile_ === 'label'
+    ? (all.label  || { size: 'normal', bold: false })
+    : (all.detail || { size: 'normal', bold: false });
+}
+
 function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
   const x0 = 10;
-  const y0 = 20;
-  const stepY = 40;
   const font = TSPL_FONT_ZH;
   const n = count;
+  // 依目前 profile 取 detail / label 字體
+  const fc = getActiveFontCfg_();
+  const mul = fontSizeToTsplMul_(fc.size); // 1 / 2 / 3
+  // 行距與起點隨字體大小調整：normal 40、large 64、xlarge 88
+  const stepY = 24 + mul * 16;
+  const y0 = 20;
   const tailDots = 100;
   const totalDots = y0 + (n > 0 ? (n - 1) * stepY : 0) + tailDots;
   const hMm = Math.min(3200, Math.max(16, Math.ceil(totalDots / 8)));
@@ -959,7 +995,11 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
     let esc = String(line).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     if (esc.length > 120) esc = esc.slice(0, 120) + '...';
     const y = y0 + k * stepY;
-    parts.push('TEXT ' + x0 + ',' + y + ',"' + font + '",0,1,1,"' + esc + '"');
+    // 粗體：在同 y 微偏移再印一次造成「加粗」效果（GP-2270T 內建字型本身無粗體屬性）
+    parts.push('TEXT ' + x0 + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
+    if (fc.bold) {
+      parts.push('TEXT ' + (x0 + 1) + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
+    }
   }
   parts.push('PRINT 1,1');
   return parts.join('\n');
@@ -999,15 +1039,22 @@ function ensureTsplForManualPrint_(raw) {
   }
   if (!nonempty.length) return tsplMinimalRoll_();
 
+  // 依目前作業 profile 決定寬度：明細用 58mm 捲紙，標籤用使用者設定的標籤紙寬度
+  let widthMm = TSPL_ROLL_WIDTH_MM;
+  if (_activeTsplFontProfile_ === 'label') {
+    const sz = getLabelSize_();
+    widthMm = Number(sz.width) > 0 ? Number(sz.width) : TSPL_ROLL_WIDTH_MM;
+  }
+
   const maxLinesPerBlock = 48;
   const blocks = [];
   let idx = 0;
   while (idx < nonempty.length) {
     const take = Math.min(maxLinesPerBlock, nonempty.length - idx);
-    blocks.push(buildRollTsplBlock_(nonempty, idx, take, TSPL_ROLL_WIDTH_MM));
+    blocks.push(buildRollTsplBlock_(nonempty, idx, take, widthMm));
     idx += take;
   }
-  log('純文字已包成捲紙 TSPL（' + blocks.length + ' 段；寬 ' + TSPL_ROLL_WIDTH_MM + ' mm、PRINT 1,1）', 'info');
+  log('純文字已包成 TSPL（profile=' + _activeTsplFontProfile_ + '；' + blocks.length + ' 段；寬 ' + widthMm + ' mm）', 'info');
   return blocks.join('\n') + '\n';
 }
 
@@ -1264,7 +1311,14 @@ async function reprintHistoryEntry_(historyId) {
   const wasUnprinted = !entry.printed;
   log((wasUnprinted ? '列印 ' : '重印 ') + (entry.shortId ? '#' + entry.shortId : entry.orderId), 'info');
   try {
-    await autoPrint({ text: entry.text || '', backUrl: '', ts: Date.now(), _isReprint: true });
+    await autoPrint({
+      text: entry.text || '',
+      backUrl: '',
+      ts: Date.now(),
+      _isReprint: true,
+      // 用「目前的 print mode」決定字體 profile（與目前設定一致）
+      _fontProfile: getPrintMode_() === 'label' ? 'label' : 'detail'
+    });
     // 把該筆標為已列印
     markHistoryAsPrinted_(historyId, wasUnprinted ? 'manual' : 'reprint');
   } catch (e) {
@@ -1299,6 +1353,10 @@ async function autoPrint(data) {
   printLock = true;
 
   try {
+    // 設定 TSPL 字體 profile：data._fontProfile 由呼叫端帶入；沒帶就以目前 print mode 決定
+    if (data && data._fontProfile === 'label') setActiveTsplFontProfile_('label');
+    else if (data && data._fontProfile === 'detail') setActiveTsplFontProfile_('detail');
+    else setActiveTsplFontProfile_(getPrintMode_() === 'label' ? 'label' : 'detail');
     const payload = ensureTsplForManualPrint_(data.text);
     await sendRawText(payload);
     log('列印完成', 'ok');
@@ -1669,6 +1727,8 @@ const LS_DETAIL_TEMPLATE   = 'gp2270t_detail_template_v1';
 const LS_LABEL_TEMPLATE    = 'gp2270t_label_template_v1';
 const LS_PRINT_MODE        = 'gp2270t_print_mode'; // 'detail' | 'label'
 const LS_STORE_NAME        = 'gp2270t_store_name';
+const LS_LABEL_SIZE        = 'gp2270t_label_size_v1';   // {"width":40,"height":30}
+const LS_FONT_CONFIG       = 'gp2270t_font_config_v1';  // {"detail":{...},"label":{...}}
 const POLL_INTERVAL_MS     = 1000;
 const SETTINGS_SYNC_EVERY_N_POLLS = 30; // 每 30 秒從後端同步一次樣版/店名
 
@@ -1773,6 +1833,57 @@ function getPrintMode_() {
   return 'detail';
 }
 
+/** 標籤紙尺寸（mm）*/
+function getLabelSize_() {
+  try {
+    const v = localStorage.getItem(LS_LABEL_SIZE);
+    if (v) {
+      const o = JSON.parse(v);
+      if (o && (o.width || o.height)) {
+        return {
+          width:  Number(o.width)  > 0 ? Number(o.width)  : 40,
+          height: Number(o.height) > 0 ? Number(o.height) : 30
+        };
+      }
+    }
+  } catch (e) { /* 略 */ }
+  return { width: 40, height: 30 };
+}
+
+/** 字體設定：明細 / 標籤 各自的 size + bold */
+function getFontConfig_() {
+  const def = {
+    detail: { size: 'normal', bold: false },
+    label : { size: 'normal', bold: false }
+  };
+  try {
+    const v = localStorage.getItem(LS_FONT_CONFIG);
+    if (v) {
+      const o = JSON.parse(v);
+      if (o && typeof o === 'object') {
+        if (o.detail) def.detail = {
+          size: /^(small|normal|large|xlarge)$/.test(String(o.detail.size)) ? String(o.detail.size) : 'normal',
+          bold: !!o.detail.bold
+        };
+        if (o.label) def.label = {
+          size: /^(small|normal|large|xlarge)$/.test(String(o.label.size)) ? String(o.label.size) : 'normal',
+          bold: !!o.label.bold
+        };
+      }
+    }
+  } catch (e) { /* 略 */ }
+  return def;
+}
+
+/** size token → TSPL TEXT 放大倍數（x_mul, y_mul） */
+function fontSizeToTsplMul_(size) {
+  const t = (size || 'normal').toLowerCase();
+  if (t === 'small')  return 1;
+  if (t === 'large')  return 2;
+  if (t === 'xlarge') return 3;
+  return 1; // normal
+}
+
 function _formatOrderTime_(timestamp) {
   let d;
   if (timestamp instanceof Date) d = timestamp;
@@ -1862,6 +1973,8 @@ function renderLabelsFromOrder_(ord) {
 
 function buildPrintTextFromBackendOrder_(ord) {
   const mode = getPrintMode_();
+  // 同步 TSPL 字體 profile（明細／標籤各自的字體設定）
+  setActiveTsplFontProfile_(mode === 'label' ? 'label' : 'detail');
   if (mode === 'label') return renderLabelsFromOrder_(ord);
   return renderDetailFromOrder_(ord);
 }
@@ -1891,6 +2004,15 @@ async function syncPrintSettingsFromBackend_() {
     }
     if (typeof data.storeName === 'string') {
       localStorage.setItem(LS_STORE_NAME, data.storeName);
+    }
+    if (data.labelSize && typeof data.labelSize === 'object') {
+      localStorage.setItem(LS_LABEL_SIZE, JSON.stringify({
+        width:  Number(data.labelSize.width)  > 0 ? Number(data.labelSize.width)  : 40,
+        height: Number(data.labelSize.height) > 0 ? Number(data.labelSize.height) : 30
+      }));
+    }
+    if (data.fontConfig && typeof data.fontConfig === 'object') {
+      localStorage.setItem(LS_FONT_CONFIG, JSON.stringify(data.fontConfig));
     }
     return true;
   } catch (e) {
