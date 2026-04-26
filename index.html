@@ -179,6 +179,54 @@
     padding: 20px;
   }
 
+  /* Print history */
+  .history-item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    font-size: 0.76rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .history-item.printing {
+    border-color: var(--warn);
+    box-shadow: 0 0 0 1px var(--warn) inset;
+  }
+  .history-item-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .history-item-meta {
+    color: var(--muted);
+    font-size: 0.68rem;
+    margin-bottom: 2px;
+  }
+  .history-item-summary {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .history-item-actions {
+    flex-shrink: 0;
+  }
+  .history-reprint-btn {
+    background: var(--accent2);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    font-family: var(--font);
+    cursor: pointer;
+  }
+  .history-reprint-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .history-reprint-btn:not(:disabled):active { transform: scale(0.96); }
+
   /* Log */
   #log-box {
     background: rgba(0,0,0,0.4);
@@ -316,39 +364,40 @@
   <button class="btn btn-warn" id="btn-manual-print" disabled>手動列印最新資料</button>
 </div>
 
-<!-- Settings Card -->
-<div class="card">
-  <div class="card-title">[ 03 ] 設定</div>
-  <div class="setting-row">
-    <span>每包延遲 (ms)</span>
-    <div><label>chunk delay</label><br><input type="number" id="cfg-chunk-delay" value="30" min="10" max="200"></div>
-  </div>
-  <div class="setting-row">
-    <span>BLE 分段大小</span>
-    <div><label>固定 20 bytes（低功耗 MTU 安全值）</label><br><input type="number" id="cfg-chunk-size" value="20" min="20" max="20" readonly title="寫入韌體每包上限 20 bytes，已鎖定"></div>
-  </div>
+<!-- 隱藏：BLE 進階設定（chunkDelay / chunkSize）；老闆不需看到，保留 input 作為內部設定值 -->
+<div id="settings-card" style="display:none;">
+  <div class="setting-row"><input type="number" id="cfg-chunk-delay" value="30"></div>
+  <div class="setting-row"><input type="number" id="cfg-chunk-size" value="20" readonly></div>
 </div>
 
-<!-- Backend Polling Card -->
+<!-- Print History Card（[ 03 ] 打印歷史）-->
 <div class="card">
-  <div class="card-title">[ 05 ] 後端輪詢（自動抓單列印）</div>
+  <div class="card-title">[ 03 ] 打印歷史（最近 50 筆，可再次列印）</div>
+  <div id="history-display" style="max-height:340px;overflow-y:auto;">
+    <div class="empty-queue">尚無打印記錄</div>
+  </div>
+  <button class="btn btn-secondary" id="btn-clear-history"
+          style="margin-top:8px;font-size:0.72rem;padding:8px;">清空打印歷史</button>
+</div>
+
+<!-- Backend Polling Card（[ 04 ] 後端備援）-->
+<div class="card">
+  <div class="card-title">[ 04 ] 後端備援（網路掉包補印用）</div>
   <div style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;">
-    填入 GAS Web App URL，啟用後每 3 秒自動抓今日待出餐訂單並列印。
+    填入 GAS Web App URL（在 POS 後台「認證碼」表 B2 可找到），啟用後每 1 秒自動抓單做備援補印。
   </div>
   <input type="text" class="url-input" id="cfg-backend-url"
          placeholder="https://script.google.com/macros/s/.../exec">
   <div style="display:flex;gap:6px;margin-top:8px;">
-    <button class="btn btn-primary" id="btn-poll-start" style="margin-bottom:0;">啟用輪詢</button>
-    <button class="btn btn-danger"  id="btn-poll-stop"  style="margin-bottom:0;display:none;">停止輪詢</button>
+    <button class="btn btn-primary" id="btn-poll-start" style="margin-bottom:0;">啟用備援</button>
+    <button class="btn btn-danger"  id="btn-poll-stop"  style="margin-bottom:0;display:none;">停止備援</button>
   </div>
-  <div id="poll-status" class="poll-status">尚未啟動</div>
-  <button class="btn btn-secondary" id="btn-poll-clear-history"
-          style="margin-top:8px;font-size:0.72rem;padding:8px;">清除已列印紀錄（重印今日全部）</button>
+  <div id="poll-status" class="poll-status">尚未啟動備援</div>
 </div>
 
-<!-- Log Card -->
+<!-- Log Card（[ 05 ] 系統紀錄）-->
 <div class="card">
-  <div class="card-title">[ 04 ] 系統紀錄</div>
+  <div class="card-title">[ 05 ] 系統紀錄</div>
   <div id="log-box"></div>
   <button class="btn btn-secondary" id="btn-clear-log" style="margin-top:10px;font-size:0.75rem;padding:8px;">清除記錄</button>
 </div>
@@ -400,7 +449,9 @@ const cfgBackendUrl    = document.getElementById('cfg-backend-url');
 const btnPollStart     = document.getElementById('btn-poll-start');
 const btnPollStop      = document.getElementById('btn-poll-stop');
 const pollStatusEl     = document.getElementById('poll-status');
-const btnPollClearHist = document.getElementById('btn-poll-clear-history');
+const btnPollClearHist = null; // 已移除「清除已列印紀錄」按鈕
+const historyDisp      = document.getElementById('history-display');
+const btnClearHistory  = document.getElementById('btn-clear-history');
 
 // ── Logging ──────────────────────────────────────────────────
 function log(msg, type = '') {
@@ -862,6 +913,142 @@ function buildPrintText(order) {
   return txt;
 }
 
+// ── Print History（最近 50 筆，可再次列印）──────────────────
+const LS_PRINT_HISTORY = 'gp2270t_print_history_v1';
+const PRINT_HISTORY_LIMIT = 50;
+
+function _loadPrintHistory_() {
+  try {
+    const raw = localStorage.getItem(LS_PRINT_HISTORY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+function _savePrintHistory_(arr) {
+  try {
+    while (arr.length > PRINT_HISTORY_LIMIT) arr.pop();
+    localStorage.setItem(LS_PRINT_HISTORY, JSON.stringify(arr));
+  } catch (e) { /* 略 */ }
+}
+function _historyEntryFingerprint_(entry) {
+  return [entry.timestamp || 0, entry.total || 0, (entry.itemsCount || 0), entry.phone || ''].join('|');
+}
+
+/**
+ * 加入打印歷史（成功列印後呼叫）。
+ * @param {object} meta - { orderId, shortId, timestamp, phone, remark, total, itemsCount, summary, mode }
+ * @param {string} text - 實際送印的純文字（重印時可直接重送）
+ */
+function addToPrintHistory_(meta, text) {
+  const arr = _loadPrintHistory_();
+  const entry = {
+    id        : 'H' + Date.now() + '-' + Math.floor(Math.random() * 1e6),
+    orderId   : meta.orderId || '',
+    shortId   : meta.shortId || '',
+    timestamp : meta.timestamp || Date.now(),
+    phone     : meta.phone || '',
+    remark    : meta.remark || '',
+    total     : meta.total != null ? meta.total : 0,
+    itemsCount: meta.itemsCount || 0,
+    summary   : meta.summary || '',
+    mode      : meta.mode || 'detail',
+    text      : text || '',
+    printedAt : Date.now(),
+    source    : meta.source || 'unknown' // 'postMessage' | 'polling' | 'reprint' | 'manual'
+  };
+  arr.unshift(entry);
+  _savePrintHistory_(arr);
+  renderPrintHistory_();
+  return entry;
+}
+
+function clearAllPrintHistory_() {
+  try { localStorage.removeItem(LS_PRINT_HISTORY); } catch (e) { /* 略 */ }
+  renderPrintHistory_();
+  log('已清空打印歷史', 'warn');
+}
+
+function _hasFingerprintInHistory_(fp, withinMs) {
+  if (!fp) return false;
+  const cutoff = Date.now() - (withinMs || 5 * 60 * 1000);
+  const arr = _loadPrintHistory_();
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i].printedAt < cutoff) return false;
+    if (_historyEntryFingerprint_(arr[i]) === fp) return true;
+  }
+  return false;
+}
+
+function _escapeHtml_(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderPrintHistory_() {
+  if (!historyDisp) return;
+  const arr = _loadPrintHistory_();
+  if (!arr.length) {
+    historyDisp.innerHTML = '<div class="empty-queue">尚無打印記錄</div>';
+    return;
+  }
+  const html = arr.map(function (e) {
+    const t = new Date(e.printedAt || e.timestamp || Date.now());
+    const pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+    const tStr = pad(t.getMonth() + 1) + '/' + pad(t.getDate()) + ' ' + pad(t.getHours()) + ':' + pad(t.getMinutes());
+    const idTxt = e.shortId ? '#' + e.shortId : (e.orderId ? '#' + String(e.orderId).slice(-4) : '—');
+    const summary = e.summary ? e.summary : (e.itemsCount ? (e.itemsCount + ' 項') : '');
+    const totalTxt = e.total ? ' / $' + e.total : '';
+    const modeTxt = e.mode === 'label' ? '標籤' : '明細';
+    const srcTxt = e.source === 'postMessage' ? '即時' : (e.source === 'polling' ? '備援' : (e.source === 'reprint' ? '重印' : ''));
+    return ''
+      + '<div class="history-item" data-hid="' + _escapeHtml_(e.id) + '">'
+      +   '<div class="history-item-info">'
+      +     '<div class="history-item-meta">' + _escapeHtml_(tStr) + ' · ' + _escapeHtml_(idTxt) + ' · ' + modeTxt + (srcTxt ? ' · ' + srcTxt : '') + '</div>'
+      +     '<div class="history-item-summary">' + _escapeHtml_(summary + totalTxt) + '</div>'
+      +   '</div>'
+      +   '<div class="history-item-actions">'
+      +     '<button type="button" class="history-reprint-btn" data-hid="' + _escapeHtml_(e.id) + '">再次列印</button>'
+      +   '</div>'
+      + '</div>';
+  }).join('');
+  historyDisp.innerHTML = html;
+}
+
+async function reprintHistoryEntry_(historyId) {
+  const arr = _loadPrintHistory_();
+  const entry = arr.find(function (e) { return e.id === historyId; });
+  if (!entry) { log('找不到歷史紀錄', 'err'); return; }
+  if (!isConnected || !bleChar) {
+    log('請先連線打印機再重印', 'err');
+    return;
+  }
+  if (printLock) { log('列印中，請稍候再試', 'warn'); return; }
+  log('重印 ' + (entry.shortId ? '#' + entry.shortId : entry.orderId), 'info');
+  await autoPrint({ text: entry.text || '', backUrl: '', ts: Date.now(), _isReprint: true });
+}
+
+if (historyDisp) {
+  historyDisp.addEventListener('click', function (ev) {
+    const btn = ev.target && ev.target.closest && ev.target.closest('.history-reprint-btn');
+    if (!btn) return;
+    const hid = btn.getAttribute('data-hid');
+    if (hid) reprintHistoryEntry_(hid);
+  });
+}
+if (btnClearHistory) {
+  btnClearHistory.addEventListener('click', function () {
+    if (confirm('確定要清空打印歷史嗎？此操作無法復原。')) clearAllPrintHistory_();
+  });
+}
+
+// 初始載入時渲染一次
+renderPrintHistory_();
+
 // ── Auto Print Flow ───────────────────────────────────────────
 async function autoPrint(data) {
   if (printLock) { log('列印鎖定中，略過', 'warn'); return; }
@@ -882,12 +1069,31 @@ async function autoPrint(data) {
 
     sendAckToPos('PRINT_ACK:success:' + data.ts);
 
+    // 印完嘗試把焦點切回 POS（如此 iOS Bluefy 才會自動回 POS 分頁）
+    // 重印是「使用者在列印頁手動操作」，就不要再切走打擾使用者
+    if (!data._isReprint) _focusBackToPos_();
+
   } catch (err) {
     log('列印失敗: ' + err.message, 'err');
     sendAckToPos('PRINT_ACK:error:' + err.message);
   } finally {
     printLock = false;
   }
+}
+
+/** 嘗試把焦點切回 POS 分頁（cross-origin focus 在 iOS Bluefy 通常允許） */
+function _focusBackToPos_() {
+  try {
+    if (posOpener && !posOpener.closed && typeof posOpener.focus === 'function') {
+      posOpener.focus();
+      return;
+    }
+  } catch (e) { /* 略 */ }
+  try {
+    if (window.opener && !window.opener.closed && typeof window.opener.focus === 'function') {
+      window.opener.focus();
+    }
+  } catch (e) { /* 略 */ }
 }
 
 function sendAckToPos(msg) {
@@ -1013,21 +1219,55 @@ window.addEventListener('message', async (event) => {
         return;
       }
 
-      log('收到訂單資料', 'ok');
-
-      const ts = Number(payload.time) || Number(payload.id) || Date.now();
-
-      pendingData = {
-        text: buildPrintText(payload),
-        backUrl: '',
-        ts: ts
+      // 標準化欄位（POS 端送來的 payload 已盡量對齊 backend order shape）
+      const ord = {
+        orderId   : payload.orderId || payload.id || ('LOCAL-' + Date.now()),
+        shortId   : payload.shortId || (payload.orderId ? String(payload.orderId).slice(-3) : ''),
+        timestamp : payload.timestamp || payload.time || Date.now(),
+        pickupTime: payload.pickupTime || '',
+        phone     : payload.phone || '',
+        remark    : payload.remark || payload.notes || '',
+        total     : payload.total != null ? payload.total : 0,
+        items     : Array.isArray(payload.items) ? payload.items : []
       };
+
+      // 防重：相同指紋（時間+電話+總額+品項數）若 5 分鐘內已印過 → 跳過
+      const fp = [ord.timestamp, ord.total, ord.items.length, ord.phone].join('|');
+      if (_hasFingerprintInHistory_(fp, 5 * 60 * 1000)) {
+        log('PRINT_ORDER 已在 5 分鐘內列印過（指紋重複），跳過', 'warn');
+        return;
+      }
+
+      const text = buildPrintTextFromBackendOrder_(ord);
+      const ts = Number(ord.timestamp) || Date.now();
+      pendingData = { text: text, backUrl: '', ts: ts };
       updateQueueDisplay(pendingData);
 
+      log('收到 POS 即時訂單 ' + (ord.shortId ? '#' + ord.shortId : ord.orderId) + '，自動列印', 'info');
+
       if (isConnected && bleChar && !printLock) {
-        await autoPrint(pendingData);
+        try {
+          await autoPrint(pendingData);
+          // 寫入歷史（成功）
+          addToPrintHistory_({
+            orderId   : ord.orderId,
+            shortId   : ord.shortId,
+            timestamp : ord.timestamp,
+            phone     : ord.phone,
+            remark    : ord.remark,
+            total     : ord.total,
+            itemsCount: ord.items.length,
+            summary   : (ord.items[0] ? ord.items[0].name + (ord.items.length > 1 ? ' 等 ' + ord.items.length + ' 項' : ' x' + (ord.items[0].quantity || 1)) : ''),
+            mode      : getPrintMode_(),
+            source    : 'postMessage'
+          }, text);
+          // 同時把 orderId 寫入「已列印」，避免後端輪詢重印
+          if (ord.orderId) addPrintedOrderId_(String(ord.orderId));
+        } catch (ePrint) {
+          log('PRINT_ORDER 列印失敗: ' + (ePrint && ePrint.message ? ePrint.message : ePrint), 'err');
+        }
       } else {
-        log('尚未連線或忙碌，資料已暫存；連上後將自動送印', 'warn');
+        log('尚未連線或忙碌，資料已暫存；連上後請按「手動列印最新資料」，或由後端備援補印', 'warn');
         setTimeout(function () {
           tryAutoReconnectBle_().catch(function () { /* 略 */ });
         }, 400);
@@ -1080,7 +1320,8 @@ btnManual.addEventListener('click', async () => {
     return;
   }
   log('手動觸發列印', 'info');
-  await autoPrint(pendingData);
+  // 使用者在列印頁手動按鍵，不要切走焦點
+  await autoPrint(Object.assign({}, pendingData, { _isReprint: true }));
 });
 
 btnTest.addEventListener('click', async () => {
@@ -1396,6 +1637,19 @@ async function processBackendOrders_(orders) {
       if (!oid) continue;
       if (isOrderPrinted_(oid)) continue;
 
+      // 防雙印：若這筆訂單在 5 分鐘內已被 POS postMessage 列印過 → 跳過、且把 orderId 標為已印
+      const fp = [
+        ord.timestamp ? new Date(ord.timestamp).getTime() : 0,
+        ord.total || 0,
+        Array.isArray(ord.items) ? ord.items.length : 0,
+        ord.phone || ''
+      ].join('|');
+      if (_hasFingerprintInHistory_(fp, 5 * 60 * 1000)) {
+        log('備援略過（已由即時通道列印過）：' + oid, 'info');
+        addPrintedOrderId_(oid);
+        continue;
+      }
+
       if (!isConnected || !bleChar) {
         log('未連線 BLE，' + oid + ' 暫不列印', 'warn');
         return;
@@ -1408,11 +1662,24 @@ async function processBackendOrders_(orders) {
       const text = buildPrintTextFromBackendOrder_(ord);
       pendingData = { text: text, backUrl: '', ts: Date.now() };
       updateQueueDisplay(pendingData);
-      log('輪詢取得新訂單 ' + oid + '，自動列印', 'info');
+      log('備援補印新訂單 ' + oid, 'info');
 
       try {
         await autoPrint(pendingData);
         addPrintedOrderId_(oid);
+        const items = Array.isArray(ord.items) ? ord.items : [];
+        addToPrintHistory_({
+          orderId   : ord.orderId,
+          shortId   : ord.shortId || (ord.orderId ? String(ord.orderId).slice(-3) : ''),
+          timestamp : ord.timestamp ? new Date(ord.timestamp).getTime() : Date.now(),
+          phone     : ord.phone,
+          remark    : ord.remark || ord.notes,
+          total     : ord.total,
+          itemsCount: items.length,
+          summary   : items[0] ? items[0].name + (items.length > 1 ? ' 等 ' + items.length + ' 項' : ' x' + (items[0].quantity || 1)) : '',
+          mode      : getPrintMode_(),
+          source    : 'polling'
+        }, text);
       } catch (e) {
         log('列印 ' + oid + ' 失敗: ' + (e && e.message ? e.message : e), 'err');
         return;
@@ -1438,7 +1705,7 @@ function startPolling_() {
 
   if (btnPollStart) btnPollStart.style.display = 'none';
   if (btnPollStop)  btnPollStop.style.display  = '';
-  log('已啟用後端輪詢（' + POLL_INTERVAL_MS + ' ms）', 'ok');
+  log('已啟用後端備援（每 ' + POLL_INTERVAL_MS + ' ms 補抓一次）', 'ok');
 }
 
 function stopPolling_() {
@@ -1448,17 +1715,11 @@ function stopPolling_() {
   if (btnPollStart) btnPollStart.style.display = '';
   if (btnPollStop)  btnPollStop.style.display  = 'none';
   setPollStatus_('已停止', '');
-  log('後端輪詢已停止', 'info');
-}
-
-function clearPrintedHistory_() {
-  try { localStorage.removeItem(LS_PRINTED_ORDER_IDS); } catch (e) { /* 略 */ }
-  log('已清除已列印紀錄（下一輪會重印今日全部待出餐）', 'warn');
+  log('後端備援已停止', 'info');
 }
 
 if (btnPollStart) btnPollStart.addEventListener('click', startPolling_);
 if (btnPollStop)  btnPollStop.addEventListener('click', stopPolling_);
-if (btnPollClearHist) btnPollClearHist.addEventListener('click', clearPrintedHistory_);
 
 function loadBackendUrlFromStorage_() {
   try {
@@ -1569,8 +1830,8 @@ function init() {
   try {
     window.name = 'Gprinter_Handler';
   } catch (e) { /* 略 */ }
-  log('Printer Bridge 就緒', 'ok');
-  log('輪詢方案：填入 GAS Web App URL → 啟用輪詢 → 連線藍牙後自動抓今日待出餐單列印。', 'info');
+  log('打印橋接頁就緒', 'ok');
+  log('使用方式：1) 連線藍牙 2) 填入 Web App URL 啟用備援 3) POS 送單會即時列印；網路掉包則由備援補印。', 'info');
 
   // 主動通知所有可能的 POS 視窗：橋接頁已就緒
   // 這樣即使 POS 重整後 printerWin 引用失效，一旦 POS 再送 PING 就能立即拿到引用
