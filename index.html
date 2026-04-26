@@ -1995,7 +1995,7 @@ function addPrintedOrderId_(id) {
  * 預設「打印明細」樣版
  * 支援的占位符：
  *   {訂單編號} {訂單短碼} {時間} {日期} {取餐時間} {電話} {備註} {總計} {品項}
- * `{品項}` 與 Telegram 商品明細相同（主餐名排序、全形括號加價；加購行以 `> ` 開頭以利 CP950 列印，Telegram 仍為 ➜）。
+ * `{品項}` 與 Telegram 商品明細相同（主餐名排序、全形括號加價；加購行以 `+ ` 開頭；品名／備註為純文字無 emoji）。
  */
 const DEFAULT_DETAIL_TEMPLATE = [
   '{大}{粗}== {店名} =={重置}',
@@ -2132,6 +2132,22 @@ function _formatOrderTime_(timestamp) {
   };
 }
 
+/** 與 pos後端 toPlainNotifyText_ 相同：emoji／符號區刪除，只留一般文字（列印／Telegram 一致） */
+function _toPlainNotifyText_(str) {
+  if (str == null || str === undefined) return '';
+  let s = String(str);
+  try {
+    s = s.normalize('NFC');
+  } catch (e) { /* 略 */ }
+  s = s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+  s = s.replace(/[\uFE00-\uFE0F]/g, '');
+  s = s.replace(/[\u200B-\u200F]/g, '');
+  s = s.replace(/\u200D/g, '');
+  s = s.replace(/[\u2600-\u26FF]/g, '');
+  s = s.replace(/[\u2700-\u27BF]/g, '');
+  return s;
+}
+
 /** 從「品名全形／半形括號」拆出主名與加料字串（試算表欄位可能用半形 (...)） */
 function _splitItemBaseAndAddonInner_(fullName) {
   const s = String(fullName || '').trim();
@@ -2152,22 +2168,22 @@ function _addonListFromInner_(inner) {
   });
 }
 
-/** {品項} 區：與 pos後端 buildOrderTelegramMessage 相同（金額拆法）；加購行用 ASCII「> 」避免 Big5 編碼失敗整行消失 */
+/** {品項} 區：與 pos後端 buildOrderTelegramMessage 相同（金額拆法、+ 加購行、純文字無 emoji） */
 function _itemsBlock_(items) {
   if (!Array.isArray(items)) return '';
   const lines = [];
   _sortOrderItemsByMainName_(items).forEach(function (item) {
-    const fullName = _orderItemDisplayNameForPrint_(item);
+    const fullName = _toPlainNotifyText_(_orderItemDisplayNameForPrint_(item));
     const quantity = parseInt(item.quantity != null ? item.quantity : (item.qty || 1), 10);
     const basePrice = parseInt(item.price != null ? item.price : 0, 10);
     const sp = _splitItemBaseAndAddonInner_(fullName);
     let baseName = sp.base;
     let addons = _addonListFromInner_(sp.inner);
     if (!addons.length && item.options && item.options.length) {
-      baseName = String(item.name != null ? item.name : '').replace(/^'/, '').trim() || baseName;
+      baseName = _toPlainNotifyText_(String(item.name != null ? item.name : '').replace(/^'/, '').trim()) || baseName;
       addons = item.options.map(function (o) {
         return {
-          name: typeof o === 'string' ? o : (o && o.name ? String(o.name) : ''),
+          name: _toPlainNotifyText_(typeof o === 'string' ? o : (o && o.name ? String(o.name) : '')),
           price: typeof o === 'object' && o ? (parseInt(o.price, 10) || 0) : 0
         };
       });
@@ -2175,13 +2191,13 @@ function _itemsBlock_(items) {
     const totalAddon = addons.reduce(function (sum, a) { return sum + (a.price * quantity); }, 0);
     const unitPrice = basePrice - totalAddon;
     const totalPrice = unitPrice * quantity;
-    let block = baseName + ' x ' + quantity + '        $' + totalPrice;
+    let block = _toPlainNotifyText_(baseName) + ' x ' + quantity + '        $' + totalPrice;
     addons.forEach(function (addon) {
       const priceText = addon.price > 0 ? '        $' + (addon.price * quantity) : '';
-      block += '\n> ' + addon.name + ' x' + quantity + priceText;
+      block += '\n+ ' + _toPlainNotifyText_(addon.name) + ' x' + quantity + priceText;
     });
     if (item.note && String(item.note).trim() !== '') {
-      block += '\n（' + String(item.note).trim() + '）';
+      block += '\n（' + _toPlainNotifyText_(String(item.note).trim()) + '）';
     }
     lines.push(block);
   });
