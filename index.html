@@ -1104,6 +1104,10 @@ function _broadcastReadyToOpener_() {
   }
 }
 
+window.onload = function () {
+  _broadcastReadyToOpener_();
+};
+
 document.addEventListener('visibilitychange', function () {
   if (document.visibilityState !== 'visible') return;
   if (isConnected || !pendingData) return;
