@@ -1116,7 +1116,10 @@ btnClearLog.addEventListener('click', () => { logBox.innerHTML = ''; });
 const LS_BACKEND_URL       = 'gp2270t_backend_url';
 const LS_PRINTED_ORDER_IDS = 'gp2270t_printed_order_ids_v1';
 const LS_POLL_ENABLED      = 'gp2270t_poll_enabled';
-const POLL_INTERVAL_MS     = 3000;
+const LS_DETAIL_TEMPLATE   = 'gp2270t_detail_template_v1';
+const LS_LABEL_TEMPLATE    = 'gp2270t_label_template_v1';
+const LS_PRINT_MODE        = 'gp2270t_print_mode'; // 'detail' | 'label'
+const POLL_INTERVAL_MS     = 1500;
 
 let pollTimer    = null;
 let pollInFlight = false;
@@ -1153,26 +1156,149 @@ function addPrintedOrderId_(id) {
   savePrintedOrderIds_(ids);
 }
 
-function buildPrintTextFromBackendOrder_(ord) {
-  const ts = (function () {
-    if (!ord.timestamp) return Date.now();
-    const d = new Date(ord.timestamp);
-    return isNaN(d.getTime()) ? Date.now() : d.getTime();
-  })();
-  const items = (ord.items || []).map(function (it) {
-    return {
-      name: it.name,
-      qty: it.quantity != null ? it.quantity : (it.qty || 0),
-      options: it.options || it.addons || [],
-      note: it.note || ''
+/**
+ * 預設「打印明細」樣版
+ * 支援的占位符：
+ *   {訂單編號} {訂單短碼} {時間} {日期} {取餐時間} {電話} {備註} {總計} {品項}
+ * `{品項}` 會自動展開為多行的「品名 x數量／選項／備註」區塊。
+ */
+const DEFAULT_DETAIL_TEMPLATE = [
+  '訂單 #{訂單編號}',
+  '時間: {時間}',
+  '取餐時間: {取餐時間}',
+  '電話: {電話}',
+  '備註: {備註}',
+  '----------------',
+  '{品項}',
+  '----------------',
+  '總計: ${總計}',
+  '',
+  '',
+  ''
+].join('\n');
+
+/**
+ * 預設「商品標籤」樣版（每張一個品項）
+ * 支援：{品名} {數量} {選項} {備註} {訂單編號} {訂單短碼} {時間} {日期}
+ */
+const DEFAULT_LABEL_TEMPLATE = [
+  '#{訂單編號}  {日期}',
+  '{品名} x{數量}',
+  '{選項}',
+  '{備註}',
+  ''
+].join('\n');
+
+function getDetailTemplate_() {
+  try {
+    const v = localStorage.getItem(LS_DETAIL_TEMPLATE);
+    if (typeof v === 'string' && v.length) return v;
+  } catch (e) { /* 略 */ }
+  return DEFAULT_DETAIL_TEMPLATE;
+}
+function getLabelTemplate_() {
+  try {
+    const v = localStorage.getItem(LS_LABEL_TEMPLATE);
+    if (typeof v === 'string' && v.length) return v;
+  } catch (e) { /* 略 */ }
+  return DEFAULT_LABEL_TEMPLATE;
+}
+function getPrintMode_() {
+  try {
+    const v = localStorage.getItem(LS_PRINT_MODE);
+    if (v === 'detail' || v === 'label') return v;
+  } catch (e) { /* 略 */ }
+  return 'detail';
+}
+
+function _formatOrderTime_(timestamp) {
+  let d;
+  if (timestamp instanceof Date) d = timestamp;
+  else if (timestamp) { d = new Date(timestamp); }
+  if (!d || isNaN(d.getTime())) d = new Date();
+  const pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+  return {
+    date: d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()),
+    time: pad(d.getHours()) + ':' + pad(d.getMinutes())
+  };
+}
+
+function _itemsBlock_(items) {
+  if (!Array.isArray(items)) return '';
+  return items.map(function (it) {
+    const q = it.quantity != null ? it.quantity : (it.qty || 0);
+    let s = (it.name || '') + ' x' + q;
+    const opts = it.options || it.addons || [];
+    if (Array.isArray(opts) && opts.length) {
+      opts.forEach(function (o) {
+        const n = typeof o === 'string' ? o : (o && o.name ? o.name : '');
+        if (n) s += '\n  + ' + n;
+      });
+    }
+    if (it.note) s += '\n  * ' + it.note;
+    return s;
+  }).join('\n');
+}
+
+function _renderTemplate_(tpl, map) {
+  return String(tpl == null ? '' : tpl).replace(/\{([^}]+)\}/g, function (m, k) {
+    const key = String(k).trim();
+    return map[key] != null ? String(map[key]) : '';
+  });
+}
+
+function renderDetailFromOrder_(ord) {
+  const ft = _formatOrderTime_(ord.timestamp);
+  const map = {
+    '訂單編號': ord.shortId || ord.orderId || '',
+    '訂單短碼': ord.shortId || '',
+    '時間'    : ft.date + ' ' + ft.time,
+    '日期'    : ft.date,
+    '取餐時間': ord.pickupTime || '',
+    '電話'    : ord.phone || '',
+    '備註'    : ord.remark || ord.notes || '',
+    '總計'    : ord.total != null ? ord.total : '',
+    '品項'    : _itemsBlock_(ord.items)
+  };
+  return _renderTemplate_(getDetailTemplate_(), map);
+}
+
+function renderLabelsFromOrder_(ord) {
+  const tpl = getLabelTemplate_();
+  const ft = _formatOrderTime_(ord.timestamp);
+  const items = Array.isArray(ord.items) ? ord.items : [];
+  const out = [];
+  for (let k = 0; k < items.length; k++) {
+    const it = items[k];
+    const q = it.quantity != null ? it.quantity : (it.qty || 0);
+    const opts = it.options || it.addons || [];
+    const optStr = (Array.isArray(opts) ? opts : []).map(function (o) {
+      return typeof o === 'string' ? o : (o && o.name ? o.name : '');
+    }).filter(Boolean).join(' / ');
+
+    const map = {
+      '訂單編號': ord.shortId || ord.orderId || '',
+      '訂單短碼': ord.shortId || '',
+      '時間'    : ft.date + ' ' + ft.time,
+      '日期'    : ft.date,
+      '取餐時間': ord.pickupTime || '',
+      '品名'    : it.name || '',
+      '數量'    : q,
+      '單價'    : it.price != null ? it.price : '',
+      '選項'    : optStr,
+      '備註'    : it.note || ''
     };
-  });
-  return buildPrintText({
-    id: ord.shortId || ord.orderId || '',
-    time: ts,
-    items: items,
-    total: ord.total
-  });
+    // 一份一張（依數量重複）
+    const repeat = Math.max(1, parseInt(q, 10) || 1);
+    for (let r = 0; r < repeat; r++) out.push(_renderTemplate_(tpl, map));
+  }
+  return out.join('\n');
+}
+
+function buildPrintTextFromBackendOrder_(ord) {
+  const mode = getPrintMode_();
+  if (mode === 'label') return renderLabelsFromOrder_(ord);
+  return renderDetailFromOrder_(ord);
 }
 
 async function pollPendingOrdersOnce_() {
@@ -1295,6 +1421,95 @@ function maybeAutoStartPolling_() {
   } catch (e) { /* 略 */ }
 }
 
+/**
+ * 解析 URL 上的設定參數（POS 開啟列印頁時可帶入），自動寫入 localStorage。
+ * 支援參數：
+ *   webapp         — GAS Web App URL（自動填入並儲存）
+ *   autoStart      — 1 / true：載入後自動啟用輪詢
+ *   detailTpl      — base64url 編碼的「打印明細」樣版
+ *   labelTpl       — base64url 編碼的「商品標籤」樣版
+ *   printMode      — 'detail' | 'label'
+ */
+function consumeUrlParams_() {
+  let auto = false;
+  try {
+    const url = new URL(window.location.href);
+    const sp  = url.searchParams;
+
+    const webapp = sp.get('webapp');
+    if (webapp && cfgBackendUrl) {
+      cfgBackendUrl.value = webapp;
+      try { localStorage.setItem(LS_BACKEND_URL, webapp); } catch (e) { /* 略 */ }
+      log('已自 URL 帶入 GAS Web App URL', 'ok');
+    }
+
+    const detailTpl = sp.get('detailTpl');
+    if (detailTpl) {
+      try {
+        const dec = decodeBase64ToText(detailTpl);
+        if (dec) localStorage.setItem(LS_DETAIL_TEMPLATE, dec);
+      } catch (e) { /* 略 */ }
+    }
+
+    const labelTpl = sp.get('labelTpl');
+    if (labelTpl) {
+      try {
+        const dec = decodeBase64ToText(labelTpl);
+        if (dec) localStorage.setItem(LS_LABEL_TEMPLATE, dec);
+      } catch (e) { /* 略 */ }
+    }
+
+    const mode = sp.get('printMode');
+    if (mode === 'detail' || mode === 'label') {
+      try { localStorage.setItem(LS_PRINT_MODE, mode); } catch (e) { /* 略 */ }
+    }
+
+    const autoStart = sp.get('autoStart');
+    if (autoStart === '1' || autoStart === 'true') auto = true;
+
+    if (sp.has('webapp') || sp.has('autoStart') ||
+        sp.has('detailTpl') || sp.has('labelTpl') || sp.has('printMode')) {
+      try {
+        // 用過即清，避免重整時重設
+        ['webapp', 'autoStart', 'detailTpl', 'labelTpl', 'printMode']
+          .forEach(function (k) { sp.delete(k); });
+        const cleanQs = sp.toString();
+        const newUrl = url.origin + url.pathname + (cleanQs ? '?' + cleanQs : '') + url.hash;
+        history.replaceState(null, '', newUrl);
+      } catch (e) { /* 略 */ }
+    }
+  } catch (e) { /* 略 */ }
+  return auto;
+}
+
+/**
+ * 即時觸發：POS 端可用 `window.open(printerUrl + '#trigger=' + Date.now(), 'printer_window')`
+ * 或同名視窗 postMessage({ type: 'TRIGGER_FETCH' }) 來促使打印頁立即抓單，不必等 1.5s。
+ */
+function setupInstantTrigger_() {
+  function tryFetch_() {
+    if (!pollTimer) return;            // 未啟用輪詢就不觸發
+    pollPendingOrdersOnce_().catch(function () { /* 略 */ });
+  }
+
+  window.addEventListener('hashchange', function () {
+    if (/^#trigger=/.test(window.location.hash || '')) {
+      log('收到 hash 即時觸發', 'info');
+      try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) { /* 略 */ }
+      tryFetch_();
+    }
+  });
+
+  window.addEventListener('message', function (ev) {
+    const m = ev && ev.data;
+    if (!m || typeof m !== 'object') return;
+    if (m.type === 'TRIGGER_FETCH') {
+      log('收到 TRIGGER_FETCH 即時觸發', 'info');
+      tryFetch_();
+    }
+  });
+}
+
 // ── Init ──────────────────────────────────────────────────────
 function init() {
   try {
@@ -1311,6 +1526,11 @@ function init() {
   tryAutoReconnectBle_().catch(function () { /* 略 */ });
 
   loadBackendUrlFromStorage_();
+  const forceAuto = consumeUrlParams_();
+  setupInstantTrigger_();
+  if (forceAuto) {
+    try { localStorage.setItem(LS_POLL_ENABLED, '1'); } catch (e) { /* 略 */ }
+  }
   maybeAutoStartPolling_();
 }
 
