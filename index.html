@@ -1943,7 +1943,8 @@ function _itemsBlock_(items) {
   if (!Array.isArray(items)) return '';
   return items.map(function (it) {
     const q = it.quantity != null ? it.quantity : (it.qty || 0);
-    let s = (it.name || '') + ' x' + q;
+    const subtotal = (Number(it.price) || 0) * (Number(q) || 0);
+    let s = (it.name || '') + ' x' + q + '   $' + subtotal;
     const opts = it.options || it.addons || [];
     if (Array.isArray(opts) && opts.length) {
       opts.forEach(function (o) {
