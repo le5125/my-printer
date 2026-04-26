@@ -873,7 +873,33 @@ function encodeTsplBig5TextQuotesOnly_(s) {
 }
 
 /**
- * 送印前最後一道：只保留 ASCII（TSPL 指令）＋ CP950 編得進去的字，其餘一律刪除（emoji／符號／無碼字不送進印表機）。
+ * 列印專用：表情／emoji／補充平面與常見符號區一律改為單一「>」（連續 > 合併），避免 CP950／TSPL 異常。
+ */
+function _printerEmojisToGt_(str) {
+  if (str == null || str === undefined) return '';
+  const G = '>';
+  let s = String(str);
+  try {
+    s = s.normalize('NFC');
+  } catch (e0) { /* 略 */ }
+  try {
+    s = s.replace(/\p{Extended_Pictographic}/gu, G);
+  } catch (e1) { /* 略 */ }
+  try {
+    s = s.replace(/\p{Emoji_Presentation}/gu, G);
+  } catch (e2) { /* 略 */ }
+  s = s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, G);
+  s = s.replace(/[\uFE00-\uFE0F]/g, '');
+  s = s.replace(/[\u200B-\u200F]/g, '');
+  s = s.replace(/\u200D/g, '');
+  s = s.replace(/[\u2600-\u26FF]/g, G);
+  s = s.replace(/[\u2700-\u27BF]/g, G);
+  s = s.replace(/>{2,}/g, G);
+  return s;
+}
+
+/**
+ * 送印前最後一道：先將表情等改為「>」，再只保留 ASCII（TSPL 指令）＋ CP950 編得進去的字，其餘刪除。
  */
 function stripToPrinterCp950Only_(s) {
   let t = String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -900,6 +926,7 @@ function stripToPrinterCp950Only_(s) {
     }
     t = fixed;
   }
+  t = _printerEmojisToGt_(t);
   if (typeof cptable !== 'undefined' && cptable.utils && typeof cptable.utils.encode === 'function') {
     let out = '';
     for (let i = 0; i < t.length; ) {
@@ -917,11 +944,7 @@ function stripToPrinterCp950Only_(s) {
     }
     return out;
   }
-  try {
-    return t.replace(/\p{Extended_Pictographic}/gu, '').replace(/\p{Emoji}/gu, '');
-  } catch (e) {
-    return t.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
-  }
+  return t;
 }
 
 function encodePrinterBytes_(text) {
@@ -1995,7 +2018,7 @@ function addPrintedOrderId_(id) {
  * 預設「打印明細」樣版
  * 支援的占位符：
  *   {訂單編號} {訂單短碼} {時間} {日期} {取餐時間} {電話} {備註} {總計} {品項}
- * `{品項}` 僅供列印：金額拆法與通知相同，加購行以 `> `；emoji／符號區改為 `"` 以利 CP950（與 Telegram 內容無關）。
+ * `{品項}` 僅供列印：金額拆法與通知相同，加購行以 `> `；其餘表情／emoji 亦改為 `>`（與 Telegram 無關）。
  */
 const DEFAULT_DETAIL_TEMPLATE = [
   '{大}{粗}== {店名} =={重置}',
@@ -2132,24 +2155,6 @@ function _formatOrderTime_(timestamp) {
   };
 }
 
-/** 列印專用：emoji（補充平面）、 dingbats 等改為 `"`，避免 CP950 異常；連續 `"` 合併為一個 */
-function _printerEmojiToQuote_(str) {
-  if (str == null || str === undefined) return '';
-  const Q = '"';
-  let s = String(str);
-  try {
-    s = s.normalize('NFC');
-  } catch (e) { /* 略 */ }
-  s = s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, Q);
-  s = s.replace(/[\uFE00-\uFE0F]/g, '');
-  s = s.replace(/[\u200B-\u200F]/g, '');
-  s = s.replace(/\u200D/g, '');
-  s = s.replace(/[\u2600-\u26FF]/g, Q);
-  s = s.replace(/[\u2700-\u27BF]/g, Q);
-  s = s.replace(/"{2,}/g, Q);
-  return s;
-}
-
 /** 從「品名全形／半形括號」拆出主名與加料字串（試算表欄位可能用半形 (...)） */
 function _splitItemBaseAndAddonInner_(fullName) {
   const s = String(fullName || '').trim();
@@ -2170,22 +2175,22 @@ function _addonListFromInner_(inner) {
   });
 }
 
-/** {品項} 區：僅列印用（金額拆法同通知；加購行 `> `；emoji 改 `"`） */
+/** {品項} 區：僅列印用（金額拆法同通知；加購行 `> `；品名等經 _printerEmojisToGt_） */
 function _itemsBlock_(items) {
   if (!Array.isArray(items)) return '';
   const lines = [];
   _sortOrderItemsByMainName_(items).forEach(function (item) {
-    const fullName = _printerEmojiToQuote_(_orderItemDisplayNameForPrint_(item));
+    const fullName = _printerEmojisToGt_(_orderItemDisplayNameForPrint_(item));
     const quantity = parseInt(item.quantity != null ? item.quantity : (item.qty || 1), 10);
     const basePrice = parseInt(item.price != null ? item.price : 0, 10);
     const sp = _splitItemBaseAndAddonInner_(fullName);
     let baseName = sp.base;
     let addons = _addonListFromInner_(sp.inner);
     if (!addons.length && item.options && item.options.length) {
-      baseName = _printerEmojiToQuote_(String(item.name != null ? item.name : '').replace(/^'/, '').trim()) || baseName;
+      baseName = _printerEmojisToGt_(String(item.name != null ? item.name : '').replace(/^'/, '').trim()) || baseName;
       addons = item.options.map(function (o) {
         return {
-          name: _printerEmojiToQuote_(typeof o === 'string' ? o : (o && o.name ? String(o.name) : '')),
+          name: _printerEmojisToGt_(typeof o === 'string' ? o : (o && o.name ? String(o.name) : '')),
           price: typeof o === 'object' && o ? (parseInt(o.price, 10) || 0) : 0
         };
       });
@@ -2193,13 +2198,13 @@ function _itemsBlock_(items) {
     const totalAddon = addons.reduce(function (sum, a) { return sum + (a.price * quantity); }, 0);
     const unitPrice = basePrice - totalAddon;
     const totalPrice = unitPrice * quantity;
-    let block = _printerEmojiToQuote_(baseName) + ' x ' + quantity + '        $' + totalPrice;
+    let block = _printerEmojisToGt_(baseName) + ' x ' + quantity + '        $' + totalPrice;
     addons.forEach(function (addon) {
       const priceText = addon.price > 0 ? '        $' + (addon.price * quantity) : '';
-      block += '\n> ' + _printerEmojiToQuote_(addon.name) + ' x' + quantity + priceText;
+      block += '\n> ' + _printerEmojisToGt_(addon.name) + ' x' + quantity + priceText;
     });
     if (item.note && String(item.note).trim() !== '') {
-      block += '\n（' + _printerEmojiToQuote_(String(item.note).trim()) + '）';
+      block += '\n（' + _printerEmojisToGt_(String(item.note).trim()) + '）';
     }
     lines.push(block);
   });
@@ -2355,14 +2360,14 @@ function _orderItemDisplayNameForPrint_(item) {
 function renderDetailFromOrder_(ord) {
   const ft = _formatOrderTime_(ord.timestamp);
   const map = {
-    '店名'    : getStoreName_(),
+    '店名'    : _printerEmojisToGt_(getStoreName_()),
     '訂單編號': ord.shortId || ord.orderId || '',
     '訂單短碼': ord.shortId || '',
     '時間'    : ft.date + ' ' + ft.time,
     '日期'    : ft.date,
-    '取餐時間': _printerEmojiToQuote_(ord.pickupTime || ''),
-    '電話'    : _printerEmojiToQuote_(ord.phone || ''),
-    '備註'    : _printerEmojiToQuote_(ord.remark || ord.notes || ''),
+    '取餐時間': _printerEmojisToGt_(ord.pickupTime || ''),
+    '電話'    : _printerEmojisToGt_(ord.phone || ''),
+    '備註'    : _printerEmojisToGt_(ord.remark || ord.notes || ''),
     '總計'    : ord.total != null ? ord.total : '',
     '品項'    : _itemsBlock_(ord.items)
   };
@@ -2384,17 +2389,17 @@ function renderLabelsFromOrder_(ord) {
     }).filter(Boolean).join(' / ');
 
     const map = {
-      '店名'    : sn,
+      '店名'    : _printerEmojisToGt_(sn),
       '訂單編號': ord.shortId || ord.orderId || '',
       '訂單短碼': ord.shortId || '',
       '時間'    : ft.date + ' ' + ft.time,
       '日期'    : ft.date,
-      '取餐時間': _printerEmojiToQuote_(ord.pickupTime || ''),
-      '品名'    : _printerEmojiToQuote_(it.name || ''),
+      '取餐時間': _printerEmojisToGt_(ord.pickupTime || ''),
+      '品名'    : _printerEmojisToGt_(it.name || ''),
       '數量'    : q,
       '單價'    : it.price != null ? it.price : '',
-      '選項'    : _printerEmojiToQuote_(optStr),
-      '備註'    : _printerEmojiToQuote_(it.note || '')
+      '選項'    : _printerEmojisToGt_(optStr),
+      '備註'    : _printerEmojisToGt_(it.note || '')
     };
     // 一份一張（依數量重複）
     const repeat = Math.max(1, parseInt(q, 10) || 1);
