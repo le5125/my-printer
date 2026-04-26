@@ -1687,6 +1687,9 @@ window.addEventListener('message', async (event) => {
         return;
       }
 
+      const urlSync = (cfgBackendUrl && cfgBackendUrl.value || '').trim();
+      if (urlSync) await syncPrintSettingsFromBackend_();
+
       const text = buildPrintTextFromBackendOrder_(ord);
       const ts = Number(ord.timestamp) || Date.now();
       pendingData = { text: text, backUrl: '', ts: ts };
@@ -1805,6 +1808,8 @@ btnManual.addEventListener('click', async () => {
     log('請先按「連線打印機」完成藍牙連線後再列印', 'err');
     return;
   }
+  const urlSync = (cfgBackendUrl && cfgBackendUrl.value || '').trim();
+  if (urlSync) await syncPrintSettingsFromBackend_();
   const all = _loadPrintHistory_();
   const pending = all.filter(function (e) { return !e.printed; }).reverse(); // 從最舊的待印開始印
   if (!pending.length) { log('沒有待列印的訂單', 'warn'); return; }
@@ -1881,7 +1886,6 @@ const LS_STORE_NAME        = 'gp2270t_store_name';
 const LS_LABEL_SIZE        = 'gp2270t_label_size_v1';   // {"width":40,"height":30}
 const LS_FONT_CONFIG       = 'gp2270t_font_config_v1';  // {"detail":{...},"label":{...}}
 const POLL_INTERVAL_MS     = 1000;
-const SETTINGS_SYNC_EVERY_N_POLLS = 30; // 每 30 秒從後端同步一次樣版/店名
 
 let pollTimer    = null;
 let pollInFlight = false;
@@ -2274,7 +2278,6 @@ async function syncPrintSettingsFromBackend_() {
   }
 }
 
-let _pollTickCount_ = 0;
 async function pollPendingOrdersOnce_() {
   if (pollInFlight || pollProcessing) return;
   const url = (cfgBackendUrl && cfgBackendUrl.value || '').trim();
@@ -2282,13 +2285,10 @@ async function pollPendingOrdersOnce_() {
     setPollStatus_('未設定 Web App URL', 'err');
     return;
   }
-  // 週期同步樣版（首次 + 每 N 次輪詢）
-  if (_pollTickCount_ === 0 || (_pollTickCount_ % SETTINGS_SYNC_EVERY_N_POLLS) === 0) {
-    syncPrintSettingsFromBackend_().catch(function () { /* 略 */ });
-  }
-  _pollTickCount_++;
   pollInFlight = true;
   try {
+    // 先 await 同步，避免與 getPendingOrders 並行時仍用舊的 printMode 組版
+    await syncPrintSettingsFromBackend_();
     const sep = url.indexOf('?') >= 0 ? '&' : '?';
     const fullUrl = url + sep + 'action=getPendingOrders&_=' + Date.now();
     const res = await fetch(fullUrl, { method: 'GET', cache: 'no-store' });
@@ -2577,6 +2577,8 @@ window.onload = function () {
 
 document.addEventListener('visibilitychange', function () {
   if (document.visibilityState !== 'visible') return;
+  const urlSync = (cfgBackendUrl && cfgBackendUrl.value || '').trim();
+  if (urlSync) syncPrintSettingsFromBackend_().catch(function () { /* 略 */ });
   if (isConnected || !pendingData) return;
   try {
     if (localStorage.getItem(LS_BLE_LAST_DEVICE_ID)) {
