@@ -975,21 +975,26 @@ function getActiveFontCfg_() {
  * 單張「模切／有縫隙」標籤：SIZE 寬高固定為紙張尺寸，GAP 為縫隙；每張結尾 PRINT 1,1 才會在縫隙處停。
  * （舊版把多張標籤當成一長段捲紙、高度用內容推算，會一直走紙停不下來。）
  */
-function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm) {
+function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, gapOffsetMm, yStartDots) {
   const x0 = 10;
-  const y0 = 20;
+  let y0 = parseInt(yStartDots, 10);
+  if (isNaN(y0) || y0 < 0) y0 = 20;
+  if (y0 > 200) y0 = 200;
   const font = TSPL_FONT_ZH;
   const maxY = Math.floor(Number(heightMm) * TSPL_DOTS_PER_MM) - 4;
   const g = (Number(gapMm) > 0 && Number(gapMm) <= 25) ? Number(gapMm) : 0;
+  let go = Number(gapOffsetMm);
+  if (!(go >= 0) || isNaN(go)) go = 0;
+  if (go > 10) go = 10;
   const parts = [];
   if (g > 0) {
     parts.push('SET TEAR OFF');
     parts.push('SIZE ' + widthMm + ' mm, ' + heightMm + ' mm');
-    parts.push('GAP ' + g + ' mm, 0 mm');
+    parts.push('GAP ' + g + ' mm, ' + go + ' mm');
   } else {
     parts.push('SET TEAR ON');
     parts.push('SIZE ' + widthMm + ' mm, ' + heightMm + ' mm');
-    parts.push('GAP 0 mm, 0 mm');
+    parts.push('GAP 0 mm, ' + go + ' mm');
   }
   parts.push('CLS');
   parts.push('CODEPAGE 950');
@@ -1132,6 +1137,13 @@ function ensureTsplForManualPrint_(raw) {
     const heightMm = Number(sz.height) > 0 ? Number(sz.height) : 30;
     let gapMm = Number(sz.gap);
     if (!(gapMm >= 0) || isNaN(gapMm)) gapMm = 3;
+    let gapOff = Number(sz.gapOffset);
+    if (!(gapOff >= 0) || isNaN(gapOff)) gapOff = 0;
+    if (gapOff > 10) gapOff = 10;
+    let yStart = parseInt(sz.yStart, 10);
+    if (isNaN(yStart)) yStart = 20;
+    if (yStart < 0) yStart = 0;
+    if (yStart > 200) yStart = 200;
     const sepRe = /\n<<<__POS_LABEL_BREAK__>>>\n/;
     let chunks = s.split(sepRe);
     if (chunks.length === 1 && s.indexOf('<<<__POS_LABEL_BREAK__>>>') === -1) {
@@ -1150,10 +1162,10 @@ function ensureTsplForManualPrint_(raw) {
         return false;
       });
       if (!styledLines.length) continue;
-      blocks.push(buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm));
+      blocks.push(buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, gapOff, yStart));
     }
     if (!blocks.length) return tsplMinimalRoll_();
-    log('標籤 TSPL：共 ' + blocks.length + ' 張；紙張 ' + widthMm + '×' + heightMm + 'mm、縫隙 ' + gapMm + 'mm', 'info');
+    log('標籤 TSPL：共 ' + blocks.length + ' 張；' + widthMm + '×' + heightMm + 'mm GAP ' + gapMm + ',' + gapOff + ' 起始Y=' + yStart, 'info');
     return blocks.join('\n') + '\n';
   }
 
@@ -1959,7 +1971,7 @@ function getPrintMode_() {
   return 'detail';
 }
 
-/** 標籤紙尺寸（mm）*/
+/** 標籤紙尺寸（mm）+ TSPL 微調 */
 function getLabelSize_() {
   try {
     const v = localStorage.getItem(LS_LABEL_SIZE);
@@ -1968,15 +1980,24 @@ function getLabelSize_() {
       if (o && (o.width || o.height)) {
         let g = Number(o.gap);
         if (!(g >= 0) || isNaN(g)) g = 3;
+        let go = Number(o.gapOffset);
+        if (!(go >= 0) || isNaN(go)) go = 0;
+        if (go > 10) go = 10;
+        let ys = parseInt(o.yStart, 10);
+        if (isNaN(ys)) ys = 20;
+        if (ys < 0) ys = 0;
+        if (ys > 200) ys = 200;
         return {
           width:  Number(o.width)  > 0 ? Number(o.width)  : 40,
           height: Number(o.height) > 0 ? Number(o.height) : 30,
-          gap:    g
+          gap:    g,
+          gapOffset: go,
+          yStart: ys
         };
       }
     }
   } catch (e) { /* 略 */ }
-  return { width: 40, height: 30, gap: 3 };
+  return { width: 40, height: 30, gap: 3, gapOffset: 0, yStart: 20 };
 }
 
 /** 字體設定：明細 / 標籤 各自的 size + bold */
@@ -2216,10 +2237,19 @@ async function syncPrintSettingsFromBackend_() {
     if (data.labelSize && typeof data.labelSize === 'object') {
       let g = Number(data.labelSize.gap);
       if (!(g >= 0) || isNaN(g)) g = 3;
+      let go = Number(data.labelSize.gapOffset);
+      if (!(go >= 0) || isNaN(go)) go = 0;
+      if (go > 10) go = 10;
+      let ys = parseInt(data.labelSize.yStart, 10);
+      if (isNaN(ys)) ys = 20;
+      if (ys < 0) ys = 0;
+      if (ys > 200) ys = 200;
       localStorage.setItem(LS_LABEL_SIZE, JSON.stringify({
         width:  Number(data.labelSize.width)  > 0 ? Number(data.labelSize.width)  : 40,
         height: Number(data.labelSize.height) > 0 ? Number(data.labelSize.height) : 30,
-        gap:    g
+        gap:    g,
+        gapOffset: go,
+        yStart: ys
       }));
     }
     if (data.fontConfig && typeof data.fontConfig === 'object') {
