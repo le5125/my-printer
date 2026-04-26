@@ -563,10 +563,17 @@ const BLE_SERVICE_UUID  = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2';
 const BLE_CHAR_UUID     = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f';
 // GP-2270T 也可能用 SPP UUID: 00001101-0000-1000-8000-00805f9b34fb
 // 若上面不行可換成 SPP (需 Bluefy 支援)
-/** 熱感捲紙寬（mm）；若為 80mm 紙請改 80 */
-const TSPL_ROLL_WIDTH_MM = 58;
 /** 內建字型：GP/TSC 繁中多數用 TST24.BF2；仍異常可試字型索引 "3" */
 const TSPL_FONT_ZH = 'TST24.BF2';
+/** 明細捲紙寬（mm）存在 localStorage，由試算表「打印設定」rollWidthMm 同步；預設 80 */
+const LS_ROLL_WIDTH_MM = 'gp2270t_roll_width_mm';
+function getRollWidthMm_() {
+  try {
+    const v = parseInt(localStorage.getItem(LS_ROLL_WIDTH_MM), 10);
+    if (v >= 40 && v <= 120) return v;
+  } catch (e) { /* 略 */ }
+  return 80;
+}
 
 // ── State ────────────────────────────────────────────────────
 let bleDevice    = null;
@@ -1013,60 +1020,64 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
   parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
   parts.push('REFERENCE 0,0');
   /* gapOffsetMm：POS 可存；此處 GAP 第二參數固定 0 mm（GP-2270T 常見標籤縫隙寫法） */
+  const marginRight = 6;
+  const maxDots = Math.max(48, Math.floor(widthMm * TSPL_DOTS_PER_MM) - x0 - marginRight);
   let y = y0;
   const n = styledLines.length;
   for (let k = 0; k < n; k++) {
     const segs = styledLines[k] || [];
-    let maxMul = 1;
-    for (let i = 0; i < segs.length; i++) {
-      const mul = fontSizeToTsplMul_(segs[i].size);
-      if (mul > maxMul) maxMul = mul;
-    }
-    const lineHeight = 24 * maxMul + 8;
-    if (y + lineHeight > maxY) break;
-    let xCur = x0;
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
-      let txt = String(s.text || '');
+      const txt = String(s.text || '');
       if (!txt) continue;
-      let esc = txt.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      if (esc.length > 120) esc = esc.slice(0, 120) + '...';
       const mul = fontSizeToTsplMul_(s.size);
-      parts.push('TEXT ' + xCur + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
-      if (s.bold) {
-        parts.push('TEXT ' + (xCur + 1) + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
+      const rows = wrapTextToDotWidth_(txt, mul, maxDots);
+      const rowH = 24 * mul + 8;
+      for (let r = 0; r < rows.length; r++) {
+        if (y + rowH > maxY) break;
+        const esc = rows[r].replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        parts.push('TEXT ' + x0 + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
+        if (s.bold) {
+          parts.push('TEXT ' + (x0 + 1) + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
+        }
+        y += rowH;
       }
-      xCur += estimateSegmentDots_(txt, mul);
     }
-    y += lineHeight;
   }
   parts.push('PRINT 1,1');
   parts.push('FEED ' + TSPL_LABEL_FEED_AFTER_PRINT);
   return parts.join('\n');
 }
 
-/** 捲紙明細：每段依內容推算紙張高度；行內多段各自放大／粗體。 */
+/** 捲紙明細：每段依內容推算紙張高度；長行依紙寬自動換行（不再截斷字數）。 */
 function buildRollTsplBlockFromStyled_(styledLines, startIdx, count, widthMm) {
   const x0 = 10;
   const y0 = 20;
   const tailDots = 100;
   const font = TSPL_FONT_ZH;
+  const marginRight = 10;
+  const maxDots = Math.max(96, Math.floor(Number(widthMm) * TSPL_DOTS_PER_MM) - x0 - marginRight);
   const n = count;
 
-  // 計算每行高度（取該行最大 yMul；空行給最低值 1）
-  const lineHeights = [];
+  const textCmds = [];
+  let y = y0;
   for (let k = 0; k < n; k++) {
     const segs = styledLines[startIdx + k] || [];
-    let maxMul = 1;
     for (let i = 0; i < segs.length; i++) {
-      const mul = fontSizeToTsplMul_(segs[i].size);
-      if (mul > maxMul) maxMul = mul;
+      const s = segs[i];
+      const txt = String(s.text || '');
+      if (!txt) continue;
+      const mul = fontSizeToTsplMul_(s.size);
+      const rows = wrapTextToDotWidth_(txt, mul, maxDots);
+      const rowH = 24 * mul + 8;
+      for (let r = 0; r < rows.length; r++) {
+        const esc = rows[r].replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        textCmds.push({ x: x0, y: y, esc: esc, mul: mul, bold: !!s.bold });
+        y += rowH;
+      }
     }
-    lineHeights.push(24 * maxMul + 8); // 24 dot 字 + 8 dot 行距
   }
-  let totalDots = y0;
-  for (let k = 0; k < n; k++) totalDots += lineHeights[k];
-  totalDots += tailDots;
+  const totalDots = y + tailDots;
   const hMm = Math.min(3200, Math.max(16, Math.ceil(totalDots / TSPL_DOTS_PER_MM)));
 
   const parts = [];
@@ -1079,25 +1090,12 @@ function buildRollTsplBlockFromStyled_(styledLines, startIdx, count, widthMm) {
   parts.push('REFERENCE 0,0');
   parts.push('OFFSET 0');
 
-  let y = y0;
-  for (let k = 0; k < n; k++) {
-    const segs = styledLines[startIdx + k] || [];
-    let xCur = x0;
-    for (let i = 0; i < segs.length; i++) {
-      const s = segs[i];
-      let txt = String(s.text || '');
-      if (!txt) continue;
-      let esc = txt.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      if (esc.length > 120) esc = esc.slice(0, 120) + '...';
-      const mul = fontSizeToTsplMul_(s.size);
-      parts.push('TEXT ' + xCur + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
-      if (s.bold) {
-        // GP-2270T 內建中文字型沒粗體屬性 → 同位置 +1px 重印一次模擬粗體
-        parts.push('TEXT ' + (xCur + 1) + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
-      }
-      xCur += estimateSegmentDots_(txt, mul);
+  for (let t = 0; t < textCmds.length; t++) {
+    const tc = textCmds[t];
+    parts.push('TEXT ' + tc.x + ',' + tc.y + ',"' + font + '",0,' + tc.mul + ',' + tc.mul + ',"' + tc.esc + '"');
+    if (tc.bold) {
+      parts.push('TEXT ' + (tc.x + 1) + ',' + tc.y + ',"' + font + '",0,' + tc.mul + ',' + tc.mul + ',"' + tc.esc + '"');
     }
-    y += lineHeights[k];
   }
   parts.push('PRINT 1,1');
   return parts.join('\n');
@@ -1117,7 +1115,7 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
 function tsplMinimalRoll_() {
   return [
     'SET TEAR ON',
-    'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 18 mm',
+    'SIZE ' + getRollWidthMm_() + ' mm, 18 mm',
     'GAP 0 mm, 0 mm',
     'CLS',
     'CODEPAGE 950',
@@ -1182,8 +1180,8 @@ function ensureTsplForManualPrint_(raw) {
     return blocks.join('\n') + '\n';
   }
 
-  // —— 明細捲紙：依內容推算高度 ——
-  let widthMm = TSPL_ROLL_WIDTH_MM;
+  // —— 明細捲紙：依內容推算高度（寬度由試算表 rollWidthMm／預設 80） ——
+  let widthMm = getRollWidthMm_();
 
   // ⬇ 解析樣式 token：把 raw text 變成 [[{text,size,bold}, ...], ...]（每行）
   const styledAll = parseStyledLines_(s, baseFc);
@@ -1853,7 +1851,7 @@ btnTest.addEventListener('click', async () => {
   }
   const testTspl = [
     'SET TEAR ON',
-    'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 30 mm',
+    'SIZE ' + getRollWidthMm_() + ' mm, 30 mm',
     'GAP 0 mm, 0 mm',
     'CLS',
     'CODEPAGE 950',
@@ -1926,7 +1924,7 @@ function addPrintedOrderId_(id) {
  * 預設「打印明細」樣版
  * 支援的占位符：
  *   {訂單編號} {訂單短碼} {時間} {日期} {取餐時間} {電話} {備註} {總計} {品項}
- * `{品項}` 會自動展開為多行的「品名 x數量／選項／備註」區塊。
+ * `{品項}` 與 Telegram 商品明細相同（主餐名排序、全形括號加價、➜ 選項行）；試算表來源會用欄位全名還原括號。
  */
 const DEFAULT_DETAIL_TEMPLATE = [
   '{大}{粗}== {店名} =={重置}',
@@ -2063,22 +2061,42 @@ function _formatOrderTime_(timestamp) {
   };
 }
 
+/** {品項} 區：與 pos後端 buildOrderTelegramMessage 商品明細相同（主餐名排序、全形括號加價、➜ 選項行） */
 function _itemsBlock_(items) {
   if (!Array.isArray(items)) return '';
-  return items.map(function (it) {
-    const q = it.quantity != null ? it.quantity : (it.qty || 0);
-    const subtotal = (Number(it.price) || 0) * (Number(q) || 0);
-    let s = (it.name || '') + ' x' + q + '   $' + subtotal;
-    const opts = it.options || it.addons || [];
-    if (Array.isArray(opts) && opts.length) {
-      opts.forEach(function (o) {
-        const n = typeof o === 'string' ? o : (o && o.name ? o.name : '');
-        if (n) s += '\n  + ' + n;
+  const lines = [];
+  _sortOrderItemsByMainName_(items).forEach(function (item) {
+    const fullName = _orderItemDisplayNameForPrint_(item);
+    const quantity = parseInt(item.quantity != null ? item.quantity : (item.qty || 1), 10);
+    const basePrice = parseInt(item.price != null ? item.price : 0, 10);
+    const nameMatch = fullName.match(/^(.+?)（(.+)）$/);
+    let baseName = fullName;
+    let addons = [];
+    if (nameMatch) {
+      baseName = nameMatch[1].trim();
+      const addonString = nameMatch[2];
+      addons = addonString.split('、').map(function (entry) {
+        const optMatch = entry.match(/^(.+?)\s*\(\+?(\d+)\)$/);
+        if (optMatch) {
+          return { name: optMatch[1].trim(), price: parseInt(optMatch[2], 10) };
+        }
+        return { name: entry.trim(), price: 0 };
       });
     }
-    if (it.note) s += '\n  * ' + it.note;
-    return s;
-  }).join('\n');
+    const totalAddon = addons.reduce(function (sum, a) { return sum + (a.price * quantity); }, 0);
+    const unitPrice = basePrice - totalAddon;
+    const totalPrice = unitPrice * quantity;
+    let block = baseName + ' x ' + quantity + '        $' + totalPrice;
+    addons.forEach(function (addon) {
+      const priceText = addon.price > 0 ? '        $' + (addon.price * quantity) : '';
+      block += '\n➜ ' + addon.name + ' x' + quantity + priceText;
+    });
+    if (item.note && String(item.note).trim() !== '') {
+      block += '\n（' + String(item.note).trim() + '）';
+    }
+    lines.push(block);
+  });
+  return lines.join('\n\n');
 }
 
 /**
@@ -2164,6 +2182,65 @@ function estimateSegmentDots_(text, xMul) {
     w += (code < 0x80) ? 12 : 24;
   }
   return w * xMul;
+}
+
+/** 依 TSPL 24-dot 字型估算寬度（中文 24×mul、半形 12×mul）換行，避免超出紙寬被裁切 */
+function wrapTextToDotWidth_(text, xMul, maxDots) {
+  const s = String(text == null ? '' : text);
+  const mul = Number(xMul) > 0 ? Number(xMul) : 1;
+  const cap = Math.max(8, Math.floor(Number(maxDots) || 0));
+  if (!s) return [''];
+  const lines = [];
+  let cur = '';
+  let w = 0;
+  for (let i = 0; i < s.length; ) {
+    const cp = s.codePointAt(i);
+    const ch = String.fromCodePoint(cp);
+    const cw = (cp < 0x80 ? 12 : 24) * mul;
+    if (cur && w + cw > cap) {
+      lines.push(cur);
+      cur = ch;
+      w = cw;
+    } else {
+      cur += ch;
+      w += cw;
+    }
+    i += cp > 0xFFFF ? 2 : 1;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/** 與 pos後端 buildOrderTelegramMessage 相同：主餐名排序鍵 */
+function _orderItemMainNameForSort_(it) {
+  if (!it) return '';
+  const raw = String(it.name != null ? it.name : '').replace(/^'/, '').trim();
+  const m = raw.match(/^([\s\S]+?)（[\s\S]*）$/);
+  if (m) return m[1].trim();
+  return raw;
+}
+function _sortOrderItemsByMainName_(items) {
+  const arr = (items || []).map(function (it, i) { return { it: it, i: i }; });
+  arr.sort(function (a, b) {
+    const c = String(_orderItemMainNameForSort_(a.it)).localeCompare(String(_orderItemMainNameForSort_(b.it)), 'zh-Hant');
+    if (c !== 0) return c;
+    return a.i - b.i;
+  });
+  return arr.map(function (x) { return x.it; });
+}
+
+/** 試算表解析品項還原成送單時「全名」（與 pos後端 reconstructFullNameFromParsedItem_ 一致） */
+function _orderItemDisplayNameForPrint_(item) {
+  if (!item) return '';
+  if (item.sheetColName && String(item.sheetColName).trim()) return String(item.sheetColName).trim();
+  const opts = item.options || item.addons || [];
+  if (!Array.isArray(opts) || !opts.length) return String(item.name || '');
+  const parts = opts.map(function (o) {
+    const p = typeof o === 'object' && o ? (parseInt(o.price, 10) || 0) : 0;
+    const n = typeof o === 'string' ? o : (o && o.name ? o.name : '');
+    return p > 0 ? n + '(+' + p + ')' : n;
+  });
+  return String(item.name || '') + '（' + parts.join('、') + '）';
 }
 
 function renderDetailFromOrder_(ord) {
@@ -2271,6 +2348,10 @@ async function syncPrintSettingsFromBackend_() {
     }
     if (data.fontConfig && typeof data.fontConfig === 'object') {
       localStorage.setItem(LS_FONT_CONFIG, JSON.stringify(data.fontConfig));
+    }
+    if (data.rollWidthMm != null && String(data.rollWidthMm).trim() !== '') {
+      const rw = parseInt(String(data.rollWidthMm).trim(), 10);
+      if (rw >= 40 && rw <= 120) localStorage.setItem(LS_ROLL_WIDTH_MM, String(rw));
     }
     return true;
   } catch (e) {
