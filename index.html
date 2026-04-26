@@ -809,6 +809,37 @@ function unescapeTsplTextInner_(raw) {
 }
 
 /**
+ * CP950 編碼：無法編碼的字元改為空白，避免 TEXT 內文一個壞字就讓整份 TSPL 編碼失敗（整行／多行消失）。
+ */
+function encodeCp950StringWithFallback_(inner) {
+  const raw = String(inner == null ? '' : inner).normalize('NFC');
+  if (typeof cptable === 'undefined' || !cptable.utils || typeof cptable.utils.encode !== 'function') {
+    return new TextEncoder().encode(raw);
+  }
+  try {
+    return new Uint8Array(cptable.utils.encode(950, raw));
+  } catch (e0) {
+    let rebuilt = '';
+    for (let i = 0; i < raw.length; ) {
+      const cp = raw.codePointAt(i);
+      const ch = String.fromCodePoint(cp);
+      try {
+        cptable.utils.encode(950, ch);
+        rebuilt += ch;
+      } catch (e1) {
+        rebuilt += ' ';
+      }
+      i += cp > 0xFFFF ? 2 : 1;
+    }
+    try {
+      return new Uint8Array(cptable.utils.encode(950, rebuilt));
+    } catch (e2) {
+      return new Uint8Array(cptable.utils.encode(950, rebuilt.replace(/[^\x00-\x7F\u3000-\u9FFF]/g, ' ')));
+    }
+  }
+}
+
+/**
  * 寬鬆比對 TEXT x,y,"字型",r,xm,ym,"內文"（逗號周圍可有空白；TEXT 與座標間可有空白）。
  * 無法拆出內文時，該行改為整行 CP950（ASCII 指令段與 UTF-8 同位元組，不致破壞指令）。
  * @returns {Uint8Array|null}
@@ -826,21 +857,12 @@ function encodeTsplBig5TextQuotesOnly_(s) {
     const m = line.match(lineRe);
     if (m) {
       const inner = unescapeTsplTextInner_(m[2]);
-      let innerBytes;
-      try {
-        innerBytes = new Uint8Array(cptable.utils.encode(950, inner.normalize('NFC')));
-      } catch (eIn) {
-        return null;
-      }
+      const innerBytes = encodeCp950StringWithFallback_(inner);
       chunks.push(te.encode(m[1]));
       chunks.push(innerBytes);
       chunks.push(te.encode(m[3] + sep));
     } else if (/^\s*TEXT\b/i.test(line)) {
-      try {
-        chunks.push(new Uint8Array(cptable.utils.encode(950, (line + sep).normalize('NFC'))));
-      } catch (eLine) {
-        return null;
-      }
+      chunks.push(encodeCp950StringWithFallback_(line + sep));
     } else {
       chunks.push(te.encode(line + sep));
     }
@@ -1128,18 +1150,45 @@ function tsplMinimalRoll_() {
 }
 
 /**
- * 熱感機內文走 CP950／Big5：emoji、部分符號無法編碼會丟失或斷行，送印前移除／替換。
- * （商品名若含 🌶️ 等，列印會自動略過圖示，畫面預覽仍可顯示。）
+ * 熱感機內文走 CP950：emoji／特殊符號常無碼位或會讓編碼整段失敗。
+ * 送印前改為「空白」並修復孤兒代理字元，後續 encode 仍會逐字後備（雙重保險）。
  */
 function sanitizeThermalTextForBig5_(s) {
   let t = String(s == null ? '' : s);
-  try {
-    t = t.replace(/\p{Extended_Pictographic}/gu, '');
-  } catch (e) {
-    t = t.replace(/[\uD83C-\uDBFF][\uDC00-\uDFFF]/g, '').replace(/[\u2600-\u27BF]/g, '');
+  if (typeof t.toWellFormed === 'function') t = t.toWellFormed();
+  else {
+    let fixed = '';
+    for (let i = 0; i < t.length; i++) {
+      const c = t.charCodeAt(i);
+      if (c >= 0xD800 && c <= 0xDBFF) {
+        if (i + 1 < t.length) {
+          const d = t.charCodeAt(i + 1);
+          if (d >= 0xDC00 && d <= 0xDFFF) {
+            fixed += t.slice(i, i + 2);
+            i++;
+            continue;
+          }
+        }
+        fixed += ' ';
+      } else if (c >= 0xDC00 && c <= 0xDFFF) {
+        fixed += ' ';
+      } else {
+        fixed += t.charAt(i);
+      }
+    }
+    t = fixed;
   }
-  t = t.replace(/[\uFE00-\uFE0F]/g, '').replace(/\u200D/g, '');
-  t = t.replace(/\u27A1/g, '>');
+  try {
+    t = t.replace(/\p{Extended_Pictographic}/gu, ' ');
+  } catch (e) {
+    t = t.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ' ');
+  }
+  try {
+    t = t.replace(/\p{Emoji_Presentation}/gu, ' ');
+  } catch (e2) { /* 略 */ }
+  t = t.replace(/[\uFE00-\uFE0F]/g, ' ').replace(/\u200D/g, ' ');
+  t = t.replace(/[\u27A1\u2794\u279D\u2192\u25B6\u2B05\u2B06\u2B07\u2B95\u27F6\u2B62]/g, ' ');
+  t = t.replace(/ {2,}/g, ' ');
   return t;
 }
 
@@ -1926,7 +1975,7 @@ function addPrintedOrderId_(id) {
  * 預設「打印明細」樣版
  * 支援的占位符：
  *   {訂單編號} {訂單短碼} {時間} {日期} {取餐時間} {電話} {備註} {總計} {品項}
- * `{品項}` 與 Telegram 商品明細相同（主餐名排序、全形括號加價、➜ 選項行）；試算表來源會用欄位全名還原括號。
+ * `{品項}` 與 Telegram 商品明細相同（主餐名排序、全形括號加價；加購行以 `> ` 開頭以利 CP950 列印，Telegram 仍為 ➜）。
  */
 const DEFAULT_DETAIL_TEMPLATE = [
   '{大}{粗}== {店名} =={重置}',
@@ -2083,7 +2132,7 @@ function _addonListFromInner_(inner) {
   });
 }
 
-/** {品項} 區：與 pos後端 buildOrderTelegramMessage 相同（主餐名排序、➜ 選項行；送印時 ➜ 會改成 > 以利 Big5） */
+/** {品項} 區：與 pos後端 buildOrderTelegramMessage 相同（金額拆法）；加購行用 ASCII「> 」避免 Big5 編碼失敗整行消失 */
 function _itemsBlock_(items) {
   if (!Array.isArray(items)) return '';
   const lines = [];
@@ -2109,7 +2158,7 @@ function _itemsBlock_(items) {
     let block = baseName + ' x ' + quantity + '        $' + totalPrice;
     addons.forEach(function (addon) {
       const priceText = addon.price > 0 ? '        $' + (addon.price * quantity) : '';
-      block += '\n➜ ' + addon.name + ' x' + quantity + priceText;
+      block += '\n> ' + addon.name + ' x' + quantity + priceText;
     });
     if (item.note && String(item.note).trim() !== '') {
       block += '\n（' + String(item.note).trim() + '）';
