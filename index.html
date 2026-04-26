@@ -292,8 +292,7 @@
   <div id="queue-display">
     <div class="empty-queue">等待 POS 送單...</div>
   </div>
-  <textarea id="testTspl" style="display:none" aria-hidden="true"></textarea>
-  <button class="btn btn-secondary" id="btnTestPrint" disabled>測試打印（固定內容）</button>
+  <button class="btn btn-secondary" id="btn-test-print" disabled>測試打印（固定內容）</button>
   <button class="btn btn-warn" id="btn-manual-print" disabled>手動列印最新資料</button>
 </div>
 
@@ -353,14 +352,13 @@ const statusText  = document.getElementById('ble-status-text');
 const deviceName  = document.getElementById('ble-device-name');
 const btnConnect  = document.getElementById('btn-connect');
 const btnDisconn  = document.getElementById('btn-disconnect');
-const btnTest     = document.getElementById('btnTestPrint') || document.getElementById('btn-test-print');
+const btnTest     = document.getElementById('btn-test-print');
 const btnManual   = document.getElementById('btn-manual-print');
 const queueDisp   = document.getElementById('queue-display');
 const logBox      = document.getElementById('log-box');
 const ackFlash    = document.getElementById('ack-flash');
 const cfgDelay    = document.getElementById('cfg-chunk-delay');
 const btnClearLog = document.getElementById('btn-clear-log');
-const testTsplEl  = document.getElementById('testTspl');
 
 // ── Logging ──────────────────────────────────────────────────
 function log(msg, type = '') {
@@ -498,8 +496,8 @@ btnConnect.addEventListener('click', async () => {
   log('掃描藍牙裝置...', 'info');
   try {
     const dev = await navigator.bluetooth.requestDevice({
-      filters: [{ name: 'Printer_9AE9_BLE' }],
-      optionalServices: ['0000ff00-0000-1000-8000-00805f9b34fb']
+      acceptAllDevices: true,
+      optionalServices: [BLE_SERVICE_UUID, '00001101-0000-1000-8000-00805f9b34fb']
     });
     await connectGattFromDevice_(dev);
   } catch (err) {
@@ -781,14 +779,54 @@ function ensureTsplForManualPrint_(raw) {
   return blocks.join('\n') + '\n';
 }
 
+/** POS PRINT_ORDER：將 JSON 訂單轉成收據純文字（再經 ensureTsplForManualPrint_ → sendRawText 分段送 BLE） */
+function buildPrintText(order) {
+  if (!order) return '\n';
+  const oid = order.id != null ? order.id : (order.orderId != null ? order.orderId : '');
+  const t = order.time != null ? order.time : Date.now();
+  let txt = '';
+
+  txt += '訂單 #' + oid + '\n';
+  txt += '時間: ' + new Date(t).toLocaleString() + '\n';
+  txt += '----------------\n';
+
+  const items = Array.isArray(order.items) ? order.items : [];
+  items.forEach(function (i) {
+    const q = i.qty != null ? i.qty : (i.quantity != null ? i.quantity : 0);
+    txt += String(i.name || '') + ' x' + q;
+
+    const opts = i.options && i.options.length > 0 ? i.options : [];
+    opts.forEach(function (opt) {
+      const line = typeof opt === 'string' ? opt : (opt && opt.name != null ? String(opt.name) : String(opt));
+      txt += '\n  + ' + line;
+    });
+
+    if (i.note) {
+      txt += '\n  * ' + i.note;
+    }
+
+    txt += '\n';
+  });
+
+  txt += '----------------\n';
+  txt += '總計: $' + (order.total != null ? order.total : '') + '\n\n\n';
+
+  return txt;
+}
+
 // ── Auto Print Flow ───────────────────────────────────────────
 async function autoPrint(data) {
   if (printLock) { log('列印鎖定中，略過', 'warn'); return; }
+  if (!bleChar) {
+    log('沒有藍牙特徵值', 'err');
+    return;
+  }
   printLock = true;
 
   try {
     const payload = ensureTsplForManualPrint_(data.text);
     await sendRawText(payload);
+    log('列印完成', 'ok');
     showAck();
     lastPrintTs = data.ts;
     pendingData = null;
@@ -821,6 +859,39 @@ function sendAckToPos(msg) {
     } catch(e) {}
   }
   log('ACK: 無法回傳 (opener 不可用)', 'warn');
+}
+
+// ── Data Reception ────────────────────────────────────────────
+function parseHashData() {
+  const hash = window.location.hash;
+  if (!hash || hash.length < 6) return null;
+
+  try {
+    // Format: #data=BASE64URL&back=URL&ts=TIMESTAMP
+    const params = new URLSearchParams(hash.slice(1)); // remove leading #
+    const dataB64 = params.get('data');
+    const backUrl = params.get('back') || '';
+    const ts      = parseInt(params.get('ts') || '0');
+
+    if (!dataB64) return null;
+
+    // Decode: base64url -> bytes -> text
+    const text = decodeBase64ToText(dataB64);
+    return { text, backUrl, ts };
+  } catch (e) {
+    log('Hash 解碼失敗: ' + e.message, 'err');
+    return null;
+  }
+}
+
+function decodeBase64ToText(b64) {
+  let norm = String(b64 || '').trim().replace(/-/g, '+').replace(/_/g, '/');
+  if (!norm) return '';
+  while (norm.length % 4) norm += '=';
+  const bin = atob(norm);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i) & 255;
+  return new TextDecoder('utf-8', { fatal: false }).decode(u8);
 }
 
 function updateQueueDisplay(data) {
@@ -883,6 +954,42 @@ window.addEventListener('message', async (event) => {
     return;
   }
 
+  if (msg.type === 'PRINT_ORDER') {
+    try {
+      if (event.source && !event.source.closed) {
+        posOpener = event.source;
+      }
+      const payload = msg.payload;
+      if (!payload) {
+        log('PRINT_ORDER: 無 payload', 'err');
+        return;
+      }
+
+      log('收到訂單資料', 'ok');
+
+      const ts = Number(payload.time) || Number(payload.id) || Date.now();
+
+      pendingData = {
+        text: buildPrintText(payload),
+        backUrl: '',
+        ts: ts
+      };
+      updateQueueDisplay(pendingData);
+
+      if (isConnected && bleChar && !printLock) {
+        await autoPrint(pendingData);
+      } else {
+        log('尚未連線或忙碌，資料已暫存；連上後將自動送印', 'warn');
+        setTimeout(function () {
+          tryAutoReconnectBle_().catch(function () { /* 略 */ });
+        }, 400);
+      }
+    } catch (e) {
+      log('接收訂單資料錯誤: ' + (e && e.message ? e.message : String(e)), 'err');
+    }
+    return;
+  }
+
   if (msg.type === 'PRINTER_PING') {
     // POS 以 PONG 判斷頁面已就緒可接收 PRINT_JOB；BLE 連線狀態附帶回傳。
     // 同時更新 posOpener 引用（POS 重整後再送 PING，我們藉此拿到新引用）
@@ -900,6 +1007,23 @@ window.addEventListener('message', async (event) => {
   }
 });
 
+// ── Hash Listener (Fallback Channel) ─────────────────────────
+function handleIncomingData() {
+  console.log('偵測到 Hash 變化，準備打印...');
+  const data = parseHashData();
+  if (!data || !data.text) return;
+  if (data.ts && data.ts === lastPrintTs) return; // already processed
+  receivePrintData(data);
+  // Clear hash after reading (prevents re-trigger on visibility change)
+  // Use replaceState to avoid adding history entry
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+
+window.addEventListener('hashchange', () => {
+  log('hashchange triggered', 'info');
+  handleIncomingData();
+});
+
 // ── Manual Print Button ───────────────────────────────────────
 btnManual.addEventListener('click', async () => {
   if (!pendingData) { log('無待印資料', 'warn'); return; }
@@ -912,13 +1036,11 @@ btnManual.addEventListener('click', async () => {
 });
 
 btnTest.addEventListener('click', async () => {
-  log('收到 POS 遠端觸發列印', 'info');
   if (!isConnected || !bleChar) {
     log('測試打印失敗：請先連線打印機', 'err');
     return;
   }
-  const remoteTspl = testTsplEl ? String(testTsplEl.value || '') : '';
-  const testTspl = remoteTspl || [
+  const testTspl = [
     'SET TEAR ON',
     'SIZE ' + TSPL_ROLL_WIDTH_MM + ' mm, 30 mm',
     'GAP 0 mm, 0 mm',
@@ -944,14 +1066,17 @@ btnClearLog.addEventListener('click', () => { logBox.innerHTML = ''; });
 
 // ── Init ──────────────────────────────────────────────────────
 function init() {
-  window.name = "Gprinter_Handler";
+  try {
+    window.name = 'Gprinter_Handler';
+  } catch (e) { /* 略 */ }
   log('Printer Bridge 就緒', 'ok');
-  log('收到 POS 資料後請按「手動列印最新資料」送印（不自動列印、不跳回 POS）。', 'info');
+  log('PRINT_ORDER 會自動送印；PRINT_JOB／Hash 仍可依佇列手動列印。', 'info');
 
   // 主動通知所有可能的 POS 視窗：橋接頁已就緒
   // 這樣即使 POS 重整後 printerWin 引用失效，一旦 POS 再送 PING 就能立即拿到引用
   _broadcastReadyToOpener_();
 
+  handleIncomingData();
   tryAutoReconnectBle_().catch(function () { /* 略 */ });
 }
 
