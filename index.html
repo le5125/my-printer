@@ -1128,16 +1128,33 @@ function tsplMinimalRoll_() {
 }
 
 /**
+ * 熱感機內文走 CP950／Big5：emoji、部分符號無法編碼會丟失或斷行，送印前移除／替換。
+ * （商品名若含 🌶️ 等，列印會自動略過圖示，畫面預覽仍可顯示。）
+ */
+function sanitizeThermalTextForBig5_(s) {
+  let t = String(s == null ? '' : s);
+  try {
+    t = t.replace(/\p{Extended_Pictographic}/gu, '');
+  } catch (e) {
+    t = t.replace(/[\uD83C-\uDBFF][\uDC00-\uDFFF]/g, '').replace(/[\u2600-\u27BF]/g, '');
+  }
+  t = t.replace(/[\uFE00-\uFE0F]/g, '').replace(/\u200D/g, '');
+  t = t.replace(/\u27A1/g, '>');
+  return t;
+}
+
+/**
  * 熱感捲紙：DIRECTION 0,0（由上往下）；內文 TST24.BF2 + 送印 CP950/Big5。
  * 原稿若已含行首 PRINT n（POS 標籤模板等）則原樣送出。
  */
 function ensureTsplForManualPrint_(raw) {
-  const s = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  let s = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   if (!s.trim()) return '\n';
   if (isProbablyTsplJob_(s)) {
     const withCp = ensureTsplCodepage950_(s);
     return withCp.endsWith('\n') ? withCp : withCp + '\n';
   }
+  s = sanitizeThermalTextForBig5_(s);
 
   const baseFc = getActiveFontCfg_();
 
@@ -1207,39 +1224,24 @@ function ensureTsplForManualPrint_(raw) {
   return blocks.join('\n') + '\n';
 }
 
-/** POS PRINT_ORDER：將 JSON 訂單轉成收據純文字（再經 ensureTsplForManualPrint_ → sendRawText 分段送 BLE） */
+/** 相容舊呼叫：與 buildPrintTextFromBackendOrder_ 相同邏輯（明細樣版＋Telegram 式品項） */
 function buildPrintText(order) {
   if (!order) return '\n';
-  const oid = order.id != null ? order.id : (order.orderId != null ? order.orderId : '');
-  const t = order.time != null ? order.time : Date.now();
-  let txt = '';
-
-  txt += '訂單 #' + oid + '\n';
-  txt += '時間: ' + new Date(t).toLocaleString() + '\n';
-  txt += '----------------\n';
-
-  const items = Array.isArray(order.items) ? order.items : [];
-  items.forEach(function (i) {
-    const q = i.qty != null ? i.qty : (i.quantity != null ? i.quantity : 0);
-    txt += String(i.name || '') + ' x' + q;
-
-    const opts = i.options && i.options.length > 0 ? i.options : [];
-    opts.forEach(function (opt) {
-      const line = typeof opt === 'string' ? opt : (opt && opt.name != null ? String(opt.name) : String(opt));
-      txt += '\n  + ' + line;
-    });
-
-    if (i.note) {
-      txt += '\n  * ' + i.note;
-    }
-
-    txt += '\n';
-  });
-
-  txt += '----------------\n';
-  txt += '總計: $' + (order.total != null ? order.total : '') + '\n\n\n';
-
-  return txt;
+  const ord = {
+    orderId   : order.orderId != null ? order.orderId : (order.id != null ? order.id : ''),
+    shortId   : order.shortId || (order.orderId ? String(order.orderId).slice(-3) : ''),
+    timestamp : order.time != null ? order.time : Date.now(),
+    pickupTime: order.pickupTime || '',
+    phone     : order.phone || '',
+    remark    : order.remark || order.notes || '',
+    total     : order.total != null ? order.total : 0,
+    items     : Array.isArray(order.items) ? order.items : []
+  };
+  const prev = _activeTsplFontProfile_;
+  setActiveTsplFontProfile_('detail');
+  const out = renderDetailFromOrder_(ord);
+  setActiveTsplFontProfile_(prev);
+  return out;
 }
 
 // ── Print History（最近 50 筆，可再次列印）──────────────────
@@ -2061,7 +2063,27 @@ function _formatOrderTime_(timestamp) {
   };
 }
 
-/** {品項} 區：與 pos後端 buildOrderTelegramMessage 商品明細相同（主餐名排序、全形括號加價、➜ 選項行） */
+/** 從「品名全形／半形括號」拆出主名與加料字串（試算表欄位可能用半形 (...)） */
+function _splitItemBaseAndAddonInner_(fullName) {
+  const s = String(fullName || '').trim();
+  let m = s.match(/^(.+?)（(.+)）$/);
+  if (m) return { base: m[1].trim(), inner: m[2] };
+  m = s.match(/^(.+?)\(([\s\S]+)\)$/);
+  if (m) return { base: m[1].trim(), inner: m[2] };
+  return { base: s, inner: '' };
+}
+function _addonListFromInner_(inner) {
+  if (!inner) return [];
+  return inner.split('、').map(function (entry) {
+    const optMatch = String(entry).trim().match(/^(.+?)\s*\(\+?(\d+)\)$/);
+    if (optMatch) {
+      return { name: optMatch[1].trim(), price: parseInt(optMatch[2], 10) || 0 };
+    }
+    return { name: String(entry).trim(), price: 0 };
+  });
+}
+
+/** {品項} 區：與 pos後端 buildOrderTelegramMessage 相同（主餐名排序、➜ 選項行；送印時 ➜ 會改成 > 以利 Big5） */
 function _itemsBlock_(items) {
   if (!Array.isArray(items)) return '';
   const lines = [];
@@ -2069,18 +2091,16 @@ function _itemsBlock_(items) {
     const fullName = _orderItemDisplayNameForPrint_(item);
     const quantity = parseInt(item.quantity != null ? item.quantity : (item.qty || 1), 10);
     const basePrice = parseInt(item.price != null ? item.price : 0, 10);
-    const nameMatch = fullName.match(/^(.+?)（(.+)）$/);
-    let baseName = fullName;
-    let addons = [];
-    if (nameMatch) {
-      baseName = nameMatch[1].trim();
-      const addonString = nameMatch[2];
-      addons = addonString.split('、').map(function (entry) {
-        const optMatch = entry.match(/^(.+?)\s*\(\+?(\d+)\)$/);
-        if (optMatch) {
-          return { name: optMatch[1].trim(), price: parseInt(optMatch[2], 10) };
-        }
-        return { name: entry.trim(), price: 0 };
+    const sp = _splitItemBaseAndAddonInner_(fullName);
+    let baseName = sp.base;
+    let addons = _addonListFromInner_(sp.inner);
+    if (!addons.length && item.options && item.options.length) {
+      baseName = String(item.name != null ? item.name : '').replace(/^'/, '').trim() || baseName;
+      addons = item.options.map(function (o) {
+        return {
+          name: typeof o === 'string' ? o : (o && o.name ? String(o.name) : ''),
+          price: typeof o === 'object' && o ? (parseInt(o.price, 10) || 0) : 0
+        };
       });
     }
     const totalAddon = addons.reduce(function (sum, a) { return sum + (a.price * quantity); }, 0);
@@ -2211,11 +2231,13 @@ function wrapTextToDotWidth_(text, xMul, maxDots) {
   return lines;
 }
 
-/** 與 pos後端 buildOrderTelegramMessage 相同：主餐名排序鍵 */
+/** 與 pos後端 buildOrderTelegramMessage 相同：主餐名排序鍵（全形／半形括號皆視為加料後綴） */
 function _orderItemMainNameForSort_(it) {
   if (!it) return '';
   const raw = String(it.name != null ? it.name : '').replace(/^'/, '').trim();
-  const m = raw.match(/^([\s\S]+?)（[\s\S]*）$/);
+  let m = raw.match(/^([\s\S]+?)（[\s\S]*）$/);
+  if (m) return m[1].trim();
+  m = raw.match(/^([\s\S]+?)\([\s\S]*\)$/);
   if (m) return m[1].trim();
   return raw;
 }
