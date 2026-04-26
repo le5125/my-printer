@@ -253,6 +253,26 @@
     width: 70px;
     text-align: right;
   }
+
+  input[type="text"].url-input {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.7rem;
+    padding: 6px 8px;
+    box-sizing: border-box;
+  }
+
+  .poll-status {
+    margin-top: 8px;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .poll-status.ok { color: var(--success); }
+  .poll-status.err { color: var(--danger); }
 </style>
 <!-- 僅 codepage cpexcel（CP950）；避免與 encoding-japanese 雙庫分支 -->
 <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js" crossorigin="anonymous"></script>
@@ -309,6 +329,23 @@
   </div>
 </div>
 
+<!-- Backend Polling Card -->
+<div class="card">
+  <div class="card-title">[ 05 ] 後端輪詢（自動抓單列印）</div>
+  <div style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;">
+    填入 GAS Web App URL，啟用後每 3 秒自動抓今日待出餐訂單並列印。
+  </div>
+  <input type="text" class="url-input" id="cfg-backend-url"
+         placeholder="https://script.google.com/macros/s/.../exec">
+  <div style="display:flex;gap:6px;margin-top:8px;">
+    <button class="btn btn-primary" id="btn-poll-start" style="margin-bottom:0;">啟用輪詢</button>
+    <button class="btn btn-danger"  id="btn-poll-stop"  style="margin-bottom:0;display:none;">停止輪詢</button>
+  </div>
+  <div id="poll-status" class="poll-status">尚未啟動</div>
+  <button class="btn btn-secondary" id="btn-poll-clear-history"
+          style="margin-top:8px;font-size:0.72rem;padding:8px;">清除已列印紀錄（重印今日全部）</button>
+</div>
+
 <!-- Log Card -->
 <div class="card">
   <div class="card-title">[ 04 ] 系統紀錄</div>
@@ -359,6 +396,11 @@ const logBox      = document.getElementById('log-box');
 const ackFlash    = document.getElementById('ack-flash');
 const cfgDelay    = document.getElementById('cfg-chunk-delay');
 const btnClearLog = document.getElementById('btn-clear-log');
+const cfgBackendUrl    = document.getElementById('cfg-backend-url');
+const btnPollStart     = document.getElementById('btn-poll-start');
+const btnPollStop      = document.getElementById('btn-poll-stop');
+const pollStatusEl     = document.getElementById('poll-status');
+const btnPollClearHist = document.getElementById('btn-poll-clear-history');
 
 // ── Logging ──────────────────────────────────────────────────
 function log(msg, type = '') {
@@ -453,6 +495,12 @@ async function connectGattFromDevice_(device) {
     } catch (eAuto) {
       log('自動送印: ' + (eAuto && eAuto.message ? eAuto.message : String(eAuto)), 'warn');
     }
+  }
+
+  if (typeof pollTimer !== 'undefined' && pollTimer) {
+    setTimeout(function () {
+      pollPendingOrdersOnce_().catch(function () { /* 略 */ });
+    }, 300);
   }
 }
 
@@ -1064,13 +1112,196 @@ btnTest.addEventListener('click', async () => {
 // ── Clear Log ─────────────────────────────────────────────────
 btnClearLog.addEventListener('click', () => { logBox.innerHTML = ''; });
 
+// ── Backend Polling ──────────────────────────────────────────
+const LS_BACKEND_URL       = 'gp2270t_backend_url';
+const LS_PRINTED_ORDER_IDS = 'gp2270t_printed_order_ids_v1';
+const LS_POLL_ENABLED      = 'gp2270t_poll_enabled';
+const POLL_INTERVAL_MS     = 3000;
+
+let pollTimer    = null;
+let pollInFlight = false;
+let pollProcessing = false;
+
+function setPollStatus_(text, type) {
+  if (!pollStatusEl) return;
+  pollStatusEl.textContent = text || '';
+  pollStatusEl.className = 'poll-status' + (type ? ' ' + type : '');
+}
+
+function getPrintedOrderIds_() {
+  try {
+    const raw = localStorage.getItem(LS_PRINTED_ORDER_IDS);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+function savePrintedOrderIds_(ids) {
+  try {
+    while (ids.length > 500) ids.shift();
+    localStorage.setItem(LS_PRINTED_ORDER_IDS, JSON.stringify(ids));
+  } catch (e) { /* 略 */ }
+}
+function isOrderPrinted_(id) {
+  return id && getPrintedOrderIds_().indexOf(String(id)) !== -1;
+}
+function addPrintedOrderId_(id) {
+  if (!id) return;
+  const ids = getPrintedOrderIds_();
+  if (ids.indexOf(String(id)) !== -1) return;
+  ids.push(String(id));
+  savePrintedOrderIds_(ids);
+}
+
+function buildPrintTextFromBackendOrder_(ord) {
+  const ts = (function () {
+    if (!ord.timestamp) return Date.now();
+    const d = new Date(ord.timestamp);
+    return isNaN(d.getTime()) ? Date.now() : d.getTime();
+  })();
+  const items = (ord.items || []).map(function (it) {
+    return {
+      name: it.name,
+      qty: it.quantity != null ? it.quantity : (it.qty || 0),
+      options: it.options || it.addons || [],
+      note: it.note || ''
+    };
+  });
+  return buildPrintText({
+    id: ord.shortId || ord.orderId || '',
+    time: ts,
+    items: items,
+    total: ord.total
+  });
+}
+
+async function pollPendingOrdersOnce_() {
+  if (pollInFlight || pollProcessing) return;
+  const url = (cfgBackendUrl && cfgBackendUrl.value || '').trim();
+  if (!url) {
+    setPollStatus_('未設定 Web App URL', 'err');
+    return;
+  }
+  pollInFlight = true;
+  try {
+    const sep = url.indexOf('?') >= 0 ? '&' : '?';
+    const fullUrl = url + sep + 'action=getPendingOrders&_=' + Date.now();
+    const res = await fetch(fullUrl, { method: 'GET', cache: 'no-store' });
+    if (!res.ok) {
+      setPollStatus_('輪詢 HTTP ' + res.status, 'err');
+      return;
+    }
+    const data = await res.json();
+    if (!data || data.result !== 'success' || !Array.isArray(data.orders)) {
+      setPollStatus_('回應格式異常', 'err');
+      return;
+    }
+    setPollStatus_('輪詢中（最後 ' + new Date().toTimeString().slice(0,8)
+      + '）／待出餐 ' + data.orders.length + ' 筆', 'ok');
+    await processBackendOrders_(data.orders);
+  } catch (e) {
+    setPollStatus_('輪詢例外：' + (e && e.message ? e.message : e), 'err');
+  } finally {
+    pollInFlight = false;
+  }
+}
+
+async function processBackendOrders_(orders) {
+  if (pollProcessing) return;
+  pollProcessing = true;
+  try {
+    for (let i = 0; i < orders.length; i++) {
+      const ord = orders[i];
+      const oid = (ord.orderId || '').toString();
+      if (!oid) continue;
+      if (isOrderPrinted_(oid)) continue;
+
+      if (!isConnected || !bleChar) {
+        log('未連線 BLE，' + oid + ' 暫不列印', 'warn');
+        return;
+      }
+      if (printLock) {
+        log('列印鎖定中，' + oid + ' 稍後再試', 'warn');
+        return;
+      }
+
+      const text = buildPrintTextFromBackendOrder_(ord);
+      pendingData = { text: text, backUrl: '', ts: Date.now() };
+      updateQueueDisplay(pendingData);
+      log('輪詢取得新訂單 ' + oid + '，自動列印', 'info');
+
+      try {
+        await autoPrint(pendingData);
+        addPrintedOrderId_(oid);
+      } catch (e) {
+        log('列印 ' + oid + ' 失敗: ' + (e && e.message ? e.message : e), 'err');
+        return;
+      }
+    }
+  } finally {
+    pollProcessing = false;
+  }
+}
+
+function startPolling_() {
+  const url = (cfgBackendUrl && cfgBackendUrl.value || '').trim();
+  if (!url) {
+    setPollStatus_('請先填入 Web App URL', 'err');
+    return;
+  }
+  try { localStorage.setItem(LS_BACKEND_URL, url); } catch (e) { /* 略 */ }
+  try { localStorage.setItem(LS_POLL_ENABLED, '1'); } catch (e) { /* 略 */ }
+
+  if (pollTimer) clearInterval(pollTimer);
+  pollPendingOrdersOnce_();
+  pollTimer = setInterval(pollPendingOrdersOnce_, POLL_INTERVAL_MS);
+
+  if (btnPollStart) btnPollStart.style.display = 'none';
+  if (btnPollStop)  btnPollStop.style.display  = '';
+  log('已啟用後端輪詢（' + POLL_INTERVAL_MS + ' ms）', 'ok');
+}
+
+function stopPolling_() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = null;
+  try { localStorage.setItem(LS_POLL_ENABLED, '0'); } catch (e) { /* 略 */ }
+  if (btnPollStart) btnPollStart.style.display = '';
+  if (btnPollStop)  btnPollStop.style.display  = 'none';
+  setPollStatus_('已停止', '');
+  log('後端輪詢已停止', 'info');
+}
+
+function clearPrintedHistory_() {
+  try { localStorage.removeItem(LS_PRINTED_ORDER_IDS); } catch (e) { /* 略 */ }
+  log('已清除已列印紀錄（下一輪會重印今日全部待出餐）', 'warn');
+}
+
+if (btnPollStart) btnPollStart.addEventListener('click', startPolling_);
+if (btnPollStop)  btnPollStop.addEventListener('click', stopPolling_);
+if (btnPollClearHist) btnPollClearHist.addEventListener('click', clearPrintedHistory_);
+
+function loadBackendUrlFromStorage_() {
+  try {
+    const saved = localStorage.getItem(LS_BACKEND_URL);
+    if (saved && cfgBackendUrl) cfgBackendUrl.value = saved;
+  } catch (e) { /* 略 */ }
+}
+
+function maybeAutoStartPolling_() {
+  try {
+    const enabled = localStorage.getItem(LS_POLL_ENABLED) === '1';
+    const url = cfgBackendUrl && cfgBackendUrl.value;
+    if (enabled && url) startPolling_();
+  } catch (e) { /* 略 */ }
+}
+
 // ── Init ──────────────────────────────────────────────────────
 function init() {
   try {
     window.name = 'Gprinter_Handler';
   } catch (e) { /* 略 */ }
   log('Printer Bridge 就緒', 'ok');
-  log('PRINT_ORDER 會自動送印；PRINT_JOB／Hash 仍可依佇列手動列印。', 'info');
+  log('輪詢方案：填入 GAS Web App URL → 啟用輪詢 → 連線藍牙後自動抓今日待出餐單列印。', 'info');
 
   // 主動通知所有可能的 POS 視窗：橋接頁已就緒
   // 這樣即使 POS 重整後 printerWin 引用失效，一旦 POS 再送 PING 就能立即拿到引用
@@ -1078,6 +1309,9 @@ function init() {
 
   handleIncomingData();
   tryAutoReconnectBle_().catch(function () { /* 略 */ });
+
+  loadBackendUrlFromStorage_();
+  maybeAutoStartPolling_();
 }
 
 /**
