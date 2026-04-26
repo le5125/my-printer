@@ -956,6 +956,12 @@ const TSPL_DIRECTION_MODE = 0;
 const TSPL_LABEL_JOB_SEPARATOR = '\n<<<__POS_LABEL_BREAK__>>>\n';
 /** 203dpi 熱感機常見：約 8 dots/mm */
 const TSPL_DOTS_PER_MM = 8;
+/** 送印用 SIZE「高度」= POS 設定高度 + 此值(mm)。40×30 實體貼紙可試 1→31mm 或改 2→32mm。 */
+const TSPL_LABEL_SIZE_HEIGHT_EXTRA_MM = 1;
+/** 標籤 TSPL 區塊開頭：走紙／撕線微調（TSC 常見寫法 mm） */
+const TSPL_LABEL_BLOCK_OFFSET_MM = 2;
+/** PRINT 1,1 後額外走紙（dots）；撕線仍碰不到縫隙可略為加大 */
+const TSPL_LABEL_FEED_AFTER_PRINT = 10;
 // 目前列印作業要套用哪一份字體設定（'detail' / 'label'）。
 // 由呼叫 ensureTsplForManualPrint_ 之前的入口設定（例如 manual reprint、auto print、polling）。
 let _activeTsplFontProfile_ = 'detail';
@@ -972,8 +978,10 @@ function getActiveFontCfg_() {
 }
 
 /**
- * 單張「模切／有縫隙」標籤：SIZE 寬高固定為紙張尺寸，GAP 為縫隙；每張結尾 PRINT 1,1 才會在縫隙處停。
- * （舊版把多張標籤當成一長段捲紙、高度用內容推算，會一直走紙停不下來。）
+ * 單張「模切／有縫隙」標籤：
+ * - SIZE 高度略大於設定值（TSPL_LABEL_SIZE_HEIGHT_EXTRA_MM），有助出紙到撕線位置。
+ * - 開頭 OFFSET、標準 GAP「縫隙, 0」、PRINT 後 FEED（可依常數微調）。
+ * - 文字可印區域仍以「設定高度 heightMm」計算，避免畫到實體貼紙外的縫隙。
  */
 function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, gapOffsetMm, yStartDots) {
   const x0 = 10;
@@ -981,26 +989,30 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
   if (isNaN(y0) || y0 < 0) y0 = 20;
   if (y0 > 200) y0 = 200;
   const font = TSPL_FONT_ZH;
-  const maxY = Math.floor(Number(heightMm) * TSPL_DOTS_PER_MM) - 4;
+  const hPhys = Number(heightMm);
+  const maxY = Math.floor(hPhys * TSPL_DOTS_PER_MM) - 4;
   const g = (Number(gapMm) > 0 && Number(gapMm) <= 25) ? Number(gapMm) : 0;
-  let go = Number(gapOffsetMm);
-  if (!(go >= 0) || isNaN(go)) go = 0;
-  if (go > 10) go = 10;
+  const gapSecond = 0;
+  let sizeH = hPhys + TSPL_LABEL_SIZE_HEIGHT_EXTRA_MM;
+  if (sizeH < 16) sizeH = 16;
+  if (sizeH > 3200) sizeH = 3200;
   const parts = [];
   if (g > 0) {
     parts.push('SET TEAR OFF');
-    parts.push('SIZE ' + widthMm + ' mm, ' + heightMm + ' mm');
-    parts.push('GAP ' + g + ' mm, ' + go + ' mm');
+    parts.push('OFFSET ' + TSPL_LABEL_BLOCK_OFFSET_MM + ' mm');
+    parts.push('SIZE ' + widthMm + ' mm, ' + sizeH + ' mm');
+    parts.push('GAP ' + g + ' mm, ' + gapSecond + ' mm');
   } else {
     parts.push('SET TEAR ON');
-    parts.push('SIZE ' + widthMm + ' mm, ' + heightMm + ' mm');
-    parts.push('GAP 0 mm, ' + go + ' mm');
+    parts.push('OFFSET ' + TSPL_LABEL_BLOCK_OFFSET_MM + ' mm');
+    parts.push('SIZE ' + widthMm + ' mm, ' + sizeH + ' mm');
+    parts.push('GAP 0 mm, 0 mm');
   }
   parts.push('CLS');
   parts.push('CODEPAGE 950');
   parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
   parts.push('REFERENCE 0,0');
-  parts.push('OFFSET 0');
+  /* gapOffsetMm：POS 可存；此處 GAP 第二參數固定 0 mm（GP-2270T 常見標籤縫隙寫法） */
   let y = y0;
   const n = styledLines.length;
   for (let k = 0; k < n; k++) {
@@ -1029,6 +1041,7 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
     y += lineHeight;
   }
   parts.push('PRINT 1,1');
+  parts.push('FEED ' + TSPL_LABEL_FEED_AFTER_PRINT);
   return parts.join('\n');
 }
 
