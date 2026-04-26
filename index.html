@@ -967,18 +967,33 @@ function getActiveFontCfg_() {
     : (all.detail || { size: 'normal', bold: false });
 }
 
-function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
+/**
+ * 用 styled lines（每行 segments）建出 TSPL 區塊：
+ * - 每段 segment 用自己的放大倍數 + 粗體
+ * - 一行的「行高」取該行所有段落 yMul 最大值
+ * - 各段水平 x 累加（用 estimateSegmentDots_ 推進）
+ */
+function buildRollTsplBlockFromStyled_(styledLines, startIdx, count, widthMm) {
   const x0 = 10;
-  const font = TSPL_FONT_ZH;
-  const n = count;
-  // 依目前 profile 取 detail / label 字體
-  const fc = getActiveFontCfg_();
-  const mul = fontSizeToTsplMul_(fc.size); // 1 / 2 / 3
-  // 行距與起點隨字體大小調整：normal 40、large 64、xlarge 88
-  const stepY = 24 + mul * 16;
   const y0 = 20;
   const tailDots = 100;
-  const totalDots = y0 + (n > 0 ? (n - 1) * stepY : 0) + tailDots;
+  const font = TSPL_FONT_ZH;
+  const n = count;
+
+  // 計算每行高度（取該行最大 yMul；空行給最低值 1）
+  const lineHeights = [];
+  for (let k = 0; k < n; k++) {
+    const segs = styledLines[startIdx + k] || [];
+    let maxMul = 1;
+    for (let i = 0; i < segs.length; i++) {
+      const mul = fontSizeToTsplMul_(segs[i].size);
+      if (mul > maxMul) maxMul = mul;
+    }
+    lineHeights.push(24 * maxMul + 8); // 24 dot 字 + 8 dot 行距
+  }
+  let totalDots = y0;
+  for (let k = 0; k < n; k++) totalDots += lineHeights[k];
+  totalDots += tailDots;
   const hMm = Math.min(3200, Math.max(16, Math.ceil(totalDots / 8)));
 
   const parts = [];
@@ -990,19 +1005,40 @@ function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
   parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
   parts.push('REFERENCE 0,0');
   parts.push('OFFSET 0');
+
+  let y = y0;
   for (let k = 0; k < n; k++) {
-    const line = lines[startIdx + k];
-    let esc = String(line).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    if (esc.length > 120) esc = esc.slice(0, 120) + '...';
-    const y = y0 + k * stepY;
-    // 粗體：在同 y 微偏移再印一次造成「加粗」效果（GP-2270T 內建字型本身無粗體屬性）
-    parts.push('TEXT ' + x0 + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
-    if (fc.bold) {
-      parts.push('TEXT ' + (x0 + 1) + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
+    const segs = styledLines[startIdx + k] || [];
+    let xCur = x0;
+    for (let i = 0; i < segs.length; i++) {
+      const s = segs[i];
+      let txt = String(s.text || '');
+      if (!txt) continue;
+      let esc = txt.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      if (esc.length > 120) esc = esc.slice(0, 120) + '...';
+      const mul = fontSizeToTsplMul_(s.size);
+      parts.push('TEXT ' + xCur + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
+      if (s.bold) {
+        // GP-2270T 內建中文字型沒粗體屬性 → 同位置 +1px 重印一次模擬粗體
+        parts.push('TEXT ' + (xCur + 1) + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
+      }
+      xCur += estimateSegmentDots_(txt, mul);
     }
+    y += lineHeights[k];
   }
   parts.push('PRINT 1,1');
   return parts.join('\n');
+}
+
+/** 舊介面相容：純文字行（無樣式 token） */
+function buildRollTsplBlock_(lines, startIdx, count, widthMm) {
+  const fc = getActiveFontCfg_();
+  const styled = [];
+  for (let k = 0; k < count; k++) {
+    const line = String(lines[startIdx + k] || '');
+    styled.push([{ text: line, size: fc.size, bold: fc.bold }]);
+  }
+  return buildRollTsplBlockFromStyled_(styled, 0, count, widthMm);
 }
 
 function tsplMinimalRoll_() {
@@ -1032,29 +1068,36 @@ function ensureTsplForManualPrint_(raw) {
     return withCp.endsWith('\n') ? withCp : withCp + '\n';
   }
 
-  const lines = s.split('\n').map(function (ln) { return ln.replace(/\r$/, ''); });
-  const nonempty = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim()) nonempty.push(lines[i]);
-  }
-  if (!nonempty.length) return tsplMinimalRoll_();
-
-  // 依目前作業 profile 決定寬度：明細用 58mm 捲紙，標籤用使用者設定的標籤紙寬度
+  // 依目前作業 profile 決定寬度與「base 字體」
   let widthMm = TSPL_ROLL_WIDTH_MM;
   if (_activeTsplFontProfile_ === 'label') {
     const sz = getLabelSize_();
     widthMm = Number(sz.width) > 0 ? Number(sz.width) : TSPL_ROLL_WIDTH_MM;
   }
+  const baseFc = getActiveFontCfg_();
+
+  // ⬇ 解析樣式 token：把 raw text 變成 [[{text,size,bold}, ...], ...]（每行）
+  const styledAll = parseStyledLines_(s, baseFc);
+  // 過濾完全沒有實際文字的空行（避免印一堆空白）
+  const styledLines = styledAll.filter(function (segs) {
+    if (!segs || !segs.length) return false;
+    for (let i = 0; i < segs.length; i++) {
+      if (String(segs[i].text || '').trim()) return true;
+    }
+    return false;
+  });
+
+  if (!styledLines.length) return tsplMinimalRoll_();
 
   const maxLinesPerBlock = 48;
   const blocks = [];
   let idx = 0;
-  while (idx < nonempty.length) {
-    const take = Math.min(maxLinesPerBlock, nonempty.length - idx);
-    blocks.push(buildRollTsplBlock_(nonempty, idx, take, widthMm));
+  while (idx < styledLines.length) {
+    const take = Math.min(maxLinesPerBlock, styledLines.length - idx);
+    blocks.push(buildRollTsplBlockFromStyled_(styledLines, idx, take, widthMm));
     idx += take;
   }
-  log('純文字已包成 TSPL（profile=' + _activeTsplFontProfile_ + '；' + blocks.length + ' 段；寬 ' + widthMm + ' mm）', 'info');
+  log('已包成 TSPL（profile=' + _activeTsplFontProfile_ + '；' + blocks.length + ' 段；寬 ' + widthMm + ' mm；行內樣式生效）', 'info');
   return blocks.join('\n') + '\n';
 }
 
@@ -1774,16 +1817,16 @@ function addPrintedOrderId_(id) {
  * `{品項}` 會自動展開為多行的「品名 x數量／選項／備註」區塊。
  */
 const DEFAULT_DETAIL_TEMPLATE = [
-  '== {店名} ==',
+  '{大}{粗}== {店名} =={重置}',
   '訂單 #{訂單編號}',
   '時間: {時間}',
-  '取餐時間: {取餐時間}',
+  '{粗}取餐時間: {取餐時間}{細}',
   '電話: {電話}',
   '備註: {備註}',
   '----------------',
   '{品項}',
   '----------------',
-  '總計: ${總計}',
+  '{粗}總計: ${總計}{細}',
   '謝謝光臨！',
   '',
   '',
@@ -1795,9 +1838,9 @@ const DEFAULT_DETAIL_TEMPLATE = [
  * 支援：{店名} {品名} {數量} {選項} {備註} {訂單編號} {訂單短碼} {時間} {日期}
  */
 const DEFAULT_LABEL_TEMPLATE = [
-  '{店名}',
+  '{粗}{店名}{細}',
   '#{訂單編號}  {日期}',
-  '{品名} x{數量}',
+  '{大}{粗}{品名}{重置} x{數量}',
   '{選項}',
   '{備註}',
   ''
@@ -1913,11 +1956,89 @@ function _itemsBlock_(items) {
   }).join('\n');
 }
 
+/**
+ * 行內樣式 token：可在同一行任何地方切換字體大小／粗細。
+ * 例如：{大}{粗}{店名}{細}{中}訂單 #{訂單編號}
+ *   {大}{中}{小}{特大}{粗}{細}{重置}
+ *   英文 alias：{big}{normal}{small}{xlarge}{bold}{thin}{reset}
+ */
+const PRINT_STYLE_TOKENS = {
+  '大'    : { size: 'large'  },
+  '中'    : { size: 'normal' },
+  '小'    : { size: 'small'  },
+  '特大'  : { size: 'xlarge' },
+  '粗'    : { bold: true  },
+  '細'    : { bold: false },
+  '重置'  : { size: 'normal', bold: false },
+  'big'   : { size: 'large'  },
+  'normal': { size: 'normal' },
+  'small' : { size: 'small'  },
+  'xlarge': { size: 'xlarge' },
+  'bold'  : { bold: true  },
+  'thin'  : { bold: false },
+  'reset' : { size: 'normal', bold: false }
+};
+
+function _isStyleToken_(key) {
+  return Object.prototype.hasOwnProperty.call(PRINT_STYLE_TOKENS, key);
+}
+
 function _renderTemplate_(tpl, map) {
   return String(tpl == null ? '' : tpl).replace(/\{([^}]+)\}/g, function (m, k) {
     const key = String(k).trim();
-    return map[key] != null ? String(map[key]) : '';
+    if (map[key] != null) return String(map[key]);
+    if (_isStyleToken_(key)) return m; // 樣式 token 保留原樣，留給 TSPL 端處理
+    return '';
   });
+}
+
+/**
+ * 把純文字（含 {大}{粗}…）解析成「行陣列」，每行 [{ text, size, bold }]。
+ */
+function parseStyledLines_(rawText, baseFc) {
+  const baseSize = (baseFc && baseFc.size) || 'normal';
+  const baseBold = !!(baseFc && baseFc.bold);
+  const lines = String(rawText == null ? '' : rawText)
+    .replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const out = [];
+  let curSize = baseSize;
+  let curBold = baseBold;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const segs = [];
+    const re = /\{([^}]+)\}/g;
+    let lastIdx = 0;
+    let m;
+    function pushText(t) {
+      if (!t) return;
+      segs.push({ text: t, size: curSize, bold: curBold });
+    }
+    while ((m = re.exec(line)) !== null) {
+      pushText(line.substring(lastIdx, m.index));
+      const tag = String(m[1]).trim();
+      if (_isStyleToken_(tag)) {
+        const t = PRINT_STYLE_TOKENS[tag];
+        if (t.size != null) curSize = t.size;
+        if (t.bold != null) curBold = t.bold;
+      } else {
+        pushText('{' + tag + '}');
+      }
+      lastIdx = re.lastIndex;
+    }
+    pushText(line.substring(lastIdx));
+    out.push(segs);
+  }
+  return out;
+}
+
+/** 估算單一段落的水平像素寬（24-dot 字體：中文 24*xMul，ASCII 12*xMul） */
+function estimateSegmentDots_(text, xMul) {
+  let w = 0;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    w += (code < 0x80) ? 12 : 24;
+  }
+  return w * xMul;
 }
 
 function renderDetailFromOrder_(ord) {
