@@ -3334,6 +3334,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
               if (data.storeName) {
                 try { window.__posPrintStoreName_ = String(data.storeName); } catch (e) { /* 略 */ }
               }
+              try {
+                if (typeof window.__applyPosPrintCacheToPrintSettingsUi_ === 'function') {
+                  window.__applyPosPrintCacheToPrintSettingsUi_();
+                }
+              } catch (eApplyPs) { /* 略 */ }
             }).catch(function () { /* 略 */ });
           }
         } catch (e) { /* 略 */ }
@@ -7450,6 +7455,9 @@ window.__initPrintSettingsUi_ = (function () {
     applyCacheToUi_();
     _setStatus_('已從工作表載入最新樣版 ✓（mode=' + getPosPrintMode_() + '）', 'ok');
   }
+
+  /** 進站預載後把快取套到「打印設定」表單（不必先點分頁） */
+  window.__applyPosPrintCacheToPrintSettingsUi_ = applyCacheToUi_;
 })();
 
 function flushPendingPrinterOrders_() {
@@ -11253,8 +11261,12 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
   const maxDots = Math.max(48, Math.floor(widthMm * TSPL_DOTS_PER_MM) - x0 - marginRight);
   let y = y0;
   const n = styledLines.length;
+  const fcBlank = getActiveFontCfg_();
+  const blankMul = fontSizeToTsplMul_((fcBlank && fcBlank.size) || 'normal');
+  const blankRowH = 24 * blankMul + 8;
   for (let k = 0; k < n; k++) {
     const segs = styledLines[k] || [];
+    const yLineStart = y;
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
       const txt = String(s.text || '');
@@ -11272,6 +11284,7 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
         y += rowH;
       }
     }
+    if (y === yLineStart && y + blankRowH <= maxY) y += blankRowH;
   }
   parts.push('PRINT 1,1');
   parts.push('FEED ' + TSPL_LABEL_FEED_AFTER_PRINT);
