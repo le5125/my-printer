@@ -2873,10 +2873,10 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     </div>
 
     <!-- 密鑰輸入視窗 -->
-    <div id="key-modal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[9999]">
+    <div id="key-modal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[10050]">
       <div class="bg-white p-6 rounded-lg shadow-lg w-11/12 max-w-sm text-center space-y-4">
         <h2 class="text-xl font-bold text-gray-800">請輸入金鑰</h2>
-        <input id="input-key" type="text" placeholder="輸入金鑰"
+        <input id="input-key" type="text" placeholder="請輸入授權金鑰"
           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
         <button id="save-key-btn" class="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600">
           確認
@@ -2937,29 +2937,95 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       const bossId = urlParams.get('id');
       // 有 id 用網址參數；否則稍後由認證碼 B2（僅 GAS 內嵌）補上
       var currentWebAppUrl = bossId ? ('https://script.google.com/macros/s/' + bossId + '/exec') : '';
-      function getClientKey_() {
-        var encoded = 'TVRJek5EVTJOemc1';
-        try {
-          return atob(encoded);
-        } catch (e) {
-          return '';
-        }
+      var posBuiltInClientKeyCache_ = '';
+      function posGetClientKey_() {
+        return String(posBuiltInClientKeyCache_ || '').trim();
       }
-      const clientKey = getClientKey_(); // ✅ 前端內建金鑰（函數組字）
+      async function posFetchBuiltInClientKey_() {
+        if (posGetClientKey_()) return true;
+        if (!currentWebAppUrl) return false;
+        try {
+          var u = String(currentWebAppUrl).trim().replace(/\?+$/, '');
+          var sep = u.indexOf('?') >= 0 ? '&' : '?';
+          var url = u + sep + 'action=getBuiltInClientKey&_=' + Date.now();
+          var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
+          var text = await res.text();
+          var data = text ? JSON.parse(text) : null;
+          if (data && data.result === 'success' && data.clientKey) {
+            posBuiltInClientKeyCache_ = String(data.clientKey).trim();
+            return !!posGetClientKey_();
+          }
+        } catch (e) {
+          console.error('[POS] getBuiltInClientKey 失敗', e);
+        }
+        return false;
+      }
+
+      function posKeyMatchesBuiltIn_(k) {
+        return String(k || '').trim() === posGetClientKey_();
+      }
 
       /** @returns {Promise<{ok:boolean, reason?: string}>} */
       async function posVerifyClientKeyOrFail_() {
         if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
+        var ck = posGetClientKey_();
+        if (!ck) return { ok: false, reason: 'no_client_key' };
         try {
-          var url = currentWebAppUrl + '?action=checkClientKey&clientKey=' + encodeURIComponent(clientKey) + '&_=' + Date.now();
-          var res = await fetch(url);
-          var data = await res.json();
+          var u = String(currentWebAppUrl).trim().replace(/\?+$/, '');
+          var sep2 = u.indexOf('?') >= 0 ? '&' : '?';
+          var url = u + sep2 + 'action=checkClientKey&clientKey=' + encodeURIComponent(ck) + '&_=' + Date.now();
+          var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
+          var text = await res.text();
+          var data;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch (pe) {
+            console.error('[POS] checkClientKey 回應非 JSON', { url: url, status: res.status, statusText: res.statusText, bodyPreview: (text || '').slice(0, 600), parseError: pe });
+            return { ok: false, reason: 'bad_response', raw: null };
+          }
           if (data && data.result === 'success') return { ok: true };
-          return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden' };
+          console.error('[POS] checkClientKey 未通過', { url: url, status: res.status, response: data, sentClientKeyLen: (ck || '').length });
+          return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
         } catch (err) {
-          console.error('[POS] clientKey 驗證失敗', err);
-          return { ok: false, reason: 'network' };
+          console.error('[POS] clientKey 驗證失敗（完整）', err, err && err.message, err && err.stack);
+          return { ok: false, reason: 'network', raw: null };
         }
+      }
+
+      /** 須補金鑰／可重試：顯示彈窗而非首屏報錯（含核准取消 disabled、到期 expired，可再輸入金鑰由 activateLicenseKey 打勾） */
+      function posLicenseReasonNeedsKeyModal_(reason) {
+        var r = String(reason || '');
+        if (!r) return true;
+        if (r === 'network' || r === 'bad_response') return true;
+        if (r === 'local_key_mismatch' || r === 'key_not_found') return true;
+        if (r === 'forbidden') return true;
+        if (r === 'disabled' || r === 'expired') return true;
+        if (r === 'unbound_key' || r === 'no_expiry' || r === 'invalid_expiry') return true;
+        return false;
+      }
+
+      /** 無法用輸入框排除的硬阻擋（含防盜：已綁其他試算表）；disabled／expired 不在此列 */
+      function posLicenseReasonIsHardStop_(reason) {
+        var hard = {
+          suspended: 1,
+          bound_to_other_sheet: 1,
+          duplicate_key: 1,
+          client_key_mismatch: 1,
+          auth_sheet_not_found: 1,
+          exception: 1
+        };
+        return !!(reason && hard[String(reason)]);
+      }
+
+      function posOpenLicenseKeyModal_(placeholderHint) {
+        stopInitialLoaderProgress(true);
+        hideInitialLoaderFade();
+        var km = document.getElementById('key-modal');
+        var inp = document.getElementById('input-key');
+        if (inp && placeholderHint) {
+          try { inp.setAttribute('placeholder', placeholderHint); } catch (e0) { /* 略 */ }
+        }
+        if (km) km.classList.remove('hidden');
       }
 
       /** 本機曆日 YYYY-MM-DD（與訂單 date 字串比對方式一致），用於同日記憶體快取 */
@@ -3167,14 +3233,41 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           showInitialLoaderError('請使用正確網址：需帶 ?id=您的GAS部署ID，或在 Apps Script 內開啟並設定「認證碼」B2。');
           return;
         }
+        var posKeyHydrated = await posFetchBuiltInClientKey_();
+        if (!posKeyHydrated) {
+          showInitialLoaderError('無法從後端取得授權設定，請確認部署網址與權限（須允許匿名存取）。部署後請重新整理。');
+          return;
+        }
         var posClientKeyOk = await posVerifyClientKeyOrFail_();
         if (!posClientKeyOk.ok) {
-          if (posClientKeyOk.reason === 'suspended') {
-            showInitialLoaderError('系統有問題，請聯絡管理中心。');
-          } else {
-            showInitialLoaderError('授權金鑰不一致，請聯絡管理員。');
+          var rr = posClientKeyOk.reason || '';
+          if (rr === 'no_url') {
+            showInitialLoaderError('缺少後端網址，無法驗證授權。');
+            return;
           }
-          return;
+          if (rr === 'suspended') {
+            showInitialLoaderError('系統有問題，請聯絡管理中心。');
+            return;
+          }
+          if (posLicenseReasonIsHardStop_(rr)) {
+            var msg = '授權無法通過，請聯絡管理員。';
+            if (rr === 'bound_to_other_sheet') msg = '此金鑰已綁定其他試算表，無法在本副本使用。';
+            if (rr === 'duplicate_key') msg = '授權資料異常（重複金鑰），請聯絡管理員。';
+            if (rr === 'client_key_mismatch') msg = '前端與後端金鑰版本不一致，請更新頁面或洽管理員。';
+            showInitialLoaderError(msg);
+            return;
+          }
+          if (posLicenseReasonNeedsKeyModal_(rr)) {
+            console.warn('[POS] 授權未完成，改顯示金鑰輸入視窗', rr, posClientKeyOk.raw);
+            var _ph = '請輸入授權金鑰';
+            if (rr === 'disabled') _ph = '授權已取消勾選，請輸入金鑰重新啟用（與管理者提供一致）';
+            if (rr === 'expired') _ph = '授權已到期，請輸入金鑰重新啟用';
+            if (rr === 'key_not_found') _ph = '請輸入金鑰完成啟用';
+            posOpenLicenseKeyModal_(_ph);
+          } else {
+            showInitialLoaderError('授權驗證未通過（' + (rr || 'unknown') + '）。請聯絡管理員。');
+            return;
+          }
         }
 
         // ★ 進站第一時間從「打印設定」工作表抓樣版到記憶體快取（不寫 LS、無需打開面板）
@@ -3288,7 +3381,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
               mode: 'cors',
               credentials: 'omit',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(Object.assign({ key: clientKey }, body))
+              body: JSON.stringify(Object.assign({ key: posGetClientKey_() }, body))
             })
               .then(function (r) {
                 return r.text().then(function (t) {
@@ -3731,16 +3824,17 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       if (!sheetKey) {
         console.log('⚠️ 尚未設定金鑰，顯示輸入視窗');
         keyModal.classList.remove('hidden');
-      } else if (sheetKey !== clientKey) {
-        posSwalAlert('⚠️ 無授權使用，請聯絡管理員', 'warning');
-        document.body.innerHTML = '<div class="text-center mt-10 text-red-500 text-xl">金鑰驗證失敗</div>';
+      } else if (!posKeyMatchesBuiltIn_(sheetKey)) {
+        console.error('[POS] getKey A2 與內建機密不一致', { sheetKeyPreview: (sheetKey || '').slice(0, 24) });
+        posSwalAlert('試算表金鑰與授權不符，請重新輸入正確金鑰。', 'warning');
+        posOpenLicenseKeyModal_('請輸入正確授權金鑰');
       } else {
         console.log('✅ 金鑰驗證通過');
         keyModal.classList.add('hidden'); // ✅ 再保險一次強制隱藏
       }
     } catch (err) {
-      console.error('❌ 金鑰讀取錯誤：', err);
-      showInitialLoaderError('網址有誤,再次輸入後重新整理本頁');
+      console.error('❌ 金鑰讀取錯誤（完整）', err, err && err.message, err && err.stack);
+      posOpenLicenseKeyModal_('無法讀取試算表金鑰，請手動輸入');
     }
   })();
 
@@ -3770,25 +3864,45 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
   saveKeyBtn.addEventListener('click', () => {
     const entered = inputKey.value.trim();
-    if (entered === clientKey) {
-      const saveUrl = `${currentWebAppUrl}?action=saveKey&key=${encodeURIComponent(clientKey)}`;
-      fetch(saveUrl)
-        .then(res => res.json())
-        .then(data => {
-          if (data.result === 'success') {
-            keyModal.classList.add('hidden');
-            posSwalToastSuccess('金鑰已儲存，可開始使用系統');
-          } else {
-            posSwalAlert('⚠️ 儲存失敗，請稍後再試', 'warning');
-          }
-        })
-        .catch(err => {
-          console.error('❌ 儲存錯誤', err);
-          posSwalAlert('⚠️ 網路錯誤，請稍後再試', 'warning');
-        });
-    } else {
+    if (!posKeyMatchesBuiltIn_(entered)) {
       posSwalAlert('金鑰錯誤，請再確認', 'error');
+      return;
     }
+    var base = String(currentWebAppUrl || '').trim().replace(/\?+$/, '');
+    var sep = base.indexOf('?') >= 0 ? '&' : '?';
+    var actUrl = base + sep + 'action=activateLicenseKey&key=' + encodeURIComponent(entered) + '&_=' + Date.now();
+    saveKeyBtn.disabled = true;
+    var _saveBtnHtml = saveKeyBtn.innerHTML;
+    saveKeyBtn.textContent = '驗證中…';
+    fetch(actUrl, { method: 'GET', cache: 'no-store', credentials: 'omit' })
+      .then(function (res) { return res.text(); })
+      .then(function (text) {
+        var d;
+        try {
+          d = text ? JSON.parse(text) : null;
+        } catch (pe) {
+          console.error('[POS] activateLicenseKey 非 JSON', (text || '').slice(0, 500), pe);
+          posSwalAlert('伺服器回應異常，請稍後再試', 'warning');
+          return;
+        }
+        if (d && d.result === 'success') {
+          keyModal.classList.add('hidden');
+          posSwalToastSuccess('授權已寫入並同步授權中心，重新整理中…', 1400);
+          setTimeout(function () { window.location.reload(); }, 500);
+          return;
+        }
+        var m = (d && d.message) ? String(d.message) : '啟用失敗';
+        console.error('[POS] activateLicenseKey 回應', d);
+        posSwalAlert(m, 'warning');
+      })
+      .catch(function (err) {
+        console.error('[POS] activateLicenseKey fetch', err);
+        posSwalAlert('網路錯誤，請稍後再試', 'warning');
+      })
+      .finally(function () {
+        saveKeyBtn.disabled = false;
+        saveKeyBtn.innerHTML = _saveBtnHtml;
+      });
   });
 
         let lastStatsDate = ''; // 上一次查詢的日期
@@ -7279,7 +7393,7 @@ function buildCurrentOrderData() {
     notes: order.notes || '',
     total: order.total,
     source: 'pos',
-    key: clientKey,
+    key: posGetClientKey_(),
     items: sortOrderItemsByMainNameClient_(order.items).map(item => ({
       id: item.id,
       name: item.name,
