@@ -968,7 +968,6 @@
 /* 隱藏 Firefox 的箭頭 */
 .quantity-input[type=number] {
   -moz-appearance: textfield;
-  appearance: textfield;
 }
 
   /* ── KDS 訂單看板（獨立樣式，不覆寫既有 container）── */
@@ -6139,28 +6138,6 @@ function _posCurrentBackendUrl_() {
   return '';
 }
 
-/**
- * 將列印訊息送達橋接頁（優先 window.open 分頁，其次 iframe contentWindow）。
- * 勿只對本頁 window.postMessage，內嵌 iframe 收不到。
- */
-function _posPostMessageToPrinterBridge_(data, targetOrigin) {
-  var to = targetOrigin == null ? '*' : targetOrigin;
-  try {
-    if (printerWindow && !printerWindow.closed) {
-      printerWindow.postMessage(data, to);
-      return;
-    }
-  } catch (e1) { /* 略 */ }
-  try {
-    var ifr = document.getElementById('printer-bridge-iframe');
-    if (ifr && ifr.contentWindow) {
-      ifr.contentWindow.postMessage(data, to);
-      return;
-    }
-  } catch (e2) { /* 略 */ }
-  try { window.postMessage(data, to); } catch (e3) { /* 略 */ }
-}
-
 /** 開啟列印頁：只附 webapp + autoStart；樣版／模式完全由列印頁自行向工作表抓 */
 function openPrinterPageWithSettings_() {
   var iframe = document.getElementById('printer-bridge-iframe');
@@ -6169,9 +6146,7 @@ function openPrinterPageWithSettings_() {
     return null;
   }
   try {
-    if (typeof currentWebAppUrl !== 'undefined' && currentWebAppUrl) {
-      localStorage.setItem('gp2270t_backend_url', currentWebAppUrl);
-    }
+    if (currentWebAppUrl) localStorage.setItem('gp2270t_backend_url', currentWebAppUrl);
   } catch (e0) {}
   var didInjectSrcdoc = false;
   try {
@@ -6253,7 +6228,7 @@ function pingPrinterPageInstantTrigger_(orderData) {
     var payload = buildPrinterOrderPayloadFull_(orderData);
     if (!payload) return;
     try {
-      _posPostMessageToPrinterBridge_({ type: 'PRINT_ORDER', payload: payload }, '*');
+      window.postMessage({ type: 'PRINT_ORDER', payload: payload }, '*');
       posPrinterLastPostMessageTs = Date.now();
     } catch (e) { /* 略 */ }
   } catch (e) { /* 略 */ }
@@ -7105,7 +7080,7 @@ function flushPendingPrinterOrders_() {
     try {
       const message = { type: 'PRINT_ORDER', payload: payload };
       console.log('[POS] 發送 PRINT_ORDER:', message);
-      _posPostMessageToPrinterBridge_(message, '*');
+      window.postMessage(message, '*');
     } catch (e) {
       console.error('[POS] flushPendingPrinterOrders_ 失敗', e);
       isPrinterReady = false;
