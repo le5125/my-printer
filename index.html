@@ -1985,6 +1985,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{總計}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{品項}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{空行}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{格}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{字體12}</code>
         </div>
       
 
@@ -2028,6 +2030,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{時間}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{取餐時間}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{空行}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{格}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{字體12}</code>
         </div>
         
 
@@ -3536,13 +3540,14 @@ function posWebAppPostJson_(payload) {
   var url = (typeof currentWebAppUrl === 'string' && currentWebAppUrl.trim())
     ? currentWebAppUrl.trim().replace(/\?+$/, '') : '';
   if (!url) return Promise.reject(new Error('無 Web App 網址'));
+  /* 須用 text/plain（非 application/json），否則跨網域會觸發 preflight，GAS Web App 常擋 OPTIONS → GitHub 端全部 POST 突變失敗；商家資訊用 GET 故正常 */
   return fetch(url, {
     method: 'POST',
     mode: 'cors',
     credentials: 'omit',
     cache: 'no-store',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'text/plain;charset=utf-8',
       Accept: 'application/json, text/plain;q=0.9,*/*;q=0.8'
     },
     body: JSON.stringify(payload || {})
