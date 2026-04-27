@@ -3391,7 +3391,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
               method: 'POST',
               mode: 'cors',
               credentials: 'omit',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
               body: JSON.stringify(Object.assign({ key: posGetClientKey_() }, body))
             })
               .then(function (r) {
@@ -6156,7 +6156,7 @@ function posOrderQueueSendPayload(payload, onDone) {
     method: 'POST',
     mode: 'cors',
     credentials: 'omit',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload)
   })
     .then(function (r) {
