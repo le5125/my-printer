@@ -1878,12 +1878,13 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     min-height: var(--pset-preview-min-h);
     overflow: auto;
   }
-  /* 編輯區：textarea 撐滿剩餘高度 */
-  #print-settings-content textarea#print-template-detail-text,
-  #print-settings-content textarea#print-template-label-text {
+  /* 編輯區：逐行輸入框列表 */
+  #print-settings-content #print-template-detail-lines-wrap,
+  #print-settings-content #print-template-label-lines-wrap {
     flex: 1 1 auto;
     min-height: 200px;
-    resize: vertical;
+    max-height: min(52vh, 440px);
+    overflow-y: auto;
   }
   /* 編輯欄整體可上下捲（占位符說明 + 字體列 + textarea），但不影響整體 layout */
   #print-settings-content #print-template-detail,
@@ -1987,12 +1988,14 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{空行}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{格}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{字體12}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{重置}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{粗}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{細}</code>
         </div>
-      
-
-        <textarea id="print-template-detail-text"
-          class="w-full flex-1 min-h-[280px] border border-gray-300 rounded-md p-3 font-mono text-sm leading-6"
-          spellcheck="false"></textarea>
+        <div id="print-template-detail-lines-wrap" class="flex flex-col gap-1 border border-gray-200 rounded-md p-2 bg-white"></div>
+        <button type="button" id="print-template-detail-add-line"
+          class="self-start text-xs px-3 py-1.5 rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700">新增一行</button>
+        <textarea id="print-template-detail-text" class="hidden" aria-hidden="true" spellcheck="false"></textarea>
       </div>
 
       <!-- 商品標籤編輯區 -->
@@ -2032,12 +2035,14 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{空行}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{格}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{字體12}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{重置}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{粗}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{細}</code>
         </div>
-        
-
-        <textarea id="print-template-label-text"
-          class="w-full flex-1 min-h-[280px] border border-gray-300 rounded-md p-3 font-mono text-sm leading-6"
-          spellcheck="false"></textarea>
+        <div id="print-template-label-lines-wrap" class="flex flex-col gap-1 border border-gray-200 rounded-md p-2 bg-white"></div>
+        <button type="button" id="print-template-label-add-line"
+          class="self-start text-xs px-3 py-1.5 rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700">新增一行</button>
+        <textarea id="print-template-label-text" class="hidden" aria-hidden="true" spellcheck="false"></textarea>
       </div>
 
     </div>
@@ -3535,6 +3540,23 @@ function posIsGasEmbed_() {
   } catch (e0) { return false; }
 }
 
+/** 靜態託管（GitHub Pages 等）：有 Web App 網址但非 GAS 內嵌 */
+function posIsGithubStaticPos_() {
+  try {
+    if (posIsGasEmbed_()) return false;
+    var u = (typeof currentWebAppUrl === 'string') ? currentWebAppUrl.trim() : '';
+    return !!u;
+  } catch (e0) { return false; }
+}
+
+function posSwalPleaseEditInBackend_() {
+  if (typeof Swal !== 'undefined') {
+    Swal.fire({ icon: 'info', title: '請在後台編輯', confirmButtonText: '確定' });
+  } else {
+    try { alert('請在後台編輯'); } catch (e) { /* 略 */ }
+  }
+}
+
 /** GitHub Pages 等：POST JSON 至已部署的 Web App（與 doPost 對接） */
 function posWebAppPostJson_(payload) {
   var url = (typeof currentWebAppUrl === 'string' && currentWebAppUrl.trim())
@@ -3954,6 +3976,10 @@ function renderRedeemMenuItems() {
 
   grid.querySelectorAll('.redeem-sale-toggle').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
+      if (posIsGithubStaticPos_()) {
+        posSwalPleaseEditInBackend_();
+        return;
+      }
       e.stopPropagation();
       var itemId = this.getAttribute('data-id');
       var card = this.closest('.redeem-menu-item');
@@ -4076,6 +4102,10 @@ function applyMenuTabStyle(menuId) {
 }
 
 function openMenuEditModal(menuId) {
+  if (posIsGithubStaticPos_()) {
+    posSwalPleaseEditInBackend_();
+    return;
+  }
   editingMenuId = menuId;
   const overlay = document.getElementById('menu-tab-edit-modal-overlay');
   document.getElementById('menu-tab-edit-name').value = getMenuNameById(menuId);
@@ -4090,6 +4120,10 @@ function closeMenuEditModal() {
 }
 
 function saveMenuConfigFromModal() {
+  if (posIsGithubStaticPos_()) {
+    posSwalPleaseEditInBackend_();
+    return;
+  }
   if (!editingMenuId) return;
   const targetMenuId = editingMenuId;
   const oldName = getMenuNameById(targetMenuId);
@@ -4147,6 +4181,10 @@ function renameMenu(menuId) {
 
 // ✅ 新增菜單
 function addNewMenu() {
+  if (posIsGithubStaticPos_()) {
+    posSwalPleaseEditInBackend_();
+    return;
+  }
   const tempMenuId = `temp-menu-${Date.now()}`;
   const tempMenuName = '建立中...';
   menuNames[tempMenuId] = tempMenuName;
@@ -4188,6 +4226,10 @@ function addNewMenu() {
 
 // ✅ 刪除菜單
 async function deleteMenuTab(menuId) {
+  if (posIsGithubStaticPos_()) {
+    posSwalPleaseEditInBackend_();
+    return;
+  }
   if (menuId === 'menu-1') {
     posSwalAlert('❌ 無法刪除預設菜單', 'error');
     return;
@@ -5158,6 +5200,10 @@ function _createSortableInstance() {
 }
 
 function initSortMode() {
+  if (posIsGithubStaticPos_()) {
+    posSwalPleaseEditInBackend_();
+    return;
+  }
   if (_sortModeActive) return;
   _sortModeActive = true;
 
@@ -5189,6 +5235,10 @@ function exitSortMode() {
 }
 
 function saveSortOrder() {
+  if (posIsGithubStaticPos_()) {
+    posSwalPleaseEditInBackend_();
+    return;
+  }
   var saveBtn = document.getElementById('sort-save-btn');
 
   // ★ 使用直接子元素選擇器（>），確保不撈到卡片內的按鈕子元素
@@ -5257,6 +5307,10 @@ function _setSortTabUI(mode) {
 
 /** 進入菜單標籤排序模式 */
 function initMenuTabSort() {
+  if (posIsGithubStaticPos_()) {
+    posSwalPleaseEditInBackend_();
+    return;
+  }
   _menuTabSortActive = true;
   _setSortTabUI('menus');
 
@@ -5307,6 +5361,10 @@ function exitMenuTabSort() {
 
 /** 儲存菜單標籤排序 */
 function saveMenuTabOrder() {
+  if (posIsGithubStaticPos_()) {
+    posSwalPleaseEditInBackend_();
+    return;
+  }
   var els  = document.querySelectorAll('#menu-sort-list > [data-menu-id]');
   var ids  = Array.from(els).map(function(el){ return el.getAttribute('data-menu-id'); });
   if (ids.length === 0) { exitMenuTabSort(); exitSortMode(); return; }
@@ -5818,29 +5876,25 @@ function sendToPrinter(/* order */) { /* no-op */ }
 const POS_LS_PRINTER_URL = 'pos_printer_page_url'; // 只剩這個還用 LS（純粹是 GitHub Pages 列印頁網址，不是樣版內容）
 
 const POS_DEFAULT_DETAIL_TEMPLATE = [
-  '{大}{粗}== {店名} =={重置}',
+  '{字體16}{粗}== {店名} =={重置}',
   '訂單 #{訂單編號}',
   '時間: {時間}',
-  '{粗}取餐時間: {取餐時間}{細}',
+  '{粗}取餐時間: {細}{取餐時間}{細}',
   '電話: {電話}',
   '備註: {備註}',
   '----------------',
   '{品項}',
   '----------------',
-  '{粗}總計: ${總計}{細}',
-  '謝謝光臨！',
-  '',
-  '',
-  ''
+  '{粗}總計: {細}${總計}',
+  '謝謝光臨！'
 ].join('\n');
 
 const POS_DEFAULT_LABEL_TEMPLATE = [
-  '{粗}{店名}{細}',
-  '#{訂單編號}  {日期}',
-  '{大}{粗}{品名}{重置} x{數量}',
+  '{字體12}{粗}{店名}{空行}',
+  '#{訂單編號} {取餐時間}',
+  '{字體18}{粗}{品名}',
   '{選項}',
-  '{備註}',
-  ''
+  '{備註}'
 ].join('\n');
 
 const POS_DEFAULT_PRINTER_URL = 'https://le5125.github.io/my-printer/';
@@ -6713,8 +6767,30 @@ window.__initPrintSettingsUi_ = (function () {
     radios.forEach(function (r) {
       r.addEventListener('change', function () { applyMode_(r.value); });
     });
-    if (dText) dText.addEventListener('input', renderPreview_);
-    if (lText) lText.addEventListener('input', renderPreview_);
+    rebuildPrintTplLineRows_('detail', renderPreview_);
+    rebuildPrintTplLineRows_('label', renderPreview_);
+    var btnAddDetailLine = document.getElementById('print-template-detail-add-line');
+    var btnAddLabelLine = document.getElementById('print-template-label-add-line');
+    if (btnAddDetailLine) {
+      btnAddDetailLine.addEventListener('click', function () {
+        var w = document.getElementById('print-template-detail-lines-wrap');
+        if (!w || !dText) return;
+        var parts = Array.prototype.map.call(w.querySelectorAll('.print-tpl-line-input'), function (inp) { return inp.value; });
+        parts.push('');
+        dText.value = parts.join('\n');
+        rebuildPrintTplLineRows_('detail', renderPreview_);
+      });
+    }
+    if (btnAddLabelLine) {
+      btnAddLabelLine.addEventListener('click', function () {
+        var w = document.getElementById('print-template-label-lines-wrap');
+        if (!w || !lText) return;
+        var parts = Array.prototype.map.call(w.querySelectorAll('.print-tpl-line-input'), function (inp) { return inp.value; });
+        parts.push('');
+        lText.value = parts.join('\n');
+        rebuildPrintTplLineRows_('label', renderPreview_);
+      });
+    }
     if (labelW) labelW.addEventListener('input', renderPreview_);
     if (labelH) labelH.addEventListener('input', renderPreview_);
     if (labelG) labelG.addEventListener('input', renderPreview_);
@@ -6775,6 +6851,8 @@ window.__initPrintSettingsUi_ = (function () {
         const dRollWR = document.getElementById('detail-roll-width-mm');
         if (dRollWR) dRollWR.value = '80';
       }
+      rebuildPrintTplLineRows_('detail', renderPreview_);
+      rebuildPrintTplLineRows_('label', renderPreview_);
       renderPreview_();
       _setStatus_('已套用樣版（尚未存入工作表，請按「儲存設定」）', 'warn');
     });
@@ -6848,6 +6926,51 @@ window.__initPrintSettingsUi_ = (function () {
     previewEl.appendChild(wrapper);
   }
 
+  /** 打印樣版：逐行輸入與隱藏 textarea 同步（afterSync 例：renderPreview_） */
+  function rebuildPrintTplLineRows_(kind, afterSync) {
+    const wrapId = kind === 'label' ? 'print-template-label-lines-wrap' : 'print-template-detail-lines-wrap';
+    const taId = kind === 'label' ? 'print-template-label-text' : 'print-template-detail-text';
+    const wrap = document.getElementById(wrapId);
+    const ta = document.getElementById(taId);
+    if (!wrap || !ta) return;
+    function syncFromInputs_() {
+      const inputs = wrap.querySelectorAll('.print-tpl-line-input');
+      const parts = [];
+      for (let i = 0; i < inputs.length; i++) parts.push(inputs[i].value);
+      ta.value = parts.join('\n');
+      if (typeof afterSync === 'function') afterSync();
+    }
+    let lines = String(ta.value || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    if (lines.length === 0) lines = [''];
+    wrap.innerHTML = '';
+    lines.forEach(function (line) {
+      const row = document.createElement('div');
+      row.className = 'flex gap-1 items-stretch print-tpl-line-row';
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'flex-1 min-w-0 border border-gray-300 rounded px-2 py-1.5 font-mono text-sm print-tpl-line-input';
+      inp.value = line;
+      inp.setAttribute('spellcheck', 'false');
+      inp.addEventListener('input', syncFromInputs_);
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'shrink-0 px-2 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50';
+      del.textContent = '刪';
+      del.title = '刪除此行';
+      del.addEventListener('click', function () {
+        row.remove();
+        syncFromInputs_();
+        if (!wrap.querySelector('.print-tpl-line-row')) {
+          ta.value = '';
+          rebuildPrintTplLineRows_(kind, afterSync);
+        }
+      });
+      row.appendChild(inp);
+      row.appendChild(del);
+      wrap.appendChild(row);
+    });
+  }
+
   /** 把記憶體快取套到 UI（textarea / radio / preview） */
   function applyCacheToUi_() {
     const dText = document.getElementById('print-template-detail-text');
@@ -6865,6 +6988,8 @@ window.__initPrintSettingsUi_ = (function () {
     const preview = document.getElementById('print-template-preview');
     if (dText) dText.value = getPosDetailTemplate_();
     if (lText) lText.value = getPosLabelTemplate_();
+    rebuildPrintTplLineRows_('detail');
+    rebuildPrintTplLineRows_('label');
     const sz = getPosLabelSize_();
     if (lW) lW.value = String(sz.width);
     if (lH) lH.value = String(sz.height);
@@ -7904,6 +8029,10 @@ if (_sortModeActive) {
 // 綁定「販售中／售完」按鈕事件（僅 #menu-items 內，避免綁到會員兌換區而 closest('.menu-item') 為 null 拋錯）
 document.querySelectorAll('#menu-items .sale-toggle-btn').forEach(btn => {
   btn.addEventListener('click', function (e) {
+    if (posIsGithubStaticPos_()) {
+      posSwalPleaseEditInBackend_();
+      return;
+    }
     e.stopPropagation();
 
     const itemId = this.getAttribute('data-id');
@@ -8147,6 +8276,10 @@ for (let i = 1; i <= 8; i++) {
 
         // Show edit item modal
         function showEditItemModal(item, ctx) {
+          if (posIsGithubStaticPos_()) {
+            posSwalPleaseEditInBackend_();
+            return;
+          }
           posItemEditorContext = ctx || 'menu';
           var isRedeem = posItemEditorContext === 'redeem';
           editingItem = item;
@@ -8182,6 +8315,10 @@ if (!isRedeem) {
         
         // Show add item modal (same as edit modal but with empty fields)
         function showAddItemModal(ctx) {
+  if (posIsGithubStaticPos_()) {
+    posSwalPleaseEditInBackend_();
+    return;
+  }
   posItemEditorContext = ctx || 'menu';
   var isRedeem = posItemEditorContext === 'redeem';
   editingItem = null;
@@ -8617,6 +8754,10 @@ if (!isRedeem) {
         
         // Save edited item
         function saveEditedItem() {
+          if (posIsGithubStaticPos_()) {
+            posSwalPleaseEditInBackend_();
+            return;
+          }
           const name = document.getElementById('edit-item-name').value;
           const price = parseInt(document.getElementById('edit-item-price').value);
           const color = document.getElementById('edit-item-color').value;
@@ -8834,6 +8975,10 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
 
         // Delete current editing item（一般菜單／兌換皆直接刪除，不二次確認）
         function deleteCurrentItem() {
+          if (posIsGithubStaticPos_()) {
+            posSwalPleaseEditInBackend_();
+            return;
+          }
           if (!editingItem) return;
           var isRedeemDelete = posItemEditorContext === 'redeem';
           var delId = editingItem.id;
@@ -10259,7 +10404,12 @@ const PRINTER_BRIDGE_B64 = 'PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9InpoLVRXIj4KPGhl
 'IDEpKSA6ICcnLAogICAgICAgICAgbW9kZSAgICAgIDogZ2V0UHJpbnRNb2RlXygpCiAgICAgICAgfTsKCiAgICAgICAgY29uc3QgbW9kZSA9IGdldEF1dG9QcmludE1vZGVfKCk7CgogICAgICAgIC8vIOKYhSDmiYvli5XmqKHlvI/vvJrlr6vmiJDjgIzlvoXliJfljbDjgI3vvIzkvb/nlKjogIXmjInmjInpiJXmiY3ljbDvvJvkuI3lho3oh6rli5UgYXV0b1ByaW50CiAgICAgICAgaWYgKG1vZGUgPT09ICdtYW51YWwnKSB7CiAgICAgICAgICBsb2coJ+WCmeaPtOaUtuWIsOioguWWriAnICsgb2lkICsgJ++8iOaJi+WLleaooeW8j++8muWIl+WFpeW+heWIl+WNsO+8iScsICdpbmZvJyk7CiAgICAgICAgICBhZGRUb1ByaW50SGlzdG9yeV8oT2JqZWN0LmFzc2lnbih7fSwgYmFzZU1ldGEsIHsgc291cmNlOiAncXVldWVkJywgcHJpbnRlZDogZmFsc2UgfSksIHRleHQpOwogICAgICAgICAgYWRkUHJpbnRlZE9yZGVySWRfKG9pZCk7CiAgICAgICAgICBjb250aW51ZTsKICAgICAgICB9CgogICAgICAgIC8vIOiHquWLleaooeW8jwogICAgICAgIGlmICghaXNDb25uZWN0ZWQgfHwgIWJsZUNoYXIpIHsKICAgICAgICAgIGxvZygn5pyq6YCj57eaIEJMRe+8jCcgKyBvaWQgKyAnIOWvq+WFpeW+heWIl+WNsO+8iOiri+mAo+e3muW+jOaJi+WLleWIl+WNsO+8iScsICd3YXJuJyk7CiAgICAgICAgICBhZGRUb1ByaW50SGlzdG9yeV8oT2JqZWN0LmFzc2lnbih7fSwgYmFzZU1ldGEsIHsgc291cmNlOiAncXVldWVkJywgcHJpbnRlZDogZmFsc2UgfSksIHRleHQpOwogICAgICAgICAgYWRkUHJpbnRlZE9yZGVySWRfKG9pZCk7CiAgICAgICAgICByZXR1cm47CiAgICAgICAgfQogICAgICAgIGlmIChwcmludExvY2spIHsKICAgICAgICAgIGxvZygn5YiX5Y2w6Y6W5a6a5Lit77yMJyArIG9pZCArICcg56iN5b6M5YaN6KmmJywgJ3dhcm4nKTsKICAgICAgICAgIHJldHVybjsKICAgICAgICB9CgogICAgICAgIHBlbmRpbmdEYXRhID0geyB0ZXh0OiB0ZXh0LCBiYWNrVXJsOiAnJywgdHM6IERhdGUubm93KCkgfTsKICAgICAgICB1cGRhdGVRdWV1ZURpc3BsYXkocGVuZGluZ0RhdGEpOwogICAgICAgIGxvZygn5YKZ5o+06KOc5Y2w5paw6KiC5ZauICcgKyBvaWQsICdpbmZvJyk7CgogICAgICAgIHRyeSB7CiAgICAgICAgICBhd2FpdCBhdXRvUHJpbnQocGVuZGluZ0RhdGEpOwogICAgICAgICAgYWRkUHJpbnRlZE9yZGVySWRfKG9pZCk7CiAgICAgICAgICBhZGRUb1ByaW50SGlzdG9yeV8oT2JqZWN0LmFzc2lnbih7fSwgYmFzZU1ldGEsIHsgc291cmNlOiAncG9sbGluZycsIHByaW50ZWQ6IHRydWUgfSksIHRleHQpOwogICAgICAgIH0gY2F0Y2ggKGUpIHsKICAgICAgICAgIGxvZygn5YiX5Y2wICcgKyBvaWQgKyAnIOWkseaVlzogJyArIChlICYmIGUubWVzc2FnZSA/IGUubWVzc2FnZSA6IGUpLCAnZXJyJyk7CiAgICAgICAgICByZXR1cm47CiAgICAgICAgfQogICAgICB9IGNhdGNoIChidWlsZEVycikgewogICAgICAgIGxvZygn5YKZ5o+057WE54mI5aSx5pWXICcgKyBvaWQgKyAn77yaJyArIChidWlsZEVyciAmJiBidWlsZEVyci5tZXNzYWdlID8gYnVpbGRFcnIubWVzc2FnZSA6IGJ1aWxkRXJyKSwgJ2VycicpOwogICAgICAgIGNvbnRpbnVlOwogICAgICB9CiAgICB9CiAgfSBmaW5hbGx5IHsKICAgIHBvbGxQcm9jZXNzaW5nID0gZmFsc2U7CiAgfQp9CgpmdW5jdGlvbiBzdGFydFBvbGxpbmdfKCkgewogIGNvbnN0IHVybCA9IChjZmdCYWNrZW5kVXJsICYmIGNmZ0JhY2tlbmRVcmwudmFsdWUgfHwgJycpLnRyaW0oKTsKICBpZiAoIXVybCkgewogICAgc2V0UG9sbFN0YXR1c18oJ+iri+WFiOWhq+WFpSBXZWIgQXBwIFVSTCcsICdlcnInKTsKICAgIHJldHVybjsKICB9CiAgdHJ5IHsgbG9jYWxTdG9yYWdlLnNldEl0ZW0oTFNfQkFDS0VORF9VUkwsIHVybCk7IH0gY2F0Y2ggKGUpIHsgLyog55WlICovIH0KICB0cnkgeyBsb2NhbFN0b3JhZ2Uuc2V0SXRlbShMU19QT0xMX0VOQUJMRUQsICcxJyk7IH0gY2F0Y2ggKGUpIHsgLyog55WlICovIH0KCiAgaWYgKHBvbGxUaW1lcikgY2xlYXJJbnRlcnZhbChwb2xsVGltZXIpOwogIHBvbGxQZW5kaW5nT3JkZXJzT25jZV8oKTsKICBwb2xsVGltZXIgPSBzZXRJbnRlcnZhbChwb2xsUGVuZGluZ09yZGVyc09uY2VfLCBQT0xMX0lOVEVSVkFMX01TKTsKCiAgaWYgKGJ0blBvbGxTdGFydCkgYnRuUG9sbFN0YXJ0LnN0eWxlLmRpc3BsYXkgPSAnbm9uZSc7CiAgaWYgKGJ0blBvbGxTdG9wKSAgYnRuUG9sbFN0b3Auc3R5bGUuZGlzcGxheSAgPSAnJzsKICBsb2coJ+W3suWVn+eUqOW+jOerr+WCmeaPtO+8iOavjyAnICsgUE9MTF9JTlRFUlZBTF9NUyArICcgbXMg6KOc5oqT5LiA5qyh77yJJywgJ29rJyk7Cn0KCmZ1bmN0aW9uIHN0b3BQb2xsaW5nXygpIHsKICBpZiAocG9sbFRpbWVyKSBjbGVhckludGVydmFsKHBvbGxUaW1lcik7CiAgcG9sbFRpbWVyID0gbnVsbDsKICB0cnkgeyBsb2NhbFN0b3JhZ2Uuc2V0SXRlbShMU19QT0xMX0VOQUJMRUQsICcwJyk7IH0gY2F0Y2ggKGUpIHsgLyog55WlICovIH0KICBpZiAoYnRuUG9sbFN0YXJ0KSBidG5Qb2xsU3RhcnQuc3R5bGUuZGlzcGxheSA9ICcnOwogIGlmIChidG5Qb2xsU3RvcCkgIGJ0blBvbGxTdG9wLnN0eWxlLmRpc3BsYXkgID0gJ25vbmUnOwogIHNldFBvbGxTdGF0dXNfKCflt7LlgZzmraInLCAnJyk7CiAgbG9nKCflvoznq6/lgpnmj7Tlt7LlgZzmraInLCAnaW5mbycpOwp9CgppZiAoYnRuUG9sbFN0YXJ0KSBidG5Qb2xsU3RhcnQuYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLCBzdGFydFBvbGxpbmdfKTsKaWYgKGJ0blBvbGxTdG9wKSAgYnRuUG9sbFN0b3AuYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLCBzdG9wUG9sbGluZ18pOwoKZnVuY3Rpb24gbG9hZEJhY2tlbmRVcmxGcm9tU3RvcmFnZV8oKSB7CiAgdHJ5IHsKICAgIGNvbnN0IHNhdmVkID0gbG9jYWxTdG9yYWdlLmdldEl0ZW0oTFNfQkFDS0VORF9VUkwpOwogICAgaWYgKHNhdmVkICYmIGNmZ0JhY2tlbmRVcmwpIGNmZ0JhY2tlbmRVcmwudmFsdWUgPSBzYXZlZDsKICB9IGNhdGNoIChlKSB7IC8qIOeVpSAqLyB9Cn0KCmZ1bmN0aW9uIG1heWJlQXV0b1N0YXJ0UG9sbGluZ18oKSB7CiAgdHJ5IHsKICAgIGNvbnN0IGVuYWJsZWQgPSBsb2NhbFN0b3JhZ2UuZ2V0SXRlbShMU19QT0xMX0VOQUJMRUQpID09PSAnMSc7CiAgICBjb25zdCB1cmwgPSBjZmdCYWNrZW5kVXJsICYmIGNmZ0JhY2tlbmRVcmwudmFsdWU7CiAgICBpZiAoZW5hYmxlZCAmJiB1cmwpIHN0YXJ0UG9sbGluZ18oKTsKICB9IGNhdGNoIChlKSB7IC8qIOeVpSAqLyB9Cn0KCi8qKgogKiDop6PmnpAgVVJMIOS4iueahOioreWumuWPg+aVuO+8iFBPUyDplovllZ/liJfljbDpoIHmmYLlj6/luLblhaXvvInvvIzoh6rli5Xlr6vlhaUgbG9jYWxTdG9yYWdl44CCCiAqIOaUr+aPtOWPg+aVuO+8mgogKiAgIHdlYmFwcCAgICAgICAgIOKAlCBHQVMgV2ViIEFwcCBVUkzvvIjoh6rli5XloavlhaXkuKblhLLlrZjvvIkKICogICBhdXRvU3RhcnQgICAgICDigJQgMSAvIHRydWXvvJrovInlhaXlvozoh6rli5XllZ/nlKjovKroqaIKICogICBkZXRhaWxUcGwgICAgICDigJQgYmFzZTY0dXJsIOe3qOeivOeahOOAjOaJk+WNsOaYjue0sOOAjeaoo+eJiAogKiAgIGxhYmVsVHBsICAgICAgIOKAlCBiYXNlNjR1cmwg57eo56K855qE44CM5ZWG5ZOB5qiZ57Gk44CN5qij54mICiAqICAgcHJpbnRNb2RlICAgICAg4oCUICdkZXRhaWwnIHwgJ2xhYmVsJwogKi8KZnVuY3Rpb24gY29uc3VtZVVybFBhcmFtc18oKSB7CiAgbGV0IGF1dG8gPSBmYWxzZTsKICB0cnkgewogICAgY29uc3QgdXJsID0gbmV3IFVSTCh3aW5kb3cubG9jYXRpb24uaHJlZik7CiAgICBjb25zdCBzcCAgPSB1cmwuc2VhcmNoUGFyYW1zOwoKICAgIGNvbnN0IHdlYmFwcCA9IHNwLmdldCgnd2ViYXBwJyk7CiAgICBpZiAod2ViYXBwICYmIGNmZ0JhY2tlbmRVcmwpIHsKICAgICAgY2ZnQmFja2VuZFVybC52YWx1ZSA9IHdlYmFwcDsKICAgICAgdHJ5IHsgbG9jYWxTdG9yYWdlLnNldEl0ZW0oTFNfQkFDS0VORF9VUkwsIHdlYmFwcCk7IH0gY2F0Y2ggKGUpIHsgLyog55WlICovIH0KICAgICAgbG9nKCflt7Loh6ogVVJMIOW4tuWFpSBHQVMgV2ViIEFwcCBVUkwnLCAnb2snKTsKICAgIH0KCiAgICBjb25zdCBkZXRhaWxUcGwgPSBzcC5nZXQoJ2RldGFpbFRwbCcpOwogICAgaWYgKGRldGFpbFRwbCkgewogICAgICB0cnkgewogICAgICAgIGNvbnN0IGRlYyA9IGRlY29kZUJhc2U2NFRvVGV4dChkZXRhaWxUcGwpOwogICAgICAgIGlmIChkZWMpIGxvY2FsU3RvcmFnZS5zZXRJdGVtKExTX0RFVEFJTF9URU1QTEFURSwgZGVjKTsKICAgICAgfSBjYXRjaCAoZSkgeyAvKiDnlaUgKi8gfQogICAgfQoKICAgIGNvbnN0IGxhYmVsVHBsID0gc3AuZ2V0KCdsYWJlbFRwbCcpOwogICAgaWYgKGxhYmVsVHBsKSB7CiAgICAgIHRyeSB7CiAgICAgICAgY29uc3QgZGVjID0gZGVjb2RlQmFzZTY0VG9UZXh0KGxhYmVsVHBsKTsKICAgICAgICBpZiAoZGVjKSBsb2NhbFN0b3JhZ2Uuc2V0SXRlbShMU19MQUJFTF9URU1QTEFURSwgZGVjKTsKICAgICAgfSBjYXRjaCAoZSkgeyAvKiDnlaUgKi8gfQogICAgfQoKICAgIGNvbnN0IG1vZGUgPSBzcC5nZXQoJ3ByaW50TW9kZScpOwogICAgaWYgKG1vZGUgPT09ICdkZXRhaWwnIHx8IG1vZGUgPT09ICdsYWJlbCcpIHsKICAgICAgdHJ5IHsgbG9jYWxTdG9yYWdlLnNldEl0ZW0oTFNfUFJJTlRfTU9ERSwgbW9kZSk7IH0gY2F0Y2ggKGUpIHsgLyog55WlICovIH0KICAgIH0KCiAgICBjb25zdCBhdXRvU3RhcnQgPSBzcC5nZXQoJ2F1dG9TdGFydCcpOwogICAgaWYgKGF1dG9TdGFydCA9PT0gJzEnIHx8IGF1dG9TdGFydCA9PT0gJ3RydWUnKSBhdXRvID0gdHJ1ZTsKCiAgICBpZiAoc3AuaGFzKCd3ZWJhcHAnKSB8fCBzcC5oYXMoJ2F1dG9TdGFydCcpIHx8CiAgICAgICAgc3AuaGFzKCdkZXRhaWxUcGwnKSB8fCBzcC5oYXMoJ2xhYmVsVHBsJykgfHwgc3AuaGFzKCdwcmludE1vZGUnKSkgewogICAgICB0cnkgewogICAgICAgIC8vIOeUqOmBjuWNs+a4he+8jOmBv+WFjemHjeaVtOaZgumHjeiorQogICAgICAgIFsnd2ViYXBwJywgJ2F1dG9TdGFydCcsICdkZXRhaWxUcGwnLCAnbGFiZWxUcGwnLCAncHJpbnRNb2RlJ10KICAgICAgICAgIC5mb3JFYWNoKGZ1bmN0aW9uIChrKSB7IHNwLmRlbGV0ZShrKTsgfSk7CiAgICAgICAgY29uc3QgY2xlYW5RcyA9IHNwLnRvU3RyaW5nKCk7CiAgICAgICAgY29uc3QgbmV3VXJsID0gdXJsLm9yaWdpbiArIHVybC5wYXRobmFtZSArIChjbGVhblFzID8gJz8nICsgY2xlYW5RcyA6ICcnKSArIHVybC5oYXNoOwogICAgICAgIGhpc3RvcnkucmVwbGFjZVN0YXRlKG51bGwsICcnLCBuZXdVcmwpOwogICAgICB9IGNhdGNoIChlKSB7IC8qIOeVpSAqLyB9CiAgICB9CiAgfSBjYXRjaCAoZSkgeyAv' +
 'KiDnlaUgKi8gfQogIHJldHVybiBhdXRvOwp9CgovKioKICog5Y2z5pmC6Ke455m877yaUE9TIOerr+WPr+eUqCBgd2luZG93Lm9wZW4ocHJpbnRlclVybCArICcjdHJpZ2dlcj0nICsgRGF0ZS5ub3coKSwgJ3ByaW50ZXJfd2luZG93JylgCiAqIOaIluWQjOWQjeimlueqlyBwb3N0TWVzc2FnZSh7IHR5cGU6ICdUUklHR0VSX0ZFVENIJyB9KSDkvobkv4Pkvb/miZPljbDpoIHnq4vljbPmipPllq7vvIzkuI3lv4XnrYkgMS41c+OAggogKi8KZnVuY3Rpb24gc2V0dXBJbnN0YW50VHJpZ2dlcl8oKSB7CiAgZnVuY3Rpb24gdHJ5RmV0Y2hfKCkgewogICAgaWYgKCFwb2xsVGltZXIpIHJldHVybjsgICAgICAgICAgICAvLyDmnKrllZ/nlKjovKroqaLlsLHkuI3op7jnmbwKICAgIHBvbGxQZW5kaW5nT3JkZXJzT25jZV8oKS5jYXRjaChmdW5jdGlvbiAoKSB7IC8qIOeVpSAqLyB9KTsKICB9CgogIHdpbmRvdy5hZGRFdmVudExpc3RlbmVyKCdoYXNoY2hhbmdlJywgZnVuY3Rpb24gKCkgewogICAgaWYgKC9eI3RyaWdnZXI9Ly50ZXN0KHdpbmRvdy5sb2NhdGlvbi5oYXNoIHx8ICcnKSkgewogICAgICBsb2coJ+aUtuWIsCBoYXNoIOWNs+aZguinuOeZvCcsICdpbmZvJyk7CiAgICAgIHRyeSB7IGhpc3RvcnkucmVwbGFjZVN0YXRlKG51bGwsICcnLCB3aW5kb3cubG9jYXRpb24ucGF0aG5hbWUgKyB3aW5kb3cubG9jYXRpb24uc2VhcmNoKTsgfSBjYXRjaCAoZSkgeyAvKiDnlaUgKi8gfQogICAgICB0cnlGZXRjaF8oKTsKICAgIH0KICB9KTsKCiAgd2luZG93LmFkZEV2ZW50TGlzdGVuZXIoJ21lc3NhZ2UnLCBmdW5jdGlvbiAoZXYpIHsKICAgIGNvbnN0IG0gPSBldiAmJiBldi5kYXRhOwogICAgaWYgKCFtIHx8IHR5cGVvZiBtICE9PSAnb2JqZWN0JykgcmV0dXJuOwogICAgaWYgKG0udHlwZSA9PT0gJ1RSSUdHRVJfRkVUQ0gnKSB7CiAgICAgIGxvZygn5pS25YiwIFRSSUdHRVJfRkVUQ0gg5Y2z5pmC6Ke455m8JywgJ2luZm8nKTsKICAgICAgdHJ5RmV0Y2hfKCk7CiAgICB9CiAgfSk7Cn0KCi8vIOKUgOKUgCBJbml0IOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgApmdW5jdGlvbiBpbml0KCkgewogIHRyeSB7CiAgICB3aW5kb3cubmFtZSA9ICdHcHJpbnRlcl9IYW5kbGVyJzsKICB9IGNhdGNoIChlKSB7IC8qIOeVpSAqLyB9CiAgbG9nKCfmiZPljbDmqYvmjqXpoIHlsLHnt5InLCAnb2snKTsKICBsb2coJ+S9v+eUqOaWueW8j++8mjEpIOmAo+e3muiXjeeJmSAyKSDloavlhaUgV2ViIEFwcCBVUkwg5ZWf55So5YKZ5o+0IDMpIFBPUyDpgIHllq7mnIPljbPmmYLliJfljbDvvJvntrLot6/mjonljIXliYfnlLHlgpnmj7Too5zljbDjgIInLCAnaW5mbycpOwoKICAvLyDkuLvli5XpgJrnn6XmiYDmnInlj6/og73nmoQgUE9TIOimlueql++8muapi+aOpemggeW3suWwsee3kgogIC8vIOmAmeaoo+WNs+S9vyBQT1Mg6YeN5pW05b6MIHByaW50ZXJXaW4g5byV55So5aSx5pWI77yM5LiA5pemIFBPUyDlho3pgIEgUElORyDlsLHog73nq4vljbPmi7/liLDlvJXnlKgKICBfYnJvYWRjYXN0UmVhZHlUb09wZW5lcl8oKTsKCiAgaGFuZGxlSW5jb21pbmdEYXRhKCk7CiAgdHJ5QXV0b1JlY29ubmVjdEJsZV8oKS5jYXRjaChmdW5jdGlvbiAoKSB7IC8qIOeVpSAqLyB9KTsKCiAgbG9hZEJhY2tlbmRVcmxGcm9tU3RvcmFnZV8oKTsKICBjb25zdCBmb3JjZUF1dG8gPSBjb25zdW1lVXJsUGFyYW1zXygpOwogIHNldHVwSW5zdGFudFRyaWdnZXJfKCk7CiAgaWYgKGZvcmNlQXV0bykgewogICAgdHJ5IHsgbG9jYWxTdG9yYWdlLnNldEl0ZW0oTFNfUE9MTF9FTkFCTEVELCAnMScpOyB9IGNhdGNoIChlKSB7IC8qIOeVpSAqLyB9CiAgfQogIG1heWJlQXV0b1N0YXJ0UG9sbGluZ18oKTsKfQoKLyoqCiAqIOWcqOapi+aOpemggei8ieWFpeWujOaIkOaZgu+8jOS4u+WLleWQkSBvcGVuZXLvvIhQT1Mg5Li76aCB77yJ5Zue5YKzIFBSSU5URVJfUkVBRFkg6KiK6Jmf44CCCiAqIFBPUyDnmoQgbWVzc2FnZSBsaXN0ZW5lciDmlLbliLDlvozmnIPoh6rli5Xmm7TmlrAgcHJpbnRlcldpbiDlvJXnlKjjgIIKICog5ZCM5pmC5Lmf6YCP6YGOIEJyb2FkY2FzdENoYW5uZWwg5buj5pKt77yM5Lul5oeJ5bCNIG9wZW5lciDkuI3lj6/nlKjnmoTmg4Xms4HjgIIKICovCmZ1bmN0aW9uIF9icm9hZGNhc3RSZWFkeVRvT3BlbmVyXygpIHsKICBjb25zdCByZWFkeU1zZyA9IHsgdHlwZTogJ1BSSU5URVJfUkVBRFknLCByZWFkeTogdHJ1ZSwgY29ubmVjdGVkOiBpc0Nvbm5lY3RlZCB9OwoKICAvLyDlmJfoqabpgJrnn6Ugb3BlbmVyCiAgaWYgKHdpbmRvdy5vcGVuZXIgJiYgIXdpbmRvdy5vcGVuZXIuY2xvc2VkKSB7CiAgICB0cnkgewogICAgICB3aW5kb3cub3BlbmVyLnBvc3RNZXNzYWdlKHJlYWR5TXNnLCAnKicpOwogICAgICBsb2coJ+W3suWQkSBQT1Mgb3BlbmVyIOW7o+aSrSBQUklOVEVSX1JFQURZJywgJ29rJyk7CiAgICB9IGNhdGNoIChlKSB7CiAgICAgIGxvZygn5ZCRIG9wZW5lciDlu6Pmkq0gUkVBRFkg5aSx5pWX77yI6Leo57ay5Z+f6ZmQ5Yi277yJJywgJ3dhcm4nKTsKICAgIH0KICB9CgogIC8vIOS5n+mAj+mBjiBCcm9hZGNhc3RDaGFubmVs77yI5ZCM57ay5Z+f5YKZ55So77yJCiAgaWYgKHByaW50QnJvYWRjYXN0Q2hhbm5lbCkgewogICAgdHJ5IHsgcHJpbnRCcm9hZGNhc3RDaGFubmVsLnBvc3RNZXNzYWdlKHJlYWR5TXNnKTsgfSBjYXRjaCAoZSkgeyAvKiDnlaUgKi8gfQogIH0KfQoKd2luZG93Lm9ubG9hZCA9IGZ1bmN0aW9uICgpIHsKICBfYnJvYWRjYXN0UmVhZHlUb09wZW5lcl8oKTsKfTsKCmRvY3VtZW50LmFkZEV2ZW50TGlzdGVuZXIoJ3Zpc2liaWxpdHljaGFuZ2UnLCBmdW5jdGlvbiAoKSB7CiAgaWYgKGRvY3VtZW50LnZpc2liaWxpdHlTdGF0ZSAhPT0gJ3Zpc2libGUnKSByZXR1cm47CiAgY29uc3QgdXJsU3luYyA9IChjZmdCYWNrZW5kVXJsICYmIGNmZ0JhY2tlbmRVcmwudmFsdWUgfHwgJycpLnRyaW0oKTsKICBpZiAodXJsU3luYykgc3luY1ByaW50U2V0dGluZ3NGcm9tQmFja2VuZF8oKS5jYXRjaChmdW5jdGlvbiAoKSB7IC8qIOeVpSAqLyB9KTsKICBpZiAoaXNDb25uZWN0ZWQgfHwgIXBlbmRpbmdEYXRhKSByZXR1cm47CiAgdHJ5IHsKICAgIGlmIChsb2NhbFN0b3JhZ2UuZ2V0SXRlbShMU19CTEVfTEFTVF9ERVZJQ0VfSUQpKSB7CiAgICAgIHRyeUF1dG9SZWNvbm5lY3RCbGVfKCkuY2F0Y2goZnVuY3Rpb24gKCkgeyAvKiDnlaUgKi8gfSk7CiAgICB9CiAgfSBjYXRjaCAoZSkgeyAvKiDnlaUgKi8gfQp9KTsKCi8qIOiIhyBQT1Mg5ZCM57ay5Z+f5pmC5Y+v5YWN5b2I56qX5Y2z5pmC5pS25Zau77yb6Leo57ay5Z+f5pmC5LuN5LulIHBvc3RNZXNzYWdlIC8gaGFzaCDngrrkuLsgKi8KbGV0IHByaW50QnJvYWRjYXN0Q2hhbm5lbCA9IG51bGw7CmZ1bmN0aW9uIGluaXRQcmludEJyb2FkY2FzdENoYW5uZWxfKCkgewogIHRyeSB7CiAgICBwcmludEJyb2FkY2FzdENoYW5uZWwgPSBuZXcgQnJvYWRjYXN0Q2hhbm5lbCgncG9zLWJsZS1wcmludC12MScpOwogICAgcHJpbnRCcm9hZGNhc3RDaGFubmVsLm9ubWVzc2FnZSA9IGZ1bmN0aW9uIChldikgewogICAgICBjb25zdCBtc2cgPSBldi5kYXRhOwogICAgICBpZiAoIW1zZykgcmV0dXJuOwoKICAgICAgaWYgKG1zZy50eXBlID09PSAnUFJJTlRfSk9CJykgewogICAgICAgIHBvc09wZW5lciA9IG51bGw7IC8vIEJyb2FkY2FzdENoYW5uZWwg54ShIHNvdXJjZSDlvJXnlKgKICAgICAgICByZWNlaXZlUHJpbnREYXRhKHsKICAgICAgICAgIHRleHQ6IG1zZy50ZXh0IHx8ICcnLAogICAgICAgICAgYmFja1VybDogbXNnLmJhY2tVcmwgfHwgJycsCiAgICAgICAgICB0czogbXNnLnRzIHx8IERhdGUubm93KCkKICAgICAgICB9KTsKICAgICAgICByZXR1cm47CiAgICAgIH0KCiAgICAgIC8vIOWQjOe2suWfn++8mlBPUyDlu6Pmkq0gUElORyDmmYLkuZ/lm54gUE9OR++8iOmAj+mBjiBCcm9hZGNhc3RDaGFubmVs77yJCiAgICAgIGlmIChtc2cudHlwZSA9PT0gJ1BSSU5URVJfUElORycpIHsKICAgICAgICB0cnkgewogICAgICAgICAgcHJpbnRCcm9hZGNhc3RDaGFubmVsLnBvc3RNZXNzYWdlKHsKICAgICAgICAgICAgdHlwZTogJ1BSSU5URVJfUE9ORycsIHJlYWR5OiB0cnVlLCBjb25uZWN0ZWQ6IGlzQ29ubmVjdGVkCiAgICAgICAgICB9KTsKICAgICAgICB9IGNhdGNoIChlKSB7IC8qIOeVpSAqLyB9CiAgICAgICAgcmV0dXJuOwogICAgICB9CiAgICB9OwogIH0gY2F0Y2ggKGUpIHsKICAgIGxvZygnQnJvYWRjYXN0Q2hhbm5lbCDkuI3lj6/nlKjvvIjlj6/nlaXpgY7vvIknLCAnd2FybicpOwogIH0KfQoKZG9jdW1lbnQuYWRkRXZlbnRMaXN0ZW5lcignRE9NQ29udGVudExvYWRlZCcsIGZ1bmN0aW9uICgpIHsKICBpbml0UHJpbnRCcm9hZGNhc3RDaGFubmVsXygpOwogIGluaXQoKTsKfSk7Cjwvc2NyaXB0Pgo8L2JvZHk+CjwvaHRtbD4K';
 function getPrinterBridgeSrcdocHtml_() {
-  try { return atob(PRINTER_BRIDGE_B64); } catch (e) { return ''; }
+  try {
+    var bin = atob(PRINTER_BRIDGE_B64);
+    var u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new TextDecoder("utf-8").decode(u8);
+  } catch (e) { return ''; }
 }
 </script>
 
