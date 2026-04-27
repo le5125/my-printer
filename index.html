@@ -968,6 +968,7 @@
 /* 隱藏 Firefox 的箭頭 */
 .quantity-input[type=number] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
   /* ── KDS 訂單看板（獨立樣式，不覆寫既有 container）── */
@@ -6200,8 +6201,7 @@ function openPrinterPageWithSettings_() {
       try { _setPrinterLinkStatus_(false); } catch (e2) {}
     } else {
       try {
-        alert('請允許此網站開啟彈出視窗（Bluefy 網址列旁），否則無法開列印頁。
-或手動開啟與 index 同資料夾的 printer-bridge-standalone.html');
+        alert('請允許此網站開啟彈出視窗（Bluefy 網址列旁），否則無法開列印頁。可改為手動開啟與 index 同資料夾的 printer-bridge-standalone.html');
       } catch (e3) {}
     }
     return w;
