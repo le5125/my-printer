@@ -12737,19 +12737,28 @@ async function pollPendingOrdersOnce_() {
     const fullUrl = url + sep + 'action=getPendingOrders&_=' + Date.now();
     const res = await fetch(fullUrl, { method: 'GET', cache: 'no-store' });
     if (!res.ok) {
-      setPollStatus_('輪詢 HTTP ' + res.status, 'err');
+      setPollStatus_('輪詢 HTTP ' + res.status + '（請確認 Web App 已部署且可匿名 GET）', 'err');
       return;
     }
-    const data = await res.json();
+    const rawBody = await res.text();
+    let data;
+    try {
+      data = JSON.parse(rawBody);
+    } catch (parseErr) {
+      const hint = rawBody.replace(/\s+/g, ' ').trim().slice(0, 100);
+      setPollStatus_('輪詢：後端不是 JSON（網址錯／未部署／回傳錯誤頁） ' + (hint || '（空回應）'), 'err');
+      return;
+    }
     if (!data || data.result !== 'success' || !Array.isArray(data.orders)) {
-      setPollStatus_('回應格式異常', 'err');
+      const msg = (data && (data.message || data.error)) ? String(data.message || data.error) : '';
+      setPollStatus_('回應格式異常' + (msg ? '：' + msg : '（需 result:success 與 orders 陣列）'), 'err');
       return;
     }
     setPollStatus_('輪詢中（最後 ' + new Date().toTimeString().slice(0,8)
       + '）／待出餐 ' + data.orders.length + ' 筆', 'ok');
     await processBackendOrders_(data.orders);
   } catch (e) {
-    setPollStatus_('輪詢例外：' + (e && e.message ? e.message : e), 'err');
+    setPollStatus_('輪詢連線／請求失敗：' + (e && e.message ? e.message : String(e)), 'err');
   } finally {
     pollInFlight = false;
   }
@@ -12778,53 +12787,60 @@ async function processBackendOrders_(orders) {
         continue;
       }
 
-      const items = Array.isArray(ord.items) ? ord.items : [];
-      const text = buildPrintTextFromBackendOrder_(ord);
-      const baseMeta = {
-        orderId   : ord.orderId,
-        shortId   : ord.shortId || (ord.orderId ? String(ord.orderId).slice(-3) : ''),
-        timestamp : ord.timestamp ? new Date(ord.timestamp).getTime() : Date.now(),
-        phone     : ord.phone,
-        remark    : ord.remark || ord.notes,
-        total     : ord.total,
-        itemsCount: items.length,
-        summary   : items[0] ? items[0].name + (items.length > 1 ? ' 等 ' + items.length + ' 項' : ' x' + (items[0].quantity || 1)) : '',
-        mode      : getPrintMode_()
-      };
-
-      const mode = getAutoPrintMode_();
-
-      // ★ 手動模式：寫成「待列印」，使用者按按鈕才印；不再自動 autoPrint
-      if (mode === 'manual') {
-        log('備援收到訂單 ' + oid + '（手動模式：列入待列印）', 'info');
-        addToPrintHistory_(Object.assign({}, baseMeta, { source: 'queued', printed: false }), text);
-        addPrintedOrderId_(oid);
-        continue;
-      }
-
-      // 自動模式
-      if (!isConnected || !bleChar) {
-        log('未連線 BLE，' + oid + ' 寫入待列印（請連線後手動列印）', 'warn');
-        addToPrintHistory_(Object.assign({}, baseMeta, { source: 'queued', printed: false }), text);
-        addPrintedOrderId_(oid);
-        return;
-      }
-      if (printLock) {
-        log('列印鎖定中，' + oid + ' 稍後再試', 'warn');
-        return;
-      }
-
-      pendingData = { text: text, backUrl: '', ts: Date.now() };
-      updateQueueDisplay(pendingData);
-      log('備援補印新訂單 ' + oid, 'info');
-
+      let text;
+      let baseMeta;
       try {
-        await autoPrint(pendingData);
-        addPrintedOrderId_(oid);
-        addToPrintHistory_(Object.assign({}, baseMeta, { source: 'polling', printed: true }), text);
-      } catch (e) {
-        log('列印 ' + oid + ' 失敗: ' + (e && e.message ? e.message : e), 'err');
-        return;
+        const items = Array.isArray(ord.items) ? ord.items : [];
+        text = buildPrintTextFromBackendOrder_(ord);
+        baseMeta = {
+          orderId   : ord.orderId,
+          shortId   : ord.shortId || (ord.orderId ? String(ord.orderId).slice(-3) : ''),
+          timestamp : ord.timestamp ? new Date(ord.timestamp).getTime() : Date.now(),
+          phone     : ord.phone,
+          remark    : ord.remark || ord.notes,
+          total     : ord.total,
+          itemsCount: items.length,
+          summary   : items[0] ? items[0].name + (items.length > 1 ? ' 等 ' + items.length + ' 項' : ' x' + (items[0].quantity || 1)) : '',
+          mode      : getPrintMode_()
+        };
+
+        const mode = getAutoPrintMode_();
+
+        // ★ 手動模式：寫成「待列印」，使用者按按鈕才印；不再自動 autoPrint
+        if (mode === 'manual') {
+          log('備援收到訂單 ' + oid + '（手動模式：列入待列印）', 'info');
+          addToPrintHistory_(Object.assign({}, baseMeta, { source: 'queued', printed: false }), text);
+          addPrintedOrderId_(oid);
+          continue;
+        }
+
+        // 自動模式
+        if (!isConnected || !bleChar) {
+          log('未連線 BLE，' + oid + ' 寫入待列印（請連線後手動列印）', 'warn');
+          addToPrintHistory_(Object.assign({}, baseMeta, { source: 'queued', printed: false }), text);
+          addPrintedOrderId_(oid);
+          return;
+        }
+        if (printLock) {
+          log('列印鎖定中，' + oid + ' 稍後再試', 'warn');
+          return;
+        }
+
+        pendingData = { text: text, backUrl: '', ts: Date.now() };
+        updateQueueDisplay(pendingData);
+        log('備援補印新訂單 ' + oid, 'info');
+
+        try {
+          await autoPrint(pendingData);
+          addPrintedOrderId_(oid);
+          addToPrintHistory_(Object.assign({}, baseMeta, { source: 'polling', printed: true }), text);
+        } catch (e) {
+          log('列印 ' + oid + ' 失敗: ' + (e && e.message ? e.message : e), 'err');
+          return;
+        }
+      } catch (buildErr) {
+        log('備援組版失敗 ' + oid + '：' + (buildErr && buildErr.message ? buildErr.message : buildErr), 'err');
+        continue;
       }
     }
   } finally {
