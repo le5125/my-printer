@@ -5833,11 +5833,11 @@ window.addEventListener('message', function (event) {
     var pif = document.getElementById('printer-bridge-iframe');
     if (pif) {
       pif.style.display = 'none';
-      try { pif.removeAttribute('srcdoc'); } catch (eClose) { /* 略 */ }
+      /* 不可清除 srcdoc：卸載 iframe 會終止出單機頁的 JS，Web Bluetooth 會斷線 */
     }
-    printerWindow = null;
-    isPrinterReady = false;
-    try { _setPrinterLinkStatus_(false); } catch (eSt) { /* 略 */ }
+    try {
+      if (pif && pif.contentWindow) printerWindow = pif.contentWindow;
+    } catch (eCw) { /* 略 */ }
   }
 });
 
@@ -6137,28 +6137,42 @@ function openPrinterPageWithSettings_() {
   try {
     if (currentWebAppUrl) localStorage.setItem('gp2270t_backend_url', currentWebAppUrl);
   } catch (e0) {}
+  var didInjectSrcdoc = false;
   try {
     var html = typeof getPrinterBridgeSrcdocHtml_ === 'function' ? getPrinterBridgeSrcdocHtml_() : '';
     if (!html) {
       console.warn('[POS] 列印橋接內容未載入');
       return null;
     }
-    iframe.srcdoc = html;
+    var existing = '';
+    try {
+      existing = iframe.srcdoc ? String(iframe.srcdoc) : '';
+    } catch (eSd) { existing = ''; }
+    if (!existing || existing.trim().length === 0) {
+      iframe.srcdoc = html;
+      didInjectSrcdoc = true;
+    }
   } catch (e1) {
     console.warn('[POS] 設定列印 iframe 失敗', e1);
     return null;
   }
   iframe.style.display = 'block';
   try { printerWindow = iframe.contentWindow; } catch (e2) { printerWindow = null; }
-  try { _setPrinterLinkStatus_('開啟中…'); } catch (e3) { /* 略 */ }
   try {
-    iframe.addEventListener('load', function onLf() {
-      iframe.removeEventListener('load', onLf);
+    if (didInjectSrcdoc) {
+      iframe.addEventListener('load', function onLf() {
+        iframe.removeEventListener('load', onLf);
+        try {
+          printerWindow = iframe.contentWindow;
+          if (printerWindow) printerWindow.postMessage({ type: 'PRINTER_PING' }, '*');
+        } catch (e4) {}
+      });
+    } else {
       try {
         printerWindow = iframe.contentWindow;
         if (printerWindow) printerWindow.postMessage({ type: 'PRINTER_PING' }, '*');
-      } catch (e4) {}
-    });
+      } catch (e4b) {}
+    }
   } catch (e5) {}
   return iframe.contentWindow;
 }
