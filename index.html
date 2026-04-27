@@ -12905,6 +12905,7 @@ function init() {
   } catch (e) { /* 略 */ }
   log('打印橋接頁就緒', 'ok');
   log('使用方式：1) 連線藍牙 2) 填入 Web App URL 啟用備援 3) POS 送單會即時列印；網路掉包則由備援補印。', 'info');
+  log('自動回連：成功連線後會記住裝置（localStorage + 瀏覽器已授權裝置）。下次開啟本頁或切回分頁會嘗試自動連線（建議 Chrome／Edge，需支援 Bluetooth.getDevices）。', 'info');
 
   // 主動通知所有可能的 POS 視窗：橋接頁已就緒
   // 這樣即使 POS 重整後 printerWin 引用失效，一旦 POS 再送 PING 就能立即拿到引用
@@ -12912,6 +12913,9 @@ function init() {
 
   handleIncomingData();
   tryAutoReconnectBle_().catch(function () { /* 略 */ });
+  setTimeout(function () {
+    if (!isConnected) tryAutoReconnectBle_().catch(function () { /* 略 */ });
+  }, 450);
 
   loadBackendUrlFromStorage_();
   const forceAuto = consumeUrlParams_();
@@ -12959,12 +12963,20 @@ document.addEventListener('visibilitychange', function () {
   if (document.visibilityState !== 'visible') return;
   const urlSync = (cfgBackendUrl && cfgBackendUrl.value || '').trim();
   if (urlSync) syncPrintSettingsFromBackend_().catch(function () { /* 略 */ });
-  if (isConnected || !pendingData) return;
+  if (isConnected) return;
   try {
     if (localStorage.getItem(LS_BLE_LAST_DEVICE_ID)) {
       tryAutoReconnectBle_().catch(function () { /* 略 */ });
     }
   } catch (e) { /* 略 */ }
+});
+
+window.addEventListener('pageshow', function (ev) {
+  if (isConnected) return;
+  try {
+    if (!localStorage.getItem(LS_BLE_LAST_DEVICE_ID)) return;
+  } catch (e) { return; }
+  tryAutoReconnectBle_().catch(function () { /* 略 */ });
 });
 
 /* 與 POS 同網域時可免彈窗即時收單；跨網域時仍以 postMessage / hash 為主 */
