@@ -2937,6 +2937,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       const bossId = urlParams.get('id');
       // 有 id 用網址參數；否則稍後由認證碼 B2（僅 GAS 內嵌）補上
       var currentWebAppUrl = bossId ? ('https://script.google.com/macros/s/' + bossId + '/exec') : '';
+      /** checkClientKey 未過、須重新輸入金鑰啟用時為 true；避免 getKey 見 A2 有舊字串就關閉彈窗（GitHub 上 fetch 較快易重現） */
+      var posLicenseReentryModalRequired_ = false;
       var posBuiltInClientKeyCache_ = '';
       function posGetClientKey_() {
         return String(posBuiltInClientKeyCache_ || '').trim();
@@ -3258,6 +3260,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             return;
           }
           if (posLicenseReasonNeedsKeyModal_(rr)) {
+            posLicenseReentryModalRequired_ = true;
             console.warn('[POS] 授權未完成，改顯示金鑰輸入視窗', rr, posClientKeyOk.raw);
             var _ph = '請輸入授權金鑰';
             if (rr === 'disabled') _ph = '授權已取消勾選，請輸入金鑰重新啟用（與管理者提供一致）';
@@ -3830,7 +3833,9 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         posOpenLicenseKeyModal_('請輸入正確授權金鑰');
       } else {
         console.log('✅ 金鑰驗證通過');
-        keyModal.classList.add('hidden'); // ✅ 再保險一次強制隱藏
+        if (!posLicenseReentryModalRequired_) {
+          keyModal.classList.add('hidden'); // 與後端 checkClientKey 皆通過時才關閉；授權中心停用等仍須留著輸入框
+        }
       }
     } catch (err) {
       console.error('❌ 金鑰讀取錯誤（完整）', err, err && err.message, err && err.stack);
