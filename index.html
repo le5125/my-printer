@@ -553,9 +553,7 @@
 <script>
 /* ============================================================
    PRINTER BRIDGE — index.html
-   GP-2270T via Web Bluetooth
-   · 桌機：Chrome / Edge（穩定支援）
-   · iPhone／iPad：Safari 無 Web Bluetooth，可改用 Bluefy 等瀏覽器
+   GP-2270T via Web Bluetooth (Bluefy on iOS)
    ============================================================ */
 
 'use strict';
@@ -564,7 +562,7 @@
 const BLE_SERVICE_UUID  = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2';
 const BLE_CHAR_UUID     = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f';
 // GP-2270T 也可能用 SPP UUID: 00001101-0000-1000-8000-00805f9b34fb
-// 若上面不行可換成 SPP（視印表機／瀏覽器是否支援）
+// 若上面不行可換成 SPP (需 Bluefy 支援)
 /** 內建字型：GP/TSC 繁中多數用 TST24.BF2；仍異常可試字型索引 "3" */
 const TSPL_FONT_ZH = 'TST24.BF2';
 /** 明細捲紙寬（mm）存在 localStorage，由試算表「打印設定」rollWidthMm 同步；預設 80 */
@@ -747,7 +745,7 @@ async function tryAutoReconnectBle_() {
 btnConnect.addEventListener('click', async () => {
   if (!navigator.bluetooth) {
     log('此瀏覽器不支援 Web Bluetooth', 'err');
-    alert('此瀏覽器不支援 Web Bluetooth。\n\n桌機請使用 Chrome 或 Edge（建議最新版）。\niPhone／iPad 的 Safari 不支援，可改用 Bluefy 等支援 Web Bluetooth 的瀏覽器開啟本頁。');
+    alert('請使用 Bluefy 開啟此頁');
     return;
   }
   setBleState('connecting');
@@ -1612,7 +1610,7 @@ async function autoPrint(data) {
 
     sendAckToPos('PRINT_ACK:success:' + data.ts);
 
-    // 印完嘗試把焦點切回 POS（手機／部分瀏覽器上較有感）
+    // 印完嘗試把焦點切回 POS（如此 iOS Bluefy 才會自動回 POS 分頁）
     // 重印是「使用者在列印頁手動操作」，就不要再切走打擾使用者
     if (!data._isReprint) _focusBackToPos_();
 
@@ -1624,7 +1622,7 @@ async function autoPrint(data) {
   }
 }
 
-/** 嘗試把焦點切回 POS 分頁（由 opener 開啟橋接頁時有效；跨網域依瀏覽器限制） */
+/** 嘗試把焦點切回 POS 分頁（cross-origin focus 在 iOS Bluefy 通常允許） */
 function _focusBackToPos_() {
   try {
     if (posOpener && !posOpener.closed && typeof posOpener.focus === 'function') {
