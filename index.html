@@ -3924,12 +3924,61 @@ let editingMenuId = null;
 let holidayRangePicker = null;
 
 function callGas(methodName, ...args) {
-  return new Promise((resolve, reject) => {
-    google.script.run
-      .withSuccessHandler(resolve)
-      .withFailureHandler(reject)
-      [methodName](...args);
-  });
+  var hasGas = typeof google !== 'undefined' && google.script && typeof google.script.run !== 'undefined';
+  if (hasGas) {
+    return new Promise(function (resolve, reject) {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        [methodName](...args);
+    });
+  }
+  if (typeof currentWebAppUrl === 'string' && currentWebAppUrl.trim()) {
+    var base = currentWebAppUrl.trim().replace(/\?+$/, '');
+    var sep = base.indexOf('?') >= 0 ? '&' : '?';
+    var url = base + sep + 'action=' + encodeURIComponent(methodName);
+    return fetch(url, {
+      method: 'GET',
+      credentials: 'omit',
+      cache: 'no-store',
+      headers: { Accept: 'application/json, text/plain;q=0.9,*/*;q=0.8' }
+    }).then(function (res) {
+      return res.text().then(function (text) {
+        var parsed = null;
+        try {
+          parsed = text ? JSON.parse(text) : null;
+        } catch (parseErr) {
+          console.error('[callGas:' + methodName + '] JSON 解析失敗', {
+            url: url,
+            httpStatus: res.status,
+            httpStatusText: res.statusText,
+            bodyPreview: (text || '').slice(0, 1200),
+            parseError: parseErr
+          });
+          throw parseErr;
+        }
+        if (!res.ok) {
+          console.error('[callGas:' + methodName + '] HTTP 狀態非 2xx', {
+            url: url,
+            httpStatus: res.status,
+            httpStatusText: res.statusText,
+            parsedBody: parsed
+          });
+        }
+        return parsed;
+      });
+    }).catch(function (err) {
+      console.error('[callGas:' + methodName + '] fetch 完整錯誤', {
+        url: url,
+        name: err && err.name,
+        message: err && err.message,
+        stack: err && err.stack,
+        err: err
+      });
+      throw err;
+    });
+  }
+  return Promise.reject(new Error('[callGas] 非 GAS 嵌入且無 currentWebAppUrl，無法呼叫 ' + methodName));
 }
 
 function getMenuNameById(menuId) {
@@ -4674,13 +4723,14 @@ function switchToMenu(menuId) {
             try {
               namesData = await callGas('getMenuNamesData');
             } catch (e) {
-              namesData = { result: 'error' };
+              console.error('[POS] loadMenuFromSheet：getMenuNamesData 請求例外（完整）', e, e && e.message, e && e.stack);
+              namesData = { result: 'error', message: e && e.message ? String(e.message) : String(e) };
             }
 
             if (!restoredFromCache) {
-              if (namesData.result !== 'success') {
-                console.error('[POS] loadMenuFromSheet：getMenuNamesData 失敗', namesData);
-                showInitialLoaderError('網址有誤,再次輸入後重新整理本頁');
+              if (!namesData || namesData.result !== 'success') {
+                console.error('[POS] loadMenuFromSheet：getMenuNamesData 失敗（回應物件）', namesData);
+                showInitialLoaderError('載入菜單名稱失敗，請開啟開發者工具（F12）→ Console 查看完整錯誤。跨網域時請確認 GAS 已部署並含 action=getMenuNamesData。');
                 return;
               }
               menuNames = namesData.menuNames || {};
@@ -4694,17 +4744,17 @@ function switchToMenu(menuId) {
             try {
               data = await callGas('getProductsData');
             } catch (e) {
-              console.error('讀取商品資料錯誤', e);
+              console.error('[POS] loadMenuFromSheet：getProductsData 請求例外（完整）', e, e && e.message, e && e.stack);
               if (!restoredFromCache) {
-                showInitialLoaderError('網址有誤,再次輸入後重新整理本頁');
+                showInitialLoaderError('載入商品資料失敗，請開啟開發者工具（F12）→ Console 查看完整錯誤。');
               }
               return;
             }
 
-            if (data.result !== 'success') {
-              console.error('[POS] loadMenuFromSheet：getProductsData 失敗', data);
+            if (!data || data.result !== 'success') {
+              console.error('[POS] loadMenuFromSheet：getProductsData 失敗（回應物件）', data);
               if (!restoredFromCache) {
-                showInitialLoaderError('網址有誤,再次輸入後重新整理本頁');
+                showInitialLoaderError('載入商品資料失敗（後端回傳非 success），詳見 Console。');
               }
               return;
             }
@@ -4730,9 +4780,9 @@ function switchToMenu(menuId) {
             persistPosMenuBundleToLocalStorage_();
             if (typeof window.__memberHubRefreshRedeemOnly === 'function') window.__memberHubRefreshRedeemOnly();
           } catch (err) {
-            console.error('讀取商品資料錯誤', err);
+            console.error('[POS] loadMenuFromSheet：未預期錯誤（完整）', err, err && err.message, err && err.stack);
             if (!restoredFromCache) {
-              showInitialLoaderError('網址有誤,再次輸入後重新整理本頁');
+              showInitialLoaderError('載入菜單時發生錯誤，請查看 Console（F12）除錯。');
             }
           }
         }
