@@ -11415,10 +11415,13 @@ function ensureTsplForManualPrint_(raw) {
     if (isNaN(yStart)) yStart = 20;
     if (yStart < 0) yStart = 0;
     if (yStart > 200) yStart = 200;
-    const sepRe = /\n<<<__POS_LABEL_BREAK__>>>\n/;
-    let chunks = s.split(sepRe);
-    if (chunks.length === 1 && s.indexOf('<<<__POS_LABEL_BREAK__>>>') === -1) {
+    // 勿只用「單一換行＋標記」分割：樣版尾端若多空行，會變成 \n\n<<<... 導致切不開、標記被當文字印出
+    const MARK = '<<<__POS_LABEL_BREAK__>>>';
+    let chunks;
+    if (s.indexOf(MARK) === -1) {
       chunks = [s];
+    } else {
+      chunks = s.split(MARK).map(function (ch) { return String(ch || '').trim(); }).filter(Boolean);
     }
     const blocks = [];
     for (let ci = 0; ci < chunks.length; ci++) {
