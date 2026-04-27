@@ -7001,6 +7001,45 @@ function _posPreviewDetail_(tpl) {
     '品項'    : _posItemsBlock_(ord.items)
   });
 }
+function _posStripAddonTokenForLabelSlash_(raw) {
+  var s = String(raw || '').trim();
+  if (!s) return '';
+  var m = s.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
+  if (m) return m[1].trim();
+  m = s.match(/^(.+?)\s*\+\s*(\d+)\s*$/);
+  if (m) return m[1].trim();
+  return s;
+}
+function _posLabelOptionSlashFromItem_(it) {
+  var labels = [];
+  var opts = it && (it.options || it.addons) ? (it.options || it.addons) : [];
+  if (Array.isArray(opts) && opts.length) {
+    opts.forEach(function (o) {
+      var s = typeof o === 'string' ? o : (o && o.name != null ? String(o.name) : '');
+      s = _posStripAddonTokenForLabelSlash_(s);
+      if (s) labels.push(s);
+    });
+  } else {
+    var raw = String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
+    var sp = _posSplitItemBaseAndAddonInner_(raw);
+    if (sp.inner) {
+      _posAddonListFromInner_(sp.inner).forEach(function (a) {
+        if (a && String(a.name || '').trim()) labels.push(String(a.name).trim());
+      });
+    }
+  }
+  return labels.join('/');
+}
+function _posLabelTemplateBaseName_(it) {
+  var opts = it && (it.options || it.addons);
+  if (opts && Array.isArray(opts) && opts.length > 0) {
+    return _posBareProductNameForPrint_(it);
+  }
+  var raw = String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
+  var sp = _posSplitItemBaseAndAddonInner_(raw);
+  if (sp.inner) return sp.base.trim();
+  return raw;
+}
 function _posPreviewLabels_(tpl) {
   const ord = _posPreviewSampleOrder_();
   const ft = _posFmtTime_(ord.timestamp);
@@ -7008,18 +7047,15 @@ function _posPreviewLabels_(tpl) {
   const out = [];
   ord.items.forEach(function (it) {
     const q = it.quantity || 1;
-    const opts = (it.options || []).map(function (o) {
-      return typeof o === 'string' ? o : (o && o.name ? o.name : '');
-    }).filter(Boolean).join(' / ');
     const map = {
       '店名'    : _posPrinterEmojisToGt_(sn),
       '訂單編號': ord.orderId,
       '時間'    : ft.date + ' ' + ft.time, '日期': ft.date,
       '取餐時間': _posPrinterEmojisToGt_(ord.pickupTime || ''),
-      '品名'    : _posPrinterEmojisToGt_(it.name || ''),
+      '品名'    : _posPrinterEmojisToGt_(_posLabelTemplateBaseName_(it)),
       '數量'    : q,
       '單價'    : it.price || '',
-      '選項'    : _posPrinterEmojisToGt_(opts),
+      '選項'    : _posPrinterEmojisToGt_(_posLabelOptionSlashFromItem_(it)),
       '備註'    : _posPrinterEmojisToGt_(it.note || '')
     };
     for (let r = 0; r < q; r++) out.push(_posRenderTemplate_(tpl, map));
@@ -7236,18 +7272,15 @@ window.__initPrintSettingsUi_ = (function () {
 
     // 只取「第一個品項、數量視為 1 張」── 預覽只示範一張
     const it = ord.items[0] || _posFirstMenuItemForPreview_();
-    const opts = (it.options || []).map(function (o) {
-      return typeof o === 'string' ? o : (o && o.name ? o.name : '');
-    }).filter(Boolean).join(' / ');
     const map = {
       '店名'    : _posPrinterEmojisToGt_(sn),
       '訂單編號': ord.orderId,
       '時間'    : ft.date + ' ' + ft.time, '日期': ft.date,
       '取餐時間': _posPrinterEmojisToGt_(ord.pickupTime || ''),
-      '品名'    : _posPrinterEmojisToGt_(it.name || ''),
+      '品名'    : _posPrinterEmojisToGt_(_posLabelTemplateBaseName_(it)),
       '數量'    : it.quantity || 1,
       '單價'    : it.price || '',
-      '選項'    : _posPrinterEmojisToGt_(opts),
+      '選項'    : _posPrinterEmojisToGt_(_posLabelOptionSlashFromItem_(it)),
       '備註'    : _posPrinterEmojisToGt_(it.note || '')
     };
     const txt = _posRenderTemplate_(tpl, map);
@@ -12508,6 +12541,49 @@ function _orderItemDisplayNameForPrint_(item) {
   return base + '（' + parts.join('、') + '）';
 }
 
+/** 標籤 {選項}：只保留加購名稱，去掉 (+10)／+10 等價錢標記 */
+function _stripAddonTokenForLabelSlash_(raw) {
+  var s = String(raw || '').trim();
+  if (!s) return '';
+  var m = s.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
+  if (m) return m[1].trim();
+  m = s.match(/^(.+?)\s*\+\s*(\d+)\s*$/);
+  if (m) return m[1].trim();
+  return s;
+}
+/** 標籤 {選項}：加飯/加蛋/加辣（無加購為空字串） */
+function _labelOptionSlashFromItem_(it) {
+  var labels = [];
+  var opts = it && (it.options || it.addons) ? (it.options || it.addons) : [];
+  if (Array.isArray(opts) && opts.length) {
+    opts.forEach(function (o) {
+      var s = typeof o === 'string' ? o : (o && o.name != null ? String(o.name) : '');
+      s = _stripAddonTokenForLabelSlash_(s);
+      if (s) labels.push(s);
+    });
+  } else {
+    var raw = String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
+    var sp = _splitItemBaseAndAddonInner_(raw);
+    if (sp.inner) {
+      _addonListFromInner_(sp.inner).forEach(function (a) {
+        if (a && String(a.name || '').trim()) labels.push(String(a.name).trim());
+      });
+    }
+  }
+  return labels.join('/');
+}
+/** 標籤 {品名}：僅主商品名（不含全形／半形括號內加購） */
+function _labelTemplateBaseName_(it) {
+  var opts = it && (it.options || it.addons);
+  if (opts && Array.isArray(opts) && opts.length > 0) {
+    return _bareProductNameForPrint_(it);
+  }
+  var raw = String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
+  var sp = _splitItemBaseAndAddonInner_(raw);
+  if (sp.inner) return sp.base.trim();
+  return raw;
+}
+
 function renderDetailFromOrder_(ord) {
   const ft = _formatOrderTime_(ord.timestamp);
   const map = {
@@ -12534,10 +12610,6 @@ function renderLabelsFromOrder_(ord) {
   for (let k = 0; k < items.length; k++) {
     const it = items[k];
     const q = it.quantity != null ? it.quantity : (it.qty || 0);
-    const opts = it.options || it.addons || [];
-    const optStr = (Array.isArray(opts) ? opts : []).map(function (o) {
-      return typeof o === 'string' ? o : (o && o.name ? o.name : '');
-    }).filter(Boolean).join(' / ');
 
     const map = {
       '店名'    : _printerEmojisToGt_(sn),
@@ -12546,10 +12618,10 @@ function renderLabelsFromOrder_(ord) {
       '時間'    : ft.date + ' ' + ft.time,
       '日期'    : ft.date,
       '取餐時間': _printerEmojisToGt_(ord.pickupTime || ''),
-      '品名'    : _printerEmojisToGt_(it.name || ''),
+      '品名'    : _printerEmojisToGt_(_labelTemplateBaseName_(it)),
       '數量'    : q,
       '單價'    : it.price != null ? it.price : '',
-      '選項'    : _printerEmojisToGt_(optStr),
+      '選項'    : _printerEmojisToGt_(_labelOptionSlashFromItem_(it)),
       '備註'    : _printerEmojisToGt_(it.note || '')
     };
     // 一份一張（依數量重複）
