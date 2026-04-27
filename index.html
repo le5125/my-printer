@@ -12407,6 +12407,17 @@ function _itemsBlock_(items) {
 }
 
 /**
+ * 樣版排版占位（本段為 `</html>` 後內嵌列印腳本，須自帶定義，勿依賴上方 POS 區）。
+ * {空行}、{格}/{全形空白}、{半形空格}
+ */
+function _printTemplateLayoutToken_(key) {
+  if (key === '空行') return '\n';
+  if (key === '格' || key === '全形空' || key === '全形空白') return '\u3000';
+  if (key === '半形空格' || key === '空白') return ' ';
+  return null;
+}
+
+/**
  * 行內樣式 token：可在同一行任何地方切換字體大小／粗細。
  * 例如：{大}{粗}{店名}{細}{中}訂單 #{訂單編號}
  *   {大}{中}{小}{特大}{粗}{細}{重置}
