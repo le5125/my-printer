@@ -6138,16 +6138,80 @@ function _posCurrentBackendUrl_() {
   return '';
 }
 
+/** iPad／iPhone／Bluefy：Web Bluetooth 在 iframe 內常無法完成掃描／連線，GitHub 版改開獨立頁 */
+function _posIosLikeForBle_() {
+  try {
+    var ua = navigator.userAgent || '';
+    if (/iPad|iPhone|iPod/i.test(ua)) return true;
+    if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+  } catch (e) { /* 略 */ }
+  return false;
+}
+
+/**
+ * 將列印訊息送達橋接頁（優先 window.open 分頁，其次 iframe contentWindow）。
+ * 勿只對本頁 window.postMessage，內嵌 iframe 收不到。
+ */
+function _posPostMessageToPrinterBridge_(data, targetOrigin) {
+  var to = targetOrigin == null ? '*' : targetOrigin;
+  try {
+    if (printerWindow && !printerWindow.closed) {
+      printerWindow.postMessage(data, to);
+      return;
+    }
+  } catch (e1) { /* 略 */ }
+  try {
+    var ifr = document.getElementById('printer-bridge-iframe');
+    if (ifr && ifr.contentWindow) {
+      ifr.contentWindow.postMessage(data, to);
+      return;
+    }
+  } catch (e2) { /* 略 */ }
+  try { window.postMessage(data, to); } catch (e3) { /* 略 */ }
+}
+
 /** 開啟列印頁：只附 webapp + autoStart；樣版／模式完全由列印頁自行向工作表抓 */
 function openPrinterPageWithSettings_() {
+  var webapp = '';
+  try { webapp = _posCurrentBackendUrl_(); } catch (eW) { webapp = ''; }
+  try {
+    if (typeof currentWebAppUrl !== 'undefined' && currentWebAppUrl) {
+      localStorage.setItem('gp2270t_backend_url', currentWebAppUrl);
+    }
+  } catch (e0) {}
+
+  /* iPad／iPhone／Bluefy：Web Bluetooth 在 iframe 內 requestDevice 常永久卡住，改開同源獨立頁 */
+  if (typeof _posIosLikeForBle_ === 'function' && _posIosLikeForBle_()) {
+    var q = [];
+    if (webapp) q.push('webapp=' + encodeURIComponent(webapp));
+    q.push('autoStart=1');
+    var base = '';
+    try {
+      base = new URL('printer-bridge-standalone.html', window.location.href).href;
+    } catch (eU) {
+      base = 'printer-bridge-standalone.html';
+    }
+    var join = base.indexOf('?') >= 0 ? '&' : '?';
+    var finalUrl = base + join + q.join('&');
+    console.log('[POS] iPad/iPhone：獨立分頁開列印橋接', finalUrl);
+    var w = window.open(finalUrl, 'printer_window');
+    if (w) {
+      try { printerWindow = w; } catch (e1) { printerWindow = null; }
+      try { _setPrinterLinkStatus_(false); } catch (e2) {}
+    } else {
+      try {
+        alert('請允許此網站開啟彈出視窗（Bluefy 網址列旁），否則無法開列印頁。
+或手動開啟與 index 同資料夾的 printer-bridge-standalone.html');
+      } catch (e3) {}
+    }
+    return w;
+  }
+
   var iframe = document.getElementById('printer-bridge-iframe');
   if (!iframe) {
     console.warn('[POS] 找不到 printer-bridge-iframe');
     return null;
   }
-  try {
-    if (currentWebAppUrl) localStorage.setItem('gp2270t_backend_url', currentWebAppUrl);
-  } catch (e0) {}
   var didInjectSrcdoc = false;
   try {
     var html = typeof getPrinterBridgeSrcdocHtml_ === 'function' ? getPrinterBridgeSrcdocHtml_() : '';
@@ -6228,7 +6292,7 @@ function pingPrinterPageInstantTrigger_(orderData) {
     var payload = buildPrinterOrderPayloadFull_(orderData);
     if (!payload) return;
     try {
-      window.postMessage({ type: 'PRINT_ORDER', payload: payload }, '*');
+      _posPostMessageToPrinterBridge_({ type: 'PRINT_ORDER', payload: payload }, '*');
       posPrinterLastPostMessageTs = Date.now();
     } catch (e) { /* 略 */ }
   } catch (e) { /* 略 */ }
@@ -7080,7 +7144,7 @@ function flushPendingPrinterOrders_() {
     try {
       const message = { type: 'PRINT_ORDER', payload: payload };
       console.log('[POS] 發送 PRINT_ORDER:', message);
-      window.postMessage(message, '*');
+      _posPostMessageToPrinterBridge_(message, '*');
     } catch (e) {
       console.error('[POS] flushPendingPrinterOrders_ 失敗', e);
       isPrinterReady = false;
