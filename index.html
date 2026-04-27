@@ -6683,12 +6683,22 @@ function _posIsStyleToken_(key) {
   return Object.prototype.hasOwnProperty.call(POS_STYLE_TOKENS, key);
 }
 
+/** 樣版排版占位：{空行}、{格}/{全形空白}、{半形空格}（列印區與 POS 預覽共用） */
+function _printTemplateLayoutToken_(key) {
+  if (key === '空行') return '\n';
+  if (key === '格' || key === '全形空' || key === '全形空白') return '\u3000';
+  if (key === '半形空格' || key === '空白') return ' ';
+  return null;
+}
+
 /**
  * 把樣板中的占位符換成實際值；若是「樣式 token」則保留原樣（讓後續 TSPL/預覽再處理）。
  */
 function _posRenderTemplate_(tpl, map) {
   return String(tpl == null ? '' : tpl).replace(/\{([^}]+)\}/g, function (m, k) {
     const key = String(k).trim();
+    const layout = _printTemplateLayoutToken_(key);
+    if (layout != null) return layout;
     if (map[key] != null) return String(map[key]);
     if (_posIsStyleToken_(key)) return m; // 樣式 token 原樣保留
     return '';                             // 不認識的占位符 → 空字串（既有行為）
@@ -7051,7 +7061,8 @@ function _posPreviewLabels_(tpl) {
   const sn = _posCurrentStoreName_();
   const out = [];
   ord.items.forEach(function (it) {
-    const q = it.quantity || 1;
+    const q = it.quantity != null ? it.quantity : (it.qty || 0);
+    const repeat = Math.max(1, parseInt(q, 10) || 1);
     const map = {
       '店名'    : _posPrinterEmojisToGt_(sn),
       '訂單編號': ord.orderId,
@@ -7063,7 +7074,7 @@ function _posPreviewLabels_(tpl) {
       '選項'    : _posPrinterEmojisToGt_(_posLabelOptionSlashFromItem_(it)),
       '備註'    : _posPrinterEmojisToGt_(it.note || '')
     };
-    for (let r = 0; r < q; r++) out.push(_posRenderTemplate_(tpl, map));
+    for (let r = 0; r < repeat; r++) out.push(_posRenderTemplate_(tpl, map));
   });
   return out.join('\n');
 }
@@ -12425,6 +12436,8 @@ function _isStyleToken_(key) {
 function _renderTemplate_(tpl, map) {
   return String(tpl == null ? '' : tpl).replace(/\{([^}]+)\}/g, function (m, k) {
     const key = String(k).trim();
+    const layout = _printTemplateLayoutToken_(key);
+    if (layout != null) return layout;
     if (map[key] != null) return String(map[key]);
     if (_isStyleToken_(key)) return m; // 樣式 token 保留原樣，留給 TSPL 端處理
     return '';
@@ -12637,7 +12650,7 @@ function renderLabelsFromOrder_(ord) {
       '選項'    : _printerEmojisToGt_(_labelOptionSlashFromItem_(it)),
       '備註'    : _printerEmojisToGt_(it.note || '')
     };
-    // 一份一張（依數量重複）
+    // 每份實體一張：依數量重複
     const repeat = Math.max(1, parseInt(q, 10) || 1);
     for (let r = 0; r < repeat; r++) out.push(_renderTemplate_(tpl, map));
   }
