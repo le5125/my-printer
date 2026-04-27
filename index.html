@@ -11395,13 +11395,11 @@ function ensureTsplForManualPrint_(raw) {
     } catch (e) { /* 略 */ }
     return out;
   }
-  try {
-    if (window.GP2270T_FORCE_UTF8 !== true) s = stripToPrinterCp950Only_(s);
-  } catch (e2) { /* 略 */ }
 
   const baseFc = getActiveFontCfg_();
 
   // —— 商品標籤：每張獨立 SIZE／GAP／PRINT，依縫隙停紙 ——
+  // ★ 不可先對整段 s 做 stripToPrinterCp950Only_：內含 _printerEmojisToGt_ 會把 <<<__POS_LABEL_BREAK__>>> 尾端 >>> 併成 >，分割失效→多品項黏成一張
   if (_activeTsplFontProfile_ === 'label') {
     const sz = getLabelSize_();
     const widthMm = Number(sz.width) > 0 ? Number(sz.width) : 40;
@@ -11415,7 +11413,6 @@ function ensureTsplForManualPrint_(raw) {
     if (isNaN(yStart)) yStart = 20;
     if (yStart < 0) yStart = 0;
     if (yStart > 200) yStart = 200;
-    // 勿只用「單一換行＋標記」分割：樣版尾端若多空行，會變成 \n\n<<<... 導致切不開、標記被當文字印出
     const MARK = '<<<__POS_LABEL_BREAK__>>>';
     let chunks;
     if (s.indexOf(MARK) === -1) {
@@ -11425,8 +11422,11 @@ function ensureTsplForManualPrint_(raw) {
     }
     const blocks = [];
     for (let ci = 0; ci < chunks.length; ci++) {
-      const chunk = String(chunks[ci] || '').trim();
+      let chunk = String(chunks[ci] || '').trim();
       if (!chunk) continue;
+      try {
+        if (window.GP2270T_FORCE_UTF8 !== true) chunk = stripToPrinterCp950Only_(chunk);
+      } catch (eStripChunk) { /* 略 */ }
       const styledAll = parseStyledLines_(chunk, baseFc);
       const styledLines = styledAll.filter(function (segs) {
         if (!segs || !segs.length) return false;
@@ -11442,6 +11442,10 @@ function ensureTsplForManualPrint_(raw) {
     log('標籤 TSPL：共 ' + blocks.length + ' 張；' + widthMm + '×' + heightMm + 'mm GAP ' + gapMm + ',' + gapOff + ' 起始Y=' + yStart, 'info');
     return blocks.join('\n') + '\n';
   }
+
+  try {
+    if (window.GP2270T_FORCE_UTF8 !== true) s = stripToPrinterCp950Only_(s);
+  } catch (e2) { /* 略 */ }
 
   // —— 明細捲紙：依內容推算高度（寬度由試算表 rollWidthMm／預設 80） ——
   let widthMm = getRollWidthMm_();
