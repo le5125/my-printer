@@ -7288,7 +7288,7 @@ function _posLabelTemplatePrintName_(it) {
   return _posLabelTemplateBaseName_(it);
 }
 function _posLabelRemarkForItemAndOrder_(it, ord) {
-  return _labelItemNoteText_(it);
+  return _labelRemarkForItemAndOrder_(it, ord);
 }
 function _posOrderPickupTimeForLabel_(ord) {
   if (!ord) return '';
@@ -13049,12 +13049,13 @@ function _labelTemplatePrintName_(it) {
   if (ln) return ln;
   return _labelTemplateBaseName_(it);
 }
-/** 品項備註（商品標籤 {備註} 僅此欄，不含整單備註） */
+/** 品項備註欄位合併（輪詢／試算表／POS 各種鍵名） */
 function _labelItemNoteText_(it) {
   if (!it) return '';
   var raw = it.note != null ? it.note : (it.notes != null ? it.notes : it.itemNote);
   if (raw == null || raw === '') raw = it.memo != null ? it.memo : it.itemMemo;
   if (raw == null || raw === '') raw = it.itemNotes != null ? it.itemNotes : it.lineNote;
+  if (raw == null || raw === '') raw = it.remark != null ? it.remark : it.item_remark;
   return String(raw == null ? '' : raw).trim();
 }
 /** 是否列印此品項的商品標籤（試算表「印標籤」關／後端 false → 不印） */
@@ -13066,7 +13067,14 @@ function _itemShouldPrintProductLabel_(it) {
   return true;
 }
 function _labelRemarkForItemAndOrder_(it, ord) {
-  return _labelItemNoteText_(it);
+  var line = _labelItemNoteText_(it);
+  if (line) return line;
+  var arr = ord && Array.isArray(ord.items) ? ord.items : [];
+  if (arr.length === 1) {
+    var om = (ord.remark || ord.notes || '').toString().trim();
+    if (om) return om;
+  }
+  return '';
 }
 function _orderPickupTimeForLabel_(ord) {
   if (!ord) return '';
