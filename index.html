@@ -6768,6 +6768,46 @@ function openPrinterPageWithSettings_() {
 }
 
 /**
+ * 是否印商品標籤以試算表「商品資料」Z 欄為準（經 getProducts → printLabel）。
+ */
+function posOrderItemBaseNameForProductSheet_(it) {
+  if (!it) return '';
+  var raw = (it.name != null ? String(it.name) : '').replace(/^'/, '').trim();
+  if (!raw) return '';
+  var m = raw.match(/^(.+?)（(.+)）$/);
+  if (m) return m[1].trim().replace(/^'/, '');
+  return raw.replace(/^'/, '');
+}
+function posFindMenuProductByOrderBaseName_(item) {
+  var base = posOrderItemBaseNameForProductSheet_(item);
+  if (!base || typeof menuTabs !== 'object' || !menuTabs) return null;
+  var keys = Object.keys(menuTabs);
+  var k, list, idx, p;
+  for (k = 0; k < keys.length; k++) {
+    list = menuTabs[keys[k]];
+    if (!Array.isArray(list)) continue;
+    for (idx = 0; idx < list.length; idx++) {
+      p = list[idx];
+      if (p && String(p.name || '').trim() === base) return p;
+    }
+  }
+  return null;
+}
+function posPrintLabelFromProductSheetZ_(item) {
+  var p = posFindMenuProductByOrderBaseName_(item);
+  if (p) {
+    return !(p.printLabel === false || String(p.printLabel || '').trim() === '否' || p.printLabel === 0 || p.printLabel === '0');
+  }
+  var off = item && (item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0');
+  return !off;
+}
+function posLabelNameFromProductSheetY_(item) {
+  var p = posFindMenuProductByOrderBaseName_(item);
+  if (p && p.labelName != null && String(p.labelName).trim()) return String(p.labelName).trim();
+  return (item.labelName || item.label_name || '').toString().trim();
+}
+
+/**
  * 把 orderData 轉成列印頁 PRINT_ORDER 的 payload。
  * 列印頁會用自己 localStorage 的樣版 + 店名渲染。
  */
@@ -6792,8 +6832,8 @@ function buildPrinterOrderPayloadFull_(orderData) {
         price   : i.price != null ? i.price : 0,
         options : i.options || [],
         note    : (i.note || i.notes || i.itemNote || '').toString().trim(),
-        labelName: (i.labelName || i.label_name || '').toString().trim(),
-        printLabel: (i.printLabel === false || String(i.printLabel || '').trim() === '否' || i.printLabel === 0 || i.printLabel === '0') ? false : true
+        labelName: posLabelNameFromProductSheetY_(i),
+        printLabel: posPrintLabelFromProductSheetZ_(i)
       };
     })
   };
@@ -7740,7 +7780,9 @@ function buildPrinterOrderPayload_(orderData) {
         name: i.name,
         qty: i.quantity != null ? i.quantity : (i.qty || 0),
         options: i.options || [],
-        note: (i.note || i.notes || i.itemNote || '').toString().trim()
+        note: (i.note || i.notes || i.itemNote || '').toString().trim(),
+        labelName: posLabelNameFromProductSheetY_(i),
+        printLabel: posPrintLabelFromProductSheetZ_(i)
       };
     }),
     total: orderData.total
@@ -7778,8 +7820,8 @@ function buildCurrentOrderData() {
       quantity: item.quantity,
       options: item.options || [],
       note: (item.note || item.notes || item.itemNote || '').toString().trim(),
-      labelName: (item.labelName || item.label_name || '').toString().trim(),
-      printLabel: !(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0')
+      labelName: posLabelNameFromProductSheetY_(item),
+      printLabel: posPrintLabelFromProductSheetZ_(item)
     }))
   };
 }
