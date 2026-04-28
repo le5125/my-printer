@@ -6938,24 +6938,28 @@ function _posStyledLinesToHtml_(styledLines, opts) {
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
   return styledLines.map(function (segs) {
+    var inner;
     if (!segs.length) {
       if (opts.isLabelBlock && opts.fontCfg) {
         var bh = _posLabelBlankLinePx_(opts.fontCfg);
-        return '<span style="display:block;height:' + bh + 'px;line-height:' + bh + 'px;overflow:hidden;font-size:1px">&nbsp;</span>';
+        inner = '<span style="display:block;height:' + bh + 'px;line-height:' + bh + 'px;overflow:hidden;font-size:1px">&nbsp;</span>';
+      } else {
+        inner = '<span style="display:block;line-height:1.35;min-height:1.15em">&nbsp;</span>';
       }
-      return '<span style="display:block;line-height:1.35;min-height:1.15em">&nbsp;</span>';
+    } else {
+      inner = segs.map(function (s) {
+        const fs = _posFontSizeToken_(s.size);
+        var lh = Math.max(Math.round(fs.previewPx * 1.22), fs.previewPx + 4);
+        const style =
+          'font-size:' + fs.previewPx + 'px;' +
+          'font-weight:' + (s.bold ? 700 : 400) + ';' +
+          'line-height:' + lh + 'px;' +
+          'vertical-align:baseline;white-space:pre-wrap;';
+        return '<span style="' + style + '">' + esc(s.text) + '</span>';
+      }).join('');
     }
-    return segs.map(function (s) {
-      const fs = _posFontSizeToken_(s.size);
-      var lh = Math.max(Math.round(fs.previewPx * 1.22), fs.previewPx + 4);
-      const style =
-        'font-size:' + fs.previewPx + 'px;' +
-        'font-weight:' + (s.bold ? 700 : 400) + ';' +
-        'line-height:' + lh + 'px;' +
-        'vertical-align:baseline;white-space:pre-wrap;';
-      return '<span style="' + style + '">' + esc(s.text) + '</span>';
-    }).join('');
-  }).join('\n');
+    return '<div class="pos-print-preview-line" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:0">' + inner + '</div>';
+  }).join('');
 }
 /**
  * 從商品列取得附加選項名稱（供標籤預覽 {選項}）。
@@ -7284,10 +7288,7 @@ function _posLabelTemplatePrintName_(it) {
   return _posLabelTemplateBaseName_(it);
 }
 function _posLabelRemarkForItemAndOrder_(it, ord) {
-  var line = (it && (it.note || it.notes || it.itemNote || '')).toString().trim();
-  var orderRm = (ord && (ord.remark || ord.notes || '')).toString().trim();
-  if (line && orderRm) return line + '；' + orderRm;
-  return line || orderRm;
+  return _labelItemNoteText_(it);
 }
 function _posOrderPickupTimeForLabel_(ord) {
   if (!ord) return '';
@@ -13048,7 +13049,7 @@ function _labelTemplatePrintName_(it) {
   if (ln) return ln;
   return _labelTemplateBaseName_(it);
 }
-/** 品項備註（標籤 {備註} 僅指此欄，另可併入整單備註） */
+/** 品項備註（商品標籤 {備註} 僅此欄，不含整單備註） */
 function _labelItemNoteText_(it) {
   if (!it) return '';
   var raw = it.note != null ? it.note : (it.notes != null ? it.notes : it.itemNote);
@@ -13065,10 +13066,7 @@ function _itemShouldPrintProductLabel_(it) {
   return true;
 }
 function _labelRemarkForItemAndOrder_(it, ord) {
-  var line = _labelItemNoteText_(it);
-  var orderRm = (ord && (ord.remark || ord.notes || '')).toString().trim();
-  if (line && orderRm) return line + '；' + orderRm;
-  return line || orderRm;
+  return _labelItemNoteText_(it);
 }
 function _orderPickupTimeForLabel_(ord) {
   if (!ord) return '';
