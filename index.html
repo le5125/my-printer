@@ -6791,7 +6791,8 @@ function buildPrinterOrderPayloadFull_(orderData) {
         price   : i.price != null ? i.price : 0,
         options : i.options || [],
         note    : (i.note || i.notes || i.itemNote || '').toString().trim(),
-        labelName: (i.labelName || i.label_name || '').toString().trim()
+        labelName: (i.labelName || i.label_name || '').toString().trim(),
+        printLabel: (i.printLabel === false || String(i.printLabel || '').trim() === '否' || i.printLabel === 0 || i.printLabel === '0') ? false : true
       };
     })
   };
@@ -6918,14 +6919,32 @@ function _posParseStyledLines_(rawText, baseFc) {
   return out;
 }
 
+/** 標籤 {空行}：預覽行高與 TSPL buildLabelTsplBlockFromStyled_ 之 blankRowH 比例一致 */
+function _posLabelBlankLinePx_(fontCfg) {
+  var fc = fontCfg || { size: 'small', bold: false };
+  var o = _posFontSizeToken_((fc && fc.size) || 'small');
+  var mul = o.tsplScale;
+  var blankRowH = Math.max(3, Math.round(4 * mul + 1));
+  var rowH = 24 * mul + 8;
+  var lh = Math.max(Math.round(o.previewPx * 1.22), o.previewPx + 4);
+  return Math.max(2, Math.round(lh * (blankRowH / rowH)));
+}
+
 /** 將 styled lines 組成 HTML（每段以 span 套樣式），給預覽用 */
-function _posStyledLinesToHtml_(styledLines) {
+function _posStyledLinesToHtml_(styledLines, opts) {
+  opts = opts || {};
   function esc(s) {
     return String(s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
   return styledLines.map(function (segs) {
-    if (!segs.length) return '<span style="display:block;line-height:1.35;min-height:1.15em">&nbsp;</span>';
+    if (!segs.length) {
+      if (opts.isLabelBlock && opts.fontCfg) {
+        var bh = _posLabelBlankLinePx_(opts.fontCfg);
+        return '<span style="display:block;height:' + bh + 'px;line-height:' + bh + 'px;overflow:hidden;font-size:1px">&nbsp;</span>';
+      }
+      return '<span style="display:block;line-height:1.35;min-height:1.15em">&nbsp;</span>';
+    }
     return segs.map(function (s) {
       const fs = _posFontSizeToken_(s.size);
       var lh = Math.max(Math.round(fs.previewPx * 1.22), fs.previewPx + 4);
@@ -6937,6 +6956,17 @@ function _posStyledLinesToHtml_(styledLines) {
       return '<span style="' + style + '">' + esc(s.text) + '</span>';
     }).join('');
   }).join('\n');
+}
+/**
+ * 從商品列取得附加選項名稱（供標籤預覽 {選項}）。
+ */
+function _posAddonNamesFromProduct_(p) {
+  var names = [];
+  for (var i = 1; i <= 8; i++) {
+    var n = p['option' + i];
+    if (n != null && String(n).trim()) names.push(String(n).trim());
+  }
+  return names;
 }
 /**
  * 取得「第一個有商品的菜單分頁」的第一筆可售商品，供打印樣版預覽（{品項}{品名}）。
@@ -6954,19 +6984,23 @@ function _posFirstMenuItemForPreview_() {
         });
         if (filtered.length > 0) {
           const p = filtered[0];
+          var optN = _posAddonNamesFromProduct_(p);
+          var optionsPreview = optN.length ? optN : ['加蛋', '加辣'];
+          var plOff = p.printLabel === false || String(p.printLabel || '').trim() === '否' || p.printLabel === 0 || p.printLabel === '0';
           return {
             name    : String(p.name || '').trim() || '範例商品',
             quantity: 1,
             price   : Number(p.price) || 0,
-            options : [],
-            note    : '',
-            labelName: (p.labelName != null ? String(p.labelName).trim() : '') || ''
+            options : optionsPreview,
+            note    : '少冰',
+            labelName: (p.labelName != null ? String(p.labelName).trim() : '') || '',
+            printLabel: !plOff
           };
         }
       }
     }
   } catch (e) { /* 略 */ }
-  return { name: '招牌雞腿便當', quantity: 1, price: 100, options: [], note: '', labelName: '' };
+  return { name: '招牌雞腿便當', quantity: 1, price: 100, options: ['加蛋', '加辣'], note: '少冰', labelName: '', printLabel: true };
 }
 
 /** 打印樣版預覽用假訂單：品項僅含「第一菜單第一商品」，方便老闆對齊排版 */
@@ -7533,7 +7567,7 @@ window.__initPrintSettingsUi_ = (function () {
     f.style.lineHeight = '1.35';
     // ⬇ 樣式 token 也在標籤預覽中生效
     const styledLines = _posParseStyledLines_(txt, fc);
-    f.innerHTML = _posStyledLinesToHtml_(styledLines);
+    f.innerHTML = _posStyledLinesToHtml_(styledLines, { isLabelBlock: true, fontCfg: fc });
     const meta = document.createElement('div');
     meta.className = 'label-frame-meta';
     f.appendChild(meta);
@@ -11644,7 +11678,7 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
   const n = styledLines.length;
   const fcBlank = getActiveFontCfg_();
   const blankMul = fontSizeToTsplMul_((fcBlank && fcBlank.size) || 'small');
-  const blankRowH = Math.max(8, Math.round(11 * blankMul + 3));
+  const blankRowH = Math.max(3, Math.round(4 * blankMul + 1));
   for (let k = 0; k < n; k++) {
     const segs = styledLines[k] || [];
     const yLineStart = y;
@@ -13014,8 +13048,24 @@ function _labelTemplatePrintName_(it) {
   if (ln) return ln;
   return _labelTemplateBaseName_(it);
 }
+/** 品項備註（標籤 {備註} 僅指此欄，另可併入整單備註） */
+function _labelItemNoteText_(it) {
+  if (!it) return '';
+  var raw = it.note != null ? it.note : (it.notes != null ? it.notes : it.itemNote);
+  if (raw == null || raw === '') raw = it.memo != null ? it.memo : it.itemMemo;
+  if (raw == null || raw === '') raw = it.itemNotes != null ? it.itemNotes : it.lineNote;
+  return String(raw == null ? '' : raw).trim();
+}
+/** 是否列印此品項的商品標籤（試算表「印標籤」關／後端 false → 不印） */
+function _itemShouldPrintProductLabel_(it) {
+  if (!it) return true;
+  if (it.printLabel === false || it.printLabel === 0) return false;
+  var s = String(it.printLabel != null ? it.printLabel : '').trim();
+  if (s === '否' || s === '0' || s === 'FALSE' || s === 'false' || s === '關' || s === 'off') return false;
+  return true;
+}
 function _labelRemarkForItemAndOrder_(it, ord) {
-  var line = (it && (it.note || it.notes || it.itemNote || '')).toString().trim();
+  var line = _labelItemNoteText_(it);
   var orderRm = (ord && (ord.remark || ord.notes || '')).toString().trim();
   if (line && orderRm) return line + '；' + orderRm;
   return line || orderRm;
@@ -13050,6 +13100,7 @@ function renderLabelsFromOrder_(ord) {
   const out = [];
   for (let k = 0; k < items.length; k++) {
     const it = items[k];
+    if (!_itemShouldPrintProductLabel_(it)) continue;
     const q = it.quantity != null ? it.quantity : (it.qty || 0);
 
     const map = {
