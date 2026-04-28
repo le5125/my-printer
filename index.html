@@ -4366,7 +4366,9 @@ function posCurrentMenuBundleForCompare_() {
           option7: item && item.option7 ? item.option7 : '',
           option7Price: item && item.option7Price ? item.option7Price : '',
           option8: item && item.option8 ? item.option8 : '',
-          option8Price: item && item.option8Price ? item.option8Price : ''
+          option8Price: item && item.option8Price ? item.option8Price : '',
+          labelName: item && item.labelName != null ? String(item.labelName).trim() : '',
+          printLabel: item && typeof item.printLabel !== 'undefined' ? !!item.printLabel : true
         };
         acc.push(normalized);
       });
@@ -4433,6 +4435,14 @@ function persistPosMenuBundleToLocalStorage_() {
   }
 }
 
+/** getProductsData／getProducts：試算表 Y 標籤名、Z「印標籤」→ menuTabs 內建欄位（GitHub Pages 必備，否則 printLabel 永遠為 undefined） */
+function posProductPrintBoolFromSheet_(p) {
+  if (!p) return true;
+  var v = p.printLabel;
+  if (v === false || v === 0 || v === '0' || String(v || '').trim() === '否') return false;
+  return true;
+}
+
 function applyServerProductsToMenuTabs_(products) {
   menuTabs = { 'menu-1': [] };
   getSortedMenuIds().forEach(function (menuId) {
@@ -4464,7 +4474,10 @@ function applyServerProductsToMenuTabs_(products) {
       option7Price: p.option7Price || '',
       option8: p.option8 || '',
       option8Price: p.option8Price || '',
-      saleStatus: p.saleStatus || '是'
+      saleStatus: p.saleStatus || '是',
+      menuCategory: (p.menuCategory != null && String(p.menuCategory).trim() !== '') ? String(p.menuCategory).trim() : '菜單',
+      labelName: (p.labelName != null ? String(p.labelName).trim() : '') || '',
+      printLabel: posProductPrintBoolFromSheet_(p)
     });
   });
 }
@@ -5759,13 +5772,31 @@ function populatePickupTimeOptions(openingHours) {
 
         // Add item to order
    // ✅ 加入商品到訂單（支援附加選項與備註）
-function addItemToOrder(id, name, price, quantity = 1, options = [], note = '') {
-  const existingItem = order.items.find(i => i.id === id && JSON.stringify(i.options) === JSON.stringify(options) && i.note === note);
+function addItemToOrder(id, name, price, quantity = 1, options = [], note = '', labelName = '', printLabel = true, catalogProductIdOpt, printThisLabelOpt) {
+  const ln = (labelName || '').toString().trim();
+  const pl = !(printLabel === false || printLabel === 0 || String(printLabel || '').trim() === '否' || printLabel === '0');
+  const cpid = catalogProductIdOpt != null && String(catalogProductIdOpt).trim() !== ''
+    ? String(catalogProductIdOpt).trim()
+    : posBaseIdFromOrderLineId_(id);
+  const ptl = printThisLabelOpt === false ? false : true;
+
+  const existingItem = order.items.find(i =>
+    i.id === id && JSON.stringify(i.options) === JSON.stringify(options) && i.note === note &&
+    (i.labelName || '').toString().trim() === ln &&
+    !!i.printLabel === pl &&
+    String(posCatalogProductIdFromOrderLine_(i)) === String(cpid) &&
+    ((i.printThisLabel !== false) === (ptl !== false))
+  );
 
   if (existingItem) {
     existingItem.quantity += quantity;
   } else {
-    order.items.push({ id, name, price, quantity, options, note });
+    order.items.push({
+      id, name, price, quantity, options, note,
+      labelName: ln, printLabel: pl,
+      catalogProductId: cpid,
+      printThisLabel: ptl
+    });
   }
 
   order.total = order.items.reduce((sum, item) => {
@@ -6130,6 +6161,9 @@ function loadProducts() {
         image: p.image || null,
         description: p.description || '',
         saleStatus: p.saleStatus || '是',
+        menuCategory: (p.menuCategory != null && String(p.menuCategory).trim() !== '') ? String(p.menuCategory).trim() : '菜單',
+        labelName: (p.labelName != null ? String(p.labelName).trim() : '') || '',
+        printLabel: posProductPrintBoolFromSheet_(p),
         option1: p.option1 || '',
         option1Price: p.option1Price || '',
         option2: p.option2 || '',
@@ -6145,7 +6179,7 @@ function loadProducts() {
         option7: p.option7 || '',
         option7Price: p.option7Price || '',
         option8: p.option8 || '',
-        option8Price: p.option8Price || '',
+        option8Price: p.option8Price || ''
       }));
 
       renderMenuItems(); // 顯示商品
@@ -6768,7 +6802,7 @@ function openPrinterPageWithSettings_() {
 }
 
 /**
- * 是否印商品標籤以試算表「商品資料」Z 欄為準（經 getProducts → printLabel）。
+ * 是否印商品標籤：試算表 Z 欄（getProducts → printLabel）× 訂單「印商品標籤」；多菜單以 A 欄 id 對照。
  */
 function posNormalizeProductNameKey_(s) {
   return String(s == null ? '' : s).replace(/^'/, '').replace(/[\s\u00a0]+/g, ' ').trim();
@@ -6779,7 +6813,37 @@ function posOrderItemBaseNameForProductSheet_(it) {
   if (!raw) return '';
   var m = raw.match(/^(.+?)（(.+)）$/);
   if (m) return posNormalizeProductNameKey_(m[1]);
+  m = raw.match(/^(.+?)\((.+)\)$/);
+  if (m) return posNormalizeProductNameKey_(m[1]);
   return raw;
+}
+function posBaseIdFromOrderLineId_(orderLineId) {
+  if (orderLineId == null || orderLineId === '') return '';
+  var s = String(orderLineId);
+  var ix = s.indexOf('-');
+  return ix === -1 ? s : s.slice(0, ix);
+}
+function posCatalogProductIdFromOrderLine_(item) {
+  if (!item) return '';
+  if (item.catalogProductId != null && String(item.catalogProductId).trim() !== '')
+    return String(item.catalogProductId).trim();
+  return posBaseIdFromOrderLineId_(item.id);
+}
+function posFindMenuProductByOrderItem_(item) {
+  var cid = posCatalogProductIdFromOrderLine_(item);
+  if (cid && typeof menuTabs === 'object' && menuTabs) {
+    var keys = Object.keys(menuTabs);
+    var kk, list, ix, p;
+    for (kk = 0; kk < keys.length; kk++) {
+      list = menuTabs[keys[kk]];
+      if (!Array.isArray(list)) continue;
+      for (ix = 0; ix < list.length; ix++) {
+        p = list[ix];
+        if (p && String(p.id) === cid) return p;
+      }
+    }
+  }
+  return posFindMenuProductByOrderBaseName_(item);
 }
 function posFindMenuProductByOrderBaseName_(item) {
   var base = posOrderItemBaseNameForProductSheet_(item);
@@ -6796,16 +6860,28 @@ function posFindMenuProductByOrderBaseName_(item) {
   }
   return null;
 }
+function posSheetWantsPrintProductLabel_(p) {
+  if (!p) return true;
+  return !(p.printLabel === false || String(p.printLabel || '').trim() === '否' || p.printLabel === 0 || p.printLabel === '0');
+}
+function posOrderLineWantsPrintCheckbox_(item) {
+  if (!item) return true;
+  return !(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0');
+}
 function posPrintLabelFromProductSheetZ_(item) {
-  var p = posFindMenuProductByOrderBaseName_(item);
-  if (p) {
-    return !(p.printLabel === false || String(p.printLabel || '').trim() === '否' || p.printLabel === 0 || p.printLabel === '0');
-  }
-  var off = item && (item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0');
-  return !off;
+  var p = posFindMenuProductByOrderItem_(item);
+  var sheetOn = posSheetWantsPrintProductLabel_(p);
+  var cartOn = posOrderLineWantsPrintCheckbox_(item);
+  return !!(sheetOn && cartOn);
+}
+function posFinalPrintProductLabel_(item) {
+  if (!posPrintLabelFromProductSheetZ_(item)) return false;
+  var ln = posLabelNameFromProductSheetY_(item);
+  if (ln !== '' && item.printThisLabel === false) return false;
+  return true;
 }
 function posLabelNameFromProductSheetY_(item) {
-  var p = posFindMenuProductByOrderBaseName_(item);
+  var p = posFindMenuProductByOrderItem_(item);
   if (p && p.labelName != null && String(p.labelName).trim()) return String(p.labelName).trim();
   return (item.labelName || item.label_name || '').toString().trim();
 }
@@ -6836,7 +6912,9 @@ function buildPrinterOrderPayloadFull_(orderData) {
         options : i.options || [],
         note    : (i.note || i.notes || i.itemNote || '').toString().trim(),
         labelName: posLabelNameFromProductSheetY_(i),
-        printLabel: posPrintLabelFromProductSheetZ_(i)
+        catalogProductId: posCatalogProductIdFromOrderLine_(i),
+        printLabel: posFinalPrintProductLabel_(i),
+        printThisLabel: i.printThisLabel !== false
       };
     })
   };
@@ -7785,7 +7863,9 @@ function buildPrinterOrderPayload_(orderData) {
         options: i.options || [],
         note: (i.note || i.notes || i.itemNote || '').toString().trim(),
         labelName: posLabelNameFromProductSheetY_(i),
-        printLabel: posPrintLabelFromProductSheetZ_(i)
+        printLabel: posFinalPrintProductLabel_(i),
+        catalogProductId: posCatalogProductIdFromOrderLine_(i),
+        printThisLabel: i.printThisLabel !== false
       };
     }),
     total: orderData.total
@@ -7824,7 +7904,9 @@ function buildCurrentOrderData() {
       options: item.options || [],
       note: (item.note || item.notes || item.itemNote || '').toString().trim(),
       labelName: posLabelNameFromProductSheetY_(item),
-      printLabel: posPrintLabelFromProductSheetZ_(item)
+      catalogProductId: posCatalogProductIdFromOrderLine_(item),
+      printLabel: posOrderLineWantsPrintCheckbox_(item),
+      printThisLabel: item.printThisLabel !== false
     }))
   };
 }
@@ -8225,6 +8307,14 @@ document.getElementById('submit-order').addEventListener('click', () => {
             const displayBase = _posBareProductNameForPrint_(item);
             const addonLine = _posOrderDisplayAddonLabels_(item);
             const lineTotal = item.price * item.quantity;
+            const menuHit = posFindMenuProductByOrderItem_(item);
+            const sheetOn = menuHit ? posSheetWantsPrintProductLabel_(menuHit) : true;
+            const plDisabled = (menuHit && !sheetOn) ? ' disabled title="商品資料「印標籤」為否"' : '';
+            const plCartChecked = sheetOn ? posOrderLineWantsPrintCheckbox_(item) : false;
+            const lnForUi = posLabelNameFromProductSheetY_(item);
+            const showPrintThis = lnForUi !== '';
+            const ptlChecked = item.printThisLabel !== false;
+            const lnEsc = String(lnForUi).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
             orderItemsHTML += `
     <div class="order-item py-3 border-b border-gray-100">
       <div class="flex items-start gap-2">
@@ -8246,6 +8336,14 @@ document.getElementById('submit-order').addEventListener('click', () => {
             </div>
             <span class="font-semibold text-gray-800 text-base shrink-0">NT$ ${lineTotal}</span>
           </div>
+          <label class="mt-1 flex items-center gap-2 cursor-pointer select-none text-xs text-gray-600">
+            <input type="checkbox" class="order-item-print-label h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-id="${item.id}" ${plCartChecked ? 'checked' : ''}${plDisabled}>
+            <span>印商品標籤</span>
+          </label>
+          ${showPrintThis ? `<label class="mt-1 flex items-center gap-2 cursor-pointer select-none text-xs text-gray-600">
+            <input type="checkbox" class="order-item-print-this-label h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-id="${item.id}" ${ptlChecked ? 'checked' : ''}${plDisabled}>
+            <span>列印標籤名「${lnEsc}」</span>
+          </label>` : ''}
           ${addonLine ? `<div class="text-sm text-gray-500 mt-1">${addonLine}</div>` : ''}
           ${item.note ? `<div class="text-sm text-gray-500 mt-1">備註：${item.note}</div>` : ''}
         </div>
@@ -8294,6 +8392,22 @@ document.getElementById('submit-order').addEventListener('click', () => {
               e.stopPropagation();
               const itemId = this.getAttribute('data-id');
               removeItemFromOrder(itemId);
+            });
+          });
+
+          document.querySelectorAll('.order-item-print-label').forEach(cb => {
+            cb.addEventListener('change', function () {
+              const itemId = this.getAttribute('data-id');
+              const line = order.items.find(i => String(i.id) === String(itemId));
+              if (line) line.printLabel = !!this.checked;
+            });
+          });
+
+          document.querySelectorAll('.order-item-print-this-label').forEach(cb => {
+            cb.addEventListener('change', function () {
+              const itemId = this.getAttribute('data-id');
+              const line = order.items.find(i => String(i.id) === String(itemId));
+              if (line) line.printThisLabel = !!this.checked;
             });
           });
 
@@ -8631,7 +8745,7 @@ const overlayClass = item.saleStatus === '否' ? '' : 'hidden';
 menuItemsHTML += `
   <div class="menu-item menu-item-container bg-white rounded-lg overflow-hidden shadow-md cursor-pointer transition-all duration-200 relative" 
        style="min-height: 220px; display: flex; flex-direction: column;" 
-       data-id="${item.id}" data-name="${item.name}" data-price="${item.price}">
+       data-id="${item.id}" data-name="${item.name}" data-price="${item.price}" data-label-name="${String(item.labelName != null ? item.labelName : '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" data-print-label="${(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0') ? '0' : '1'}">
     
     <div class="edit-btn" data-id="${item.id}">
       <i class="fas fa-pencil-alt text-gray-600" style="font-size: 12px;"></i>
@@ -8764,7 +8878,9 @@ document.querySelectorAll('#menu-items .sale-toggle-btn').forEach(btn => {
       option7: targetItem.option7 || '',
       option7Price: targetItem.option7Price || '',
       option8: targetItem.option8 || '',
-      option8Price: targetItem.option8Price || ''
+      option8Price: targetItem.option8Price || '',
+      labelName: (targetItem.labelName != null ? String(targetItem.labelName).trim() : '') || '',
+      printLabel: !(targetItem.printLabel === false || String(targetItem.printLabel || '').trim() === '否' || targetItem.printLabel === 0 || targetItem.printLabel === '0')
     };
     posRunSheetMutation_({
       gasMethod: 'updateProductData',
@@ -8819,7 +8935,9 @@ document.querySelectorAll('#menu-items .menu-item').forEach(item => {
     const itemId = this.getAttribute('data-id');
     const itemName = this.getAttribute('data-name');
     const itemPrice = parseInt(this.getAttribute('data-price'));
-    addItemToOrder(itemId, itemName, itemPrice);
+    const itemLn = (this.getAttribute('data-label-name') || '').trim();
+    const wantPl = this.getAttribute('data-print-label') !== '0';
+    addItemToOrder(itemId, itemName, itemPrice, 1, [], '', itemLn, wantPl, itemId, true);
   });
 });
 
@@ -8934,13 +9052,18 @@ for (let i = 1; i <= 8; i++) {
     const fullName = item.name + (extras.length ? `（${extras.join('、')}）` : '');
     const totalPrice = item.price + totalExtra;
 
+    const plOn = !(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0');
     addItemToOrder(
       item.id + '-' + extras.join('+'),
       fullName,
       totalPrice,
       quantity,
       extras,
-      note
+      note,
+      (item.labelName || '').toString().trim(),
+      plOn,
+      item.id,
+      true
     );
 
     document.getElementById('option-modal').classList.add('hidden');
