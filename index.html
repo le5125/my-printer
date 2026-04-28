@@ -6790,7 +6790,8 @@ function buildPrinterOrderPayloadFull_(orderData) {
         quantity: i.quantity != null ? i.quantity : (i.qty || 1),
         price   : i.price != null ? i.price : 0,
         options : i.options || [],
-        note    : (i.note || i.notes || i.itemNote || '').toString().trim()
+        note    : (i.note || i.notes || i.itemNote || '').toString().trim(),
+        labelName: (i.labelName || i.label_name || '').toString().trim()
       };
     })
   };
@@ -6864,7 +6865,7 @@ function _posPrintTemplateLayoutToken_(key) {
  * 把樣板中的占位符換成實際值；若是「樣式 token」則保留原樣（讓後續 TSPL/預覽再處理）。
  */
 function _posRenderTemplate_(tpl, map) {
-  return String(tpl == null ? '' : tpl).replace(/\{([^}]+)\}/g, function (m, k) {
+  return String(tpl == null ? '' : tpl).replace(/\uFF5B/g, '{').replace(/\uFF5D/g, '}').replace(/\{([^}]+)\}/g, function (m, k) {
     const key = String(k).trim();
     const layout = _posPrintTemplateLayoutToken_(key);
     if (layout != null) return layout;
@@ -6958,13 +6959,14 @@ function _posFirstMenuItemForPreview_() {
             quantity: 1,
             price   : Number(p.price) || 0,
             options : [],
-            note    : ''
+            note    : '',
+            labelName: (p.labelName != null ? String(p.labelName).trim() : '') || ''
           };
         }
       }
     }
   } catch (e) { /* 略 */ }
-  return { name: '招牌雞腿便當', quantity: 1, price: 100, options: [], note: '' };
+  return { name: '招牌雞腿便當', quantity: 1, price: 100, options: [], note: '', labelName: '' };
 }
 
 /** 打印樣版預覽用假訂單：品項僅含「第一菜單第一商品」，方便老闆對齊排版 */
@@ -6977,6 +6979,7 @@ function _posPreviewSampleOrder_() {
   }, 0);
   return {
     orderId: 'A1734',
+    shortId: '734',
     timestamp: now,
     pickupTime: pad(now.getHours()) + ':' + pad((now.getMinutes() + 15) % 60),
     phone: '0912345678',
@@ -7187,7 +7190,7 @@ function _posPreviewDetail_(tpl) {
     '店名'    : _posPrinterEmojisToGt_(_posCurrentStoreName_()),
     '訂單編號': ord.orderId,
     '時間'    : ft.date + ' ' + ft.time, '日期': ft.date,
-    '取餐時間': _posPrinterEmojisToGt_(ord.pickupTime || ''),
+    '取餐時間': _posPrinterEmojisToGt_(_posOrderPickupTimeForLabel_(ord)),
     '電話'    : _posPrinterEmojisToGt_(ord.phone || ''),
     '備註'    : _posPrinterEmojisToGt_(ord.remark || ''),
     '總計'    : ord.total,
@@ -7240,6 +7243,22 @@ function _posLabelTemplateBaseName_(it) {
   if (sp.inner) return sp.base.trim();
   return raw;
 }
+function _posLabelTemplatePrintName_(it) {
+  var ln = (it && (it.labelName != null || it.label_name != null))
+    ? String(it.labelName != null ? it.labelName : it.label_name).trim() : '';
+  if (ln) return ln;
+  return _posLabelTemplateBaseName_(it);
+}
+function _posLabelRemarkForItemAndOrder_(it, ord) {
+  var line = (it && (it.note || it.notes || it.itemNote || '')).toString().trim();
+  var orderRm = (ord && (ord.remark || ord.notes || '')).toString().trim();
+  if (line && orderRm) return line + '；' + orderRm;
+  return line || orderRm;
+}
+function _posOrderPickupTimeForLabel_(ord) {
+  if (!ord) return '';
+  return (ord.pickupTime || ord.pickup_time || ord.takeTime || '').toString().trim();
+}
 function _posPreviewLabels_(tpl) {
   const ord = _posPreviewSampleOrder_();
   const ft = _posFmtTime_(ord.timestamp);
@@ -7251,13 +7270,14 @@ function _posPreviewLabels_(tpl) {
     const map = {
       '店名'    : _posPrinterEmojisToGt_(sn),
       '訂單編號': ord.orderId,
+      '訂單短碼': (ord.shortId || (ord.orderId ? String(ord.orderId).slice(-3) : '')),
       '時間'    : ft.date + ' ' + ft.time, '日期': ft.date,
-      '取餐時間': _posPrinterEmojisToGt_(ord.pickupTime || ''),
-      '品名'    : _posPrinterEmojisToGt_(_posLabelTemplateBaseName_(it)),
+      '取餐時間': _posPrinterEmojisToGt_(_posOrderPickupTimeForLabel_(ord)),
+      '品名'    : _posPrinterEmojisToGt_(_posLabelTemplatePrintName_(it)),
       '數量'    : q,
       '單價'    : it.price || '',
       '選項'    : _posPrinterEmojisToGt_(_posLabelOptionSlashFromItem_(it)),
-      '備註'    : _posPrinterEmojisToGt_((it.note || it.notes || it.itemNote || '').toString().trim())
+      '備註'    : _posPrinterEmojisToGt_(_posLabelRemarkForItemAndOrder_(it, ord))
     };
     for (let r = 0; r < repeat; r++) out.push(_posRenderTemplate_(tpl, map));
   });
@@ -7476,13 +7496,14 @@ window.__initPrintSettingsUi_ = (function () {
     const map = {
       '店名'    : _posPrinterEmojisToGt_(sn),
       '訂單編號': ord.orderId,
+      '訂單短碼': (ord.shortId || (ord.orderId ? String(ord.orderId).slice(-3) : '')),
       '時間'    : ft.date + ' ' + ft.time, '日期': ft.date,
-      '取餐時間': _posPrinterEmojisToGt_(ord.pickupTime || ''),
-      '品名'    : _posPrinterEmojisToGt_(_posLabelTemplateBaseName_(it)),
+      '取餐時間': _posPrinterEmojisToGt_(_posOrderPickupTimeForLabel_(ord)),
+      '品名'    : _posPrinterEmojisToGt_(_posLabelTemplatePrintName_(it)),
       '數量'    : it.quantity || 1,
       '單價'    : it.price || '',
       '選項'    : _posPrinterEmojisToGt_(_posLabelOptionSlashFromItem_(it)),
-      '備註'    : _posPrinterEmojisToGt_((it.note || it.notes || it.itemNote || '').toString().trim())
+      '備註'    : _posPrinterEmojisToGt_(_posLabelRemarkForItemAndOrder_(it, ord))
     };
     const txt = _posRenderTemplate_(tpl, map);
 
@@ -11623,7 +11644,7 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
   const n = styledLines.length;
   const fcBlank = getActiveFontCfg_();
   const blankMul = fontSizeToTsplMul_((fcBlank && fcBlank.size) || 'small');
-  const blankRowH = 24 * blankMul + 8;
+  const blankRowH = Math.max(8, Math.round(11 * blankMul + 3));
   for (let k = 0; k < n; k++) {
     const segs = styledLines[k] || [];
     const yLineStart = y;
@@ -12800,7 +12821,7 @@ function _printTemplateLayoutToken_(key) {
 }
 
 function _renderTemplate_(tpl, map) {
-  return String(tpl == null ? '' : tpl).replace(/\{([^}]+)\}/g, function (m, k) {
+  return String(tpl == null ? '' : tpl).replace(/\uFF5B/g, '{').replace(/\uFF5D/g, '}').replace(/\{([^}]+)\}/g, function (m, k) {
     const key = String(k).trim();
     const layout = _printTemplateLayoutToken_(key);
     if (layout != null) return layout;
@@ -12986,6 +13007,24 @@ function _labelTemplateBaseName_(it) {
   return raw;
 }
 
+/** 標籤 {品名}：優先「標籤名」，否則僅主商品名（不含括號內加購） */
+function _labelTemplatePrintName_(it) {
+  var ln = (it && (it.labelName != null || it.label_name != null))
+    ? String(it.labelName != null ? it.labelName : it.label_name).trim() : '';
+  if (ln) return ln;
+  return _labelTemplateBaseName_(it);
+}
+function _labelRemarkForItemAndOrder_(it, ord) {
+  var line = (it && (it.note || it.notes || it.itemNote || '')).toString().trim();
+  var orderRm = (ord && (ord.remark || ord.notes || '')).toString().trim();
+  if (line && orderRm) return line + '；' + orderRm;
+  return line || orderRm;
+}
+function _orderPickupTimeForLabel_(ord) {
+  if (!ord) return '';
+  return (ord.pickupTime || ord.pickup_time || ord.takeTime || '').toString().trim();
+}
+
 function renderDetailFromOrder_(ord) {
   const ft = _formatOrderTime_(ord.timestamp);
   const map = {
@@ -12994,7 +13033,7 @@ function renderDetailFromOrder_(ord) {
     '訂單短碼': ord.shortId || '',
     '時間'    : ft.date + ' ' + ft.time,
     '日期'    : ft.date,
-    '取餐時間': _printerEmojisToGt_(ord.pickupTime || ''),
+    '取餐時間': _printerEmojisToGt_(_orderPickupTimeForLabel_(ord)),
     '電話'    : _printerEmojisToGt_(ord.phone || ''),
     '備註'    : _printerEmojisToGt_(ord.remark || ord.notes || ''),
     '總計'    : ord.total != null ? ord.total : '',
@@ -13019,12 +13058,12 @@ function renderLabelsFromOrder_(ord) {
       '訂單短碼': ord.shortId || '',
       '時間'    : ft.date + ' ' + ft.time,
       '日期'    : ft.date,
-      '取餐時間': _printerEmojisToGt_(ord.pickupTime || ''),
-      '品名'    : _printerEmojisToGt_(_labelTemplateBaseName_(it)),
+      '取餐時間': _printerEmojisToGt_(_orderPickupTimeForLabel_(ord)),
+      '品名'    : _printerEmojisToGt_(_labelTemplatePrintName_(it)),
       '數量'    : q,
       '單價'    : it.price != null ? it.price : '',
       '選項'    : _printerEmojisToGt_(_labelOptionSlashFromItem_(it)),
-      '備註'    : _printerEmojisToGt_((it.note || it.notes || it.itemNote || '').toString().trim())
+      '備註'    : _printerEmojisToGt_(_labelRemarkForItemAndOrder_(it, ord))
     };
     // 每份實體一張：依數量重複同樣版（{數量} 仍為該品項總份數）
     const repeat = Math.max(1, parseInt(q, 10) || 1);
