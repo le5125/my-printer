@@ -6886,6 +6886,18 @@ function posLabelNameFromProductSheetY_(item) {
   return (item.labelName || item.label_name || '').toString().trim();
 }
 
+/** 品項列印 payload 備註：合併多種鍵名（與 _labelItemNoteText_ 對齊） */
+function posPrinterOrderLineNote_(it) {
+  if (!it) return '';
+  var keys = ['note', 'notes', 'itemNote', 'memo', 'itemMemo', 'itemNotes', 'lineNote', 'line_notes', 'line_note', 'remark', 'item_remark'];
+  var k = 0;
+  for (; k < keys.length; k++) {
+    var v = it[keys[k]];
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+  }
+  return '';
+}
+
 /**
  * 把 orderData 轉成列印頁 PRINT_ORDER 的 payload。
  * 列印頁會用自己 localStorage 的樣版 + 店名渲染。
@@ -6910,7 +6922,7 @@ function buildPrinterOrderPayloadFull_(orderData) {
         quantity: i.quantity != null ? i.quantity : (i.qty || 1),
         price   : i.price != null ? i.price : 0,
         options : i.options || [],
-        note    : (i.note || i.notes || i.itemNote || '').toString().trim(),
+        note    : posPrinterOrderLineNote_(i),
         labelName: posLabelNameFromProductSheetY_(i),
         catalogProductId: posCatalogProductIdFromOrderLine_(i),
         printLabel: posFinalPrintProductLabel_(i),
@@ -7289,16 +7301,6 @@ function _posItemsBlock_(items) {
         return a && String(a.name || '').trim();
       });
     }
-    if (!addons.length) {
-      var rawName = String(item.name || '').replace(/^'/, '').trim();
-      var sp = _posSplitItemBaseAndAddonInner_(rawName);
-      if (sp.inner) {
-        bare = sp.base;
-        addons = _posAddonListFromInner_(sp.inner);
-      } else {
-        bare = rawName;
-      }
-    }
     var addonPerUnit = addons.reduce(function (s, a) { return s + (parseInt(a.price, 10) || 0); }, 0);
     var unitMain = Math.max(0, basePrice - addonPerUnit);
     var mainLineTotal = unitMain * quantity;
@@ -7317,8 +7319,9 @@ function _posItemsBlock_(items) {
         block += '\n' + adName + ext;
       });
     }
-    if (item.note && String(item.note).trim() !== '') {
-      block += '\n（' + _posPrinterEmojisToGt_(String(item.note).trim()) + '）';
+    var _lnPos = posPrinterOrderLineNote_(item);
+    if (_lnPos) {
+      block += '\n（' + _posPrinterEmojisToGt_(_lnPos) + '）';
     }
     lines.push(block);
   });
@@ -7382,15 +7385,6 @@ function _posLabelOptionSlashFromItem_(it) {
       if (s) labels.push(s);
     });
   }
-  if (!labels.length) {
-    var raw = String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
-    var sp = _posSplitItemBaseAndAddonInner_(raw);
-    if (sp.inner) {
-      _posAddonListFromInner_(sp.inner).forEach(function (a) {
-        if (a && String(a.name || '').trim()) labels.push(String(a.name).trim());
-      });
-    }
-  }
   return labels.join('/');
 }
 function _posLabelTemplateBaseName_(it) {
@@ -7398,10 +7392,7 @@ function _posLabelTemplateBaseName_(it) {
   if (opts && Array.isArray(opts) && opts.length > 0) {
     return _posBareProductNameForPrint_(it);
   }
-  var raw = String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
-  var sp = _posSplitItemBaseAndAddonInner_(raw);
-  if (sp.inner) return sp.base.trim();
-  return raw;
+  return String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
 }
 function _posLabelTemplatePrintName_(it) {
   var ln = (it && (it.labelName != null || it.label_name != null))
@@ -7410,7 +7401,14 @@ function _posLabelTemplatePrintName_(it) {
   return _posLabelTemplateBaseName_(it);
 }
 function _posLabelRemarkForItemAndOrder_(it, ord) {
-  return _labelRemarkForItemAndOrder_(it, ord);
+  var line = _labelItemNoteText_(it);
+  if (line) return line;
+  var arr = ord && Array.isArray(ord.items) ? ord.items : [];
+  if (arr.length === 1) {
+    var om = (ord.remark || ord.notes || '').toString().trim();
+    if (om) return om;
+  }
+  return '';
 }
 function _posOrderPickupTimeForLabel_(ord) {
   if (!ord) return '';
@@ -7861,7 +7859,7 @@ function buildPrinterOrderPayload_(orderData) {
         name: i.name,
         qty: i.quantity != null ? i.quantity : (i.qty || 0),
         options: i.options || [],
-        note: (i.note || i.notes || i.itemNote || '').toString().trim(),
+        note: posPrinterOrderLineNote_(i),
         labelName: posLabelNameFromProductSheetY_(i),
         printLabel: posFinalPrintProductLabel_(i),
         catalogProductId: posCatalogProductIdFromOrderLine_(i),
@@ -7902,7 +7900,7 @@ function buildCurrentOrderData() {
       price: item.price,
       quantity: item.quantity,
       options: item.options || [],
-      note: (item.note || item.notes || item.itemNote || '').toString().trim(),
+      note: posPrinterOrderLineNote_(item),
       labelName: posLabelNameFromProductSheetY_(item),
       catalogProductId: posCatalogProductIdFromOrderLine_(item),
       printLabel: posOrderLineWantsPrintCheckbox_(item),
@@ -12957,16 +12955,6 @@ function _itemsBlock_(items) {
         return a && String(a.name || '').trim();
       });
     }
-    if (!addons.length) {
-      var rawName = String(item.name || '').replace(/^'/, '').trim();
-      var sp = _splitItemBaseAndAddonInner_(rawName);
-      if (sp.inner) {
-        bare = sp.base;
-        addons = _addonListFromInner_(sp.inner);
-      } else {
-        bare = rawName;
-      }
-    }
     var addonPerUnit = addons.reduce(function (s, a) { return s + (parseInt(a.price, 10) || 0); }, 0);
     var unitMain = Math.max(0, basePrice - addonPerUnit);
     var mainLineTotal = unitMain * quantity;
@@ -12985,8 +12973,13 @@ function _itemsBlock_(items) {
         block += '\n' + adName + ext;
       });
     }
-    if (item.note && String(item.note).trim() !== '') {
-      block += '\n（' + _printerEmojisToGt_(String(item.note).trim()) + '）';
+    var _lnBridge = '';
+    try {
+      if (typeof posPrinterOrderLineNote_ === 'function') _lnBridge = posPrinterOrderLineNote_(item);
+    } catch (_eNn) { /* 略 */ }
+    if (!_lnBridge && item && item.note && String(item.note).trim() !== '') _lnBridge = String(item.note).trim();
+    if (_lnBridge) {
+      block += '\n（' + _printerEmojisToGt_(_lnBridge) + '）';
     }
     lines.push(block);
   });
@@ -13192,30 +13185,18 @@ function _labelOptionSlashFromItem_(it) {
       if (s) labels.push(s);
     });
   }
-  if (!labels.length) {
-    var raw = String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
-    var sp = _splitItemBaseAndAddonInner_(raw);
-    if (sp.inner) {
-      _addonListFromInner_(sp.inner).forEach(function (a) {
-        if (a && String(a.name || '').trim()) labels.push(String(a.name).trim());
-      });
-    }
-  }
   return labels.join('/');
 }
-/** 標籤 {品名}：僅主商品名（不含全形／半形括號內加購） */
+/** 標籤 {品名}：無 options 時顯示完整品名（括號內視為品名一部份，不當選項） */
 function _labelTemplateBaseName_(it) {
   var opts = it && (it.options || it.addons);
   if (opts && Array.isArray(opts) && opts.length > 0) {
     return _bareProductNameForPrint_(it);
   }
-  var raw = String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
-  var sp = _splitItemBaseAndAddonInner_(raw);
-  if (sp.inner) return sp.base.trim();
-  return raw;
+  return String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
 }
 
-/** 標籤 {品名}：優先「標籤名」，否則僅主商品名（不含括號內加購） */
+/** 標籤 {品名}：優先「標籤名」，否則完整品名或主品名（有 options 時不含括號內選項組合） */
 function _labelTemplatePrintName_(it) {
   var ln = (it && (it.labelName != null || it.label_name != null))
     ? String(it.labelName != null ? it.labelName : it.label_name).trim() : '';
@@ -13225,6 +13206,7 @@ function _labelTemplatePrintName_(it) {
 /** 品項備註欄位合併（輪詢／試算表／POS 各種鍵名） */
 function _labelItemNoteText_(it) {
   if (!it) return '';
+  if (typeof posPrinterOrderLineNote_ === 'function') return posPrinterOrderLineNote_(it);
   var raw = it.note != null ? it.note : (it.notes != null ? it.notes : it.itemNote);
   if (raw == null || raw === '') raw = it.memo != null ? it.memo : it.itemMemo;
   if (raw == null || raw === '') raw = it.itemNotes != null ? it.itemNotes : it.lineNote;
@@ -13247,9 +13229,13 @@ function _itemShouldPrintProductLabel_(it) {
 }
 function _labelRemarkForItemAndOrder_(it, ord) {
   var line = _labelItemNoteText_(it);
-  var om = (ord && (ord.remark != null || ord.notes != null)) ? String(ord.remark || ord.notes || '').trim() : '';
-  if (line && om && line !== om) return line + '；' + om;
-  return line || om;
+  if (line) return line;
+  var arr = ord && Array.isArray(ord.items) ? ord.items : [];
+  if (arr.length === 1) {
+    var om = (ord.remark || ord.notes || '').toString().trim();
+    if (om) return om;
+  }
+  return '';
 }
 function _orderPickupTimeForLabel_(ord) {
   if (!ord) return '';
