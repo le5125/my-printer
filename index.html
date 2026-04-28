@@ -4369,6 +4369,18 @@ function posCurrentMenuBundleForCompare_() {
   };
 }
 
+function posMenuBundleIsEmpty_() {
+  try {
+    if (!menuTabs || typeof menuTabs !== 'object') return true;
+    return Object.keys(menuTabs).every(function (k) {
+      var arr = menuTabs[k];
+      return !arr || !arr.length;
+    });
+  } catch (e) {
+    return true;
+  }
+}
+
 function tryRestorePosMenuFromLocalStorage_() {
   try {
     var root = getCachedMenuRoot_();
@@ -4986,6 +4998,8 @@ function switchToMenu(menuId) {
               console.error('[POS] loadMenuFromSheet：getProductsData 請求例外（完整）', e, e && e.message, e && e.stack);
               if (!restoredFromCache) {
                 showInitialLoaderError('載入商品資料失敗，請開啟開發者工具（F12）→ Console 查看完整錯誤。');
+              } else if (posMenuBundleIsEmpty_()) {
+                showInitialLoaderError('載入商品資料失敗，且本機無可用菜單快取。請確認 GAS 已部署、Web App 網址正確後重新整理；必要時在瀏覽器清除本網站資料（cachedMenu）後再試。');
               }
               return;
             }
@@ -4994,6 +5008,8 @@ function switchToMenu(menuId) {
               console.error('[POS] loadMenuFromSheet：getProductsData 失敗（回應物件）', data);
               if (!restoredFromCache) {
                 showInitialLoaderError('載入商品資料失敗（後端回傳非 success），詳見 Console。');
+              } else if (posMenuBundleIsEmpty_()) {
+                showInitialLoaderError('載入商品資料失敗（後端回傳非 success），且本機無可用菜單快取。詳見 Console（F12）。');
               }
               return;
             }
