@@ -7770,13 +7770,16 @@ function buildCurrentOrderData() {
     total: order.total,
     source: 'pos',
     key: posGetClientKey_(),
+    printMode: getPosPrintMode_(),
     items: sortOrderItemsByMainNameClient_(order.items).map(item => ({
       id: item.id,
       name: item.name,
       price: item.price,
       quantity: item.quantity,
       options: item.options || [],
-      note: (item.note || item.notes || item.itemNote || '').toString().trim()
+      note: (item.note || item.notes || item.itemNote || '').toString().trim(),
+      labelName: (item.labelName || item.label_name || '').toString().trim(),
+      printLabel: !(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0')
     }))
   };
 }
