@@ -6782,7 +6782,7 @@ function buildPrinterOrderPayloadFull_(orderData) {
         quantity: i.quantity != null ? i.quantity : (i.qty || 1),
         price   : i.price != null ? i.price : 0,
         options : i.options || [],
-        note    : i.note || ''
+        note    : (i.note || i.notes || i.itemNote || '').toString().trim()
       };
     })
   };
@@ -7075,7 +7075,7 @@ function _posAddonListFromInner_(inner) {
   if (!inner) return [];
   return inner.split('、').map(function (entry) {
     var e = String(entry).trim();
-    var optMatch = e.match(/^(.+?)\s*\(\+?(\d+)\)$/);
+    var optMatch = e.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
     if (optMatch) {
       return { name: optMatch[1].trim(), price: parseInt(optMatch[2], 10) || 0 };
     }
@@ -7199,14 +7199,21 @@ function _posStripAddonTokenForLabelSlash_(raw) {
 }
 function _posLabelOptionSlashFromItem_(it) {
   var labels = [];
-  var opts = it && (it.options || it.addons) ? (it.options || it.addons) : [];
-  if (Array.isArray(opts) && opts.length) {
+  var opts = null;
+  if (it && Array.isArray(it.options) && it.options.length) opts = it.options;
+  else if (it && Array.isArray(it.addons) && it.addons.length) opts = it.addons;
+  if (opts) {
     opts.forEach(function (o) {
-      var s = typeof o === 'string' ? o : (o && o.name != null ? String(o.name) : '');
-      s = _posStripAddonTokenForLabelSlash_(s);
+      var s = '';
+      if (typeof o === 'string') s = o;
+      else if (o && typeof o === 'object') {
+        s = o.name != null ? String(o.name) : (o.text != null ? String(o.text) : (o.label != null ? String(o.label) : ''));
+      }
+      s = _posStripAddonTokenForLabelSlash_(String(s || '').trim());
       if (s) labels.push(s);
     });
-  } else {
+  }
+  if (!labels.length) {
     var raw = String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
     var sp = _posSplitItemBaseAndAddonInner_(raw);
     if (sp.inner) {
@@ -7244,7 +7251,7 @@ function _posPreviewLabels_(tpl) {
       '數量'    : q,
       '單價'    : it.price || '',
       '選項'    : _posPrinterEmojisToGt_(_posLabelOptionSlashFromItem_(it)),
-      '備註'    : _posPrinterEmojisToGt_(it.note || '')
+      '備註'    : _posPrinterEmojisToGt_((it.note || it.notes || it.itemNote || '').toString().trim())
     };
     for (let r = 0; r < repeat; r++) out.push(_posRenderTemplate_(tpl, map));
   });
@@ -7469,7 +7476,7 @@ window.__initPrintSettingsUi_ = (function () {
       '數量'    : it.quantity || 1,
       '單價'    : it.price || '',
       '選項'    : _posPrinterEmojisToGt_(_posLabelOptionSlashFromItem_(it)),
-      '備註'    : _posPrinterEmojisToGt_(it.note || '')
+      '備註'    : _posPrinterEmojisToGt_((it.note || it.notes || it.itemNote || '').toString().trim())
     };
     const txt = _posRenderTemplate_(tpl, map);
 
@@ -7670,7 +7677,7 @@ function buildPrinterOrderPayload_(orderData) {
         name: i.name,
         qty: i.quantity != null ? i.quantity : (i.qty || 0),
         options: i.options || [],
-        note: i.note || ''
+        note: (i.note || i.notes || i.itemNote || '').toString().trim()
       };
     }),
     total: orderData.total
@@ -7706,7 +7713,7 @@ function buildCurrentOrderData() {
       price: item.price,
       quantity: item.quantity,
       options: item.options || [],
-      note: item.note || ''
+      note: (item.note || item.notes || item.itemNote || '').toString().trim()
     }))
   };
 }
@@ -12660,7 +12667,7 @@ function _addonListFromInner_(inner) {
   if (!inner) return [];
   return inner.split('、').map(function (entry) {
     var e = String(entry).trim();
-    var optMatch = e.match(/^(.+?)\s*\(\+?(\d+)\)$/);
+    var optMatch = e.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
     if (optMatch) {
       return { name: optMatch[1].trim(), price: parseInt(optMatch[2], 10) || 0 };
     }
@@ -12936,14 +12943,21 @@ function _stripAddonTokenForLabelSlash_(raw) {
 /** 標籤 {選項}：加飯/加蛋/加辣（無加購為空字串） */
 function _labelOptionSlashFromItem_(it) {
   var labels = [];
-  var opts = it && (it.options || it.addons) ? (it.options || it.addons) : [];
-  if (Array.isArray(opts) && opts.length) {
+  var opts = null;
+  if (it && Array.isArray(it.options) && it.options.length) opts = it.options;
+  else if (it && Array.isArray(it.addons) && it.addons.length) opts = it.addons;
+  if (opts) {
     opts.forEach(function (o) {
-      var s = typeof o === 'string' ? o : (o && o.name != null ? String(o.name) : '');
-      s = _stripAddonTokenForLabelSlash_(s);
+      var s = '';
+      if (typeof o === 'string') s = o;
+      else if (o && typeof o === 'object') {
+        s = o.name != null ? String(o.name) : (o.text != null ? String(o.text) : (o.label != null ? String(o.label) : ''));
+      }
+      s = _stripAddonTokenForLabelSlash_(String(s || '').trim());
       if (s) labels.push(s);
     });
-  } else {
+  }
+  if (!labels.length) {
     var raw = String(it && it.name != null ? it.name : '').replace(/^'/, '').trim();
     var sp = _splitItemBaseAndAddonInner_(raw);
     if (sp.inner) {
@@ -13004,7 +13018,7 @@ function renderLabelsFromOrder_(ord) {
       '數量'    : q,
       '單價'    : it.price != null ? it.price : '',
       '選項'    : _printerEmojisToGt_(_labelOptionSlashFromItem_(it)),
-      '備註'    : _printerEmojisToGt_(it.note || '')
+      '備註'    : _printerEmojisToGt_((it.note || it.notes || it.itemNote || '').toString().trim())
     };
     // 每份實體一張：依數量重複同樣版（{數量} 仍為該品項總份數）
     const repeat = Math.max(1, parseInt(q, 10) || 1);
