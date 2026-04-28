@@ -2581,7 +2581,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{數量}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{單價}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{選項}</code>
-          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{備註}</code>
+          <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{商品備註}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{訂單編號}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{日期}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{時間}</code>
@@ -6542,7 +6542,7 @@ const POS_DEFAULT_LABEL_TEMPLATE = [
   '#{訂單編號} {取餐時間}',
   '{大}{粗}{品名}',
   '{選項}',
-  '{備註}'
+  '{商品備註}'
 ].join('\n');
 
 const POS_DEFAULT_PRINTER_URL = 'https://le5125.github.io/my-printer/';
@@ -7432,7 +7432,7 @@ function _posPreviewLabels_(tpl) {
       '數量'    : q,
       '單價'    : it.price || '',
       '選項'    : _posPrinterEmojisToGt_(_posLabelOptionSlashFromItem_(it)),
-      '備註'    : _posPrinterEmojisToGt_(_posLabelRemarkForItemAndOrder_(it, ord))
+      '商品備註': _posPrinterEmojisToGt_(_labelItemNoteText_(it))
     };
     for (let r = 0; r < repeat; r++) out.push(_posRenderTemplate_(tpl, map));
   });
@@ -7658,7 +7658,7 @@ window.__initPrintSettingsUi_ = (function () {
       '數量'    : it.quantity || 1,
       '單價'    : it.price || '',
       '選項'    : _posPrinterEmojisToGt_(_posLabelOptionSlashFromItem_(it)),
-      '備註'    : _posPrinterEmojisToGt_(_posLabelRemarkForItemAndOrder_(it, ord))
+      '商品備註': _posPrinterEmojisToGt_(_labelItemNoteText_(it))
     };
     const txt = _posRenderTemplate_(tpl, map);
 
@@ -10057,13 +10057,16 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         }
 
         /** 完成出餐：GAS 內嵌用 google.script.run；GitHub 等靜態頁用 Web App GET */
-        function kdsRunUpdateOrderStatusCompleted_(oid, onFail) {
+        function kdsRunUpdateOrderStatusCompleted_(oid, onFail, onOk) {
           onFail = onFail || function () {};
+          onOk = onOk || function () {};
           if (typeof google !== 'undefined' && google.script && google.script.run) {
             google.script.run
               .withSuccessHandler(function (res) {
                 if (!res || res.result !== 'success') {
                   onFail((res && res.message) ? res.message : '');
+                } else {
+                  onOk();
                 }
               })
               .withFailureHandler(function (err) {
@@ -10083,6 +10086,8 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             .then(function (res) {
               if (!res || res.result !== 'success') {
                 onFail((res && res.message) ? res.message : '');
+              } else {
+                onOk();
               }
             })
             .catch(function (err) {
@@ -10175,6 +10180,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                   kdsUnsuppressOrder_(oid);
                   refreshOrders();
                   posSwalAlert('更新失敗：' + (msg || ''), 'error');
+                }, function () {
+                  kdsUnsuppressOrder_(oid);
+                  refreshOrders();
                 });
               });
             }
@@ -12767,14 +12775,14 @@ const DEFAULT_DETAIL_TEMPLATE = [
 
 /**
  * 預設「商品標籤」樣版（每張一個品項）
- * 支援：{店名} {品名} {數量} {選項} {備註} {訂單編號} {訂單短碼} {時間} {日期}
+ * 支援：{店名} {品名} {數量} {選項} {商品備註} …（標籤用 {商品備註}；整單備註僅明細 {備註}）
  */
 const DEFAULT_LABEL_TEMPLATE = [
   '{小}{粗}{店名}{細}',
   '#{訂單編號}  {日期}',
   '{中}{粗}{品名}{重置} x{數量}',
   '{選項}',
-  '{備註}',
+  '{商品備註}',
   ''
 ].join('\n');
 
@@ -13281,7 +13289,7 @@ function renderLabelsFromOrder_(ord) {
       '數量'    : q,
       '單價'    : it.price != null ? it.price : '',
       '選項'    : _printerEmojisToGt_(_labelOptionSlashFromItem_(it)),
-      '備註'    : _printerEmojisToGt_(_labelRemarkForItemAndOrder_(it, ord))
+      '商品備註': _printerEmojisToGt_(_labelItemNoteText_(it))
     };
     // 每份實體一張：依數量重複同樣版（{數量} 仍為該品項總份數）
     const repeat = Math.max(1, parseInt(q, 10) || 1);
@@ -13291,7 +13299,7 @@ function renderLabelsFromOrder_(ord) {
 }
 
 function buildPrintTextFromBackendOrder_(ord) {
-  /** 與 POS／輪詢訂單上的 printMode 同步（避免列印頁未填 Web App URL 時永遠落到 detail，導致標籤樣版／printLabel／{備註} 皆不生效） */
+  /** 與 POS／輪詢訂單上的 printMode 同步（避免列印頁未填 Web App URL 時標籤樣版／printLabel／{商品備註} 皆不生效） */
   var mode = getPrintMode_();
   if (ord && (ord.printMode === 'label' || ord.printMode === 'detail')) {
     mode = ord.printMode;
