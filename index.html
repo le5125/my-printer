@@ -2915,13 +2915,16 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       const bossId = urlParams.get('id');
       // 有 id 用網址參數；否則稍後由認證碼 B2（僅 GAS 內嵌）補上
       var currentWebAppUrl = bossId ? ('https://script.google.com/macros/s/' + bossId + '/exec') : '';
+      // GitHub 託管：原始碼內不存放授權金鑰；執行時僅向已部署 Web App 請取（見 posFetchLicenseKeyFromWebApp_），值只留在記憶體。
       /** checkClientKey 未過、須重新輸入金鑰啟用時為 true；避免 getKey 見 A2 有舊字串就關閉彈窗（GitHub 上 fetch 較快易重現） */
       var posLicenseReentryModalRequired_ = false;
-      var posBuiltInClientKeyCache_ = '';
+      /** 進站 checkClientKey 已成功：授權中心已認可，勿再因 A2 空白／舊字串／getKey 失敗強制跳金鑰（GitHub 與 GAS 一致） */
+      var posBootCheckClientKeyPassed_ = false;
+      var posLicenseKeyFromWebAppCache_ = '';
       function posGetClientKey_() {
-        return String(posBuiltInClientKeyCache_ || '').trim();
+        return String(posLicenseKeyFromWebAppCache_ || '').trim();
       }
-      async function posFetchBuiltInClientKey_() {
+      async function posFetchLicenseKeyFromWebApp_() {
         if (posGetClientKey_()) return true;
         if (!currentWebAppUrl) return false;
         try {
@@ -2932,43 +2935,13 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           var text = await res.text();
           var data = text ? JSON.parse(text) : null;
           if (data && data.result === 'success' && data.clientKey) {
-            posBuiltInClientKeyCache_ = String(data.clientKey).trim();
+            posLicenseKeyFromWebAppCache_ = String(data.clientKey).trim();
             return !!posGetClientKey_();
           }
         } catch (e) {
-          console.error('[POS] getBuiltInClientKey 失敗', e);
+          console.error('[POS] Web App 授權字串取得失敗', e);
         }
         return false;
-      }
-
-      /** GAS HtmlService 內嵌：優先 google.script.run 取金鑰（與後端 getBuiltInKey 一致，HTML 不寫死） */
-      function posHydrateBuiltInKeyFromGas_() {
-        return new Promise(function (resolve) {
-          try {
-            if (typeof google === 'undefined' || !google.script || typeof google.script.run === 'undefined') {
-              resolve(false);
-              return;
-            }
-            google.script.run
-              .withSuccessHandler(function (k) {
-                if (k == null || String(k).trim() === '') {
-                  posBuiltInClientKeyCache_ = '';
-                  resolve(false);
-                  return;
-                }
-                posBuiltInClientKeyCache_ = String(k).trim();
-                resolve(!!posGetClientKey_());
-              })
-              .withFailureHandler(function (err) {
-                console.error('[POS] getBuiltInKey 失敗', err);
-                resolve(false);
-              })
-              .getBuiltInKey();
-          } catch (e) {
-            console.error('[POS] getBuiltInKey 例外', e);
-            resolve(false);
-          }
-        });
       }
 
       /** 與 GAS Utilities.base64Encode(UTF-8 bytes) 對齊 */
@@ -2982,7 +2955,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         }
       }
 
-      function posKeyMatchesBuiltIn_(k) {
+      function posKeyMatchesWebAppLicense_(k) {
         var p = String(k || '').trim();
         var c = posGetClientKey_();
         if (!p || !c) return false;
@@ -3244,7 +3217,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         });
       }
 
-      /** 與 pos.html 一致：完整資源載入後再跑 POS 初始化（GAS 內嵌時優先 hydrate 金鑰） */
+      /** GitHub 版：window load 後再跑 POS 初始化；授權字串僅由 Web App 提供（無內嵌於此檔） */
       window.addEventListener('load', async () => {
         startInitialLoaderProgress();
         var isGasHost = false;
@@ -3261,13 +3234,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           stopInitialLoaderProgress(false);
           return;
         }
-        var posKeyHydrated = false;
-        if (isGasHost) {
-          posKeyHydrated = await posHydrateBuiltInKeyFromGas_();
-        }
-        if (!posKeyHydrated) {
-          posKeyHydrated = await posFetchBuiltInClientKey_();
-        }
+        var posKeyHydrated = await posFetchLicenseKeyFromWebApp_();
         if (!posKeyHydrated) {
           showInitialLoaderError('無法從後端取得授權設定，請確認部署網址與權限（須允許匿名存取）。部署後請重新整理。');
           return;
@@ -3303,6 +3270,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             showInitialLoaderError('授權驗證未通過（' + (rr || 'unknown') + '）。請聯絡管理員。');
             return;
           }
+        } else {
+          posBootCheckClientKeyPassed_ = true;
         }
 
         // ★ 進站第一時間從「打印設定」工作表抓樣版到記憶體快取（不寫 LS、無需打開面板）
@@ -3862,12 +3831,22 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       sheetKey = (data.key || '').trim();
 
       if (!sheetKey) {
-        console.log('⚠️ 尚未設定金鑰，顯示輸入視窗');
-        keyModal.classList.remove('hidden');
-      } else if (!posKeyMatchesBuiltIn_(sheetKey)) {
-        console.error('[POS] getKey A2 與內建機密不一致', { sheetKeyPreview: (sheetKey || '').slice(0, 24) });
-        posSwalAlert('試算表金鑰與授權不符，請重新輸入正確金鑰。', 'warning');
-        posOpenLicenseKeyModal_('請輸入正確授權金鑰');
+        if (posBootCheckClientKeyPassed_ && !posLicenseReentryModalRequired_) {
+          console.log('[POS] 認證碼 A2 為空，但進站 checkClientKey 已通過，略過金鑰輸入');
+          keyModal.classList.add('hidden');
+        } else {
+          console.log('⚠️ 尚未設定金鑰，顯示輸入視窗');
+          keyModal.classList.remove('hidden');
+        }
+      } else if (!posKeyMatchesWebAppLicense_(sheetKey)) {
+        if (posBootCheckClientKeyPassed_ && !posLicenseReentryModalRequired_) {
+          console.warn('[POS] getKey A2 與 Web App 授權字串不一致，但進站授權已通過，略過金鑰視窗', { sheetKeyPreview: (sheetKey || '').slice(0, 24) });
+          keyModal.classList.add('hidden');
+        } else {
+          console.error('[POS] getKey A2 與 Web App 授權字串不一致', { sheetKeyPreview: (sheetKey || '').slice(0, 24) });
+          posSwalAlert('試算表金鑰與授權不符，請重新輸入正確金鑰。', 'warning');
+          posOpenLicenseKeyModal_('請輸入正確授權金鑰');
+        }
       } else {
         console.log('✅ 金鑰驗證通過');
         if (!posLicenseReentryModalRequired_) {
@@ -3876,7 +3855,12 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       }
     } catch (err) {
       console.error('❌ 金鑰讀取錯誤（完整）', err, err && err.message, err && err.stack);
-      posOpenLicenseKeyModal_('無法讀取試算表金鑰，請手動輸入');
+      if (posBootCheckClientKeyPassed_ && !posLicenseReentryModalRequired_) {
+        console.warn('[POS] getKey 請求失敗，但進站授權已通過，略過金鑰輸入');
+        keyModal.classList.add('hidden');
+      } else {
+        posOpenLicenseKeyModal_('無法讀取試算表金鑰，請手動輸入');
+      }
     }
   })();
 
@@ -3906,7 +3890,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
   saveKeyBtn.addEventListener('click', () => {
     const entered = inputKey.value.trim();
-    if (!posKeyMatchesBuiltIn_(entered)) {
+    if (!posKeyMatchesWebAppLicense_(entered)) {
       posSwalAlert('金鑰錯誤，請再確認', 'error');
       return;
     }
