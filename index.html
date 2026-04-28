@@ -5762,21 +5762,28 @@ function populatePickupTimeOptions(openingHours) {
 
         // Add item to order
    // ✅ 加入商品到訂單（支援附加選項與備註）
-function addItemToOrder(id, name, price, quantity = 1, options = [], note = '', labelName = '', catalogProductId = null) {
+function addItemToOrder(id, name, price, quantity = 1, options = [], note = '', labelName = '', printLabel = true, catalogProductIdOpt, printThisLabelOpt) {
   const ln = (labelName || '').toString().trim();
-  const cid = catalogProductId != null && String(catalogProductId).trim() !== ''
-    ? String(catalogProductId).trim()
+  const pl = !(printLabel === false || printLabel === 0 || String(printLabel || '').trim() === '否' || printLabel === '0');
+  const cid = catalogProductIdOpt != null && String(catalogProductIdOpt).trim() !== ''
+    ? String(catalogProductIdOpt).trim()
     : String(id).split('-')[0];
+  const ptl = printThisLabelOpt === false ? false : true;
   const existingItem = order.items.find(i =>
     i.id === id && JSON.stringify(i.options) === JSON.stringify(options) && i.note === note &&
     (i.labelName || '').toString().trim() === ln &&
-    String(i.catalogProductId || '').trim() === String(cid).trim()
+    !!i.printLabel === pl &&
+    String(i.catalogProductId || '').trim() === String(cid).trim() &&
+    ((i.printThisLabel !== false) === (ptl !== false))
   );
 
   if (existingItem) {
     existingItem.quantity += quantity;
   } else {
-    order.items.push({ id, name, price, quantity, options, note, labelName: ln, catalogProductId: cid });
+    order.items.push({
+      id, name, price, quantity, options, note,
+      labelName: ln, printLabel: pl, catalogProductId: cid, printThisLabel: ptl
+    });
   }
 
   order.total = order.items.reduce((sum, item) => {
@@ -6792,7 +6799,7 @@ function posCatalogProductIdFromOrderLine_(item) {
   return posNormalizeProductSheetRowId_(raw.slice(0, ix));
 }
 /**
- * 是否印商品標籤：僅当有非空「標籤名」。
+ * 是否印商品標籤：試算表 Z 欄與訂單勾選「印商品標籤」；選填「標籤名」者可再關「列印此標籤名」。
  * 對照順序：以商品資料 A 欄走遍所有菜單分頁 → 再以主檔名作後備。
  */
 function posNormalizeProductNameKey_(s) {
@@ -6845,8 +6852,25 @@ function posLabelNameFromProductSheetY_(item) {
   if (p && p.labelName != null && String(p.labelName).trim()) return String(p.labelName).trim();
   return (item.labelName || item.label_name || '').toString().trim();
 }
-function posShouldPrintProductLabel_(item) {
-  return posLabelNameFromProductSheetY_(item).trim() !== '';
+function posSheetWantsPrintProductLabel_(p) {
+  if (!p) return true;
+  return !(p.printLabel === false || String(p.printLabel || '').trim() === '否' || p.printLabel === 0 || p.printLabel === '0');
+}
+function posOrderLineWantsPrintCheckbox_(item) {
+  if (!item) return true;
+  return !(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0');
+}
+function posPrintLabelFromProductSheetZ_(item) {
+  var p = posFindMenuProductByOrderItem_(item);
+  var sheetOn = posSheetWantsPrintProductLabel_(p);
+  var cartOn = posOrderLineWantsPrintCheckbox_(item);
+  return !!(sheetOn && cartOn);
+}
+function posFinalPrintProductLabel_(item) {
+  if (!posPrintLabelFromProductSheetZ_(item)) return false;
+  var ln = posLabelNameFromProductSheetY_(item);
+  if (ln !== '' && item.printThisLabel === false) return false;
+  return true;
 }
 
 /**
@@ -6876,8 +6900,9 @@ function buildPrinterOrderPayloadFull_(orderData) {
         options : i.options || [],
         note    : (i.note || i.notes || i.itemNote || '').toString().trim(),
         labelName: posLabelNameFromProductSheetY_(i),
-        printLabel: posShouldPrintProductLabel_(i),
-        catalogProductId: posCatalogProductIdFromOrderLine_(i)
+        printLabel: posFinalPrintProductLabel_(i),
+        catalogProductId: posCatalogProductIdFromOrderLine_(i),
+        printThisLabel: i.printThisLabel !== false
       };
     })
   };
@@ -7826,8 +7851,9 @@ function buildPrinterOrderPayload_(orderData) {
         options: i.options || [],
         note: (i.note || i.notes || i.itemNote || '').toString().trim(),
         labelName: posLabelNameFromProductSheetY_(i),
-        printLabel: posShouldPrintProductLabel_(i),
-        catalogProductId: posCatalogProductIdFromOrderLine_(i)
+        printLabel: posFinalPrintProductLabel_(i),
+        catalogProductId: posCatalogProductIdFromOrderLine_(i),
+        printThisLabel: i.printThisLabel !== false
       };
     }),
     total: orderData.total
@@ -7866,8 +7892,9 @@ function buildCurrentOrderData() {
       options: item.options || [],
       note: (item.note || item.notes || item.itemNote || '').toString().trim(),
       labelName: posLabelNameFromProductSheetY_(item),
-      printLabel: posShouldPrintProductLabel_(item),
-      catalogProductId: posCatalogProductIdFromOrderLine_(item)
+      printLabel: posOrderLineWantsPrintCheckbox_(item),
+      catalogProductId: posCatalogProductIdFromOrderLine_(item),
+      printThisLabel: item.printThisLabel !== false
     }))
   };
 }
@@ -8268,6 +8295,14 @@ document.getElementById('submit-order').addEventListener('click', () => {
             const displayBase = _posBareProductNameForPrint_(item);
             const addonLine = _posOrderDisplayAddonLabels_(item);
             const lineTotal = item.price * item.quantity;
+            const menuHit = posFindMenuProductByOrderItem_(item);
+            const sheetOn = menuHit ? posSheetWantsPrintProductLabel_(menuHit) : true;
+            const plDisabled = (menuHit && !sheetOn) ? ' disabled title="商品資料「印標籤」為否"' : '';
+            const plCartChecked = sheetOn ? posOrderLineWantsPrintCheckbox_(item) : false;
+            const lnForUi = posLabelNameFromProductSheetY_(item);
+            const showPrintThis = lnForUi !== '';
+            const ptlChecked = item.printThisLabel !== false;
+            const lnEsc = String(lnForUi).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
             orderItemsHTML += `
     <div class="order-item py-3 border-b border-gray-100">
       <div class="flex items-start gap-2">
@@ -8289,6 +8324,14 @@ document.getElementById('submit-order').addEventListener('click', () => {
             </div>
             <span class="font-semibold text-gray-800 text-base shrink-0">NT$ ${lineTotal}</span>
           </div>
+          <label class="mt-1 flex items-center gap-2 cursor-pointer select-none text-xs text-gray-600">
+            <input type="checkbox" class="order-item-print-label h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-id="${item.id}" ${plCartChecked ? 'checked' : ''}${plDisabled}>
+            <span>印商品標籤</span>
+          </label>
+          ${showPrintThis ? `<label class="mt-1 flex items-center gap-2 cursor-pointer select-none text-xs text-gray-600">
+            <input type="checkbox" class="order-item-print-this-label h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-id="${item.id}" ${ptlChecked ? 'checked' : ''}${plDisabled}>
+            <span>列印標籤名「${lnEsc}」</span>
+          </label>` : ''}
           ${addonLine ? `<div class="text-sm text-gray-500 mt-1">${addonLine}</div>` : ''}
           ${item.note ? `<div class="text-sm text-gray-500 mt-1">備註：${item.note}</div>` : ''}
         </div>
@@ -8337,6 +8380,22 @@ document.getElementById('submit-order').addEventListener('click', () => {
               e.stopPropagation();
               const itemId = this.getAttribute('data-id');
               removeItemFromOrder(itemId);
+            });
+          });
+
+          document.querySelectorAll('.order-item-print-label').forEach(cb => {
+            cb.addEventListener('change', function () {
+              const itemId = this.getAttribute('data-id');
+              const line = order.items.find(i => String(i.id) === String(itemId));
+              if (line) line.printLabel = !!this.checked;
+            });
+          });
+
+          document.querySelectorAll('.order-item-print-this-label').forEach(cb => {
+            cb.addEventListener('change', function () {
+              const itemId = this.getAttribute('data-id');
+              const line = order.items.find(i => String(i.id) === String(itemId));
+              if (line) line.printThisLabel = !!this.checked;
             });
           });
 
@@ -8864,7 +8923,8 @@ document.querySelectorAll('#menu-items .menu-item').forEach(item => {
     const itemPrice = parseInt(this.getAttribute('data-price'));
     const itemLn = (this.getAttribute('data-label-name') || '').trim();
     const catalogId = (this.getAttribute('data-catalog-id') || itemId || '').trim();
-    addItemToOrder(itemId, itemName, itemPrice, 1, [], '', itemLn, catalogId);
+    const wantPl = this.getAttribute('data-print-label') !== '0';
+    addItemToOrder(itemId, itemName, itemPrice, 1, [], '', itemLn, wantPl, catalogId, true);
   });
 });
 
@@ -8979,6 +9039,7 @@ for (let i = 1; i <= 8; i++) {
     const fullName = item.name + (extras.length ? `（${extras.join('、')}）` : '');
     const totalPrice = item.price + totalExtra;
 
+    const plOn = !(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0');
     addItemToOrder(
       item.id + '-' + extras.join('+'),
       fullName,
@@ -8987,7 +9048,9 @@ for (let i = 1; i <= 8; i++) {
       extras,
       note,
       (item.labelName || '').toString().trim(),
-      item.id
+      plOn,
+      item.id,
+      true
     );
 
     document.getElementById('option-modal').classList.add('hidden');
@@ -13155,11 +13218,19 @@ function _labelItemNoteText_(it) {
   if (raw == null || raw === '') raw = it.remark != null ? it.remark : it.item_remark;
   return String(raw == null ? '' : raw).trim();
 }
-/** 是否列印商品標籤：有非空標籤名（labelName）才印 */
+/** 是否列印商品標籤：依 payload.printLabel／印商品標籤（與列印頁送單一致） */
 function _itemShouldPrintProductLabel_(it) {
   if (!it) return false;
-  var ln = (it.labelName != null ? String(it.labelName) : '').trim();
-  return ln !== '';
+  if (it.printLabel === false || it.printLabel === 0) return false;
+  if (it['印商品標籤'] === false || it['印商品標籤'] === 0) return false;
+  var py = it['印商品標籤'];
+  if (py != null && String(py).trim() !== '') {
+    var spy = String(py).trim();
+    if (spy === '否' || spy === '0' || spy === 'FALSE' || spy === 'false' || spy === '關' || spy === 'off') return false;
+  }
+  var s = String(it.printLabel != null ? it.printLabel : '').trim();
+  if (s === '否' || s === '0' || s === 'FALSE' || s === 'false' || s === '關' || s === 'off') return false;
+  return true;
 }
 function _labelRemarkForItemAndOrder_(it, ord) {
   var line = _labelItemNoteText_(it);
