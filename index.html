@@ -6784,6 +6784,7 @@ function buildPrinterOrderPayloadFull_(orderData) {
     phone    : orderData.phone || '',
     remark   : orderData.notes || orderData.remark || '',
     total    : orderData.total != null ? orderData.total : 0,
+    printMode: getPosPrintMode_(),
     items    : items.map(function (i) {
       return {
         name    : i.name || '',
@@ -12326,7 +12327,8 @@ window.addEventListener('message', async (event) => {
         phone     : payload.phone || '',
         remark    : payload.remark || payload.notes || '',
         total     : payload.total != null ? payload.total : 0,
-        items     : Array.isArray(payload.items) ? payload.items : []
+        items     : Array.isArray(payload.items) ? payload.items : [],
+        printMode : (payload.printMode === 'label' || payload.printMode === 'detail') ? payload.printMode : undefined
       };
 
       // 防重：相同指紋（時間+電話+總額+品項數）若 5 分鐘內已印過 → 跳過
@@ -13062,19 +13064,16 @@ function _labelItemNoteText_(it) {
 function _itemShouldPrintProductLabel_(it) {
   if (!it) return true;
   if (it.printLabel === false || it.printLabel === 0) return false;
+  if (it['印商品標籤'] === false) return false;
   var s = String(it.printLabel != null ? it.printLabel : '').trim();
   if (s === '否' || s === '0' || s === 'FALSE' || s === 'false' || s === '關' || s === 'off') return false;
   return true;
 }
 function _labelRemarkForItemAndOrder_(it, ord) {
   var line = _labelItemNoteText_(it);
-  if (line) return line;
-  var arr = ord && Array.isArray(ord.items) ? ord.items : [];
-  if (arr.length === 1) {
-    var om = (ord.remark || ord.notes || '').toString().trim();
-    if (om) return om;
-  }
-  return '';
+  var om = (ord && (ord.remark != null || ord.notes != null)) ? String(ord.remark || ord.notes || '').trim() : '';
+  if (line && om && line !== om) return line + '；' + om;
+  return line || om;
 }
 function _orderPickupTimeForLabel_(ord) {
   if (!ord) return '';
@@ -13130,8 +13129,11 @@ function renderLabelsFromOrder_(ord) {
 }
 
 function buildPrintTextFromBackendOrder_(ord) {
-  const mode = getPrintMode_();
-  // 同步 TSPL 字體 profile（明細／標籤各自的字體設定）
+  /** 與 POS／輪詢訂單上的 printMode 同步（避免列印頁未填 Web App URL 時永遠落到 detail，導致標籤樣版／printLabel／{備註} 皆不生效） */
+  var mode = getPrintMode_();
+  if (ord && (ord.printMode === 'label' || ord.printMode === 'detail')) {
+    mode = ord.printMode;
+  }
   setActiveTsplFontProfile_(mode === 'label' ? 'label' : 'detail');
   if (mode === 'label') return renderLabelsFromOrder_(ord);
   return renderDetailFromOrder_(ord);
