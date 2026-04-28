@@ -2491,6 +2491,9 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <i class="fas fa-external-link-alt mr-1"></i>開啟列印頁
       </button>
     </div>
+    <p class="w-full basis-full text-xs text-gray-600 leading-relaxed border-t border-gray-100 pt-2 mt-1">
+      出紙邏輯（兩者不混用）：選「打印明細」→ 整筆訂單用明細樣版（含 <code>{品項}</code>、總計等）；選「商品標籤」→ 用標籤樣版並依每個品項出紙（<code>{品名}</code><code>{選項}</code><code>{備註}</code> 等）。紙上若殘留 <code>{小}{粗}</code> 等為出單機 TSPL 字級指令，屬正常。
+    </p>
   </div>
 
   <!-- 下：左右並排（左預覽 / 右編輯） ── 整層 overflow:hidden，捲簾在內側 -->
@@ -5759,13 +5762,21 @@ function populatePickupTimeOptions(openingHours) {
 
         // Add item to order
    // ✅ 加入商品到訂單（支援附加選項與備註）
-function addItemToOrder(id, name, price, quantity = 1, options = [], note = '') {
-  const existingItem = order.items.find(i => i.id === id && JSON.stringify(i.options) === JSON.stringify(options) && i.note === note);
+function addItemToOrder(id, name, price, quantity = 1, options = [], note = '', labelName = '', catalogProductId = null) {
+  const ln = (labelName || '').toString().trim();
+  const cid = catalogProductId != null && String(catalogProductId).trim() !== ''
+    ? String(catalogProductId).trim()
+    : String(id).split('-')[0];
+  const existingItem = order.items.find(i =>
+    i.id === id && JSON.stringify(i.options) === JSON.stringify(options) && i.note === note &&
+    (i.labelName || '').toString().trim() === ln &&
+    String(i.catalogProductId || '').trim() === String(cid).trim()
+  );
 
   if (existingItem) {
     existingItem.quantity += quantity;
   } else {
-    order.items.push({ id, name, price, quantity, options, note });
+    order.items.push({ id, name, price, quantity, options, note, labelName: ln, catalogProductId: cid });
   }
 
   order.total = order.items.reduce((sum, item) => {
@@ -6767,16 +6778,35 @@ function openPrinterPageWithSettings_() {
   return window;
 }
 
+/** 試算表 A 欄 id；以 id 對應任一菜單分頁，避免同名商品只對到第一個分頁。 */
+function posNormalizeProductSheetRowId_(v) {
+  return String(v == null ? '' : v).replace(/^'/, '').trim();
+}
+function posCatalogProductIdFromOrderLine_(item) {
+  if (!item) return '';
+  var c = item.catalogProductId != null ? item.catalogProductId : item.productRowId != null ? item.productRowId : item.productId;
+  if (c != null && String(c).trim() !== '') return posNormalizeProductSheetRowId_(c);
+  var raw = item.id != null ? String(item.id) : '';
+  var ix = raw.indexOf('-');
+  if (ix === -1) return posNormalizeProductSheetRowId_(raw);
+  return posNormalizeProductSheetRowId_(raw.slice(0, ix));
+}
 /**
- * 是否印商品標籤以試算表「商品資料」Z 欄為準（經 getProducts → printLabel）。
+ * 是否印商品標籤：僅当有非空「標籤名」。
+ * 對照順序：以商品資料 A 欄走遍所有菜單分頁 → 再以主檔名作後備。
  */
+function posNormalizeProductNameKey_(s) {
+  return String(s == null ? '' : s).replace(/^'/, '').replace(/[\s\u00a0]+/g, ' ').trim();
+}
 function posOrderItemBaseNameForProductSheet_(it) {
   if (!it) return '';
-  var raw = (it.name != null ? String(it.name) : '').replace(/^'/, '').trim();
+  var raw = posNormalizeProductNameKey_(it.name != null ? String(it.name) : '');
   if (!raw) return '';
   var m = raw.match(/^(.+?)（(.+)）$/);
-  if (m) return m[1].trim().replace(/^'/, '');
-  return raw.replace(/^'/, '');
+  if (m) return posNormalizeProductNameKey_(m[1]);
+  m = raw.match(/^(.+?)\((.+)\)$/);
+  if (m) return posNormalizeProductNameKey_(m[1]);
+  return raw;
 }
 function posFindMenuProductByOrderBaseName_(item) {
   var base = posOrderItemBaseNameForProductSheet_(item);
@@ -6788,23 +6818,35 @@ function posFindMenuProductByOrderBaseName_(item) {
     if (!Array.isArray(list)) continue;
     for (idx = 0; idx < list.length; idx++) {
       p = list[idx];
-      if (p && String(p.name || '').trim() === base) return p;
+      if (p && posNormalizeProductNameKey_(p.name) === base) return p;
     }
   }
   return null;
 }
-function posPrintLabelFromProductSheetZ_(item) {
-  var p = posFindMenuProductByOrderBaseName_(item);
-  if (p) {
-    return !(p.printLabel === false || String(p.printLabel || '').trim() === '否' || p.printLabel === 0 || p.printLabel === '0');
+function posFindMenuProductByOrderItem_(item) {
+  if (!item || typeof menuTabs !== 'object' || !menuTabs) return null;
+  var cid = posCatalogProductIdFromOrderLine_(item);
+  if (cid) {
+    var keys = Object.keys(menuTabs);
+    var k, list, idx, p;
+    for (k = 0; k < keys.length; k++) {
+      list = menuTabs[keys[k]];
+      if (!Array.isArray(list)) continue;
+      for (idx = 0; idx < list.length; idx++) {
+        p = list[idx];
+        if (p && posNormalizeProductSheetRowId_(p.id) === cid) return p;
+      }
+    }
   }
-  var off = item && (item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0');
-  return !off;
+  return posFindMenuProductByOrderBaseName_(item);
 }
 function posLabelNameFromProductSheetY_(item) {
-  var p = posFindMenuProductByOrderBaseName_(item);
+  var p = posFindMenuProductByOrderItem_(item);
   if (p && p.labelName != null && String(p.labelName).trim()) return String(p.labelName).trim();
   return (item.labelName || item.label_name || '').toString().trim();
+}
+function posShouldPrintProductLabel_(item) {
+  return posLabelNameFromProductSheetY_(item).trim() !== '';
 }
 
 /**
@@ -6823,6 +6865,7 @@ function buildPrinterOrderPayloadFull_(orderData) {
     pickupTime: orderData.pickupTime || '',
     phone    : orderData.phone || '',
     remark   : orderData.notes || orderData.remark || '',
+    notes    : orderData.notes || orderData.remark || '',
     total    : orderData.total != null ? orderData.total : 0,
     printMode: getPosPrintMode_(),
     items    : items.map(function (i) {
@@ -6833,7 +6876,8 @@ function buildPrinterOrderPayloadFull_(orderData) {
         options : i.options || [],
         note    : (i.note || i.notes || i.itemNote || '').toString().trim(),
         labelName: posLabelNameFromProductSheetY_(i),
-        printLabel: posPrintLabelFromProductSheetZ_(i)
+        printLabel: posShouldPrintProductLabel_(i),
+        catalogProductId: posCatalogProductIdFromOrderLine_(i)
       };
     })
   };
@@ -7782,7 +7826,8 @@ function buildPrinterOrderPayload_(orderData) {
         options: i.options || [],
         note: (i.note || i.notes || i.itemNote || '').toString().trim(),
         labelName: posLabelNameFromProductSheetY_(i),
-        printLabel: posPrintLabelFromProductSheetZ_(i)
+        printLabel: posShouldPrintProductLabel_(i),
+        catalogProductId: posCatalogProductIdFromOrderLine_(i)
       };
     }),
     total: orderData.total
@@ -7821,7 +7866,8 @@ function buildCurrentOrderData() {
       options: item.options || [],
       note: (item.note || item.notes || item.itemNote || '').toString().trim(),
       labelName: posLabelNameFromProductSheetY_(item),
-      printLabel: posPrintLabelFromProductSheetZ_(item)
+      printLabel: posShouldPrintProductLabel_(item),
+      catalogProductId: posCatalogProductIdFromOrderLine_(item)
     }))
   };
 }
@@ -8628,7 +8674,7 @@ const overlayClass = item.saleStatus === '否' ? '' : 'hidden';
 menuItemsHTML += `
   <div class="menu-item menu-item-container bg-white rounded-lg overflow-hidden shadow-md cursor-pointer transition-all duration-200 relative" 
        style="min-height: 220px; display: flex; flex-direction: column;" 
-       data-id="${item.id}" data-name="${item.name}" data-price="${item.price}">
+       data-id="${item.id}" data-name="${item.name}" data-price="${item.price}" data-label-name="${String(item.labelName != null ? item.labelName : '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" data-catalog-id="${String(item.id != null ? item.id : '').replace(/"/g,'&quot;')}">
     
     <div class="edit-btn" data-id="${item.id}">
       <i class="fas fa-pencil-alt text-gray-600" style="font-size: 12px;"></i>
@@ -8816,7 +8862,9 @@ document.querySelectorAll('#menu-items .menu-item').forEach(item => {
     const itemId = this.getAttribute('data-id');
     const itemName = this.getAttribute('data-name');
     const itemPrice = parseInt(this.getAttribute('data-price'));
-    addItemToOrder(itemId, itemName, itemPrice);
+    const itemLn = (this.getAttribute('data-label-name') || '').trim();
+    const catalogId = (this.getAttribute('data-catalog-id') || itemId || '').trim();
+    addItemToOrder(itemId, itemName, itemPrice, 1, [], '', itemLn, catalogId);
   });
 });
 
@@ -8937,7 +8985,9 @@ for (let i = 1; i <= 8; i++) {
       totalPrice,
       quantity,
       extras,
-      note
+      note,
+      (item.labelName || '').toString().trim(),
+      item.id
     );
 
     document.getElementById('option-modal').classList.add('hidden');
@@ -13105,14 +13155,11 @@ function _labelItemNoteText_(it) {
   if (raw == null || raw === '') raw = it.remark != null ? it.remark : it.item_remark;
   return String(raw == null ? '' : raw).trim();
 }
-/** 是否列印此品項的商品標籤（試算表「印標籤」關／後端 false → 不印） */
+/** 是否列印商品標籤：有非空標籤名（labelName）才印 */
 function _itemShouldPrintProductLabel_(it) {
-  if (!it) return true;
-  if (it.printLabel === false || it.printLabel === 0) return false;
-  if (it['印商品標籤'] === false) return false;
-  var s = String(it.printLabel != null ? it.printLabel : '').trim();
-  if (s === '否' || s === '0' || s === 'FALSE' || s === 'false' || s === '關' || s === 'off') return false;
-  return true;
+  if (!it) return false;
+  var ln = (it.labelName != null ? String(it.labelName) : '').trim();
+  return ln !== '';
 }
 function _labelRemarkForItemAndOrder_(it, ord) {
   var line = _labelItemNoteText_(it);
