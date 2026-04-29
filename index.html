@@ -112,6 +112,22 @@
       z-index: 1110;
     }
 
+    .pos-menu-promo-price-badge {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      z-index: 3;
+      max-width: calc(100% - 8px);
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      font-size: 11px;
+      line-height: 1.25;
+      text-align: right;
+      pointer-events: none;
+    }
+
     /* 打印模式 radio 視覺高亮（跟隨 :checked） */
     .print-mode-label {
       border-color: #d1d5db;
@@ -198,6 +214,26 @@
       display: flex;
       flex-direction: column;
       pointer-events: auto;
+    }
+    #merchant-promotions-content:not(.hidden) {
+      flex: 1 1 0%;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      pointer-events: auto;
+    }
+    #merchant-promo-scroll-area {
+      flex: 1 1 0%;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    .merchant-promo-sec-head--live {
+      background-color: #fef9c3;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin: -2px -4px 4px -4px;
     }
     /* 會員專區：頂部「會員系統」列固定，僅下方白卡內容可捲動 */
     #member-display-area {
@@ -1837,7 +1873,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       <button id="submit-order" class="bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-md font-bold text-lg w-full flex items-center justify-between">
         <span>送出訂單</span>
         <div class="flex gap-3 items-center">
-          <span id="submit-count" style="background-color: rgba(0,0,0,0.1); padding: 6px 12px; border-radius: 4px; font-size: 0.9rem;">共 0 份</span>
+          <span id="submit-count" style="background-color: rgba(0,0,0,0.1); padding: 6px 12px; border-radius: 4px; font-size: 0.9rem;">品項 0 份</span>
           <span id="submit-total">NT$ 0</span>
         </div>
       </button>
@@ -1942,6 +1978,9 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             </button>
             <button id="member-hub-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-user-tag mr-2"></i>會員專區
+            </button>
+            <button id="merchant-promotions-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
+              <i class="fas fa-gift mr-2"></i>商家活動
             </button>
             <button id="merchant-images-btn" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-image mr-2"></i>上傳圖片
@@ -2417,6 +2456,126 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
   </div>
 </div>
 
+  <div id="merchant-promotions-content" class="relative hidden flex-1 min-h-0 w-full flex flex-col p-2 md:p-4">
+    <div id="merchant-promotions-loading" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center rounded-lg bg-white/90 backdrop-blur-[2px]" aria-live="polite" aria-busy="true">
+      <div class="h-12 w-12 rounded-full border-4 border-violet-100 border-t-violet-600 animate-spin"></div>
+      <p class="mt-4 text-lg font-semibold text-gray-700">載入商家活動設定中…</p>
+    </div>
+    <div id="merchant-promotions-settings-panel" class="flex min-h-[70px] shrink-0 flex-col gap-3 bg-white p-4 rounded-lg shadow mb-4 border border-gray-100 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex flex-wrap items-center gap-3 border-b border-gray-200 pb-3 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-4">
+        <div class="flex items-center gap-2">
+          <h3 class="text-lg font-bold text-gray-700 whitespace-nowrap">商家活動</h3>
+          <input type="checkbox" id="merchant-promo-enable-toggle" class="w-5 h-5 rounded border-gray-300" title="有活動 / 沒活動">
+        </div>
+        <div class="flex flex-wrap items-center gap-2 text-sm">
+          <label class="flex items-center gap-1 text-gray-600 whitespace-nowrap">開始
+            <input type="date" id="merchant-promo-activity-start" class="rounded border border-gray-300 px-1 py-0.5 text-gray-800">
+          </label>
+          <label class="flex items-center gap-1 text-gray-600 whitespace-nowrap">結束
+            <input type="date" id="merchant-promo-activity-end" class="rounded border border-gray-300 px-1 py-0.5 text-gray-800">
+          </label>
+        </div>
+      </div>
+      <button type="button" id="merchant-promo-save" class="bg-violet-600 text-white px-6 py-1.5 rounded-md font-bold shadow-md hover:bg-violet-700 transition shrink-0">儲存設定</button>
+    </div>
+    <p class="text-xs text-gray-500 -mt-2 mb-3 px-1">靜態託管（GitHub Pages 等）在已設定 Web App 網址時，可在此直接編輯並按「儲存設定」寫入後端。</p>
+    <div id="merchant-promo-scroll-area" class="flex flex-col rounded-lg bg-white p-4 shadow-md border border-gray-100 space-y-8">
+
+      <section>
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2 mb-3" data-mp-sec="buy">
+          <h3 class="text-lg font-bold text-gray-800">1. 買 A 送 B</h3>
+          <button type="button" class="merchant-promo-add-row px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700" data-merchant-section="buyAgetB">＋ 新增一組</button>
+        </div>
+        <p class="text-xs text-gray-500 mb-2">滿額門檻可依各列選「折前／折後」；贈品為預覽列，不加入購物車。</p>
+        <div class="overflow-x-auto">
+          <table class="min-w-[720px] w-full text-sm text-left border border-gray-100 rounded-md overflow-hidden">
+            <thead class="bg-gray-50 text-gray-600">
+              <tr>
+                <th class="p-2 w-10">啟用</th>
+                <th class="p-2">買（商品）</th>
+                <th class="p-2 w-20">件數</th>
+                <th class="p-2">贈（商品）</th>
+                <th class="p-2 w-20">件數</th>
+                <th class="p-2 w-24">每單上限<br><span class="font-normal text-gray-400">0＝不限</span></th>
+                <th class="p-2 w-20">僅觸發一次</th>
+                <th class="p-2 w-14"></th>
+              </tr>
+            </thead>
+            <tbody id="merchant-promo-tbody-buyAgetB"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2 mb-3" data-mp-sec="item">
+          <h3 class="text-lg font-bold text-gray-800">2. 單項商品打折 / 減價</h3>
+          <button type="button" class="merchant-promo-add-row px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700" data-merchant-section="itemDiscounts">＋ 新增一組</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-[680px] w-full text-sm text-left border border-gray-100 rounded-md overflow-hidden">
+            <thead class="bg-gray-50 text-gray-600">
+              <tr>
+                <th class="p-2 w-10">啟用</th>
+                <th class="p-2">商品</th>
+                <th class="p-2 w-40">方式</th>
+                <th class="p-2 w-32">數值</th>
+                <th class="p-2 w-14"></th>
+              </tr>
+            </thead>
+            <tbody id="merchant-promo-tbody-itemDiscounts"></tbody>
+          </table>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">「打折」填 1～100（例：8 折填 80）；「每份減價」為每份商品折讓金額（可疊加在多條規則）。</p>
+      </section>
+
+      <section>
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2 mb-3" data-mp-sec="tg">
+          <h3 class="text-lg font-bold text-gray-800">3. 消費滿額送商品</h3>
+          <button type="button" class="merchant-promo-add-row px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700" data-merchant-section="thresholdGifts">＋ 新增一組</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-[680px] w-full text-sm text-left border border-gray-100 rounded-md overflow-hidden">
+            <thead class="bg-gray-50 text-gray-600">
+              <tr>
+                <th class="p-2 w-10">啟用</th>
+                <th class="p-2 w-[88px]">門檻<br><span class="font-normal text-gray-400 text-xs">折前／折後</span></th>
+                <th class="p-2 w-24">滿額（元）</th>
+                <th class="p-2">贈品</th>
+                <th class="p-2 w-20">數量</th>
+                <th class="p-2 w-24">每單上限</th>
+                <th class="p-2 w-14"></th>
+              </tr>
+            </thead>
+            <tbody id="merchant-promo-tbody-thresholdGifts"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2 mb-3" data-mp-sec="to">
+          <h3 class="text-lg font-bold text-gray-800">4. 消費滿額整單打折 / 折讓</h3>
+          <button type="button" class="merchant-promo-add-row px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700" data-merchant-section="thresholdOrder">＋ 新增一組</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-[680px] w-full text-sm text-left border border-gray-100 rounded-md overflow-hidden">
+            <thead class="bg-gray-50 text-gray-600">
+              <tr>
+                <th class="p-2 w-10">啟用</th>
+                <th class="p-2 w-[88px]">門檻<br><span class="font-normal text-gray-400 text-xs">折前／折後</span></th>
+                <th class="p-2 w-24">滿額（元）</th>
+                <th class="p-2 w-40">方式</th>
+                <th class="p-2 w-32">數值</th>
+                <th class="p-2 w-14"></th>
+              </tr>
+            </thead>
+            <tbody id="merchant-promo-tbody-thresholdOrder"></tbody>
+          </table>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">門檻可比對折前或折後（單品折價後小計）；整單折價套用於單品折後金額；多條整單規則依序疊加。</p>
+      </section>
+    </div>
+  </div>
+
 <!--
   ========================================================================
   打印設定 Panel：上面工具列固定、下面左右並排、外層不出捲簾
@@ -2759,6 +2918,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <div>
                 <label class="block font-medium text-gray-700" style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">商品圖片 (選填)</label>
                 <input type="file" id="edit-item-image" accept="image/*" class="w-full border border-gray-300 rounded-md" style="padding: 4px; font-size: 16px; margin-bottom: 8px;">
+                <p id="edit-item-image-github-hint" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mb-2"></p>
                 <label class="block font-medium text-gray-700" style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">背景顏色</label>
                 <input type="color" id="edit-item-color" value="#f59e0b" class="w-full border border-gray-300 rounded-md" style="height: 40px;">
             </div>
@@ -3272,43 +3432,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           showInitialLoaderError('金鑰有誤，請聯繫管理員');
           return;
         }
-        var posClientKeyOk = await posVerifyClientKeyOrFail_();
-        if (!posClientKeyOk.ok) {
-          var rr = posClientKeyOk.reason || '';
-          if (rr === 'no_url') {
-            showInitialLoaderError('缺少後端網址，無法驗證授權。');
-            return;
-          }
-          if (rr === 'suspended') {
-            showInitialLoaderError('系統有問題，請聯絡管理中心。');
-            return;
-          }
-          if (posLicenseReasonIsHardStop_(rr)) {
-            var msg = '授權無法通過，請聯絡管理員。';
-            if (rr === 'bound_to_other_sheet') msg = '此金鑰已綁定其他試算表，無法在本副本使用。';
-            if (rr === 'duplicate_key') msg = '授權資料異常（重複金鑰），請聯絡管理員。';
-            if (rr === 'client_key_mismatch') msg = '前端與後端金鑰版本不一致，請更新頁面或洽管理員。';
-            showInitialLoaderError(msg);
-            return;
-          }
-          if (posLicenseReasonNeedsKeyModal_(rr)) {
-            posLicenseReentryModalRequired_ = true;
-            console.warn('[POS] 授權未完成（GitHub 版不開放輸入金鑰）', rr, posClientKeyOk.raw);
-            posOpenLicenseKeyModal_();
-            return;
-          } else {
-            showInitialLoaderError('授權驗證未通過（' + (rr || 'unknown') + '）。請聯絡管理員。');
-            return;
-          }
-        } else {
-          posBootCheckClientKeyPassed_ = true;
-        }
 
-        /* GitHub／靜態版：checkClientKey 已通過即鎖定隱藏金鑰輸入層，避免 getKey 較慢或快取造成短暫誤判而露出視窗 */
-        try {
-          var _kmAfterBoot = document.getElementById('key-modal');
-          if (_kmAfterBoot) _kmAfterBoot.classList.add('hidden');
-        } catch (eKmBoot) {}
+        // ★ 授權驗證改於「菜單首頁載入完成」後背景執行（見 load 結尾）
 
         // ★ 進站第一時間從「打印設定」工作表抓樣版到記憶體快取（不寫 LS、無需打開面板）
         try {
@@ -3384,6 +3509,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
   const statsContent = document.getElementById('stats-content');
   const merchantContent = document.getElementById('merchant-content');
   const memberHubContent = document.getElementById('member-hub-content');
+  const merchantPromotionsContent = document.getElementById('merchant-promotions-content');
   const orderBoardContent = document.getElementById('order-board-content');
   const printSettingsContentGlobal_ = document.getElementById('print-settings-content');
   function _hidePrintSettings_() { if (printSettingsContentGlobal_) printSettingsContentGlobal_.classList.add('hidden'); }
@@ -3847,6 +3973,417 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             });
           }
         })();
+
+        (function initMerchantPromotionsUI_() {
+          var mpPanel = document.getElementById('merchant-promotions-content');
+          var mpLoader = document.getElementById('merchant-promotions-loading');
+          var mpToggle = document.getElementById('merchant-promo-enable-toggle');
+          var mpSave = document.getElementById('merchant-promo-save');
+          var mpScroll = document.getElementById('merchant-promo-scroll-area');
+          var tbBuy = document.getElementById('merchant-promo-tbody-buyAgetB');
+          var tbItem = document.getElementById('merchant-promo-tbody-itemDiscounts');
+          var tbTG = document.getElementById('merchant-promo-tbody-thresholdGifts');
+          var tbTO = document.getElementById('merchant-promo-tbody-thresholdOrder');
+          if (!mpPanel || !tbBuy || !tbItem || !tbTG || !tbTO) return;
+
+          function mpPostJson_(body, onDone) {
+            var action = body && body.action;
+            if (typeof google !== 'undefined' && google.script && google.script.run && action === 'saveStorePromotions') {
+              google.script.run
+                .withSuccessHandler(function (r) {
+                  if (onDone) onDone(r && typeof r === 'object' ? r : { result: 'success' }, true);
+                })
+                .withFailureHandler(function (err) {
+                  var msg = err && err.message ? err.message : String(err);
+                  if (onDone) onDone({ result: 'error', message: msg }, false);
+                })
+                .saveStorePromotionsFromPosClient(body);
+              return;
+            }
+            if (!currentWebAppUrl) {
+              if (onDone) onDone(null, false);
+              return;
+            }
+            fetch(currentWebAppUrl, {
+              method: 'POST',
+              mode: 'cors',
+              credentials: 'omit',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(Object.assign({ key: posGetClientKey_() }, body))
+            })
+              .then(function (r) {
+                return r.text().then(function (t) {
+                  var d = null;
+                  try {
+                    d = JSON.parse(t);
+                  } catch (eJ) {}
+                  if (onDone) onDone(d, r.ok);
+                });
+              })
+              .catch(function () {
+                if (onDone) onDone(null, false);
+              });
+          }
+
+          function escOpt_(s) {
+            return String(s != null ? s : '')
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/"/g, '&quot;');
+          }
+          function mpProductOptionsHtml(selectedId) {
+            var sel = String(selectedId || '').trim();
+            var parts = ['<option value="">— 選商品 —</option>'];
+            try {
+              if (typeof menuTabs !== 'object' || !menuTabs) return parts.join('');
+              Object.keys(menuTabs).forEach(function (tab) {
+                var list = menuTabs[tab];
+                if (!Array.isArray(list)) return;
+                list.forEach(function (p) {
+                  if (!p || String(p.id || '').trim() === '') return;
+                  var id = String(p.id).trim();
+                  var nm = escOpt_(p.name != null ? p.name : id);
+                  parts.push('<option value="' + escOpt_(id) + '"' + (id === sel ? ' selected' : '') + '>' + nm + '</option>');
+                });
+              });
+            } catch (eM) { /* 略 */ }
+            return parts.join('');
+          }
+
+          function mpRowBuyGet(r) {
+            r = r || {};
+            var bq = r.buyQty != null ? r.buyQty : 1;
+            var gq = r.giftQty != null ? r.giftQty : 1;
+            var mx = r.maxPerOrder != null ? r.maxPerOrder : 0;
+            return (
+              '<tr class="merchant-promo-data-row">' +
+              '<td class="p-2 align-middle"><input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300"' + (r.enabled !== false ? ' checked' : '') + '></td>' +
+              '<td class="p-2 align-middle"><select class="mp-sel-buy w-full border rounded px-1 py-1 text-sm max-w-[220px]">' + mpProductOptionsHtml(r.buyProductId) + '</select></td>' +
+              '<td class="p-2 align-middle"><input type="number" min="1" class="mp-inp-buyqty w-full border rounded px-1 py-1 text-center" value="' + escOpt_(bq) + '"></td>' +
+              '<td class="p-2 align-middle"><select class="mp-sel-giftprod w-full border rounded px-1 py-1 text-sm max-w-[220px]">' + mpProductOptionsHtml(r.giftProductId) + '</select></td>' +
+              '<td class="p-2 align-middle"><input type="number" min="1" class="mp-inp-giftqty w-full border rounded px-1 py-1 text-center" value="' + escOpt_(gq) + '"></td>' +
+              '<td class="p-2 align-middle"><input type="number" min="0" class="mp-inp-maxpo w-full border rounded px-1 py-1 text-center" value="' + escOpt_(mx) + '"></td>' +
+              '<td class="p-2 align-middle text-center"><input type="checkbox" class="mp-chk-once w-4 h-4 rounded border-gray-300"' + (r.oncePerOrder ? ' checked' : '') + '></td>' +
+              '<td class="p-2 align-middle"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
+            );
+          }
+
+          function mpRowItemDisc(r) {
+            r = r || {};
+            var mode = String(r.mode || 'percent') === 'amount' ? 'amount' : 'percent';
+            var val = r.value != null ? r.value : (mode === 'percent' ? 100 : 0);
+            return (
+              '<tr class="merchant-promo-data-row">' +
+              '<td class="p-2 align-middle"><input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300"' + (r.enabled !== false ? ' checked' : '') + '></td>' +
+              '<td class="p-2 align-middle"><select class="mp-sel-product w-full border rounded px-1 py-1 text-sm max-w-[240px]">' + mpProductOptionsHtml(r.productId) + '</select></td>' +
+              '<td class="p-2 align-middle"><select class="mp-sel-mode-item w-full border rounded px-1 py-1 text-sm">' +
+              '<option value="percent"' + (mode === 'percent' ? ' selected' : '') + '>打折（％＝售價比例）</option>' +
+              '<option value="amount"' + (mode === 'amount' ? ' selected' : '') + '>每份減價（元）</option></select></td>' +
+              '<td class="p-2 align-middle"><input type="number" min="0" step="0.01" class="mp-inp-value w-full border rounded px-1 py-1 text-center" value="' + escOpt_(val) + '"></td>' +
+              '<td class="p-2 align-middle"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
+            );
+          }
+
+          function mpRowThGift(r) {
+            r = r || {};
+            var gq = r.giftQty != null ? r.giftQty : 1;
+            var mx = r.maxPerOrder != null ? r.maxPerOrder : 0;
+            var basis = String(r.amountBasis || '').toLowerCase() === 'postitem' ? 'postItem' : 'preItem';
+            return (
+              '<tr class="merchant-promo-data-row">' +
+              '<td class="p-2 align-middle"><input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300"' + (r.enabled !== false ? ' checked' : '') + '></td>' +
+              '<td class="p-2 align-middle"><select class="mp-sel-th-basis w-full max-w-[5.5rem] border rounded px-1 py-1 text-sm">' +
+              '<option value="preItem"' + (basis === 'preItem' ? ' selected' : '') + '>折前</option>' +
+              '<option value="postItem"' + (basis === 'postItem' ? ' selected' : '') + '>折後</option></select></td>' +
+              '<td class="p-2 align-middle"><input type="number" min="0" class="mp-inp-th w-full border rounded px-1 py-1 text-center" value="' + escOpt_(r.threshold != null ? r.threshold : '') + '"></td>' +
+              '<td class="p-2 align-middle"><select class="mp-sel-giftprod w-full border rounded px-1 py-1 text-sm max-w-[240px]">' + mpProductOptionsHtml(r.giftProductId) + '</select></td>' +
+              '<td class="p-2 align-middle"><input type="number" min="1" class="mp-inp-giftqty w-full border rounded px-1 py-1 text-center" value="' + escOpt_(gq) + '"></td>' +
+              '<td class="p-2 align-middle"><input type="number" min="0" class="mp-inp-maxpo w-full border rounded px-1 py-1 text-center" value="' + escOpt_(mx) + '"></td>' +
+              '<td class="p-2 align-middle"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
+            );
+          }
+
+          function mpRowThOrder(r) {
+            r = r || {};
+            var mode = String(r.mode || 'percent') === 'amount' ? 'amount' : 'percent';
+            var val = r.value != null ? r.value : (mode === 'percent' ? 100 : 0);
+            var basis = String(r.amountBasis || '').toLowerCase() === 'postitem' ? 'postItem' : 'preItem';
+            return (
+              '<tr class="merchant-promo-data-row">' +
+              '<td class="p-2 align-middle"><input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300"' + (r.enabled !== false ? ' checked' : '') + '></td>' +
+              '<td class="p-2 align-middle"><select class="mp-sel-th-basis w-full max-w-[5.5rem] border rounded px-1 py-1 text-sm">' +
+              '<option value="preItem"' + (basis === 'preItem' ? ' selected' : '') + '>折前</option>' +
+              '<option value="postItem"' + (basis === 'postItem' ? ' selected' : '') + '>折後</option></select></td>' +
+              '<td class="p-2 align-middle"><input type="number" min="0" class="mp-inp-th w-full border rounded px-1 py-1 text-center" value="' + escOpt_(r.threshold != null ? r.threshold : '') + '"></td>' +
+              '<td class="p-2 align-middle"><select class="mp-sel-mode-order w-full border rounded px-1 py-1 text-sm">' +
+              '<option value="percent"' + (mode === 'percent' ? ' selected' : '') + '>整單打折（％）</option>' +
+              '<option value="amount"' + (mode === 'amount' ? ' selected' : '') + '>整單折讓（元）</option></select></td>' +
+              '<td class="p-2 align-middle"><input type="number" min="0" step="0.01" class="mp-inp-value w-full border rounded px-1 py-1 text-center" value="' + escOpt_(val) + '"></td>' +
+              '<td class="p-2 align-middle"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
+            );
+          }
+
+          function renderAllFromPayload_(payload) {
+            payload = payload || {};
+            if (mpToggle) mpToggle.checked = payload.enabled === true;
+            var stEl = document.getElementById('merchant-promo-activity-start');
+            var enEl = document.getElementById('merchant-promo-activity-end');
+            if (stEl) stEl.value = payload.activityStartDate ? String(payload.activityStartDate).trim().slice(0, 10) : '';
+            if (enEl) enEl.value = payload.activityEndDate ? String(payload.activityEndDate).trim().slice(0, 10) : '';
+            tbBuy.innerHTML = (Array.isArray(payload.buyAgetB) ? payload.buyAgetB : []).map(mpRowBuyGet).join('');
+            tbItem.innerHTML = (Array.isArray(payload.itemDiscounts) ? payload.itemDiscounts : []).map(mpRowItemDisc).join('');
+            tbTG.innerHTML = (Array.isArray(payload.thresholdGifts) ? payload.thresholdGifts : []).map(mpRowThGift).join('');
+            tbTO.innerHTML = (Array.isArray(payload.thresholdOrder) ? payload.thresholdOrder : []).map(mpRowThOrder).join('');
+            syncMerchantPromoSectionHighlights_();
+          }
+
+          function syncMerchantPromoSectionHighlights_() {
+            var pl;
+            try {
+              pl = collectPayloadFromDom_();
+            } catch (eH) {
+              return;
+            }
+            var cal = posMerchantPromoIsActiveNow_(pl);
+            function highlight(sel, on) {
+              var el = mpScroll ? mpScroll.querySelector(sel) : null;
+              if (!el) return;
+              el.classList.toggle('merchant-promo-sec-head--live', !!on);
+            }
+            function anyChecked(tb) {
+              if (!cal || !tb) return false;
+              return Array.prototype.some.call(tb.querySelectorAll('tr.merchant-promo-data-row'), function (tr) {
+                var en = tr.querySelector('.mp-inp-enabled');
+                return en && en.checked;
+              });
+            }
+            highlight('[data-mp-sec="buy"]', anyChecked(tbBuy));
+            highlight('[data-mp-sec="item"]', anyChecked(tbItem));
+            highlight('[data-mp-sec="tg"]', anyChecked(tbTG));
+            highlight('[data-mp-sec="to"]', anyChecked(tbTO));
+          }
+
+          function collectPayloadFromDom_() {
+            function scan(tb, fn) {
+              return Array.prototype.map.call(tb.querySelectorAll('tr.merchant-promo-data-row'), fn).filter(Boolean);
+            }
+            var buyAgetB = scan(tbBuy, function (tr) {
+              var en = tr.querySelector('.mp-inp-enabled');
+              return {
+                enabled: !!(en && en.checked),
+                buyProductId: (tr.querySelector('.mp-sel-buy') || {}).value || '',
+                buyQty: parseInt((tr.querySelector('.mp-inp-buyqty') || {}).value, 10),
+                giftProductId: (tr.querySelector('.mp-sel-giftprod') || {}).value || '',
+                giftQty: parseInt((tr.querySelector('.mp-inp-giftqty') || {}).value, 10),
+                maxPerOrder: parseInt((tr.querySelector('.mp-inp-maxpo') || {}).value, 10),
+                oncePerOrder: !!((tr.querySelector('.mp-chk-once') || {}).checked)
+              };
+            });
+            var itemDiscounts = scan(tbItem, function (tr) {
+              return {
+                enabled: !!((tr.querySelector('.mp-inp-enabled') || {}).checked),
+                productId: (tr.querySelector('.mp-sel-product') || {}).value || '',
+                mode: String(((tr.querySelector('.mp-sel-mode-item') || {}).value) || 'percent'),
+                value: parseFloat((tr.querySelector('.mp-inp-value') || {}).value)
+              };
+            });
+            var thresholdGifts = scan(tbTG, function (tr) {
+              return {
+                enabled: !!((tr.querySelector('.mp-inp-enabled') || {}).checked),
+                amountBasis: String(((tr.querySelector('.mp-sel-th-basis') || {}).value) || 'preItem'),
+                threshold: parseInt((tr.querySelector('.mp-inp-th') || {}).value, 10),
+                giftProductId: (tr.querySelector('.mp-sel-giftprod') || {}).value || '',
+                giftQty: parseInt((tr.querySelector('.mp-inp-giftqty') || {}).value, 10),
+                maxPerOrder: parseInt((tr.querySelector('.mp-inp-maxpo') || {}).value, 10)
+              };
+            });
+            var thresholdOrder = scan(tbTO, function (tr) {
+              return {
+                enabled: !!((tr.querySelector('.mp-inp-enabled') || {}).checked),
+                amountBasis: String(((tr.querySelector('.mp-sel-th-basis') || {}).value) || 'preItem'),
+                threshold: parseInt((tr.querySelector('.mp-inp-th') || {}).value, 10),
+                mode: String(((tr.querySelector('.mp-sel-mode-order') || {}).value) || 'percent'),
+                value: parseFloat((tr.querySelector('.mp-inp-value') || {}).value)
+              };
+            });
+            var stEl = document.getElementById('merchant-promo-activity-start');
+            var enEl = document.getElementById('merchant-promo-activity-end');
+            return {
+              action: 'saveStorePromotions',
+              enabled: !!(mpToggle && mpToggle.checked),
+              activityStartDate: stEl && stEl.value ? String(stEl.value).trim().slice(0, 10) : '',
+              activityEndDate: enEl && enEl.value ? String(enEl.value).trim().slice(0, 10) : '',
+              buyAgetB: buyAgetB,
+              itemDiscounts: itemDiscounts,
+              thresholdGifts: thresholdGifts,
+              thresholdOrder: thresholdOrder
+            };
+          }
+
+          function applyCacheFromServer_(d, opt) {
+            if (!d || d.result !== 'success') return;
+            if (opt && opt.fromNetworkFetch && window.__mpIgnoreFetchUntil && Date.now() < window.__mpIgnoreFetchUntil) {
+              return;
+            }
+            try {
+              window.__merchantPromotionsCachedPayload = d;
+              window.__merchantPromotionsCacheDay = posTodayCacheKey_();
+            } catch (eC) { /* 略 */ }
+            window.__merchantPromotionsCache = {
+              enabled: d.enabled === true,
+              activityStartDate: d.activityStartDate || '',
+              activityEndDate: d.activityEndDate || '',
+              buyAgetB: Array.isArray(d.buyAgetB) ? d.buyAgetB : [],
+              itemDiscounts: Array.isArray(d.itemDiscounts) ? d.itemDiscounts : [],
+              thresholdGifts: Array.isArray(d.thresholdGifts) ? d.thresholdGifts : [],
+              thresholdOrder: Array.isArray(d.thresholdOrder) ? d.thresholdOrder : []
+            };
+            try {
+              if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
+            } catch (eU) { /* 略 */ }
+            try {
+              if (typeof renderMenuItems === 'function') renderMenuItems();
+            } catch (eM) { /* 略 */ }
+          }
+
+          function merchantPromoFetch_(onDone, showLoading) {
+            if (showLoading && mpLoader) {
+              mpLoader.classList.remove('hidden');
+              mpLoader.setAttribute('aria-busy', 'true');
+            }
+            function finish(data) {
+              if (mpLoader) {
+                mpLoader.classList.add('hidden');
+                mpLoader.setAttribute('aria-busy', 'false');
+              }
+              if (onDone) onDone(data);
+            }
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+              google.script.run
+                .withSuccessHandler(function (data) {
+                  finish(data && typeof data === 'object' ? data : null);
+                })
+                .withFailureHandler(function () {
+                  if (!currentWebAppUrl) {
+                    finish(null);
+                    return;
+                  }
+                  fetch(currentWebAppUrl + '?action=getStorePromotions')
+                    .then(function (r) {
+                      return r.json();
+                    })
+                    .then(finish)
+                    .catch(function () {
+                      finish(null);
+                    });
+                })
+                .getStorePromotionsData();
+              return;
+            }
+            if (!currentWebAppUrl) {
+              finish(null);
+              return;
+            }
+            fetch(currentWebAppUrl + '?action=getStorePromotions')
+              .then(function (r) {
+                return r.json();
+              })
+              .then(finish)
+              .catch(function () {
+                finish(null);
+              });
+          }
+
+          function merchantPromoRefreshFromServer_(force) {
+            var todayKey = posTodayCacheKey_();
+            var cached = window.__merchantPromotionsCachedPayload;
+            var cacheOk = force !== true && window.__merchantPromotionsCacheDay === todayKey && cached && cached.result === 'success';
+            if (cacheOk) {
+              renderAllFromPayload_(cached);
+              merchantPromoFetch_(function (data) {
+                applyCacheFromServer_(data, { fromNetworkFetch: true });
+                if (data && data.result === 'success') renderAllFromPayload_(data);
+              }, false);
+              return;
+            }
+            merchantPromoFetch_(function (data) {
+              applyCacheFromServer_(data, { fromNetworkFetch: true });
+              if (data && data.result === 'success') renderAllFromPayload_(data);
+            }, true);
+          }
+
+          function merchantPromoPrefetchSilent_() {
+            merchantPromoFetch_(function (data) {
+              applyCacheFromServer_(data, { fromNetworkFetch: true });
+            }, false);
+          }
+
+          if (mpScroll) {
+            mpScroll.addEventListener('click', function (e) {
+              var t = e.target;
+              if (t && t.classList && t.classList.contains('mp-btn-del')) {
+                var tr = t.closest('tr');
+                if (tr && tr.parentNode) tr.parentNode.removeChild(tr);
+                syncMerchantPromoSectionHighlights_();
+              }
+            });
+            mpScroll.addEventListener('change', function () {
+              syncMerchantPromoSectionHighlights_();
+            });
+          }
+          if (mpToggle) {
+            mpToggle.addEventListener('change', function () {
+              syncMerchantPromoSectionHighlights_();
+            });
+          }
+          var _mpActSt = document.getElementById('merchant-promo-activity-start');
+          var _mpActEn = document.getElementById('merchant-promo-activity-end');
+          if (_mpActSt) _mpActSt.addEventListener('change', syncMerchantPromoSectionHighlights_);
+          if (_mpActEn) _mpActEn.addEventListener('change', syncMerchantPromoSectionHighlights_);
+
+          document.querySelectorAll('.merchant-promo-add-row').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var sec = btn.getAttribute('data-merchant-section');
+              if (sec === 'buyAgetB') tbBuy.insertAdjacentHTML('beforeend', mpRowBuyGet({}));
+              else if (sec === 'itemDiscounts') tbItem.insertAdjacentHTML('beforeend', mpRowItemDisc({}));
+              else if (sec === 'thresholdGifts') tbTG.insertAdjacentHTML('beforeend', mpRowThGift({}));
+              else if (sec === 'thresholdOrder') tbTO.insertAdjacentHTML('beforeend', mpRowThOrder({}));
+              syncMerchantPromoSectionHighlights_();
+            });
+          });
+
+          if (mpSave) {
+            mpSave.addEventListener('click', function () {
+              function todayYmd() {
+                var d = new Date();
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+              }
+              var payload = collectPayloadFromDom_();
+              if (payload.activityEndDate && payload.activityEndDate < todayYmd()) {
+                posSwalAlert('活動結束日須為今天（含）之後', 'warning');
+                return;
+              }
+              if (payload.activityStartDate && payload.activityEndDate && payload.activityStartDate > payload.activityEndDate) {
+                posSwalAlert('活動開始日不能晚於結束日', 'warning');
+                return;
+              }
+              mpPostJson_(payload, function (r, ok) {
+                if (!ok || !r || r.result !== 'success') {
+                  posSwalAlert((r && r.message) ? r.message : '儲存失敗', 'error');
+                  return;
+                }
+                try { window.__mpIgnoreFetchUntil = Date.now() + 2800; } catch (eIg) { /* 略 */ }
+                posSwalToastSuccess('商家活動已儲存', 2200);
+                applyCacheFromServer_(r);
+                renderAllFromPayload_(r);
+              });
+            });
+          }
+
+          window.__merchantPromotionsRefreshFromServer = merchantPromoRefreshFromServer_;
+          window.__merchantPromotionsPrefetchSilent = merchantPromoPrefetchSilent_;
+        })();
+
 
         const saveKeyBtn = document.getElementById('save-key-btn');
         const inputKey = document.getElementById('input-key');
@@ -5058,6 +5595,7 @@ function switchToMenu(menuId) {
   statsContent.classList.add('hidden');
   merchantContent.classList.add('hidden');
   if (memberHubContent) memberHubContent.classList.add('hidden');
+  if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
   if (orderBoardContent) orderBoardContent.classList.add('hidden');
   _hidePrintSettings_();
   if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
@@ -5941,6 +6479,8 @@ function initSortMode() {
 
   var mh = document.getElementById('member-hub-content');
   if (mh) mh.classList.add('hidden');
+  var mp = document.getElementById('merchant-promotions-content');
+  if (mp) mp.classList.add('hidden');
   var container = document.getElementById('menu-items');
   var actionBar = document.getElementById('sort-action-bar');
   var addBtn    = document.getElementById('add-new-item');
@@ -6767,6 +7307,70 @@ async function fetchPrintSettingsFromBackend_() {
 }
 
 /**
+ * 將 getPrintSettings 回傳寫入記憶體快取（不動 UI）；供預載與背景同步。
+ */
+function applyPrintSettingsBackendPayloadToCaches_(data) {
+  if (!data || data.result !== 'success') return false;
+  if (data.storeName) {
+    try { window.__posPrintStoreName_ = String(data.storeName); } catch (eS) { /* 略 */ }
+  }
+  if (typeof data.detailTemplate === 'string' && data.detailTemplate.length) {
+    _posDetailTplCache_ = data.detailTemplate;
+  }
+  if (typeof data.labelTemplate === 'string' && data.labelTemplate.length) {
+    _posLabelTplCache_ = data.labelTemplate;
+  }
+  if (data.printMode === 'detail' || data.printMode === 'label') {
+    _posPrintModeCache_ = data.printMode;
+  }
+  if (data.labelSize && typeof data.labelSize === 'object') {
+    var __g = Number(data.labelSize.gap);
+    if (!(__g >= 0) || isNaN(__g)) __g = 3;
+    var __go = Number(data.labelSize.gapOffset);
+    if (!(__go >= 0) || isNaN(__go)) __go = 0;
+    if (__go > 10) __go = 10;
+    var __ys = parseInt(data.labelSize.yStart, 10);
+    if (isNaN(__ys)) __ys = 20;
+    if (__ys < 0) __ys = 0;
+    if (__ys > 200) __ys = 200;
+    _posLabelSizeCache_ = {
+      width:  Number(data.labelSize.width)  > 0 ? Number(data.labelSize.width)  : 40,
+      height: Number(data.labelSize.height) > 0 ? Number(data.labelSize.height) : 30,
+      gap: __g,
+      gapOffset: __go,
+      yStart: __ys
+    };
+  }
+  if (data.fontConfig && typeof data.fontConfig === 'object') {
+    var fc = data.fontConfig;
+    _posFontCfgCache_ = {
+      detail: {
+        size: (fc.detail && fc.detail.size) ? String(fc.detail.size) : 'small',
+        bold: !!(fc.detail && fc.detail.bold)
+      },
+      label: {
+        size: (fc.label && fc.label.size) ? String(fc.label.size) : 'small',
+        bold: !!(fc.label && fc.label.bold)
+      }
+    };
+  }
+  if (data.rollWidthMm != null && String(data.rollWidthMm).trim() !== '') {
+    var _rw = parseInt(String(data.rollWidthMm).trim(), 10);
+    if (_rw >= 40 && _rw <= 120) _posRollWidthMmCache_ = _rw;
+  }
+  return true;
+}
+
+async function posPrefetchPrintSettingsSilent_() {
+  try {
+    var data = await fetchPrintSettingsFromBackend_();
+    if (applyPrintSettingsBackendPayloadToCaches_(data)) {
+      try { window.__printSettingsPrefetchDone = true; } catch (eF) { /* 略 */ }
+    }
+  } catch (eP) { /* 略 */ }
+}
+
+/**
  * 把打印設定存到後端工作表。
  * ─ 優先 google.script.run.savePrintSettingsFromPosClient()（同源、不會被 CORS 擋）
  * ─ 失敗才退化到 fetch POST，並改用 text/plain 避免 preflight
@@ -6981,6 +7585,197 @@ function posLabelNameFromProductSheetY_(item) {
   var p = posFindMenuProductByOrderItem_(item);
   if (p && p.labelName != null && String(p.labelName).trim()) return String(p.labelName).trim();
   return (item.labelName || item.label_name || '').toString().trim();
+}
+
+/** 商家活動：以商品 id 對照 menuTabs 顯示名稱 */
+function posMerchantPromoProductName_(productId) {
+  var id = String(productId || '').trim();
+  if (!id) return '（未選商品）';
+  try {
+    if (typeof menuTabs === 'object' && menuTabs) {
+      var keys = Object.keys(menuTabs);
+      var ki, list, j, p;
+      for (ki = 0; ki < keys.length; ki++) {
+        list = menuTabs[keys[ki]];
+        if (!Array.isArray(list)) continue;
+        for (j = 0; j < list.length; j++) {
+          p = list[j];
+          if (p && String(p.id) === id) return String(p.name != null ? p.name : id);
+        }
+      }
+    }
+  } catch (eN) { /* 略 */ }
+  return id;
+}
+
+/** 本機曆日 YYYY-MM-DD（與 posTodayCacheKey_ 一致） */
+function posMerchantPromoTodayYmdLocal_() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/** 主開關 on 且在活動起迄日曆日內（未填起／迄則該端不限制） */
+function posMerchantPromoIsActiveNow_(p) {
+  if (!p || p.enabled !== true) return false;
+  var today = posMerchantPromoTodayYmdLocal_();
+  var s = String(p.activityStartDate || '').trim();
+  var e = String(p.activityEndDate || '').trim();
+  if (s && today < s) return false;
+  if (e && today > e) return false;
+  return true;
+}
+
+/** 品卡：單品活動後單價（與購物車明細一致的打折／每份減價規則） */
+function posMerchantPromoUnitPriceForMenuCard_(productId, unitPrice, promo) {
+  var uid = String(productId || '').trim();
+  var u = parseInt(unitPrice, 10);
+  if (!Number.isFinite(u)) u = 0;
+  if (!promo || !posMerchantPromoIsActiveNow_(promo) || !uid) {
+    return { hasDiscount: false, orig: u, sale: u };
+  }
+  var mult = 1;
+  var amtOff = 0;
+  (promo.itemDiscounts || []).forEach(function (rule) {
+    if (!rule || rule.enabled === false) return;
+    if (String(rule.productId || '').trim() !== uid) return;
+    var mode = String(rule.mode || 'percent').trim().toLowerCase() === 'amount' ? 'amount' : 'percent';
+    var v = parseFloat(rule.value);
+    if (!isFinite(v)) return;
+    if (mode === 'amount') amtOff += Math.max(0, v);
+    else if (v > 0 && v <= 100) mult *= (v / 100);
+  });
+  var sale = Math.max(0, Math.round(u * mult - amtOff));
+  return { hasDiscount: sale !== u, orig: u, sale: sale };
+}
+
+/**
+ * 依目前購物車與商家活動設定計算（滿額門檻可依規則選折前／折後；贈品不計入應付）。
+ * 回傳 perItemByLineId、giftRows 供購物車列與品卡使用。
+ */
+function posComputeMerchantPromotionsPreview_(items, promo) {
+  var lines = [];
+  var perItemByLineId = {};
+  var giftRows = [];
+  items = items || [];
+  promo = promo || {};
+  var rawSubtotal = items.reduce(function (s, it) {
+    return s + (it.price * it.quantity);
+  }, 0);
+  if (!posMerchantPromoIsActiveNow_(promo)) {
+    return {
+      active: false,
+      rawSubtotal: rawSubtotal,
+      afterItemDiscount: rawSubtotal,
+      finalTotal: rawSubtotal,
+      detailLines: lines,
+      perItemByLineId: perItemByLineId,
+      giftRows: giftRows
+    };
+  }
+
+  var afterItemSum = 0;
+  items.forEach(function (it) {
+    var lineOrig = it.price * it.quantity;
+    var cid = posCatalogProductIdFromOrderLine_(it);
+    var mult = 1;
+    var amtOff = 0;
+    (promo.itemDiscounts || []).forEach(function (rule) {
+      if (!rule || rule.enabled === false) return;
+      if (String(rule.productId || '').trim() !== cid) return;
+      var mode = String(rule.mode || 'percent').trim().toLowerCase() === 'amount' ? 'amount' : 'percent';
+      var v = parseFloat(rule.value);
+      if (!isFinite(v)) return;
+      if (mode === 'amount') {
+        amtOff += Math.max(0, v) * (it.quantity || 1);
+      } else if (v > 0 && v <= 100) {
+        mult *= (v / 100);
+      }
+    });
+    var paid = Math.max(0, Math.round(lineOrig * mult - amtOff));
+    afterItemSum += paid;
+    perItemByLineId[String(it.id)] = {
+      origLine: lineOrig,
+      saleLine: paid,
+      hasDiscount: paid !== lineOrig
+    };
+  });
+
+  (promo.buyAgetB || []).forEach(function (rule, ruleIx) {
+    if (!rule || rule.enabled === false) return;
+    var bid = String(rule.buyProductId || '').trim();
+    var bq = Math.max(1, parseInt(rule.buyQty, 10) || 1);
+    var gid = String(rule.giftProductId || '').trim();
+    var gq = Math.max(1, parseInt(rule.giftQty, 10) || 1);
+    if (!bid || !gid) return;
+    var totalBuy = items.reduce(function (s, it) {
+      return posCatalogProductIdFromOrderLine_(it) === bid ? s + (it.quantity || 0) : s;
+    }, 0);
+    var times = Math.floor(totalBuy / bq);
+    if (rule.oncePerOrder) times = Math.min(times, 1);
+    var maxPO = parseInt(rule.maxPerOrder, 10);
+    if (!isNaN(maxPO) && maxPO > 0) times = Math.min(times, maxPO);
+    if (times > 0) {
+      var buyNm = posMerchantPromoProductName_(bid);
+      var giftNm = posMerchantPromoProductName_(gid);
+      var gqTot = times * gq;
+      giftRows.push({
+        kind: 'buyget',
+        key: 'buyget-' + ruleIx + '-' + bid + '-' + gid,
+        title: '(' + buyNm + '贈送)' + giftNm,
+        qty: gqTot
+      });
+    }
+  });
+
+  (promo.thresholdGifts || []).forEach(function (rule, ruleIx) {
+    if (!rule || rule.enabled === false) return;
+    var th = Math.max(0, parseInt(rule.threshold, 10) || 0);
+    var gid = String(rule.giftProductId || '').trim();
+    var gq = Math.max(1, parseInt(rule.giftQty, 10) || 1);
+    if (!gid || th <= 0) return;
+    var basisAmt = rule.amountBasis === 'postItem' ? afterItemSum : rawSubtotal;
+    if (basisAmt < th) return;
+    var times = 1;
+    var maxPO = parseInt(rule.maxPerOrder, 10);
+    if (!isNaN(maxPO) && maxPO > 0) times = Math.min(times, maxPO);
+    var gqTot = times * gq;
+    var giftNm = posMerchantPromoProductName_(gid);
+    giftRows.push({
+      kind: 'threshold',
+      key: 'threshold-' + ruleIx + '-' + gid,
+      title: '(滿額贈)' + giftNm,
+      qty: gqTot
+    });
+  });
+
+  var orderTotal = afterItemSum;
+  (promo.thresholdOrder || []).forEach(function (rule) {
+    if (!rule || rule.enabled === false) return;
+    var th = Math.max(0, parseInt(rule.threshold, 10) || 0);
+    if (th <= 0) return;
+    var basisAmt = rule.amountBasis === 'postItem' ? afterItemSum : rawSubtotal;
+    if (basisAmt < th) return;
+    var mode = String(rule.mode || 'percent').trim().toLowerCase() === 'amount' ? 'amount' : 'percent';
+    var v = parseFloat(rule.value);
+    if (!isFinite(v)) return;
+    if (mode === 'amount') {
+      var off = Math.min(Math.max(0, v), orderTotal);
+      orderTotal -= off;
+    } else if (v > 0 && v <= 100) {
+      orderTotal = Math.round(orderTotal * (v / 100));
+    }
+  });
+
+  orderTotal = Math.max(0, Math.round(orderTotal));
+  return {
+    active: true,
+    rawSubtotal: rawSubtotal,
+    afterItemDiscount: Math.round(afterItemSum),
+    finalTotal: orderTotal,
+    detailLines: lines,
+    perItemByLineId: perItemByLineId,
+    giftRows: giftRows
+  };
 }
 
 /** 品項列印 payload 備註：合併多種鍵名（與 _labelItemNoteText_ 對齊） */
@@ -7656,8 +8451,24 @@ window.__initPrintSettingsUi_ = (function () {
     );
   }
 
+  /**
+   * 開啟打印設定時：先套用記憶體快取（預載），再背景向工作表同步。
+   */
+  async function refreshPrintSheetInBackground_() {
+    _setStatus_('背景同步「打印設定」工作表…', 'warn');
+    const data = await fetchPrintSettingsFromBackend_();
+    if (!data) {
+      _setStatus_('同步失敗（仍顯示快取／預設內容）', 'err');
+      return;
+    }
+    applyPrintSettingsBackendPayloadToCaches_(data);
+    applyCacheToUi_();
+    _setStatus_('已從工作表載入最新樣版 ✓（mode=' + getPosPrintMode_() + '）', 'ok');
+  }
+
   return function () {
-    pullFromSheetAndApply_();            // 每次打開都直接從工作表抓
+    applyCacheToUi_();
+    void refreshPrintSheetInBackground_();
     if (inited) return;
     inited = true;
 
@@ -7973,58 +8784,11 @@ window.__initPrintSettingsUi_ = (function () {
     const data = await fetchPrintSettingsFromBackend_();
     if (!data) {
       _setStatus_('讀取失敗（請確認 GAS Web App URL）', 'err');
-      // 維持 UI 為目前快取／預設值，避免畫面空白
       applyCacheToUi_();
       return;
     }
     console.log('[POS] pullFromSheet 拿到:', data);
-    if (data.storeName) {
-      try { window.__posPrintStoreName_ = String(data.storeName); } catch (e) { /* 略 */ }
-    }
-    if (typeof data.detailTemplate === 'string' && data.detailTemplate.length) {
-      _posDetailTplCache_ = data.detailTemplate;
-    }
-    if (typeof data.labelTemplate === 'string' && data.labelTemplate.length) {
-      _posLabelTplCache_ = data.labelTemplate;
-    }
-    if (data.printMode === 'detail' || data.printMode === 'label') {
-      _posPrintModeCache_ = data.printMode;
-    }
-    if (data.labelSize && typeof data.labelSize === 'object') {
-      var __g = Number(data.labelSize.gap);
-      if (!(__g >= 0) || isNaN(__g)) __g = 3;
-      var __go = Number(data.labelSize.gapOffset);
-      if (!(__go >= 0) || isNaN(__go)) __go = 0;
-      if (__go > 10) __go = 10;
-      var __ys = parseInt(data.labelSize.yStart, 10);
-      if (isNaN(__ys)) __ys = 20;
-      if (__ys < 0) __ys = 0;
-      if (__ys > 200) __ys = 200;
-      _posLabelSizeCache_ = {
-        width:  Number(data.labelSize.width)  > 0 ? Number(data.labelSize.width)  : 40,
-        height: Number(data.labelSize.height) > 0 ? Number(data.labelSize.height) : 30,
-        gap: __g,
-        gapOffset: __go,
-        yStart: __ys
-      };
-    }
-    if (data.fontConfig && typeof data.fontConfig === 'object') {
-      const fc = data.fontConfig;
-      _posFontCfgCache_ = {
-        detail: {
-          size: (fc.detail && fc.detail.size) ? String(fc.detail.size) : 'small',
-          bold: !!(fc.detail && fc.detail.bold)
-        },
-        label: {
-          size: (fc.label && fc.label.size) ? String(fc.label.size) : 'small',
-          bold: !!(fc.label && fc.label.bold)
-        }
-      };
-    }
-    if (data.rollWidthMm != null && String(data.rollWidthMm).trim() !== '') {
-      const _rw = parseInt(String(data.rollWidthMm).trim(), 10);
-      if (_rw >= 40 && _rw <= 120) _posRollWidthMmCache_ = _rw;
-    }
+    applyPrintSettingsBackendPayloadToCaches_(data);
     applyCacheToUi_();
     _setStatus_('已從工作表載入最新樣版 ✓（mode=' + getPosPrintMode_() + '）', 'ok');
   }
@@ -8085,6 +8849,38 @@ function buildCurrentOrderData() {
   const localISO = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString();
   const orderDateOnly = (order && order.date) ? String(order.date).replace(/\//g, '-').slice(0, 10) : localISO.slice(0, 10);
 
+  const promoCfg = window.__merchantPromotionsCache || { enabled: false };
+  var pv = null;
+  try {
+    pv = posComputeMerchantPromotionsPreview_(order.items, promoCfg);
+  } catch (ePv) {
+    pv = null;
+  }
+  const perMap = (pv && pv.perItemByLineId) ? pv.perItemByLineId : {};
+  const giftRows = (pv && Array.isArray(pv.giftRows)) ? pv.giftRows : [];
+  var paidQty = order.items.reduce(function (s, it) {
+    return s + (parseInt(it.quantity, 10) || 0);
+  }, 0);
+  var giftQtySum = giftRows.reduce(function (s, g) {
+    return s + (parseInt(g && g.qty, 10) || 0);
+  }, 0);
+  var activityParenLines = [];
+  if (pv && pv.active) {
+    if (pv.afterItemDiscount != null && pv.finalTotal != null && pv.afterItemDiscount !== pv.finalTotal) {
+      var orderDiscAmt = Math.max(0, Math.round(pv.afterItemDiscount - pv.finalTotal));
+      if (orderDiscAmt > 0) {
+        activityParenLines.push('消費滿額打折-' + orderDiscAmt);
+      }
+    }
+  }
+  var merchantPromoTelegram = {
+    gifts: giftRows.map(function (g) {
+      return { title: (g && g.title) || '', qty: (g && g.qty != null) ? g.qty : 1 };
+    }),
+    lineItemCount: paidQty + giftQtySum,
+    activityParenLines: activityParenLines
+  };
+
   return {
     orderId: order.orderId,
     date: orderDateOnly,
@@ -8095,18 +8891,31 @@ function buildCurrentOrderData() {
     source: 'pos',
     key: posGetClientKey_(),
     printMode: getPosPrintMode_(),
-    items: sortOrderItemsByMainNameClient_(order.items).map(item => ({
-      id: item.id,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      options: item.options || [],
-      note: posPrinterOrderLineNote_(item),
-      labelName: posLabelNameFromProductSheetY_(item),
-      catalogProductId: posCatalogProductIdFromOrderLine_(item),
-      printLabel: posOrderLineWantsPrintCheckbox_(item),
-      printThisLabel: item.printThisLabel !== false
-    }))
+    items: sortOrderItemsByMainNameClient_(order.items).map(function (item) {
+      const row = perMap[String(item.id)];
+      const base = {
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        options: item.options || [],
+        note: posPrinterOrderLineNote_(item),
+        labelName: posLabelNameFromProductSheetY_(item),
+        catalogProductId: posCatalogProductIdFromOrderLine_(item),
+        printLabel: posOrderLineWantsPrintCheckbox_(item),
+        printThisLabel: item.printThisLabel !== false
+      };
+      if (row && row.hasDiscount) {
+        base.telegramDiscountOrigLine = row.origLine;
+        base.telegramDiscountSaleLine = row.saleLine;
+        var saveAmt = Math.max(0, (parseInt(row.origLine, 10) || 0) - (parseInt(row.saleLine, 10) || 0));
+        if (saveAmt > 0) {
+          base.telegramItemDiscountParen = '商品打折-' + saveAmt;
+        }
+      }
+      return base;
+    }),
+    merchantPromoTelegram: merchantPromoTelegram
   };
 }
 
@@ -8355,6 +9164,10 @@ function initializeCheckoutCalculatorToggle() {
 // ✅ Submit order to Google Sheets
 // ✅ 提交訂單到後端並觸發 Telegram 通知
 function submitOrder() {
+  if (!posBootCheckClientKeyPassed_) {
+    posSwalAlert('授權仍在驗證中或尚未通過，請稍候再試。', 'warning');
+    return;
+  }
   if (!order.items || order.items.length === 0) {
     posSwalAlert('請先選擇餐點！', 'warning');
     return;
@@ -8473,17 +9286,38 @@ document.getElementById('submit-order').addEventListener('click', () => {
 
         // 更新訂單顯示
         function updateOrderDisplay() {
-          // 計算總金額
-          order.total = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+          const baseTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+          const promoCfg = window.__merchantPromotionsCache || { enabled: false };
+          let pv;
+          try {
+            pv = posComputeMerchantPromotionsPreview_(order.items, promoCfg);
+          } catch (ePv) {
+            pv = {
+              active: false,
+              finalTotal: baseTotal,
+              rawSubtotal: baseTotal,
+              detailLines: [],
+              perItemByLineId: {},
+              giftRows: []
+            };
+          }
+          order.total = (posMerchantPromoIsActiveNow_(promoCfg) && pv) ? pv.finalTotal : baseTotal;
           
-          // 計算總份數
-          const totalCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+          // 品項總份數（含付費商品與活動贈品預覽列）
+          const paidQty = order.items.reduce((sum, item) => sum + item.quantity, 0);
+          var giftQtySumI = 0;
+          if (posMerchantPromoIsActiveNow_(promoCfg) && pv && Array.isArray(pv.giftRows)) {
+            pv.giftRows.forEach(function (g) {
+              giftQtySumI += parseInt(g && g.qty, 10) || 0;
+            });
+          }
+          const totalCount = paidQty + giftQtySumI;
 
           // 顯示總金額在送出按鈕上
           document.getElementById('submit-total').textContent = `NT$ ${order.total}`;
           
-          // 顯示總份數
-          document.getElementById('submit-count').textContent = `共 ${totalCount} 份`;
+          // 顯示品項份數
+          document.getElementById('submit-count').textContent = `品項 ${totalCount} 份`;
 
           // 沒有餐點時顯示提示畫面
           if (order.items.length === 0) {
@@ -8502,10 +9336,27 @@ document.getElementById('submit-order').addEventListener('click', () => {
           // 有餐點時，產生每一筆訂單 HTML
           let orderItemsHTML = '';
 
+          const perMap = (pv && pv.perItemByLineId) ? pv.perItemByLineId : {};
+          const escCart = function (s) {
+            return String(s)
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/"/g, '&quot;');
+          };
+
           sortOrderItemsByMainNameClient_(order.items).forEach(item => {
             const displayBase = _posBareProductNameForPrint_(item);
             const addonLine = _posOrderDisplayAddonLabels_(item);
             const lineTotal = item.price * item.quantity;
+            const perRow = perMap[String(item.id)];
+            var priceColHtml = '';
+            if (perRow && perRow.hasDiscount) {
+              priceColHtml =
+                '<span class="text-sm text-gray-500 line-through decoration-red-500 decoration-2 mr-1.5">NT$ ' + perRow.origLine + '</span>' +
+                '<span class="font-semibold text-violet-700 text-base shrink-0">NT$ ' + perRow.saleLine + '</span>';
+            } else {
+              priceColHtml = '<span class="font-semibold text-gray-800 text-base shrink-0">NT$ ' + lineTotal + '</span>';
+            }
             const menuHit = posFindMenuProductByOrderItem_(item);
             const sheetOn = menuHit ? posSheetWantsPrintProductLabel_(menuHit) : true;
             const plDisabled = (menuHit && !sheetOn) ? ' disabled title="商品資料「印標籤」為否"' : '';
@@ -8533,7 +9384,7 @@ document.getElementById('submit-order').addEventListener('click', () => {
                 <i class="fas fa-plus"></i>
               </button>
             </div>
-            <span class="font-semibold text-gray-800 text-base shrink-0">NT$ ${lineTotal}</span>
+            <div class="flex items-baseline justify-end shrink-0 flex-wrap gap-x-0">${priceColHtml}</div>
           </div>
           <label class="mt-1 flex items-center gap-2 cursor-pointer select-none text-xs text-gray-600">
             <input type="checkbox" class="order-item-print-label h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-id="${item.id}" ${plCartChecked ? 'checked' : ''}${plDisabled}>
@@ -8551,9 +9402,32 @@ document.getElementById('submit-order').addEventListener('click', () => {
   `;
           });
 
+          var giftHtml = '';
+          if (posMerchantPromoIsActiveNow_(promoCfg) && pv && Array.isArray(pv.giftRows) && pv.giftRows.length) {
+            pv.giftRows.forEach(function (gr) {
+              if (!gr) return;
+              giftHtml += (
+                '<div class="order-item py-3 border-b border-gray-100 bg-violet-50/40 pointer-events-none select-none">' +
+                '<div class="flex items-start gap-2">' +
+                '<div class="mt-1 shrink-0 w-8 text-center text-violet-600"><i class="fas fa-gift" aria-hidden="true"></i></div>' +
+                '<div class="flex-1 min-w-0">' +
+                '<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">' +
+                '<h4 class="font-medium text-violet-900 text-base min-w-0">' + escCart(gr.title || '') + '</h4>' +
+                '<span class="text-sm text-violet-800 shrink-0 font-medium">× ' + escCart(String(gr.qty != null ? gr.qty : '')) + '</span>' +
+                '</div>' +
+                '<div class="text-xs text-violet-600 mt-1">活動贈品（預覽，0 元）</div>' +
+                '</div></div></div>'
+              );
+            });
+          }
+
+          var cartPromoFooter = '';
+          if (posMerchantPromoIsActiveNow_(promoCfg) && (promoCfg.thresholdOrder || []).some(function (r) { return r && r.enabled !== false; })) {
+            cartPromoFooter = '<div class="text-center text-sm text-violet-800 font-medium mt-3 pt-2 border-t border-violet-100">(消費滿額整單打折)</div>';
+          }
 
           // 將產生好的 HTML 插入畫面
-          document.getElementById('order-items').innerHTML = orderItemsHTML;
+          document.getElementById('order-items').innerHTML = orderItemsHTML + giftHtml + cartPromoFooter;
 
           // 加上「加減數量」按鈕的事件監聽
           document.querySelectorAll('.quantity-btn').forEach(btn => {
@@ -8928,6 +9802,7 @@ function showOrderDetail(orderData) {
           }
           const items = menuTabs[currentTab] || [];
           let menuItemsHTML = '';
+          var _menuPromoCfg = window.__merchantPromotionsCache || { enabled: false };
 
        items.forEach(item => {
   const hasOptions =
@@ -8940,6 +9815,23 @@ const saleClass = item.saleStatus === '否'
   : 'bg-green-500 hover:bg-green-600';
 const overlayClass = item.saleStatus === '否' ? '' : 'hidden';
 
+  var _pp = posMerchantPromoUnitPriceForMenuCard_(item.id, item.price, _menuPromoCfg);
+  var _priceTitleHtml = '';
+  if (_pp.hasDiscount) {
+    if (item.image) {
+      _priceTitleHtml = '<span style="font-size: 16px; font-weight: bold; color: #7c3aed; margin-left: 8px; white-space: nowrap;">$' + _pp.sale + '</span>';
+    } else {
+      _priceTitleHtml = '<span style="margin-left: 8px; white-space: nowrap;"><span style="font-size: 13px; color: #9ca3af; text-decoration: line-through; text-decoration-color: #dc2626; margin-right: 6px;">$' + _pp.orig + '</span><span style="font-size: 16px; font-weight: bold; color: #7c3aed;">$' + _pp.sale + '</span></span>';
+    }
+  } else {
+    _priceTitleHtml = '<span style="font-size: 16px; font-weight: bold; color: #2563eb; margin-left: 8px; white-space: nowrap;">$' + item.price + '</span>';
+  }
+  var _imgCornerBadge = '';
+  if (_pp.hasDiscount && item.image) {
+    _imgCornerBadge = '<div class="pos-menu-promo-price-badge"><span style="text-decoration: line-through; text-decoration-color: #dc2626; color: #6b7280; margin-right: 4px;">$' + _pp.orig + '</span><span style="color: #7c3aed; font-weight: 700;">$' + _pp.sale + '</span></div>';
+  } else if (_pp.hasDiscount && !item.image) {
+    _imgCornerBadge = '<div class="pos-menu-promo-price-badge" style="bottom: 8px;"><span style="text-decoration: line-through; text-decoration-color: #dc2626; color: rgba(255,255,255,0.9); margin-right: 4px;">$' + _pp.orig + '</span><span style="color: #fff; font-weight: 700;">$' + _pp.sale + '</span></div>';
+  }
 
 menuItemsHTML += `
   <div class="menu-item menu-item-container bg-white rounded-lg overflow-hidden shadow-md cursor-pointer transition-all duration-200 relative" 
@@ -8954,15 +9846,18 @@ menuItemsHTML += `
     </div>
 
     ${item.image ? 
-      `<img class="pos-menu-lazy-img" src="${POS_MENU_LAZY_PLACEHOLDER}" data-src="${item.image}" alt="${item.name}" loading="lazy" decoding="async" style="width: 100%; height: 140px; object-fit: cover;">` : 
-      `<div class="no-image-item w-full" style="background-color: ${item.color}; height: 140px; display: flex; align-items: center; justify-content: center; color: white;">${item.name}</div>`
+      `<div class="relative w-full" style="height: 140px;">
+        <img class="pos-menu-lazy-img" src="${POS_MENU_LAZY_PLACEHOLDER}" data-src="${item.image}" alt="${item.name}" loading="lazy" decoding="async" style="width: 100%; height: 140px; object-fit: cover;">
+        ${_imgCornerBadge}
+      </div>` : 
+      `<div class="no-image-item w-full relative" style="background-color: ${item.color}; height: 140px; display: flex; align-items: center; justify-content: center; color: white;">${item.name}${_imgCornerBadge}</div>`
     }
 
     <div style="padding: 8px; flex-grow: 1; display: flex; flex-direction: column;">
       
       <div style="height: 30px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <h3 style="font-size: 16px; font-weight: bold; color: #1f2937; margin: 0; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${item.name}</h3>
-        <span style="font-size: 16px; font-weight: bold; color: #2563eb; margin-left: 8px;">$${item.price}</span>
+        ${_priceTitleHtml}
       </div>
 
       <div style="margin-top: auto;">
@@ -9292,12 +10187,25 @@ for (let i = 1; i <= 8; i++) {
 
 
 
+        function refreshEditItemGithubHint_() {
+          var hint = document.getElementById('edit-item-image-github-hint');
+          var fi = document.getElementById('edit-item-image');
+          if (!hint || !fi) return;
+          if (posIsGithubStaticPos_()) {
+            hint.classList.remove('hidden');
+            hint.textContent = '圖片須後台或 GAS 內嵌上傳；GitHub 靜態頁可編輯名稱、價格、描述與附加選項。';
+            fi.disabled = true;
+            fi.classList.add('opacity-50', 'cursor-not-allowed');
+          } else {
+            hint.classList.add('hidden');
+            hint.textContent = '';
+            fi.disabled = false;
+            fi.classList.remove('opacity-50', 'cursor-not-allowed');
+          }
+        }
+
         // Show edit item modal
         function showEditItemModal(item, ctx) {
-          if (posIsGithubStaticPos_()) {
-            posSwalPleaseEditInBackend_();
-            return;
-          }
           posItemEditorContext = ctx || 'menu';
           var isRedeem = posItemEditorContext === 'redeem';
           editingItem = item;
@@ -9328,15 +10236,12 @@ if (!isRedeem) {
 }
 
           refreshEditItemImagePreview();
+          refreshEditItemGithubHint_();
           document.getElementById('edit-item-modal').classList.remove('hidden');
         }
         
         // Show add item modal (same as edit modal but with empty fields)
         function showAddItemModal(ctx) {
-  if (posIsGithubStaticPos_()) {
-    posSwalPleaseEditInBackend_();
-    return;
-  }
   posItemEditorContext = ctx || 'menu';
   var isRedeem = posItemEditorContext === 'redeem';
   editingItem = null;
@@ -9357,6 +10262,7 @@ if (!isRedeem) {
   document.getElementById('addons-container').innerHTML = '';
 
   refreshEditItemImagePreview();
+  refreshEditItemGithubHint_();
   document.getElementById('edit-item-modal').classList.remove('hidden');
 }
 
@@ -9606,7 +10512,7 @@ if (!isRedeem) {
         function bindMerchantFilePick(inputId, mode, opts) {
           document.getElementById(inputId).addEventListener('change', function (e) {
             if (posIsGithubStaticPos_()) {
-              posSwalPleaseEditInBackend_();
+              posSwalAlert('圖片須後台上傳；靜態頁無法送出行銷／封面大圖。', 'info');
               this.value = '';
               return;
             }
@@ -9669,7 +10575,7 @@ if (!isRedeem) {
         // 圖片上傳事件 - 打開裁切 Modal（商品）
         document.getElementById('edit-item-image').addEventListener('change', function(e) {
           if (posIsGithubStaticPos_()) {
-            posSwalPleaseEditInBackend_();
+            posSwalAlert('圖片須後台或 GAS 內嵌上傳；此處可編輯文字與價格。', 'info');
             this.value = '';
             return;
           }
@@ -9786,16 +10692,17 @@ if (!isRedeem) {
         
         // Save edited item
         function saveEditedItem() {
-          if (posIsGithubStaticPos_()) {
-            posSwalPleaseEditInBackend_();
-            return;
-          }
           const name = document.getElementById('edit-item-name').value;
           const price = parseInt(document.getElementById('edit-item-price').value);
           const color = document.getElementById('edit-item-color').value;
           const description = document.getElementById('edit-item-description').value;
           const isRedeemContext = posItemEditorContext === 'redeem';
           const options = isRedeemContext ? {} : getAddonsData(); // 兌換商品不使用附加選項
+
+          if (posIsGithubStaticPos_() && croppedImageData) {
+            posSwalAlert('圖片須後台上傳；請勿在靜態頁裁切上新圖。', 'warning');
+            return;
+          }
 
 
 
@@ -9806,6 +10713,13 @@ if (!isRedeem) {
 
           // ✅ 如果是編輯現有商品
           if (editingItem) {
+            if (posIsGithubStaticPos_()) {
+              var _imgNow = (croppedImageData || (!userClearedProductImage && editingItem.image) || '').toString();
+              if (_imgNow.indexOf('data:') === 0) {
+                posSwalAlert('圖片須後台上傳；請勿以資料網址圖作為商品圖（可改在後台設定網址圖）。', 'warning');
+                return;
+              }
+            }
             if (croppedImageData) {
               editingItem.image = croppedImageData;
               croppedImageData = null;
@@ -9903,6 +10817,10 @@ if (!isRedeem) {
 
           } else {
             // ✅ 新增商品邏輯
+            if (posIsGithubStaticPos_() && croppedImageData) {
+              posSwalAlert('圖片須後台上傳；新增商品請先不上傳圖片。', 'warning');
+              return;
+            }
           const newItem = {
   id: Date.now().toString(),
   name: name,
@@ -10109,6 +11027,8 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             document.getElementById('orders-content').classList.add('hidden');
             var _mhLegacy = document.getElementById('member-hub-content');
             if (_mhLegacy) _mhLegacy.classList.add('hidden');
+            var _mpLegacy = document.getElementById('merchant-promotions-content');
+            if (_mpLegacy) _mpLegacy.classList.add('hidden');
             
             // Update active tab styling
             document.querySelectorAll('.menu-tab').forEach(tab => {
@@ -10445,9 +11365,10 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             document.getElementById('stats-content').classList.add('hidden');
             document.getElementById('merchant-content').classList.add('hidden');
             if (memberHubContent) memberHubContent.classList.add('hidden');
+            if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
             if (orderBoardContent) orderBoardContent.classList.remove('hidden');
             _hidePrintSettings_();
-            document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #order-board-menu-btn').forEach(function (tab) {
+            document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
             });
@@ -10469,11 +11390,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             document.getElementById('stats-content').classList.add('hidden');
             document.getElementById('merchant-content').classList.add('hidden');
             if (memberHubContent) memberHubContent.classList.add('hidden');
+            if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             printSettingsContent.classList.remove('hidden');
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
-            document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #order-board-menu-btn').forEach(function (tab) {
+            document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
             });
@@ -10488,6 +11410,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           document.getElementById('stats-content').classList.remove('hidden');
           document.getElementById('merchant-content').classList.add('hidden');
           if (memberHubContent) memberHubContent.classList.add('hidden');
+          if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
           if (orderBoardContent) orderBoardContent.classList.add('hidden');
           _hidePrintSettings_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
@@ -10502,7 +11425,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
 
          
 
-          document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #order-board-menu-btn').forEach(tab => {
+          document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(tab => {
             tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
             tab.classList.add('text-gray-500');
           });
@@ -10519,11 +11442,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           document.getElementById('stats-content').classList.add('hidden');
           document.getElementById('merchant-content').classList.remove('hidden');
           if (memberHubContent) memberHubContent.classList.add('hidden');
+          if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
           if (orderBoardContent) orderBoardContent.classList.add('hidden');
           _hidePrintSettings_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
-          document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #order-board-menu-btn').forEach(tab => {
+          document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(tab => {
             tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
             tab.classList.add('text-gray-500');
           });
@@ -10559,11 +11483,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             document.getElementById('stats-content').classList.add('hidden');
             document.getElementById('merchant-content').classList.add('hidden');
             _hidePrintSettings_();
+            if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
             if (memberHubContent) memberHubContent.classList.remove('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
-            document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #order-board-menu-btn').forEach(tab => {
+            document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(tab => {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
             });
@@ -10575,6 +11500,50 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           });
         }
 
+        const merchantPromotionsTab = document.getElementById('merchant-promotions-tab');
+        if (merchantPromotionsTab && merchantPromotionsContent) {
+          merchantPromotionsTab.addEventListener('click', function () {
+            [
+              'edit-item-modal',
+              'order-detail-modal',
+              'option-modal',
+              'crop-image-modal',
+              'merchant-images-modal',
+              'date-modal',
+              'range-modal',
+              'menu-tab-edit-modal-overlay'
+            ].forEach(function (mid) {
+              var el = document.getElementById(mid);
+              if (!el) return;
+              if (mid === 'menu-tab-edit-modal-overlay') {
+                el.style.display = 'none';
+                return;
+              }
+              el.classList.add('hidden');
+            });
+            document.getElementById('menu-content').classList.add('hidden');
+            document.getElementById('orders-content').classList.add('hidden');
+            document.getElementById('stats-content').classList.add('hidden');
+            document.getElementById('merchant-content').classList.add('hidden');
+            if (memberHubContent) memberHubContent.classList.add('hidden');
+            if (orderBoardContent) orderBoardContent.classList.add('hidden');
+            _hidePrintSettings_();
+            merchantPromotionsContent.classList.remove('hidden');
+            if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
+
+            document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(function (tab) {
+              tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
+              tab.classList.add('text-gray-500');
+            });
+            this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
+            this.classList.remove('text-gray-500');
+            setFeatureDropdownLabel('商家活動');
+            if (typeof window.__merchantPromotionsRefreshFromServer === 'function') {
+              window.__merchantPromotionsRefreshFromServer(false);
+            }
+          });
+        }
+
         // 💡如果你原本有這段查詢訂單的邏輯，也要補上隱藏統計區
         document.getElementById('orders-tab').addEventListener('click', function () {
           document.getElementById('menu-content').classList.add('hidden');
@@ -10582,11 +11551,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           document.getElementById('stats-content').classList.add('hidden');
           document.getElementById('merchant-content').classList.add('hidden');
           if (memberHubContent) memberHubContent.classList.add('hidden');
+          if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
           if (orderBoardContent) orderBoardContent.classList.add('hidden');
           _hidePrintSettings_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
-          document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #order-board-menu-btn').forEach(tab => {
+          document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(tab => {
             tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
             tab.classList.add('text-gray-500');
           });
@@ -10613,12 +11583,13 @@ if (searchPhoneInput) {
             document.getElementById('stats-content').classList.add('hidden');
             document.getElementById('merchant-content').classList.add('hidden');
             if (memberHubContent) memberHubContent.classList.add('hidden');
+            if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             _hidePrintSettings_();
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
             // 清除所有 tab 的 active 樣式
-            document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #order-board-menu-btn').forEach(tab => {
+            document.querySelectorAll('.menu-tab, #orders-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(tab => {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
             });
@@ -11084,6 +12055,12 @@ function posPrefetchFeatureCachesBackground_() {
   if (typeof window.__memberHubPrefetchCachesSilent === 'function') {
     window.__memberHubPrefetchCachesSilent();
   }
+  if (typeof window.__merchantPromotionsPrefetchSilent === 'function') {
+    window.__merchantPromotionsPrefetchSilent();
+  }
+  if (typeof posPrefetchPrintSettingsSilent_ === 'function') {
+    posPrefetchPrintSettingsSilent_();
+  }
 }
 
 
@@ -11375,8 +12352,51 @@ document.getElementById('show-amount-chart').addEventListener('click', showAmoun
                 }, 600);
               }
             } catch (ePrefetch) {}
+
+            (function posBootVerifyAfterMenuLoads_() {
+              (async function () {
+                try {
+                  var posClientKeyOk = await posVerifyClientKeyOrFail_();
+                  if (!posClientKeyOk.ok) {
+                    var rr = posClientKeyOk.reason || '';
+                    if (rr === 'no_url') {
+                      showInitialLoaderError('缺少後端網址，無法驗證授權。');
+                      return;
+                    }
+                    if (rr === 'suspended') {
+                      showInitialLoaderError('系統有問題，請聯絡管理中心。');
+                      return;
+                    }
+                    if (posLicenseReasonIsHardStop_(rr)) {
+                      var msg = '授權無法通過，請聯絡管理員。';
+                      if (rr === 'bound_to_other_sheet') msg = '此金鑰已綁定其他試算表，無法在本副本使用。';
+                      if (rr === 'duplicate_key') msg = '授權資料異常（重複金鑰），請聯絡管理員。';
+                      if (rr === 'client_key_mismatch') msg = '前端與後端金鑰版本不一致，請更新頁面或洽管理員。';
+                      showInitialLoaderError(msg);
+                      return;
+                    }
+                    if (posLicenseReasonNeedsKeyModal_(rr)) {
+                      posLicenseReentryModalRequired_ = true;
+                      console.warn('[POS] 授權未完成（GitHub 版不開放輸入金鑰）', rr, posClientKeyOk.raw);
+                      posOpenLicenseKeyModal_();
+                      return;
+                    }
+                    showInitialLoaderError('授權驗證未通過（' + (rr || 'unknown') + '）。請聯絡管理員。');
+                  } else {
+                    posBootCheckClientKeyPassed_ = true;
+                    try {
+                      var _kmAfterBoot = document.getElementById('key-modal');
+                      if (_kmAfterBoot) _kmAfterBoot.classList.add('hidden');
+                    } catch (eKmBoot) {}
+                  }
+                } catch (eVer) {
+                  console.error('[POS] 背景授權驗證例外', eVer);
+                }
+              })();
+            })();
+
            
-        });// 👇 👇 👇 👇 👇 👇👇 👇 👇 👇這個結尾不能少，保證整個 window load POS 初始化結束 👇 👇 👇 👇 👇 👇 👇 👇 
+        });// 👇 👇 👇 👇 👇 👇👇 👇 👇 👇這個結尾不能少，保證整個 window load POS 初始化結束 👇 👇 👇 👇 👇 👇 👇 👇
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
