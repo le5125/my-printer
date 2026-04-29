@@ -491,6 +491,27 @@
       z-index: 10;
     }
 
+    /* 商品卡左上角：快速列印「標籤名」商品標籤（不影響右上角編輯） */
+    .menu-label-print-btn {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      background-color: rgba(255, 255, 255, 0.92);
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 11;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+    }
+    .menu-label-print-btn i {
+      font-size: 11px;
+      color: #047857;
+    }
+
     /* 分頁按鈕樣式 */
     .tab-add-btn {
       padding: 8px;
@@ -6969,6 +6990,84 @@ function pingPrinterPageInstantTrigger_(orderData) {
   } catch (e) { /* 略 */ }
 }
 
+/** 菜單卡快速標籤：直接送 PRINT_ORDER（略過 buildPrinterOrderPayloadFull_），{品名} 為標籤名優先 */
+function posPostRawPrintOrder_(payload) {
+  if (!payload) return;
+  try {
+    window.postMessage({ type: 'PRINT_ORDER', payload: payload }, '*');
+    if (typeof posPrinterLastPostMessageTs !== 'undefined') posPrinterLastPostMessageTs = Date.now();
+  } catch (e) { console.warn('[POS] posPostRawPrintOrder_', e); }
+}
+
+function posExecMenuItemLabelPrint_(menuItem, sheetCount) {
+  if (!menuItem) return;
+  var n = Math.max(1, Math.min(99, parseInt(sheetCount, 10) || 1));
+  var ts = Date.now() + Math.floor(Math.random() * 47);
+  var labelNm = (menuItem.labelName != null && String(menuItem.labelName).trim()) ? String(menuItem.labelName).trim() : '';
+  var nm = String(menuItem.name || '').replace(/^'/, '').trim();
+  var payload = {
+    clientId: 'M' + ts + '-' + Math.floor(Math.random() * 1e6),
+    orderId: 'LBL-MNU-' + ts + '-' + Math.floor(Math.random() * 1e6),
+    shortId: String(1000 + Math.floor(Math.random() * 9000)).slice(-3),
+    timestamp: ts,
+    pickupTime: '',
+    phone: '',
+    remark: '',
+    total: 0,
+    printMode: 'label',
+    items: [{
+      name: nm,
+      quantity: n,
+      price: menuItem.price != null ? Number(menuItem.price) : 0,
+      options: [],
+      note: '',
+      labelName: labelNm,
+      catalogProductId: String(menuItem.id || ''),
+      printLabel: true,
+      printThisLabel: true
+    }]
+  };
+  posPostRawPrintOrder_(payload);
+  posSwalToastSuccess('已送出 ' + n + ' 張標籤至列印頁', 1800);
+}
+
+function posPromptAndPrintMenuItemLabels_(menuItem) {
+  if (!menuItem) return;
+  var title = '列印商品標籤';
+  var hint = '依「標籤列印樣版」組版；{品名} 優先為標籤名（未填則用商品名）。空白訂單欄位不顯示。';
+  if (typeof Swal === 'undefined') {
+    var raw = window.prompt(title + '\n' + hint + '\n\n張數（1–99）', '1');
+    if (raw == null) return;
+    var n0 = parseInt(String(raw).trim(), 10);
+    if (!n0 || n0 < 1 || n0 > 99) {
+      posSwalAlert('請輸入 1～99', 'warning');
+      return;
+    }
+    posExecMenuItemLabelPrint_(menuItem, n0);
+    return;
+  }
+  Swal.fire({
+    title: title,
+    html: '<p style="font-size:14px;color:#4b5563;text-align:left;margin:0 0 8px;">' + hint + '</p>',
+    input: 'number',
+    inputLabel: '列印張數',
+    inputValue: 1,
+    inputAttributes: { min: 1, max: 99, step: 1 },
+    showCancelButton: true,
+    confirmButtonText: '確定列印',
+    cancelButtonText: '取消',
+    inputValidator: function (v) {
+      var x = parseInt(String(v || '').trim(), 10);
+      if (!x || x < 1 || x > 99) return '請輸入 1～99';
+      return null;
+    }
+  }).then(function (res) {
+    if (!res.isConfirmed) return;
+    var n = parseInt(String(res.value != null ? res.value : '1').trim(), 10) || 1;
+    posExecMenuItemLabelPrint_(menuItem, n);
+  });
+}
+
 /** 出單機藍牙狀態（true=已連線打印機） */
 function _setPrinterLinkStatus_(bleConnected) {
   var led = document.getElementById('pos-printer-led');
@@ -8765,6 +8864,9 @@ menuItemsHTML += `
        style="min-height: 220px; display: flex; flex-direction: column;" 
        data-id="${item.id}" data-name="${item.name}" data-price="${item.price}" data-label-name="${String(item.labelName != null ? item.labelName : '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" data-print-label="${(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0') ? '0' : '1'}">
     
+    <div class="menu-label-print-btn" data-id="${item.id}" title="快速列印標籤">
+      <i class="fas fa-tag" aria-hidden="true"></i>
+    </div>
     <div class="edit-btn" data-id="${item.id}">
       <i class="fas fa-pencil-alt text-gray-600" style="font-size: 12px;"></i>
     </div>
@@ -8925,6 +9027,16 @@ document.getElementById('add-new-item').addEventListener('click', function(e) {
   showAddItemModal('menu');
 });
 
+// 綁定「快速列印標籤」（僅菜單區）
+document.querySelectorAll('#menu-items .menu-label-print-btn').forEach(btn => {
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    const itemId = this.getAttribute('data-id');
+    const item = (menuTabs[currentTab] || []).find(i => String(i.id) === String(itemId));
+    if (item) posPromptAndPrintMenuItemLabels_(item);
+  });
+});
+
 // 綁定 edit 按鈕（僅菜單區）
 document.querySelectorAll('#menu-items .edit-btn').forEach(btn => {
   btn.addEventListener('click', function(e) {
@@ -8939,6 +9051,7 @@ document.querySelectorAll('#menu-items .edit-btn').forEach(btn => {
 document.querySelectorAll('#menu-items .menu-item').forEach(item => {
   item.addEventListener('click', function (e) {
     if (
+      e.target.closest('.menu-label-print-btn') ||
       e.target.closest('.edit-btn') ||
       e.target.closest('.option-btn') ||
       e.target.closest('.sale-toggle-btn')
