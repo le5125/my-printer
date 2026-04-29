@@ -11819,7 +11819,7 @@ function getActiveFontCfg_() {
  * 單張「模切／有縫隙」標籤：
  * - SIZE 高度略大於設定值（TSPL_LABEL_SIZE_HEIGHT_EXTRA_MM），有助出紙到撕線位置。
  * - 開頭 OFFSET、標準 GAP「縫隙, 0」、PRINT 後 FEED（可依常數微調）。
- * - 文字可印區域仍以「設定高度 heightMm」計算，避免畫到實體貼紙外的縫隙。
+ * - 若內容（含換行／{商品備註} 等）超過設定高度，動態拉高 SIZE，避免末行被靜默捨棄。
  */
 function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, gapOffsetMm, yStartDots) {
   const x0 = 10;
@@ -11828,11 +11828,44 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
   if (y0 > 200) y0 = 200;
   const font = TSPL_FONT_ZH;
   const hPhys = Number(heightMm);
-  const maxY = Math.floor(hPhys * TSPL_DOTS_PER_MM) - 4;
   const g = (Number(gapMm) > 0 && Number(gapMm) <= 25) ? Number(gapMm) : 0;
   const gapSecond = 0;
-  let sizeH = hPhys + TSPL_LABEL_SIZE_HEIGHT_EXTRA_MM;
-  if (sizeH < 16) sizeH = 16;
+  const marginRight = 6;
+  const maxDots = Math.max(48, Math.floor(widthMm * TSPL_DOTS_PER_MM) - x0 - marginRight);
+  let y = y0;
+  const n = styledLines.length;
+  const fcBlank = getActiveFontCfg_();
+  const blankMul = fontSizeToTsplMul_((fcBlank && fcBlank.size) || 'small');
+  const blankRowH = Math.max(3, Math.round(4 * blankMul + 1));
+  const textCmds = [];
+  for (let k = 0; k < n; k++) {
+    const segs = styledLines[k] || [];
+    const yLineStart = y;
+    for (let i = 0; i < segs.length; i++) {
+      const s = segs[i];
+      const txt = String(s.text || '');
+      if (!txt) continue;
+      const mul = fontSizeToTsplMul_(s.size);
+      const rows = wrapTextToDotWidth_(txt, mul, maxDots);
+      const rowH = 24 * mul + 8;
+      for (let r = 0; r < rows.length; r++) {
+        const esc = rows[r].replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        textCmds.push({ y: y, esc: esc, mul: mul, bold: !!s.bold });
+        y += rowH;
+      }
+    }
+    if (y === yLineStart) y += blankRowH;
+  }
+  let maxBottomDots = y0;
+  for (let t = 0; t < textCmds.length; t++) {
+    const tc = textCmds[t];
+    const rh = 24 * tc.mul + 8;
+    maxBottomDots = Math.max(maxBottomDots, tc.y + rh);
+  }
+  let paperMm = Math.max(hPhys, Math.ceil((maxBottomDots + 8) / TSPL_DOTS_PER_MM));
+  if (paperMm < 16) paperMm = 16;
+  if (paperMm > 3200) paperMm = 3200;
+  let sizeH = paperMm + TSPL_LABEL_SIZE_HEIGHT_EXTRA_MM;
   if (sizeH > 3200) sizeH = 3200;
   const parts = [];
   if (g > 0) {
@@ -11850,36 +11883,12 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
   parts.push('CODEPAGE 950');
   parts.push('DIRECTION ' + TSPL_DIRECTION_MODE + ',0');
   parts.push('REFERENCE 0,0');
-  /* gapOffsetMm：POS 可存；此處 GAP 第二參數固定 0 mm（GP-2270T 常見標籤縫隙寫法） */
-  const marginRight = 6;
-  const maxDots = Math.max(48, Math.floor(widthMm * TSPL_DOTS_PER_MM) - x0 - marginRight);
-  let y = y0;
-  const n = styledLines.length;
-  const fcBlank = getActiveFontCfg_();
-  const blankMul = fontSizeToTsplMul_((fcBlank && fcBlank.size) || 'small');
-  const blankRowH = Math.max(3, Math.round(4 * blankMul + 1));
-  for (let k = 0; k < n; k++) {
-    const segs = styledLines[k] || [];
-    const yLineStart = y;
-    for (let i = 0; i < segs.length; i++) {
-      const s = segs[i];
-      const txt = String(s.text || '');
-      if (!txt) continue;
-      const mul = fontSizeToTsplMul_(s.size);
-      const rows = wrapTextToDotWidth_(txt, mul, maxDots);
-      const rowH = 24 * mul + 8;
-      for (let r = 0; r < rows.length; r++) {
-        if (y + rowH > maxY) break;
-        const esc = rows[r].replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-        parts.push('TEXT ' + x0 + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
-        if (s.bold) {
-          parts.push('TEXT ' + (x0 + 1) + ',' + y + ',"' + font + '",0,' + mul + ',' + mul + ',"' + esc + '"');
-        }
-        y += rowH;
-      }
+  for (let u = 0; u < textCmds.length; u++) {
+    const tc = textCmds[u];
+    parts.push('TEXT ' + x0 + ',' + tc.y + ',"' + font + '",0,' + tc.mul + ',' + tc.mul + ',"' + tc.esc + '"');
+    if (tc.bold) {
+      parts.push('TEXT ' + (x0 + 1) + ',' + tc.y + ',"' + font + '",0,' + tc.mul + ',' + tc.mul + ',"' + tc.esc + '"');
     }
-    // 樣版空行：預覽會換行，TSPL 須仍推進 Y，否則下一行與上行黏在一起
-    if (y === yLineStart && y + blankRowH <= maxY) y += blankRowH;
   }
   parts.push('PRINT 1,1');
   parts.push('FEED ' + TSPL_LABEL_FEED_AFTER_PRINT);
