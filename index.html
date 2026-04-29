@@ -1591,6 +1591,10 @@
       <span class="auto-toggle-label">收單模式</span>
       <span class="auto-toggle-pill" id="auto-print-pill">手動列印</span>
     </div>
+    <label class="print-telegram-body-label" style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;user-select:none;max-width:220px;" title="卷起紙「訂單明細」改為與 Telegram 通知相同的全文（略過試算表明細樣版）。">
+      <input type="checkbox" id="print-telegram-body-toggle" />
+      <span>明細印通知全文</span>
+    </label>
     <button type="button" class="btn btn-secondary small" id="btn-return-pos" style="display:none;padding:7px 14px;font-weight:700;">返回POS</button>
   </div>
 </header>
@@ -13574,6 +13578,22 @@ const PRINT_HISTORY_LIMIT = 50;
 
 // ── 列印模式（auto = 收單即印；manual = 收單入歷史不印，由使用者手動點列印）
 const LS_AUTO_PRINT_MODE = 'gp2270t_auto_print_mode_v1';
+const LS_DETAIL_PRINT_TELEGRAM_BODY = 'gp2270t_detail_print_telegram_body_v1';
+function getDetailPrintTelegramBody_() {
+  try {
+    var v = localStorage.getItem(LS_DETAIL_PRINT_TELEGRAM_BODY);
+    if (v === '0') return false;
+    return true;
+  } catch (e) { return true; }
+}
+function setDetailPrintTelegramBody_(on) {
+  try { localStorage.setItem(LS_DETAIL_PRINT_TELEGRAM_BODY, on ? '1' : '0'); } catch (e) { /* 略 */ }
+}
+function shouldUseTelegramBodyForDetailPrint_(ord) {
+  if (ord && ord.printUseTelegramBody === false) return false;
+  if (ord && ord.printUseTelegramBody === true) return true;
+  return getDetailPrintTelegramBody_();
+}
 function getAutoPrintMode_() {
   try {
     var v = localStorage.getItem(LS_AUTO_PRINT_MODE);
@@ -14174,6 +14194,16 @@ btnManual.addEventListener('click', async () => {
     setAutoPrintMode_(next);
     refresh();
     log('已切換為「' + (next === 'auto' ? '自動' : '手動') + '列印」模式', 'info');
+  });
+})();
+
+(function bindTelegramBodyPrintToggle_() {
+  var cb = document.getElementById('print-telegram-body-toggle');
+  if (!cb) return;
+  cb.checked = getDetailPrintTelegramBody_();
+  cb.addEventListener('change', function () {
+    setDetailPrintTelegramBody_(!!cb.checked);
+    log(cb.checked ? '明細：Telegram 通知全文（略過樣版）' : '明細：試算表樣版', 'info');
   });
 })();
 
@@ -14791,7 +14821,75 @@ function buildPrintTextFromBackendOrder_(ord) {
   }
   setActiveTsplFontProfile_(mode === 'label' ? 'label' : 'detail');
   if (mode === 'label') return renderLabelsFromOrder_(ord);
+  if (shouldUseTelegramBodyForDetailPrint_(ord)) {
+    return _printerEmojisToGt_(buildTelegramNotificationTextFromOrder_(ord));
+  }
   return renderDetailFromOrder_(ord);
+}
+
+function stripOrderDateToYyyyMmDdForPrint_(raw) {
+  if (raw === null || raw === undefined || raw === '') return '';
+  if (Object.prototype.toString.call(raw) === '[object Date]' && !isNaN(raw.getTime())) {
+    var d = raw;
+    var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  var s = String(raw).replace(/^'/, '').trim();
+  var m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) {
+    return m[1] + '-' + String(parseInt(m[2], 10)).padStart(2, '0') + '-' + String(parseInt(m[3], 10)).padStart(2, '0');
+  }
+  if (/^\d+$/.test(s) && s.length >= 12) {
+    var dt = new Date(parseInt(s, 10));
+    if (!isNaN(dt.getTime())) {
+      var pad2 = function (n) { return n < 10 ? '0' + n : '' + n; };
+      return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate());
+    }
+  }
+  var first = s.split(/\s+/)[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(first)) return first;
+  return first.length >= 10 ? first.slice(0, 10) : first;
+}
+
+function buildTelegramNotificationTextFromOrder_(ord) {
+  if (!ord) return '';
+  var srcRaw = ord.source;
+  var isPos = (srcRaw === 'pos' || srcRaw === undefined || srcRaw === null || String(srcRaw).trim() === '');
+  var srcTag = isPos ? '🏪【現場/POS】' : '📱【線上】';
+  var dateStr = '';
+  if (ord.date != null && String(ord.date).trim() !== '') {
+    dateStr = stripOrderDateToYyyyMmDdForPrint_(ord.date);
+  } else {
+    var ft = _formatOrderTime_(ord.timestamp);
+    dateStr = String(ft.date || '').replace(/\//g, '-');
+  }
+  var message = '📦 有一筆新訂單！' + srcTag + '\n' +
+    '編號：' + String(ord.orderId != null ? ord.orderId : '') + '\n' +
+    '日期：' + dateStr;
+  if (ord.pickupTime) message += '\n取餐時間：' + String(ord.pickupTime);
+  if (ord.phone) message += '\n電話：' + String(ord.phone);
+  message += '\n金額：' + String(ord.total != null ? ord.total : '') + ' 元';
+  var mpt = ord.merchantPromoTelegram;
+  if (mpt && mpt.lineItemCount != null) {
+    message += '\n品項：共 ' + String(mpt.lineItemCount) + ' 項';
+  }
+  var orderNotes = (ord.notes != null ? String(ord.notes).trim() : '') ||
+    (ord.remark != null ? String(ord.remark).trim() : '');
+  if (orderNotes) message += '\n備註：' + orderNotes;
+  if (mpt && Array.isArray(mpt.activityParenLines) && mpt.activityParenLines.length) {
+    mpt.activityParenLines.forEach(function (ln) {
+      if (!ln) return;
+      var s = String(ln).trim();
+      if (s === '單項商品打折') return;
+      message += '\n(' + s + ')';
+    });
+  }
+  message += '\n\n商品明細：';
+  var detailBody = typeof _itemsBlock_ === 'function' ? _itemsBlock_(ord) : '';
+  if (detailBody) message += '\n\n' + detailBody;
+  return message;
 }
 
 /**
