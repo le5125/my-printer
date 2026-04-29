@@ -14856,6 +14856,57 @@ function stripOrderDateToYyyyMmDdForPrint_(raw) {
   return first.length >= 10 ? first.slice(0, 10) : first;
 }
 
+/**
+ * Telegram 通知全文用的「商品明細」：純字串相加，與編號／電話／備註同一邏輯；
+ * 不用 _itemsBlock_，避免另一套排版路徑導致明細空白。
+ */
+function buildTelegramOrderDetailBodyPlain_(ord) {
+  if (!ord) return '';
+  var packed = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
+  if (packed) return packed;
+  var items = Array.isArray(ord.items) ? ord.items : [];
+  var nameFn = typeof _orderItemLineFullNameForPrint_ === 'function' ? _orderItemLineFullNameForPrint_ : null;
+  var out = [];
+  if (items.length) {
+    items.forEach(function (it, idx) {
+      var q = parseInt(it && (it.quantity != null ? it.quantity : it.qty), 10);
+      if (!q || isNaN(q)) q = 1;
+      var nm = nameFn ? String(nameFn(it) || '').trim() : '';
+      if (!nm && it) {
+        var keys = ['name', 'sheetColName', 'labelName', 'title', 'productName'];
+        for (var ki = 0; ki < keys.length; ki++) {
+          var v = it[keys[ki]];
+          if (v != null && String(v).trim()) {
+            nm = String(v).replace(/^'/, '').trim();
+            break;
+          }
+        }
+      }
+      if (!nm) nm = '品項' + (idx + 1);
+      var unit = parseInt(it && it.price != null ? it.price : 0, 10);
+      if (isNaN(unit)) unit = 0;
+      out.push(nm + ' x' + q + (unit > 0 ? ' $' + (unit * q) : ''));
+    });
+  } else if (ord.itemLines && ord.itemLines.length) {
+    ord.itemLines.forEach(function (ln) {
+      var s = String(ln || '').trim();
+      if (s) out.push(s);
+    });
+  }
+  var mpt = ord.merchantPromoTelegram;
+  if (mpt && Array.isArray(mpt.gifts)) {
+    mpt.gifts.forEach(function (g) {
+      if (!g) return;
+      var gt = String(g.title != null ? g.title : '').trim();
+      if (!gt) return;
+      var gq = parseInt(g.qty, 10);
+      if (!gq || isNaN(gq)) gq = 1;
+      out.push('贈 ' + gt + ' x' + gq);
+    });
+  }
+  return out.join('\n');
+}
+
 function buildTelegramNotificationTextFromOrder_(ord) {
   if (!ord) return '';
   var srcRaw = ord.source;
@@ -14889,9 +14940,9 @@ function buildTelegramNotificationTextFromOrder_(ord) {
       message += '\n(' + s + ')';
     });
   }
-  message += '\n\n商品明細：';
-  var detailBody = typeof _itemsBlock_ === 'function' ? _itemsBlock_(ord) : '';
-  if (detailBody) message += '\n\n' + detailBody;
+  message += '\n商品明細：';
+  var detailPlain = buildTelegramOrderDetailBodyPlain_(ord);
+  if (detailPlain) message += '\n' + detailPlain;
   return message;
 }
 
