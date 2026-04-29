@@ -4188,14 +4188,50 @@ function posIsGithubStaticPos_() {
   } catch (e0) { return false; }
 }
 
-/** 關閉 #option-modal 前先 blur，避免焦點留在隱藏欄位導致 iOS 整頁縮放異常 */
+/** 關閉 #option-modal 前釋放焦點（iPad Bluefy/WKWebView 關閉輸入層後易整頁「被放大」） */
 function posBlurOptionModalFocus_() {
   try {
     var m = document.getElementById('option-modal');
-    if (!m) return;
+    if (m) {
+      m.querySelectorAll('input, textarea, select, button').forEach(function (el) {
+        try {
+          if (typeof el.blur === 'function') el.blur();
+        } catch (e1) { /* 略 */ }
+      });
+    }
     var ae = document.activeElement;
-    if (ae && m.contains(ae) && typeof ae.blur === 'function') ae.blur();
+    if (ae && ae !== document.body && typeof ae.blur === 'function') ae.blur();
+    var dummy = document.createElement('input');
+    dummy.type = 'text';
+    dummy.setAttribute('inputmode', 'none');
+    dummy.setAttribute('tabindex', '-1');
+    dummy.setAttribute('aria-hidden', 'true');
+    dummy.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;margin:0;pointer-events:none;';
+    document.body.appendChild(dummy);
+    try {
+      dummy.focus({ preventScroll: true });
+    } catch (eF) {
+      try { dummy.focus(); } catch (eF2) { /* 略 */ }
+    }
+    setTimeout(function () {
+      try {
+        dummy.blur();
+        if (dummy.parentNode) dummy.parentNode.removeChild(dummy);
+      } catch (e2) { /* 略 */ }
+    }, 0);
   } catch (e0) { /* 略 */ }
+}
+
+/** 釋放焦點後延後一幀再關 modal / 更新購物車，避免 WebKit 關層瞬間縮放錯亂 */
+function posHideOptionModalIos_(fn) {
+  posBlurOptionModalFocus_();
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      try {
+        if (typeof fn === 'function') fn();
+      } catch (e3) { /* 略 */ }
+    });
+  });
 }
 
 function posSwalPleaseEditInBackend_() {
@@ -9200,8 +9236,9 @@ for (let i = 1; i <= 8; i++) {
 
   // 關閉彈窗
   document.getElementById('option-close').onclick = () => {
-    posBlurOptionModalFocus_();
-    document.getElementById('option-modal').classList.add('hidden');
+    posHideOptionModalIos_(function () {
+      document.getElementById('option-modal').classList.add('hidden');
+    });
   };
 
   // 數量加減
@@ -9217,9 +9254,10 @@ for (let i = 1; i <= 8; i++) {
   // 確定加入訂單（兌換商品管理預覽時僅關閉）
   document.getElementById('option-confirm').onclick = () => {
     if (previewOnly) {
-      posBlurOptionModalFocus_();
-      document.getElementById('option-modal').classList.add('hidden');
-      if (confirmBtn) confirmBtn.textContent = '加入訂單';
+      posHideOptionModalIos_(function () {
+        document.getElementById('option-modal').classList.add('hidden');
+        if (confirmBtn) confirmBtn.textContent = '加入訂單';
+      });
       return;
     }
     const quantity = parseInt(document.getElementById('option-qty-input').value) || 1;
@@ -9232,21 +9270,21 @@ for (let i = 1; i <= 8; i++) {
     const totalPrice = item.price + totalExtra;
 
     const plOn = !(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0');
-    addItemToOrder(
-      item.id + '-' + extras.join('+'),
-      fullName,
-      totalPrice,
-      quantity,
-      extras,
-      note,
-      (item.labelName || '').toString().trim(),
-      plOn,
-      item.id,
-      true
-    );
-
-    posBlurOptionModalFocus_();
-    document.getElementById('option-modal').classList.add('hidden');
+    posHideOptionModalIos_(function () {
+      addItemToOrder(
+        item.id + '-' + extras.join('+'),
+        fullName,
+        totalPrice,
+        quantity,
+        extras,
+        note,
+        (item.labelName || '').toString().trim(),
+        plOn,
+        item.id,
+        true
+      );
+      document.getElementById('option-modal').classList.add('hidden');
+    });
   };
 }
 
