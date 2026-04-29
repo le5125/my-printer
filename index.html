@@ -2497,7 +2497,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
                 <th class="p-2">贈（商品）</th>
                 <th class="p-2 w-20">件數</th>
                 <th class="p-2 w-24">每單上限<br><span class="font-normal text-gray-400">0＝不限</span></th>
-                <th class="p-2 w-20">僅觸發一次</th>
+                <th class="p-2 w-20" title="勾選後：整筆訂單裡，此買送規則最多只生效一次。例：買2送1 時不論買 4 份或 8 份，贈品列只送 1 梯；不勾選則依買量倍數遞加（買 4 送 2）。">僅觸發一次</th>
                 <th class="p-2 w-14"></th>
               </tr>
             </thead>
@@ -4063,7 +4063,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
               '<td class="p-2 align-middle"><select class="mp-sel-giftprod w-full border rounded px-1 py-1 text-sm max-w-[220px]">' + mpProductOptionsHtml(r.giftProductId) + '</select></td>' +
               '<td class="p-2 align-middle"><input type="number" min="1" class="mp-inp-giftqty w-full border rounded px-1 py-1 text-center" value="' + escOpt_(gq) + '"></td>' +
               '<td class="p-2 align-middle"><input type="number" min="0" class="mp-inp-maxpo w-full border rounded px-1 py-1 text-center" value="' + escOpt_(mx) + '"></td>' +
-              '<td class="p-2 align-middle text-center"><input type="checkbox" class="mp-chk-once w-4 h-4 rounded border-gray-300"' + (r.oncePerOrder ? ' checked' : '') + '></td>' +
+              '<td class="p-2 align-middle text-center"><input type="checkbox" class="mp-chk-once w-4 h-4 rounded border-gray-300" title="整筆訂單此規則最多送一次"' + (r.oncePerOrder ? ' checked' : '') + '></td>' +
               '<td class="p-2 align-middle"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
             );
           }
@@ -7669,7 +7669,8 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
       finalTotal: rawSubtotal,
       detailLines: lines,
       perItemByLineId: perItemByLineId,
-      giftRows: giftRows
+      giftRows: giftRows,
+      thresholdOrderApplied: []
     };
   }
 
@@ -7749,6 +7750,7 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
   });
 
   var orderTotal = afterItemSum;
+  var thresholdOrderApplied = [];
   (promo.thresholdOrder || []).forEach(function (rule) {
     if (!rule || rule.enabled === false) return;
     var th = Math.max(0, parseInt(rule.threshold, 10) || 0);
@@ -7760,9 +7762,12 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
     if (!isFinite(v)) return;
     if (mode === 'amount') {
       var off = Math.min(Math.max(0, v), orderTotal);
+      if (off <= 0) return;
       orderTotal -= off;
+      thresholdOrderApplied.push({ mode: 'amount', value: v });
     } else if (v > 0 && v <= 100) {
       orderTotal = Math.round(orderTotal * (v / 100));
+      thresholdOrderApplied.push({ mode: 'percent', value: v });
     }
   });
 
@@ -7774,8 +7779,44 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
     finalTotal: orderTotal,
     detailLines: lines,
     perItemByLineId: perItemByLineId,
-    giftRows: giftRows
+    giftRows: giftRows,
+    thresholdOrderApplied: thresholdOrderApplied
   };
+}
+
+function _posFmtPromoPctDisplay_(v) {
+  if (v == null || !isFinite(v)) return '';
+  if (Math.abs(v - Math.round(v)) < 1e-9) return String(Math.round(v)) + '%';
+  var s = String(Math.round(v * 100) / 100);
+  if (s.indexOf('.') >= 0) s = s.replace(/\.?0+$/, '');
+  return s + '%';
+}
+/** Telegram 活動括號：折價用「消費滿額打折-元」、百分比用「消費滿額打折90%」 */
+function posThresholdOrderActivityParenText_(pv) {
+  if (!pv || !pv.active) return '';
+  var applied = pv.thresholdOrderApplied || [];
+  if (!applied.length) return '';
+  var allPct = applied.every(function (r) { return r.mode === 'percent'; });
+  if (allPct) {
+    return '消費滿額打折' + applied.map(function (r) { return _posFmtPromoPctDisplay_(r.value); }).join('、');
+  }
+  var saved = Math.max(0, Math.round(pv.afterItemDiscount - pv.finalTotal));
+  return saved > 0 ? ('消費滿額打折-' + saved) : '';
+}
+/** 購物車底：有套用滿額整單規則時顯示折元或折數 */
+function posThresholdOrderCartFooterLabel_(pv, promoCfg) {
+  if (!posMerchantPromoIsActiveNow_(promoCfg || {})) return '';
+  var hasRules = (promoCfg && promoCfg.thresholdOrder || []).some(function (r) { return r && r.enabled !== false; });
+  if (!hasRules) return '';
+  if (!pv || !pv.active) return '';
+  var applied = pv.thresholdOrderApplied || [];
+  if (!applied.length) return '';
+  var allPct = applied.every(function (r) { return r.mode === 'percent'; });
+  if (allPct) {
+    return '(消費滿額整單打折' + applied.map(function (r) { return _posFmtPromoPctDisplay_(r.value); }).join('、') + ')';
+  }
+  var saved = Math.max(0, Math.round(pv.afterItemDiscount - pv.finalTotal));
+  return saved > 0 ? ('(消費滿額整單打折-' + saved + ')') : '';
 }
 
 /** 品項列印 payload 備註：合併多種鍵名（與 _labelItemNoteText_ 對齊） */
@@ -8865,14 +8906,8 @@ function buildCurrentOrderData() {
     return s + (parseInt(g && g.qty, 10) || 0);
   }, 0);
   var activityParenLines = [];
-  if (pv && pv.active) {
-    if (pv.afterItemDiscount != null && pv.finalTotal != null && pv.afterItemDiscount !== pv.finalTotal) {
-      var orderDiscAmt = Math.max(0, Math.round(pv.afterItemDiscount - pv.finalTotal));
-      if (orderDiscAmt > 0) {
-        activityParenLines.push('消費滿額打折-' + orderDiscAmt);
-      }
-    }
-  }
+  var _tq = posThresholdOrderActivityParenText_(pv);
+  if (_tq) activityParenLines.push(_tq);
   var merchantPromoTelegram = {
     gifts: giftRows.map(function (g) {
       return { title: (g && g.title) || '', qty: (g && g.qty != null) ? g.qty : 1 };
@@ -9421,10 +9456,10 @@ document.getElementById('submit-order').addEventListener('click', () => {
             });
           }
 
-          var cartPromoFooter = '';
-          if (posMerchantPromoIsActiveNow_(promoCfg) && (promoCfg.thresholdOrder || []).some(function (r) { return r && r.enabled !== false; })) {
-            cartPromoFooter = '<div class="text-center text-sm text-violet-800 font-medium mt-3 pt-2 border-t border-violet-100">(消費滿額整單打折)</div>';
-          }
+          var cartLbl = posThresholdOrderCartFooterLabel_(pv, promoCfg);
+          var cartPromoFooter = cartLbl
+            ? '<div class="text-center text-sm text-violet-800 font-medium mt-3 pt-2 border-t border-violet-100">' + String(cartLbl).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;') + '</div>'
+            : '';
 
           // 將產生好的 HTML 插入畫面
           document.getElementById('order-items').innerHTML = orderItemsHTML + giftHtml + cartPromoFooter;
