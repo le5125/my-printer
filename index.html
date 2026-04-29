@@ -7167,6 +7167,8 @@ const POS_DEFAULT_DETAIL_TEMPLATE = [
   '{粗}取餐時間: {細}{取餐時間}{細}',
   '電話: {電話}',
   '備註: {備註}',
+  '{品項數量}',
+  '{促銷資訊}',
   '----------------',
   '{品項}',
   '----------------',
@@ -7874,8 +7876,10 @@ function buildPrinterOrderPayloadFull_(orderData) {
     remark   : orderData.notes || orderData.remark || '',
     total    : orderData.total != null ? orderData.total : 0,
     printMode: getPosPrintMode_(),
+    merchantPromoTelegram: orderData.merchantPromoTelegram && typeof orderData.merchantPromoTelegram === 'object'
+      ? orderData.merchantPromoTelegram : undefined,
     items    : items.map(function (i) {
-      return {
+      var o = {
         name    : i.name || '',
         quantity: i.quantity != null ? i.quantity : (i.qty || 1),
         price   : i.price != null ? i.price : 0,
@@ -7886,6 +7890,12 @@ function buildPrinterOrderPayloadFull_(orderData) {
         printLabel: posFinalPrintProductLabel_(i),
         printThisLabel: i.printThisLabel !== false
       };
+      if (i.telegramDiscountOrigLine != null) o.telegramDiscountOrigLine = i.telegramDiscountOrigLine;
+      if (i.telegramDiscountSaleLine != null) o.telegramDiscountSaleLine = i.telegramDiscountSaleLine;
+      if (i.telegramItemDiscountParen != null && String(i.telegramItemDiscountParen).trim() !== '') {
+        o.telegramItemDiscountParen = String(i.telegramItemDiscountParen).trim();
+      }
+      return o;
     })
   };
 }
@@ -8208,6 +8218,12 @@ function _posPreviewSampleOrder_() {
   const now = new Date();
   const pad = function (n) { return n < 10 ? '0' + n : '' + n; };
   const items = [_posFirstMenuItemForPreview_()];
+  if (items[0]) {
+    items[0] = Object.assign({}, items[0]);
+    items[0].telegramDiscountOrigLine = 120;
+    items[0].telegramDiscountSaleLine = 100;
+    items[0].telegramItemDiscountParen = '商品打折-20';
+  }
   const total = items.reduce(function (sum, it) {
     return sum + (Number(it.price) || 0) * (Number(it.quantity) || 0);
   }, 0);
@@ -8219,7 +8235,12 @@ function _posPreviewSampleOrder_() {
     phone: '0912345678',
     remark: '不要餐具',
     total: total,
-    items: items
+    items: items,
+    merchantPromoTelegram: {
+      lineItemCount: 2,
+      activityParenLines: ['滿 NT$100整單打9折'],
+      gifts: [{ title: '(滿額贈)可樂', qty: 1 }]
+    }
   };
 }
 
@@ -8348,7 +8369,47 @@ function _posParseAddonEntryForPrint_(o) {
   return { name: s, price: 0 };
 }
 /**
- * 明細「{品項}」列印：無加購為「品名 x n $總」；有加購為「主品名(emoji→>) $主品小計」+「加購 *n $小計」。
+ * 明細「{品項數量}」：與 Telegram buildOrderTelegramMessage 一致。
+ */
+function _posLineItemCountLabelForPrint_(ord) {
+  var mpt = ord && ord.merchantPromoTelegram;
+  if (mpt && mpt.lineItemCount != null) {
+    return '品項：共 ' + String(mpt.lineItemCount) + ' 項';
+  }
+  var items = (ord && ord.items) || [];
+  var n = items.reduce(function (s, it) {
+    return s + (parseInt(it.quantity != null ? it.quantity : (it.qty || 0), 10) || 0);
+  }, 0);
+  return n ? ('品項：共 ' + n + ' 項') : '';
+}
+/**
+ * 明細「{促銷資訊}」：整單活動括號 + 滿額贈。
+ */
+function _posMerchantPromoExtraBlockForPrint_(ord) {
+  var lines = [];
+  var mpt = ord && ord.merchantPromoTelegram;
+  if (mpt && Array.isArray(mpt.activityParenLines)) {
+    mpt.activityParenLines.forEach(function (ln) {
+      if (!ln) return;
+      var s = String(ln).trim();
+      if (s === '單項商品打折') return;
+      if (s) lines.push('(' + s + ')');
+    });
+  }
+  if (mpt && Array.isArray(mpt.gifts)) {
+    mpt.gifts.forEach(function (g) {
+      if (!g) return;
+      var gt = String(g.title != null ? g.title : '').trim();
+      if (!gt) return;
+      var gq = parseInt(g.qty, 10);
+      if (!gq || isNaN(gq)) gq = 1;
+      lines.push(_posPrinterEmojisToGt_('🎁 ' + gt) + ' x' + gq + '    $0');
+    });
+  }
+  return lines.join('\n');
+}
+/**
+ * 明細「{品項}」列印：與 Telegram 單品折扣／加購列邏輯一致（表情→>）。
  */
 function _posItemsBlock_(items) {
   if (!Array.isArray(items)) return '';
@@ -8366,9 +8427,21 @@ function _posItemsBlock_(items) {
     var addonPerUnit = addons.reduce(function (s, a) { return s + (parseInt(a.price, 10) || 0); }, 0);
     var unitMain = Math.max(0, basePrice - addonPerUnit);
     var mainLineTotal = unitMain * quantity;
+    var useDisc = item.telegramDiscountSaleLine != null && item.telegramDiscountOrigLine != null;
+    var origFromPayload = useDisc ? (parseInt(item.telegramDiscountOrigLine, 10) || 0) : 0;
+    var lineAmt = useDisc ? (origFromPayload || mainLineTotal) : null;
 
     var block;
-    if (!addons.length) {
+    if (useDisc) {
+      var baseDisp = _posPrinterEmojisToGt_(String(bare).trim());
+      if (!baseDisp) {
+        baseDisp = _posPrinterEmojisToGt_(String(item.name || '').replace(/^'/, '').trim());
+      }
+      block = baseDisp + ' x ' + quantity + '        $' + (lineAmt != null ? lineAmt : mainLineTotal);
+      if (item.telegramItemDiscountParen) {
+        block += ' (' + _posPrinterEmojisToGt_(String(item.telegramItemDiscountParen)) + ')';
+      }
+    } else if (!addons.length) {
       var fullLineName = _posPrinterEmojisToGt_(String(item.name || '').replace(/^'/, '').trim());
       block = fullLineName + ' x ' + quantity + '        $' + (basePrice * quantity);
     } else {
@@ -8419,6 +8492,8 @@ function _posPreviewDetail_(tpl) {
     '電話'    : _posPrinterEmojisToGt_(ord.phone || ''),
     '備註'    : _posPrinterEmojisToGt_(ord.remark || ''),
     '總計'    : ord.total,
+    '品項數量': _posLineItemCountLabelForPrint_(ord),
+    '促銷資訊': _posMerchantPromoExtraBlockForPrint_(ord),
     '品項'    : _posItemsBlock_(ord.items)
   });
 }
