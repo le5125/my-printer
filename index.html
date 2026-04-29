@@ -2525,7 +2525,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <tbody id="merchant-promo-tbody-itemDiscounts"></tbody>
           </table>
         </div>
-        <p class="text-xs text-gray-500 mt-2">「打折」填 1～100（例：8 折填 80）；「每份減價」為每份商品折讓金額（可疊加在多條規則）。</p>
+        <p class="text-xs text-gray-500 mt-2">「打折」填折數：9＝九折、8.5＝八五折；若填 11–100 則為應付成數％（例如 90 同九折）。預設 10 ＝無額外折扣。「每份減價」為每份商品折讓金額（可疊加在多條規則）。</p>
       </section>
 
       <section>
@@ -2571,7 +2571,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <tbody id="merchant-promo-tbody-thresholdOrder"></tbody>
           </table>
         </div>
-        <p class="text-xs text-gray-500 mt-2">門檻可比對折前或折後（單品折價後小計）；整單折價套用於單品折後金額；多條整單規則依序疊加。</p>
+        <p class="text-xs text-gray-500 mt-2">門檻可比對折前或折後（單品折價後小計）；整單折價套用於單品折後金額；多條整單規則依序疊加。整單「打折」欄位：填 9＝九折、8.5＝八五折；11–100 為應付成數％（例如 90 同九折）；預設 10 ＝無額外折扣。</p>
       </section>
     </div>
   </div>
@@ -4071,13 +4071,13 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           function mpRowItemDisc(r) {
             r = r || {};
             var mode = String(r.mode || 'percent') === 'amount' ? 'amount' : 'percent';
-            var val = r.value != null ? r.value : (mode === 'percent' ? 100 : 0);
+            var val = r.value != null ? r.value : (mode === 'percent' ? 10 : 0);
             return (
               '<tr class="merchant-promo-data-row">' +
               '<td class="p-2 align-middle"><input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300"' + (r.enabled !== false ? ' checked' : '') + '></td>' +
               '<td class="p-2 align-middle"><select class="mp-sel-product w-full border rounded px-1 py-1 text-sm max-w-[240px]">' + mpProductOptionsHtml(r.productId) + '</select></td>' +
               '<td class="p-2 align-middle"><select class="mp-sel-mode-item w-full border rounded px-1 py-1 text-sm">' +
-              '<option value="percent"' + (mode === 'percent' ? ' selected' : '') + '>打折（％＝售價比例）</option>' +
+              '<option value="percent"' + (mode === 'percent' ? ' selected' : '') + '>打折（折數）</option>' +
               '<option value="amount"' + (mode === 'amount' ? ' selected' : '') + '>每份減價（元）</option></select></td>' +
               '<td class="p-2 align-middle"><input type="number" min="0" step="0.01" class="mp-inp-value w-full border rounded px-1 py-1 text-center" value="' + escOpt_(val) + '"></td>' +
               '<td class="p-2 align-middle"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
@@ -4106,7 +4106,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           function mpRowThOrder(r) {
             r = r || {};
             var mode = String(r.mode || 'percent') === 'amount' ? 'amount' : 'percent';
-            var val = r.value != null ? r.value : (mode === 'percent' ? 100 : 0);
+            var val = r.value != null ? r.value : (mode === 'percent' ? 10 : 0);
             var basis = String(r.amountBasis || '').toLowerCase() === 'postitem' ? 'postItem' : 'preItem';
             return (
               '<tr class="merchant-promo-data-row">' +
@@ -4116,7 +4116,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
               '<option value="postItem"' + (basis === 'postItem' ? ' selected' : '') + '>折後</option></select></td>' +
               '<td class="p-2 align-middle"><input type="number" min="0" class="mp-inp-th w-full border rounded px-1 py-1 text-center" value="' + escOpt_(r.threshold != null ? r.threshold : '') + '"></td>' +
               '<td class="p-2 align-middle"><select class="mp-sel-mode-order w-full border rounded px-1 py-1 text-sm">' +
-              '<option value="percent"' + (mode === 'percent' ? ' selected' : '') + '>整單打折（％）</option>' +
+              '<option value="percent"' + (mode === 'percent' ? ' selected' : '') + '>整單打折</option>' +
               '<option value="amount"' + (mode === 'amount' ? ' selected' : '') + '>整單折讓（元）</option></select></td>' +
               '<td class="p-2 align-middle"><input type="number" min="0" step="0.01" class="mp-inp-value w-full border rounded px-1 py-1 text-center" value="' + escOpt_(val) + '"></td>' +
               '<td class="p-2 align-middle"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
@@ -7625,6 +7625,15 @@ function posMerchantPromoIsActiveNow_(p) {
   return true;
 }
 
+/** 打折數值：1–10 為折數（9＝九折、8.5＝八五折）；11–100 為應付成數％（90 同九折） */
+function posPromoPercentPayMultiplier_(v) {
+  var x = parseFloat(v);
+  if (!isFinite(x) || x <= 0) return 1;
+  if (x <= 10) return x / 10;
+  if (x <= 100) return x / 100;
+  return 1;
+}
+
 /** 品卡：單品活動後單價（與購物車明細一致的打折／每份減價規則） */
 function posMerchantPromoUnitPriceForMenuCard_(productId, unitPrice, promo) {
   var uid = String(productId || '').trim();
@@ -7642,7 +7651,7 @@ function posMerchantPromoUnitPriceForMenuCard_(productId, unitPrice, promo) {
     var v = parseFloat(rule.value);
     if (!isFinite(v)) return;
     if (mode === 'amount') amtOff += Math.max(0, v);
-    else if (v > 0 && v <= 100) mult *= (v / 100);
+    else if (v > 0 && v <= 100) mult *= posPromoPercentPayMultiplier_(v);
   });
   var sale = Math.max(0, Math.round(u * mult - amtOff));
   return { hasDiscount: sale !== u, orig: u, sale: sale };
@@ -7689,7 +7698,7 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
       if (mode === 'amount') {
         amtOff += Math.max(0, v) * (it.quantity || 1);
       } else if (v > 0 && v <= 100) {
-        mult *= (v / 100);
+        mult *= posPromoPercentPayMultiplier_(v);
       }
     });
     var paid = Math.max(0, Math.round(lineOrig * mult - amtOff));
@@ -7764,10 +7773,20 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
       var off = Math.min(Math.max(0, v), orderTotal);
       if (off <= 0) return;
       orderTotal -= off;
-      thresholdOrderApplied.push({ mode: 'amount', value: v });
+      thresholdOrderApplied.push({
+        mode: 'amount',
+        value: v,
+        threshold: th,
+        amountBasis: rule.amountBasis === 'postItem' ? 'postItem' : 'preItem'
+      });
     } else if (v > 0 && v <= 100) {
-      orderTotal = Math.round(orderTotal * (v / 100));
-      thresholdOrderApplied.push({ mode: 'percent', value: v });
+      orderTotal = Math.round(orderTotal * posPromoPercentPayMultiplier_(v));
+      thresholdOrderApplied.push({
+        mode: 'percent',
+        value: v,
+        threshold: th,
+        amountBasis: rule.amountBasis === 'postItem' ? 'postItem' : 'preItem'
+      });
     }
   });
 
@@ -7784,26 +7803,35 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
   };
 }
 
-function _posFmtPromoPctDisplay_(v) {
-  if (v == null || !isFinite(v)) return '';
-  if (Math.abs(v - Math.round(v)) < 1e-9) return String(Math.round(v)) + '%';
-  var s = String(Math.round(v * 100) / 100);
+function _posFmtThresholdFoldDisplay_(v) {
+  var x = parseFloat(v);
+  if (!isFinite(x) || x <= 0) return '';
+  var fold = x > 10 ? x / 10 : x;
+  var s = String(Math.round(fold * 100) / 100);
   if (s.indexOf('.') >= 0) s = s.replace(/\.?0+$/, '');
-  return s + '%';
+  return '打' + s + '折';
 }
-/** Telegram 活動括號：折價用「消費滿額打折-元」、百分比用「消費滿額打折90%」 */
+function _posFormatOneThresholdOrderApplied_(a) {
+  if (!a) return '';
+  var th = parseInt(a.threshold, 10) || 0;
+  if (a.mode === 'percent') {
+    return '滿 NT$' + th + '整單' + _posFmtThresholdFoldDisplay_(a.value);
+  }
+  if (a.mode === 'amount') {
+    var offN = Math.round(parseFloat(a.value) || 0);
+    return '滿 NT$' + th + '整單折 NT$' + offN;
+  }
+  return '';
+}
+/** Telegram 活動括號 */
 function posThresholdOrderActivityParenText_(pv) {
   if (!pv || !pv.active) return '';
   var applied = pv.thresholdOrderApplied || [];
   if (!applied.length) return '';
-  var allPct = applied.every(function (r) { return r.mode === 'percent'; });
-  if (allPct) {
-    return '消費滿額打折' + applied.map(function (r) { return _posFmtPromoPctDisplay_(r.value); }).join('、');
-  }
-  var saved = Math.max(0, Math.round(pv.afterItemDiscount - pv.finalTotal));
-  return saved > 0 ? ('消費滿額打折-' + saved) : '';
+  var parts = applied.map(_posFormatOneThresholdOrderApplied_).filter(Boolean);
+  return parts.length ? parts.join('；') : '';
 }
-/** 購物車底：有套用滿額整單規則時顯示折元或折數 */
+/** 購物車底：有套用滿額整單規則時顯示 */
 function posThresholdOrderCartFooterLabel_(pv, promoCfg) {
   if (!posMerchantPromoIsActiveNow_(promoCfg || {})) return '';
   var hasRules = (promoCfg && promoCfg.thresholdOrder || []).some(function (r) { return r && r.enabled !== false; });
@@ -7811,12 +7839,9 @@ function posThresholdOrderCartFooterLabel_(pv, promoCfg) {
   if (!pv || !pv.active) return '';
   var applied = pv.thresholdOrderApplied || [];
   if (!applied.length) return '';
-  var allPct = applied.every(function (r) { return r.mode === 'percent'; });
-  if (allPct) {
-    return '(消費滿額整單打折' + applied.map(function (r) { return _posFmtPromoPctDisplay_(r.value); }).join('、') + ')';
-  }
-  var saved = Math.max(0, Math.round(pv.afterItemDiscount - pv.finalTotal));
-  return saved > 0 ? ('(消費滿額整單打折-' + saved + ')') : '';
+  var parts = applied.map(_posFormatOneThresholdOrderApplied_).filter(Boolean);
+  if (!parts.length) return '';
+  return '（' + parts.join('；') + '）';
 }
 
 /** 品項列印 payload 備註：合併多種鍵名（與 _labelItemNoteText_ 對齊） */
