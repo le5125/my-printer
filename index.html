@@ -992,6 +992,16 @@
   appearance: textfield;
 }
 
+  /* iOS：小字級 number 聚焦易觸發整頁放大；選項窗關閉後購物車會重繪，須至少 16px */
+  #order-items .quantity-input {
+    font-size: 16px !important;
+  }
+  #option-modal input:not([type="checkbox"]):not([type="radio"]),
+  #option-modal textarea,
+  #option-modal select {
+    font-size: 16px !important;
+  }
+
   /* ── KDS 訂單看板（獨立樣式，不覆寫既有 container）── */
   .order-board-wrap { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
 
@@ -4176,6 +4186,16 @@ function posIsGithubStaticPos_() {
     var u = (typeof currentWebAppUrl === 'string') ? currentWebAppUrl.trim() : '';
     return !!u;
   } catch (e0) { return false; }
+}
+
+/** 關閉 #option-modal 前先 blur，避免焦點留在隱藏欄位導致 iOS 整頁縮放異常 */
+function posBlurOptionModalFocus_() {
+  try {
+    var m = document.getElementById('option-modal');
+    if (!m) return;
+    var ae = document.activeElement;
+    if (ae && m.contains(ae) && typeof ae.blur === 'function') ae.blur();
+  } catch (e0) { /* 略 */ }
 }
 
 function posSwalPleaseEditInBackend_() {
@@ -8472,7 +8492,7 @@ document.getElementById('submit-order').addEventListener('click', () => {
                 <i class="fas fa-minus"></i>
               </button>
               <input type="number" value="${item.quantity}" min="1"
-                    class="quantity-input w-10 h-8 text-center border-t border-b border-gray-300">
+                    class="quantity-input w-10 h-8 text-center border-t border-b border-gray-300 text-base">
               <button class="quantity-btn increase bg-gray-200 hover:bg-gray-300 w-8 h-8 rounded-r-md" data-id="${item.id}">
                 <i class="fas fa-plus"></i>
               </button>
@@ -9180,6 +9200,7 @@ for (let i = 1; i <= 8; i++) {
 
   // 關閉彈窗
   document.getElementById('option-close').onclick = () => {
+    posBlurOptionModalFocus_();
     document.getElementById('option-modal').classList.add('hidden');
   };
 
@@ -9196,6 +9217,7 @@ for (let i = 1; i <= 8; i++) {
   // 確定加入訂單（兌換商品管理預覽時僅關閉）
   document.getElementById('option-confirm').onclick = () => {
     if (previewOnly) {
+      posBlurOptionModalFocus_();
       document.getElementById('option-modal').classList.add('hidden');
       if (confirmBtn) confirmBtn.textContent = '加入訂單';
       return;
@@ -9223,6 +9245,7 @@ for (let i = 1; i <= 8; i++) {
       true
     );
 
+    posBlurOptionModalFocus_();
     document.getElementById('option-modal').classList.add('hidden');
   };
 }
