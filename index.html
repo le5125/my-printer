@@ -7046,24 +7046,50 @@ function posPromptAndPrintMenuItemLabels_(menuItem) {
     posExecMenuItemLabelPrint_(menuItem, n0);
     return;
   }
+  var qtyHtml =
+    '<p style="font-size:14px;color:#4b5563;text-align:left;margin:0 0 4px;">' + hint + '</p>' +
+    '<div style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;">' +
+    '<span style="font-size:14px;font-weight:600;color:#374151;margin-right:4px;">列印張數</span>' +
+    '<button type="button" id="pos-menu-lbl-qty-minus" style="width:46px;height:46px;padding:0;margin:0;border-radius:10px;border:2px solid #cbd5e1;background:#f1f5f9;color:#1e293b;font-size:26px;font-weight:700;line-height:1;cursor:pointer;box-shadow:none;">−</button>' +
+    '<div id="pos-menu-lbl-qty-val" style="min-width:52px;text-align:center;font-size:30px;font-weight:800;color:#0f172a;line-height:46px;">1</div>' +
+    '<button type="button" id="pos-menu-lbl-qty-plus" style="width:46px;height:46px;padding:0;margin:0;border-radius:10px;border:2px solid #cbd5e1;background:#f1f5f9;color:#1e293b;font-size:26px;font-weight:700;line-height:1;cursor:pointer;box-shadow:none;">+</button>' +
+    '</div>' +
+    '<p style="margin:10px 0 0;font-size:13px;color:#6b7280;">範圍 1～99，按 − 或 + 調整</p>';
   Swal.fire({
     title: title,
-    html: '<p style="font-size:14px;color:#4b5563;text-align:left;margin:0 0 8px;">' + hint + '</p>',
-    input: 'number',
-    inputLabel: '列印張數',
-    inputValue: 1,
-    inputAttributes: { min: 1, max: 99, step: 1 },
+    html: qtyHtml,
     showCancelButton: true,
     confirmButtonText: '確定列印',
     cancelButtonText: '取消',
-    inputValidator: function (v) {
-      var x = parseInt(String(v || '').trim(), 10);
-      if (!x || x < 1 || x > 99) return '請輸入 1～99';
-      return null;
+    focusConfirm: false,
+    didOpen: function () {
+      var valEl = document.getElementById('pos-menu-lbl-qty-val');
+      var minus = document.getElementById('pos-menu-lbl-qty-minus');
+      var plus = document.getElementById('pos-menu-lbl-qty-plus');
+      if (!valEl || !minus || !plus) return;
+      var n = 1;
+      function sync() {
+        valEl.textContent = String(n);
+      }
+      minus.addEventListener('click', function () {
+        if (n > 1) { n--; sync(); }
+      });
+      plus.addEventListener('click', function () {
+        if (n < 99) { n++; sync(); }
+      });
+    },
+    preConfirm: function () {
+      var valEl = document.getElementById('pos-menu-lbl-qty-val');
+      var v = valEl ? parseInt(String(valEl.textContent || '1').trim(), 10) : 1;
+      if (!v || v < 1 || v > 99) {
+        Swal.showValidationMessage('請選擇 1～99 張');
+        return false;
+      }
+      return v;
     }
   }).then(function (res) {
-    if (!res.isConfirmed) return;
-    var n = parseInt(String(res.value != null ? res.value : '1').trim(), 10) || 1;
+    if (!res.isConfirmed || res.value == null) return;
+    var n = parseInt(res.value, 10) || 1;
     posExecMenuItemLabelPrint_(menuItem, n);
   });
 }
