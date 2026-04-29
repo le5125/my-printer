@@ -7908,6 +7908,9 @@ function buildPrinterOrderPayloadFull_(orderData) {
       if (i.telegramDisplayUnitPrice != null && i.telegramDisplayUnitPrice !== '') {
         o.telegramDisplayUnitPrice = i.telegramDisplayUnitPrice;
       }
+      if (i.sheetColName != null && String(i.sheetColName).trim() !== '') {
+        o.sheetColName = String(i.sheetColName).trim();
+      }
       return o;
     })
   };
@@ -8452,6 +8455,11 @@ function _posItemsBlock_(ordOrItems) {
   if (!ordOrItems) return '';
   var ord = Array.isArray(ordOrItems) ? { items: ordOrItems, source: 'pos' } : ordOrItems;
   var items = ord.items || [];
+  if (!items.length && ord.itemLines && ord.itemLines.length) {
+    return ord.itemLines.map(function (ln) {
+      return _posPrinterEmojisToGt_(String(ln || '').trim());
+    }).filter(Boolean).join('\n\n');
+  }
   var mpt = ord.merchantPromoTelegram;
   var isPos = (ord.source === 'pos' || ord.source === undefined || ord.source === null || String(ord.source).trim() === '');
 
@@ -8459,7 +8467,7 @@ function _posItemsBlock_(ordOrItems) {
   _posSortOrderItemsByMainName_(items).forEach(function (item) {
     var quantity = parseInt(item.quantity != null ? item.quantity : (item.qty || 1), 10);
     var basePrice = parseInt(item.price != null ? item.price : 0, 10);
-    var fullName = String(item.name || '').replace(/^'/, '').trim();
+    var fullName = _orderItemLineFullNameForPrint_(item);
     var optArr = item.options;
     var baseName = fullName.trim();
     var addons = [];
@@ -13981,8 +13989,12 @@ window.addEventListener('message', async (event) => {
         phone     : payload.phone || '',
         remark    : payload.remark || payload.notes || '',
         total     : payload.total != null ? payload.total : 0,
+        source    : payload.source,
         items     : Array.isArray(payload.items) ? payload.items : [],
-        printMode : (payload.printMode === 'label' || payload.printMode === 'detail') ? payload.printMode : undefined
+        itemLines : Array.isArray(payload.itemLines) ? payload.itemLines : undefined,
+        printMode : (payload.printMode === 'label' || payload.printMode === 'detail') ? payload.printMode : undefined,
+        merchantPromoTelegram: (payload.merchantPromoTelegram && typeof payload.merchantPromoTelegram === 'object')
+          ? payload.merchantPromoTelegram : undefined
       };
 
       // 防重：相同指紋（時間+電話+總額+品項數）若 5 分鐘內已印過 → 跳過
@@ -14603,6 +14615,22 @@ function _orderItemDisplayNameForPrint_(item) {
   return base + '（' + parts.join('、') + '）';
 }
 
+/** 品項主行顯示名：優先 name，備援試算表欄全名／標籤名等（避免 {品項} 空白） */
+function _orderItemLineFullNameForPrint_(item) {
+  if (!item) return '';
+  var n = String(item.name != null ? item.name : '').replace(/^'/, '').trim();
+  if (n) return n;
+  var sc = item.sheetColName != null ? String(item.sheetColName).trim() : '';
+  if (sc) return sc;
+  var ln = item.labelName != null ? String(item.labelName).trim() : '';
+  if (ln) return ln;
+  var t1 = item.title != null ? String(item.title).trim() : '';
+  if (t1) return t1;
+  var t2 = item.productName != null ? String(item.productName).trim() : '';
+  if (t2) return t2;
+  return _orderItemDisplayNameForPrint_(item) || '';
+}
+
 /** 標籤 {選項}：只保留加購名稱，去掉 (+10)／+10 等價錢標記 */
 function _stripAddonTokenForLabelSlash_(raw) {
   var s = String(raw || '').trim();
@@ -14689,6 +14717,7 @@ function _orderPickupTimeForLabel_(ord) {
 
 function renderDetailFromOrder_(ord) {
   const ft = _formatOrderTime_(ord.timestamp);
+  const itemsBlock = (typeof _posItemsBlock_ === 'function') ? _posItemsBlock_(ord) : _itemsBlock_(ord.items);
   const map = {
     '店名'    : _printerEmojisToGt_(getStoreName_()),
     '訂單編號': ord.shortId || ord.orderId || '',
@@ -14701,7 +14730,10 @@ function renderDetailFromOrder_(ord) {
     '總計'    : ord.total != null ? ord.total : '',
     '品項數量': typeof _posLineItemCountLabelForPrint_ === 'function' ? _posLineItemCountLabelForPrint_(ord) : '',
     '促銷資訊': typeof _posMerchantPromoExtraBlockForPrint_ === 'function' ? _posMerchantPromoExtraBlockForPrint_(ord) : '',
-    '品項'    : typeof _posItemsBlock_ === 'function' ? _posItemsBlock_(ord) : _itemsBlock_(ord.items)
+    '品項': itemsBlock,
+    '商品': itemsBlock,
+    '餐點': itemsBlock,
+    '商品明細': itemsBlock
   };
   return _renderTemplate_(getDetailTemplate_(), map);
 }
