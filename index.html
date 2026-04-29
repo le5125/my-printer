@@ -8374,18 +8374,25 @@ function _posParseAddonEntryForPrint_(o) {
   if (m) return { name: m[1].trim(), price: parseInt(m[2], 10) || 0 };
   return { name: s, price: 0 };
 }
+function _posNormCmpLabel_(s) {
+  try {
+    return String(s == null ? '' : s).trim().normalize('NFC');
+  } catch (e) {
+    return String(s == null ? '' : s).trim();
+  }
+}
 /** 品名尾端括號與 options 一一對應時，選項已寫在品名內（列印不拆主名+加購行） */
 function _posOptionsRedundantWithNameParenInner_(fullName, optArr) {
   if (!Array.isArray(optArr) || optArr.length === 0) return false;
   var sp = _posSplitItemBaseAndAddonInner_(fullName);
   if (!sp.inner) return false;
-  var innerSeg = sp.inner.split('、').map(function (x) { return String(x).trim(); }).filter(Boolean);
+  var innerSeg = sp.inner.split('、').map(function (x) { return _posNormCmpLabel_(x); }).filter(Boolean);
   var optLabs = optArr.map(function (o) {
-    return String(_posParseAddonEntryForPrint_(o).name || '').trim();
+    return _posNormCmpLabel_(_posParseAddonEntryForPrint_(o).name);
   }).filter(Boolean);
   if (innerSeg.length !== optLabs.length) return false;
   var normInner = innerSeg.map(function (seg) {
-    return String(_posParseAddonEntryForPrint_(seg).name || '').trim();
+    return _posNormCmpLabel_(_posParseAddonEntryForPrint_(seg).name);
   }).filter(Boolean);
   if (normInner.length !== optLabs.length) return false;
   normInner.sort();
@@ -8394,6 +8401,14 @@ function _posOptionsRedundantWithNameParenInner_(fullName, optArr) {
     if (normInner[i] !== ol[i]) return false;
   }
   return true;
+}
+function _posParenInnerWithNoOptionsArray_(fullName, optArr) {
+  if (Array.isArray(optArr) && optArr.length > 0) return false;
+  var sp = _posSplitItemBaseAndAddonInner_(fullName);
+  return !!(sp.inner && String(sp.inner).trim());
+}
+function _posCollapseParenAddonsForPrint_(fullName, optArr) {
+  return _posOptionsRedundantWithNameParenInner_(fullName, optArr) || _posParenInnerWithNoOptionsArray_(fullName, optArr);
 }
 /**
  * 明細「{品項數量}」：與 Telegram buildOrderTelegramMessage 一致。
@@ -8452,17 +8467,22 @@ function _posItemsBlock_(items) {
         return a && String(a.name || '').trim();
       });
     }
-    var redundant = _posOptionsRedundantWithNameParenInner_(fullNm, item.options || []);
-    var addonPerUnit = addons.reduce(function (s, a) { return s + (parseInt(a.price, 10) || 0); }, 0);
-    var unitMain = redundant ? basePrice : Math.max(0, basePrice - addonPerUnit);
-    var mainLineTotal = redundant ? (basePrice * quantity) : (unitMain * quantity);
+    var collapse = _posCollapseParenAddonsForPrint_(fullNm, item.options || []);
     var useDisc = item.telegramDiscountSaleLine != null && item.telegramDiscountOrigLine != null;
+    var priceBasis = basePrice;
+    if (!useDisc && item.telegramDisplayUnitPrice != null && item.telegramDisplayUnitPrice !== '') {
+      var _tdu = parseInt(item.telegramDisplayUnitPrice, 10);
+      if (!isNaN(_tdu)) priceBasis = Math.max(0, _tdu);
+    }
+    var addonPerUnit = addons.reduce(function (s, a) { return s + (parseInt(a.price, 10) || 0); }, 0);
+    var unitMain = collapse ? priceBasis : Math.max(0, priceBasis - addonPerUnit);
+    var mainLineTotal = collapse ? (priceBasis * quantity) : (unitMain * quantity);
     var origFromPayload = useDisc ? (parseInt(item.telegramDiscountOrigLine, 10) || 0) : 0;
     var lineAmt = useDisc ? (origFromPayload || mainLineTotal) : null;
 
     var block;
     if (useDisc) {
-      var baseDisp = redundant ? _posPrinterEmojisToGt_(fullNm) : _posPrinterEmojisToGt_(String(bare).trim());
+      var baseDisp = collapse ? _posPrinterEmojisToGt_(fullNm) : _posPrinterEmojisToGt_(String(bare).trim());
       if (!baseDisp) {
         baseDisp = _posPrinterEmojisToGt_(fullNm);
       }
@@ -8470,11 +8490,11 @@ function _posItemsBlock_(items) {
       if (item.telegramItemDiscountParen) {
         block += ' (' + _posPrinterEmojisToGt_(String(item.telegramItemDiscountParen)) + ')';
       }
-    } else if (redundant) {
-      block = _posPrinterEmojisToGt_(fullNm) + ' x ' + quantity + '        $' + (basePrice * quantity);
+    } else if (collapse) {
+      block = _posPrinterEmojisToGt_(fullNm) + ' x ' + quantity + '        $' + (priceBasis * quantity);
     } else if (!addons.length) {
       var fullLineName = _posPrinterEmojisToGt_(fullNm);
-      block = fullLineName + ' x ' + quantity + '        $' + (basePrice * quantity);
+      block = fullLineName + ' x ' + quantity + '        $' + (priceBasis * quantity);
     } else {
       block = _posPrinterEmojisToGt_(String(bare).trim()) + '    $' + mainLineTotal;
       addons.forEach(function (ad) {
