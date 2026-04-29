@@ -10358,6 +10358,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             document.getElementById('orders-content').classList.add('hidden');
             document.getElementById('stats-content').classList.add('hidden');
             document.getElementById('merchant-content').classList.add('hidden');
+            _hidePrintSettings_();
             if (memberHubContent) memberHubContent.classList.remove('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
