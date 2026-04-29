@@ -7888,6 +7888,14 @@ function buildPrinterOrderPayloadFull_(orderData) {
     printMode: getPosPrintMode_(),
     merchantPromoTelegram: orderData.merchantPromoTelegram && typeof orderData.merchantPromoTelegram === 'object'
       ? orderData.merchantPromoTelegram : undefined,
+    orderDetailTextForPrint: (function () {
+      try {
+        var s = _posItemsBlock_(orderData);
+        return s ? String(s) : '';
+      } catch (eDet) {
+        return '';
+      }
+    })(),
     items    : items.map(function (i) {
       var o = {
         name    : i.name || '',
@@ -8454,6 +8462,10 @@ function _posMerchantPromoExtraBlockForPrint_(ord) {
 function _posItemsBlock_(ordOrItems) {
   if (!ordOrItems) return '';
   var ord = Array.isArray(ordOrItems) ? { items: ordOrItems, source: 'pos' } : ordOrItems;
+  var packedText = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
+  if (packedText) {
+    return _posPrinterEmojisToGt_(packedText);
+  }
   var items = ord.items || [];
   if (!items.length && ord.itemLines && ord.itemLines.length) {
     return ord.itemLines.map(function (ln) {
@@ -13992,6 +14004,8 @@ window.addEventListener('message', async (event) => {
         source    : payload.source,
         items     : Array.isArray(payload.items) ? payload.items : [],
         itemLines : Array.isArray(payload.itemLines) ? payload.itemLines : undefined,
+        orderDetailTextForPrint: (typeof payload.orderDetailTextForPrint === 'string' && payload.orderDetailTextForPrint.trim())
+          ? String(payload.orderDetailTextForPrint).trim() : undefined,
         printMode : (payload.printMode === 'label' || payload.printMode === 'detail') ? payload.printMode : undefined,
         merchantPromoTelegram: (payload.merchantPromoTelegram && typeof payload.merchantPromoTelegram === 'object')
           ? payload.merchantPromoTelegram : undefined
