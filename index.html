@@ -5465,7 +5465,11 @@ function addNewMenu() {
   addMenuTabToDOM(tempMenuId, tempMenuName);
   switchToMenu(tempMenuId);
 
-  callGas('addMenu').then(function (data) {
+  posRunSheetMutation_({
+    gasMethod: 'addMenu',
+    gasArgs: [],
+    postBody: { action: 'addMenu' }
+  }).then(function (data) {
     const tempTab = document.querySelector(`[data-tab="${tempMenuId}"]`);
     if (tempTab) tempTab.remove();
     delete menuNames[tempMenuId];
