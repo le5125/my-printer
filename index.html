@@ -8546,22 +8546,48 @@ function _posItemsBlock_(items) {
       if (!isNaN(_tdu)) priceBasis = Math.max(0, _tdu);
     }
     var addonPerUnit = addons.reduce(function (s, a) { return s + (parseInt(a.price, 10) || 0); }, 0);
-    var unitMain = collapse ? priceBasis : Math.max(0, priceBasis - addonPerUnit);
-    var mainLineTotal = collapse ? (priceBasis * quantity) : (unitMain * quantity);
+    var hasAddonLines = Array.isArray(addons) && addons.length > 0;
+    var effCollapse = collapse;
+    if (useDisc && collapse && hasAddonLines) effCollapse = false;
+    var unitMain = effCollapse ? priceBasis : Math.max(0, priceBasis - addonPerUnit);
+    var mainLineTotal = effCollapse ? (priceBasis * quantity) : (unitMain * quantity);
     var origFromPayload = useDisc ? (parseInt(item.telegramDiscountOrigLine, 10) || 0) : 0;
     var lineAmt = useDisc ? (origFromPayload || mainLineTotal) : null;
+    if (useDisc && !effCollapse && hasAddonLines) {
+      lineAmt = Math.max(0, basePrice * quantity);
+    }
+    var discText = '';
+    if (item.telegramItemDiscountParen != null && String(item.telegramItemDiscountParen).trim() !== '') {
+      discText = String(item.telegramItemDiscountParen).trim();
+      if (/^商品打折-\d+$/.test(discText) && useDisc) {
+        var _o = parseInt(item.telegramDiscountOrigLine, 10) || 0;
+        var _s = parseInt(item.telegramDiscountSaleLine, 10) || 0;
+        if (_o > 0 && _s > 0 && _s < _o) {
+          var _z = Math.round((_s / _o * 10) * 10) / 10;
+          var _zTxt = (Math.abs(_z - Math.round(_z)) < 1e-9) ? String(Math.round(_z)) : String(_z);
+          discText = '商品打' + _zTxt + '折';
+        }
+      }
+    }
 
     var block;
     if (useDisc) {
-      var baseDisp = collapse ? _posPrinterEmojisToGt_(fullNm) : _posPrinterEmojisToGt_(String(bare).trim());
+      var baseDisp = effCollapse ? _posPrinterEmojisToGt_(fullNm) : _posPrinterEmojisToGt_(String(bare).trim());
       if (!baseDisp) {
         baseDisp = _posPrinterEmojisToGt_(fullNm);
       }
       block = baseDisp + ' x ' + quantity + '        $' + (lineAmt != null ? lineAmt : mainLineTotal);
-      if (item.telegramItemDiscountParen) {
-        block += ' (' + _posPrinterEmojisToGt_(String(item.telegramItemDiscountParen)) + ')';
+      if (!effCollapse && hasAddonLines) {
+        addons.forEach(function (ad) {
+          var ap = parseInt(ad.price, 10) || 0;
+          var adName = _posPrinterEmojisToGt_(String(ad.name || '').trim());
+          if (!adName) return;
+          var priceText = (ap * quantity) > 0 ? '        $' + (ap * quantity) : '';
+          block += '\n> ' + adName + ' x' + quantity + priceText;
+        });
       }
-    } else if (collapse) {
+      if (discText) block += '\n(' + _posPrinterEmojisToGt_(discText) + ')';
+    } else if (effCollapse) {
       block = _posPrinterEmojisToGt_(fullNm) + ' x ' + quantity + '        $' + (priceBasis * quantity);
     } else if (!addons.length) {
       var fullLineName = _posPrinterEmojisToGt_(fullNm);
@@ -14664,7 +14690,7 @@ function _itemsBlock_(itemsOrOrder, opts) {
     var redundant = _collapseParenAddonsForPrintBridge_(fullName, optArr || []);
     var useDisc = item.telegramDiscountSaleLine != null && item.telegramDiscountOrigLine != null;
     var effRedundant = redundant;
-    if (telegramLayout && !useDisc && redundant && Array.isArray(optArr) && optArr.length > 0) {
+    if (telegramLayout && redundant && Array.isArray(optArr) && optArr.length > 0) {
       effRedundant = false;
     }
     var origFromPayload = useDisc ? (parseInt(item.telegramDiscountOrigLine, 10) || 0) : 0;
@@ -14677,12 +14703,27 @@ function _itemsBlock_(itemsOrOrder, opts) {
     var unitMain = effRedundant || bundledOnline ? priceForLine : Math.max(0, priceForLine - addonPerUnit);
     var mainLineTotal = effRedundant ? (priceForLine * quantity) : (unitMain * quantity);
     var lineAmt = useDisc ? (origFromPayload || mainLineTotal) : mainLineTotal;
+    if (useDisc && !effRedundant && Array.isArray(addons) && addons.length > 0) {
+      lineAmt = Math.max(0, basePrice * quantity);
+    }
+    var discText = '';
+    if (item.telegramItemDiscountParen != null && String(item.telegramItemDiscountParen).trim() !== '') {
+      discText = String(item.telegramItemDiscountParen).trim();
+      if (/^商品打折-\d+$/.test(discText) && useDisc) {
+        var _orig = parseInt(item.telegramDiscountOrigLine, 10) || 0;
+        var _sale = parseInt(item.telegramDiscountSaleLine, 10) || 0;
+        if (_orig > 0 && _sale > 0 && _sale < _orig) {
+          var _z = Math.round((_sale / _orig * 10) * 10) / 10;
+          var _zText = (Math.abs(_z - Math.round(_z)) < 1e-9) ? String(Math.round(_z)) : String(_z);
+          discText = '商品打' + _zText + '折';
+        }
+      }
+    }
     var displayName = effRedundant ? fullName.trim() : baseName;
     var line = telegramLayout
       ? (displayName + ' x ' + quantity + '        $' + lineAmt)
       : (displayName + '*' + quantity + '    $' + lineAmt);
-    if (item.telegramItemDiscountParen) line += '\n(' + String(item.telegramItemDiscountParen) + ')';
-    if (!useDisc && !effRedundant) {
+    if (!effRedundant) {
       addons.forEach(function (addon) {
         if (!addon || !addon.name) return;
         var priceText = '';
@@ -14690,6 +14731,7 @@ function _itemsBlock_(itemsOrOrder, opts) {
         line += '\n➜ ' + addon.name + ' x' + quantity + priceText;
       });
     }
+    if (discText) line += '\n(' + discText + ')';
     var noteLine = (item.note && String(item.note).trim() !== '') ? String(item.note).trim() : '';
     if (!noteLine) {
       try { noteLine = (typeof posPrinterOrderLineNote_ === 'function') ? (posPrinterOrderLineNote_(item) || '') : ''; } catch (_eN) { noteLine = ''; }
