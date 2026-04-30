@@ -2736,8 +2736,22 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <span class="text-gray-700">模式B：模板明細</span>
           </label>
         </div>
-        <select id="detail-font-size" class="hidden" aria-hidden="true"><option value="normal" selected>標準</option></select>
-        <input type="checkbox" id="detail-font-bold" class="hidden" aria-hidden="true">
+        <div class="bg-gray-50 border border-gray-200 rounded p-2 flex flex-wrap items-center gap-3 text-sm">
+          <span class="font-bold text-gray-800">明細字體</span>
+          <label class="inline-flex items-center gap-1">
+            <span class="text-gray-700">大小</span>
+            <select id="detail-font-size" class="border border-gray-300 rounded px-2 py-1 bg-white">
+              <option value="small">小</option>
+              <option value="normal" selected>中（預設）</option>
+              <option value="large">大</option>
+              <option value="xlarge">特大</option>
+            </select>
+          </label>
+          <label class="inline-flex items-center gap-1">
+            <input type="checkbox" id="detail-font-bold" class="w-4 h-4">
+            <span class="text-gray-700">粗體</span>
+          </label>
+        </div>
         <div class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-3 flex flex-wrap gap-x-1 gap-y-1 items-center">
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{店名}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{訂單編號}</code>
@@ -13245,21 +13259,33 @@ async function sendRawText(text) {
 
   const bytes = encodePrinterBytes_(text);
   const CHUNK   = BLE_WRITE_CHUNK_BYTES;
-  const DELAY   = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
+  const baseDelay = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
+  // 長明細在 writeWithoutResponse 容易丟包：自動改走較穩定策略
+  const isLongJob = bytes.length >= 1400;
+  const canWriteWithResp = !!(bleChar.properties && bleChar.properties.write);
+  const canWriteNoResp = !!(bleChar.properties && bleChar.properties.writeWithoutResponse);
+  const useReliableWrite = isLongJob && canWriteWithResp;
+  const DELAY = useReliableWrite ? Math.max(baseDelay, 45) : baseDelay;
 
-  log('送印 ' + bytes.length + ' bytes（CP950/Big5 優先），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(bytes.length / CHUNK) + ' 包', 'info');
+  log(
+    '送印 ' + bytes.length + ' bytes（CP950/Big5 優先），每包≤' + CHUNK + ' bytes，共 ' +
+    Math.ceil(bytes.length / CHUNK) + ' 包；模式=' + (useReliableWrite ? 'write(穩定)' : 'writeWithoutResponse(快速)'),
+    'info'
+  );
 
   for (let i = 0; i < bytes.length; i += CHUNK) {
     const chunk = bytes.slice(i, i + CHUNK);
     try {
-      if (bleChar.properties.writeWithoutResponse) {
+      if (useReliableWrite && canWriteWithResp) {
+        await bleChar.writeValue(chunk);
+      } else if (canWriteNoResp) {
         await bleChar.writeValueWithoutResponse(chunk);
       } else {
         await bleChar.writeValue(chunk);
       }
     } catch (e) {
       await sleep(50);
-      if (bleChar.properties.writeWithoutResponse) {
+      if (canWriteNoResp && !useReliableWrite) {
         await bleChar.writeValueWithoutResponse(chunk);
       } else {
         await bleChar.writeValue(chunk);
