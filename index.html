@@ -7796,7 +7796,8 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
   var afterItemSum = 0;
   items.forEach(function (it) {
     var qty = Math.max(1, parseInt(it.quantity, 10) || 1);
-    var prodForAddon = (allProducts || []).find(function (p) {
+    var _addonProducts = (typeof allProducts !== 'undefined' && Array.isArray(allProducts)) ? allProducts : [];
+    var prodForAddon = _addonProducts.find(function (p) {
       return p && (String(p.id) === String(it.catalogProductId || it.id));
     });
     var addPerUnit = 0;
