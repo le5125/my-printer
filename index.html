@@ -2725,6 +2725,17 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
               class="border border-amber-300 rounded px-2 py-1 w-20 bg-white">
           </label>
         </div>
+        <div class="bg-blue-50 border border-blue-200 rounded p-2 flex flex-wrap items-center gap-3 text-sm">
+          <span class="font-bold text-blue-900">明細模式</span>
+          <label class="inline-flex items-center gap-1">
+            <input type="radio" name="detail-print-layout" value="telegram" class="w-4 h-4" checked>
+            <span class="text-gray-700">模式A：通知同版</span>
+          </label>
+          <label class="inline-flex items-center gap-1">
+            <input type="radio" name="detail-print-layout" value="template" class="w-4 h-4">
+            <span class="text-gray-700">模式B：模板明細</span>
+          </label>
+        </div>
         <select id="detail-font-size" class="hidden" aria-hidden="true"><option value="normal" selected>標準</option></select>
         <input type="checkbox" id="detail-font-bold" class="hidden" aria-hidden="true">
         <div class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-3 flex flex-wrap gap-x-1 gap-y-1 items-center">
@@ -7231,6 +7242,7 @@ function _posPrintSet_(key, val) {
 let _posDetailTplCache_ = null;
 let _posLabelTplCache_  = null;
 let _posPrintModeCache_ = 'detail';
+let _posDetailPrintLayoutCache_ = 'telegram';
 let _posLabelSizeCache_ = {
   width: 40, height: 30, gap: 3,
   gapOffset: 0,
@@ -7307,6 +7319,9 @@ function getPosLabelTemplate_() {
 function getPosPrintMode_() {
   return _posPrintModeCache_ === 'label' ? 'label' : 'detail';
 }
+function getPosDetailPrintLayout_() {
+  return _posDetailPrintLayoutCache_ === 'template' ? 'template' : 'telegram';
+}
 function getPosPrinterPageUrl_() { return _posPrintGet_(POS_LS_PRINTER_URL, POS_DEFAULT_PRINTER_URL); }
 
 /**
@@ -7364,6 +7379,9 @@ function applyPrintSettingsBackendPayloadToCaches_(data) {
   if (data.printMode === 'detail' || data.printMode === 'label') {
     _posPrintModeCache_ = data.printMode;
   }
+  if (data.detailPrintLayout === 'template' || data.detailPrintLayout === 'telegram') {
+    _posDetailPrintLayoutCache_ = data.detailPrintLayout;
+  }
   if (data.labelSize && typeof data.labelSize === 'object') {
     var __g = Number(data.labelSize.gap);
     if (!(__g >= 0) || isNaN(__g)) __g = 3;
@@ -7416,12 +7434,13 @@ async function posPrefetchPrintSettingsSilent_() {
  * ─ 優先 google.script.run.savePrintSettingsFromPosClient()（同源、不會被 CORS 擋）
  * ─ 失敗才退化到 fetch POST，並改用 text/plain 避免 preflight
  */
-async function savePrintSettingsToBackend_(detailTpl, labelTpl, mode, labelSize, fontConfig, rollWidthMmOpt) {
+async function savePrintSettingsToBackend_(detailTpl, labelTpl, mode, labelSize, fontConfig, rollWidthMmOpt, detailPrintLayoutOpt) {
   const body = {
     action: 'savePrintSettings',
     detailTemplate: detailTpl,
     labelTemplate: labelTpl,
-    printMode: (mode === 'label' ? 'label' : 'detail')
+    printMode: (mode === 'label' ? 'label' : 'detail'),
+    detailPrintLayout: (detailPrintLayoutOpt === 'template' ? 'template' : 'telegram')
   };
   if (labelSize && typeof labelSize === 'object') {
     var g = Number(labelSize.gap);
@@ -7922,6 +7941,7 @@ function buildPrinterOrderPayloadFull_(orderData) {
     remark   : orderData.notes || orderData.remark || '',
     total    : orderData.total != null ? orderData.total : 0,
     printMode: getPosPrintMode_(),
+    detailPrintLayout: getPosDetailPrintLayout_(),
     merchantPromoTelegram: orderData.merchantPromoTelegram && typeof orderData.merchantPromoTelegram === 'object'
       ? orderData.merchantPromoTelegram : undefined,
     items    : items.map(function (i) {
@@ -8722,6 +8742,12 @@ window.__initPrintSettingsUi_ = (function () {
     const dFontBold = document.getElementById('detail-font-bold');
     const lFontSize = document.getElementById('label-font-size');
     const lFontBold = document.getElementById('label-font-bold');
+    const detailLayoutRadios = document.querySelectorAll('input[name="detail-print-layout"]');
+
+    function getDetailPrintLayoutFromUi_() {
+      const sel = document.querySelector('input[name="detail-print-layout"]:checked');
+      return (sel && sel.value === 'template') ? 'template' : 'telegram';
+    }
 
     function applyMode_(mode) {
       if (mode === 'label') {
@@ -8812,6 +8838,11 @@ window.__initPrintSettingsUi_ = (function () {
     if (dFontBold) dFontBold.addEventListener('change', renderPreview_);
     if (lFontSize) lFontSize.addEventListener('change', renderPreview_);
     if (lFontBold) lFontBold.addEventListener('change', renderPreview_);
+    detailLayoutRadios.forEach(function (r) {
+      r.addEventListener('change', function () {
+        _posDetailPrintLayoutCache_ = getDetailPrintLayoutFromUi_();
+      });
+    });
     if (btnRefresh) btnRefresh.addEventListener('click', function () {
       pullFromSheetAndApply_();
     });
@@ -8823,17 +8854,19 @@ window.__initPrintSettingsUi_ = (function () {
       const mode = currentMode_();
       const sz   = readLabelSizeFromInputs_();
       const fontCfg = readFontConfigFromInputs_();
+      const detailPrintLayout = getDetailPrintLayoutFromUi_();
       const dRollWEls = document.getElementById('detail-roll-width-mm');
       const rwStr = (dRollWEls && dRollWEls.value) ? dRollWEls.value : String(getPosRollWidthMm_());
-      console.log('[POS] 準備儲存打印設定：', { mode: mode, labelSize: sz, font: fontCfg, rollWidthMm: rwStr, detailLen: dVal.length, labelLen: lVal.length });
+      console.log('[POS] 準備儲存打印設定：', { mode: mode, detailPrintLayout: detailPrintLayout, labelSize: sz, font: fontCfg, rollWidthMm: rwStr, detailLen: dVal.length, labelLen: lVal.length });
       _setStatus_('正在寫入打印設定工作表…（mode=' + mode + '）', 'warn');
-      const r = await savePrintSettingsToBackend_(dVal, lVal, mode, sz, fontCfg, rwStr);
+      const r = await savePrintSettingsToBackend_(dVal, lVal, mode, sz, fontCfg, rwStr, detailPrintLayout);
       console.log('[POS] 儲存回應:', r);
       if (r.ok) {
         // 寫入成功才覆寫記憶體快取
         _posDetailTplCache_ = dVal;
         _posLabelTplCache_  = lVal;
         _posPrintModeCache_ = mode;
+        _posDetailPrintLayoutCache_ = detailPrintLayout;
         _posLabelSizeCache_ = sz;
         _posFontCfgCache_   = fontCfg;
         const rwN = parseInt(rwStr, 10);
@@ -8951,6 +8984,7 @@ window.__initPrintSettingsUi_ = (function () {
     const dFontBold = document.getElementById('detail-font-bold');
     const lFontSize = document.getElementById('label-font-size');
     const lFontBold = document.getElementById('label-font-bold');
+    const detailLayout = getPosDetailPrintLayout_();
     const preview = document.getElementById('print-template-preview');
     if (dText) dText.value = getPosDetailTemplate_();
     if (lText) lText.value = getPosLabelTemplate_();
@@ -8970,6 +9004,9 @@ window.__initPrintSettingsUi_ = (function () {
     if (dRollW) dRollW.value = String(getPosRollWidthMm_());
     if (lFontSize) lFontSize.value = String(fcL.size || 'small');
     if (lFontBold) lFontBold.checked = !!fcL.bold;
+    document.querySelectorAll('input[name="detail-print-layout"]').forEach(function (r) {
+      r.checked = (r.value === detailLayout);
+    });
     const mode = getPosPrintMode_();
     if (ph) ph.textContent = mode === 'label' ? '商品標籤樣版' : '打印明細樣版';
     console.log('[POS] applyCacheToUi_ mode=', mode, 'font=', fc, 'labelSize=', sz);
@@ -14199,6 +14236,7 @@ const LS_POLL_ENABLED      = 'gp2270t_poll_enabled';
 const LS_DETAIL_TEMPLATE   = 'gp2270t_detail_template_v1';
 const LS_LABEL_TEMPLATE    = 'gp2270t_label_template_v1';
 const LS_PRINT_MODE        = 'gp2270t_print_mode'; // 'detail' | 'label'
+const LS_DETAIL_PRINT_LAYOUT = 'gp2270t_detail_print_layout_v1'; // 'telegram' | 'template'
 const LS_STORE_NAME        = 'gp2270t_store_name';
 const LS_LABEL_SIZE        = 'gp2270t_label_size_v1';   // {"width":40,"height":30}
 const LS_FONT_CONFIG       = 'gp2270t_font_config_v1';  // {"detail":{...},"label":{...}}
@@ -14303,6 +14341,13 @@ function getPrintMode_() {
     if (v === 'detail' || v === 'label') return v;
   } catch (e) { /* 略 */ }
   return 'detail';
+}
+function getDetailPrintLayout_() {
+  try {
+    const v = localStorage.getItem(LS_DETAIL_PRINT_LAYOUT);
+    if (v === 'template' || v === 'telegram') return v;
+  } catch (e) { /* 略 */ }
+  return 'telegram';
 }
 
 /** 標籤紙尺寸（mm）+ TSPL 微調 */
@@ -14891,6 +14936,11 @@ function buildPrintTextFromBackendOrder_(ord) {
   }
   setActiveTsplFontProfile_(mode === 'label' ? 'label' : 'detail');
   if (mode === 'label') return renderLabelsFromOrder_(ord);
+  var detailLayout = getDetailPrintLayout_();
+  if (ord && (ord.detailPrintLayout === 'template' || ord.detailPrintLayout === 'telegram')) {
+    detailLayout = ord.detailPrintLayout;
+  }
+  if (detailLayout === 'template') return renderDetailFromOrder_(ord);
   return _printerEmojisToGt_(buildReceiptPlainTextMirroringGas_(ord));
 }
 
@@ -14983,6 +15033,9 @@ async function syncPrintSettingsFromBackend_() {
     }
     if (data.printMode === 'detail' || data.printMode === 'label') {
       localStorage.setItem(LS_PRINT_MODE, data.printMode);
+    }
+    if (data.detailPrintLayout === 'template' || data.detailPrintLayout === 'telegram') {
+      localStorage.setItem(LS_DETAIL_PRINT_LAYOUT, data.detailPrintLayout);
     }
     if (typeof data.storeName === 'string') {
       localStorage.setItem(LS_STORE_NAME, data.storeName);
@@ -15198,6 +15251,7 @@ function maybeAutoStartPolling_() {
  *   detailTpl      — base64url 編碼的「打印明細」樣版
  *   labelTpl       — base64url 編碼的「商品標籤」樣版
  *   printMode      — 'detail' | 'label'
+ *   detailPrintLayout — 'telegram' | 'template'
  */
 function consumeUrlParams_() {
   let auto = false;
@@ -15229,18 +15283,22 @@ function consumeUrlParams_() {
     }
 
     const mode = sp.get('printMode');
+    const detailPrintLayout = sp.get('detailPrintLayout');
     if (mode === 'detail' || mode === 'label') {
       try { localStorage.setItem(LS_PRINT_MODE, mode); } catch (e) { /* 略 */ }
+    }
+    if (detailPrintLayout === 'telegram' || detailPrintLayout === 'template') {
+      try { localStorage.setItem(LS_DETAIL_PRINT_LAYOUT, detailPrintLayout); } catch (e) { /* 略 */ }
     }
 
     const autoStart = sp.get('autoStart');
     if (autoStart === '1' || autoStart === 'true') auto = true;
 
     if (sp.has('webapp') || sp.has('autoStart') ||
-        sp.has('detailTpl') || sp.has('labelTpl') || sp.has('printMode')) {
+        sp.has('detailTpl') || sp.has('labelTpl') || sp.has('printMode') || sp.has('detailPrintLayout')) {
       try {
         // 用過即清，避免重整時重設
-        ['webapp', 'autoStart', 'detailTpl', 'labelTpl', 'printMode']
+        ['webapp', 'autoStart', 'detailTpl', 'labelTpl', 'printMode', 'detailPrintLayout']
           .forEach(function (k) { sp.delete(k); });
         const cleanQs = sp.toString();
         const newUrl = url.origin + url.pathname + (cleanQs ? '?' + cleanQs : '') + url.hash;
