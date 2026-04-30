@@ -2891,6 +2891,20 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             </div>
           </div>
 
+          <div id="edit-item-label-name-row">
+            <div class="flex flex-wrap items-end gap-3" style="align-items: flex-end;">
+              <div class="flex-1 min-w-[200px]">
+                <label for="edit-item-label-name" class="block font-medium text-gray-700" style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">標籤名（選填）</label>
+                <input type="text" id="edit-item-label-name" class="w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" style="padding: 8px; font-size: 16px;" placeholder="列印時優先顯示；空白則用商品名">
+              </div>
+              <label class="inline-flex items-center gap-2 cursor-pointer select-none shrink-0 mb-1" style="padding: 8px 0;">
+                <input type="checkbox" id="edit-item-print-label" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" style="width: 18px; height: 18px;">
+                <span class="font-medium text-gray-700" style="font-size: 15px;">印商品標籤</span>
+              </label>
+            </div>
+            <p class="text-gray-400" style="font-size: 13px; margin-top: 4px;">僅勾選「印商品標籤」的品項會出標籤；一般菜單適用，兌換品不使用。</p>
+          </div>
+
 <!-- 附加選項（動態清單） -->
 <div id="edit-item-options">
   <label class="block font-medium text-gray-700"
@@ -14375,6 +14389,16 @@ function _parseAddonEntryForPrintBridge_(o) {
 
 function _orderItemLineFullNameForPrint_(item) {
   if (!item) return '';
+  var n = String(item.name != null ? item.name : '').replace(/^'/, '').trim();
+  if (n) return n;
+  var sc = item.sheetColName != null ? String(item.sheetColName).trim() : '';
+  if (sc) return sc;
+  var ln = item.labelName != null ? String(item.labelName).trim() : '';
+  if (ln) return ln;
+  var t1 = item.title != null ? String(item.title).trim() : '';
+  if (t1) return t1;
+  var t2 = item.productName != null ? String(item.productName).trim() : '';
+  if (t2) return t2;
   return String(_orderItemDisplayNameForPrint_(item) || '').replace(/^'/, '').trim();
 }
 function _optionsRedundantWithParenInnerBridge_(fullName, optArr) {
@@ -14426,13 +14450,18 @@ function _itemsBlock_(itemsOrOrder, opts) {
     var baseName = fullName.trim();
     var addons = [];
     if (Array.isArray(optArr) && optArr.length > 0) {
-      var bare = fullName.trim();
-      for (var z = 0; z < 3; z++) {
-        var t = bare.replace(/（[^）]*）\s*$/, '').replace(/\([^)]*\)\s*$/, '').trim();
-        if (t === bare) break;
-        bare = t;
+      var parenMatchesOptions = _optionsRedundantWithParenInnerBridge_(fullName, optArr);
+      if (parenMatchesOptions) {
+        var bare = fullName.trim();
+        for (var z = 0; z < 3; z++) {
+          var t = bare.replace(/（[^）]*）\s*$/, '').replace(/\([^)]*\)\s*$/, '').trim();
+          if (t === bare) break;
+          bare = t;
+        }
+        baseName = bare;
+      } else {
+        baseName = fullName.trim();
       }
-      baseName = bare;
       addons = optArr.map(_parseAddonEntryForPrintBridge_);
     } else {
       var nameMatch = fullName.match(/^(.+?)（(.+)）$/);
