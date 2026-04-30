@@ -7767,8 +7767,13 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
     var qty = Math.max(1, parseInt(it.quantity, 10) || 1);
     var addPerUnit = 0;
     (it.options || []).forEach(function (opt) {
-      var mm = String(opt || '').match(/\+\s*(\d+)\s*$/);
-      if (mm) addPerUnit += parseInt(mm[1], 10) || 0;
+      if (opt && typeof opt === 'object') {
+        addPerUnit += parseInt(opt.price, 10) || 0;
+        return;
+      }
+      var mm = String(opt || '').match(/(?:\(\s*[+＋]?\s*(\d+)\s*\)|[+＋]\s*(\d+))\s*$/);
+      var v = mm ? (parseInt(mm[1] || mm[2], 10) || 0) : 0;
+      addPerUnit += v;
     });
     var unitMain = Math.max(0, (parseInt(it.price, 10) || 0) - addPerUnit);
     var lineOrigMain = unitMain * qty;
