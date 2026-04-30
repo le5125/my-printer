@@ -14497,7 +14497,9 @@ function _itemsBlock_(itemsOrOrder, opts) {
       var parenMatchesOptions = _optionsRedundantWithParenInnerBridge_(fullName, optArr);
       if (parenMatchesOptions) {
         var bare = fullName.trim();
-        bare = bare.replace(/（[^）]*）\s*$/, '').replace(/\([^)]*\)\s*$/, '').trim();
+        var removed = bare.replace(/（[^）]*）\s*$/, '').trim();
+        if (removed !== bare) bare = removed;
+        else bare = bare.replace(/\([^)]*\)\s*$/, '').trim();
         baseName = bare;
       } else {
         baseName = fullName.trim();
