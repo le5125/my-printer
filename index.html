@@ -4740,12 +4740,13 @@ function posIsGasEmbed_() {
   } catch (e0) { return false; }
 }
 
-/** 靜態託管（GitHub Pages 等）：有 Web App 網址但非 GAS 內嵌 */
+/** 靜態託管（GitHub Pages 等）：僅在「未設定 Web App 網址」時鎖定編輯。 */
 function posIsGithubStaticPos_() {
   try {
     if (posIsGasEmbed_()) return false;
     var u = (typeof currentWebAppUrl === 'string') ? currentWebAppUrl.trim() : '';
-    return !!u;
+    // GitHub 端可編輯：只要有 Web App URL 就放行（由 posRunSheetMutation_ 走 POST）。
+    return !u;
   } catch (e0) { return false; }
 }
 
@@ -4796,10 +4797,11 @@ function posHideOptionModalIos_(fn) {
 }
 
 function posSwalPleaseEditInBackend_() {
+  var msg = '未設定 Web App 網址，請先在功能設定填入後再編輯/上傳。';
   if (typeof Swal !== 'undefined') {
-    Swal.fire({ icon: 'info', title: '請在後台編輯', confirmButtonText: '確定' });
+    Swal.fire({ icon: 'info', title: msg, confirmButtonText: '確定' });
   } else {
-    try { alert('請在後台編輯'); } catch (e) { /* 略 */ }
+    try { alert(msg); } catch (e) { /* 略 */ }
   }
 }
 
@@ -11001,17 +11003,17 @@ if (!isRedeem) {
                 if (typeof window.__memberHubRefreshRedeemOnly === 'function') window.__memberHubRefreshRedeemOnly();
               });
             } else {
+              // 先樂觀更新 UI，降低跨網域 POST 的體感延遲
+              document.getElementById('edit-item-modal').classList.add('hidden');
+              document.getElementById('edit-item-image').value = '';
+              userClearedProductImage = false;
+              renderMenuItems();
               posRunSheetMutation_({
                 gasMethod: 'updateProductData',
                 gasArgs: [updatePayload],
                 postBody: Object.assign({ action: 'updateProduct' }, updatePayload)
               }).then(function (result) {
-                if (result && result.result === 'success') {
-                  document.getElementById('edit-item-modal').classList.add('hidden');
-                  document.getElementById('edit-item-image').value = '';
-                  userClearedProductImage = false;
-                  renderMenuItems();
-                } else {
+                if (!(result && result.result === 'success')) {
                   var msg2 = (result && (result.message || result.result)) || '未知錯誤';
                   posSwalAlert('儲存失敗：' + msg2, 'error');
                   if (typeof loadMenuFromSheet === 'function') loadMenuFromSheet();
