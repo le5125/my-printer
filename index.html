@@ -14497,11 +14497,7 @@ function _itemsBlock_(itemsOrOrder, opts) {
       var parenMatchesOptions = _optionsRedundantWithParenInnerBridge_(fullName, optArr);
       if (parenMatchesOptions) {
         var bare = fullName.trim();
-        for (var z = 0; z < 3; z++) {
-          var t = bare.replace(/（[^）]*）\s*$/, '').replace(/\([^)]*\)\s*$/, '').trim();
-          if (t === bare) break;
-          bare = t;
-        }
+        bare = bare.replace(/（[^）]*）\s*$/, '').replace(/\([^)]*\)\s*$/, '').trim();
         baseName = bare;
       } else {
         baseName = fullName.trim();
