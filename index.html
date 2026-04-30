@@ -10402,6 +10402,15 @@ for (let i = 1; i <= 8; i++) {
           document.getElementById('edit-item-price').value = item.price;
           document.getElementById('edit-item-description').value = item.description || '';
           document.getElementById('edit-item-color').value = item.color || '#f59e0b';
+          var lnRow = document.getElementById('edit-item-label-name-row');
+          var lnInp = document.getElementById('edit-item-label-name');
+          if (lnRow) lnRow.style.display = isRedeem ? 'none' : '';
+          if (lnInp) lnInp.value = (!isRedeem && item.labelName != null) ? String(item.labelName) : '';
+          var printLb = document.getElementById('edit-item-print-label');
+          if (printLb) {
+            var pOff = item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0';
+            printLb.checked = isRedeem ? true : !pOff;
+          }
           var priceLabel = document.querySelector('label[for="edit-item-price"]');
           if (priceLabel) priceLabel.textContent = isRedeem ? '點數' : '價格';
           var optionsBox = document.getElementById('edit-item-options');
@@ -10438,6 +10447,12 @@ if (!isRedeem) {
   document.getElementById('edit-item-color').value = '#f59e0b';
   document.getElementById('edit-item-image').value = '';
   document.getElementById('edit-item-description').value = '';
+  var lnRow0 = document.getElementById('edit-item-label-name-row');
+  var lnInp0 = document.getElementById('edit-item-label-name');
+  if (lnRow0) lnRow0.style.display = isRedeem ? 'none' : '';
+  if (lnInp0) lnInp0.value = '';
+  var printLb0 = document.getElementById('edit-item-print-label');
+  if (printLb0) printLb0.checked = !isRedeem;
   var priceLabel = document.querySelector('label[for="edit-item-price"]');
   if (priceLabel) priceLabel.textContent = isRedeem ? '點數' : '價格';
   var optionsBox = document.getElementById('edit-item-options');
@@ -10883,6 +10898,8 @@ if (!isRedeem) {
           const description = document.getElementById('edit-item-description').value;
           const isRedeemContext = posItemEditorContext === 'redeem';
           const options = isRedeemContext ? {} : getAddonsData(); // 兌換商品不使用附加選項
+          const labelName = isRedeemContext ? '' : ((document.getElementById('edit-item-label-name') && document.getElementById('edit-item-label-name').value) || '').trim();
+          const printLabel = isRedeemContext ? true : !!(document.getElementById('edit-item-print-label') && document.getElementById('edit-item-print-label').checked);
 
           if (posIsGithubStaticPos_() && croppedImageData) {
             posSwalAlert('圖片須後台上傳；請勿在靜態頁裁切上新圖。', 'warning');
@@ -10916,6 +10933,10 @@ if (!isRedeem) {
             editingItem.price = price;
             editingItem.color = color;
             editingItem.description = description;
+            if (!isRedeemContext) {
+              editingItem.labelName = labelName;
+              editingItem.printLabel = printLabel;
+            }
 
             if (!isRedeemContext) {
               for (let i = 1; i <= MAX_ADDONS; i++) {
@@ -10954,6 +10975,8 @@ if (!isRedeem) {
                 option8: options.option8 || '',
                 option8Price: options.option8Price || ''
               });
+              updatePayload.labelName = labelName;
+              updatePayload.printLabel = printLabel;
             }
 
             if (isRedeemContext) {
@@ -11015,6 +11038,10 @@ if (!isRedeem) {
   description: description,
   saleStatus: '是'  // ✅ 新增商品預設為販售中，避免遮罩被復原
 };
+if (!isRedeemContext) {
+  newItem.labelName = labelName;
+  newItem.printLabel = printLabel;
+}
 if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附加選項
 
             const sendToSheet = (item) => {
@@ -11042,7 +11069,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                 option7: options.option7 || '',
                 option7Price: options.option7Price || '',
                 option8: options.option8 || '',
-                option8Price: options.option8Price || ''
+                option8Price: options.option8Price || '',
+                labelName: labelName,
+                printLabel: printLabel
               };
               posRunSheetMutation_({
                 gasMethod: 'addProductData',
@@ -13498,11 +13527,18 @@ function buildPrintText(order) {
     orderId   : order.orderId != null ? order.orderId : (order.id != null ? order.id : ''),
     shortId   : order.shortId || (order.orderId ? String(order.orderId).slice(-3) : ''),
     timestamp : order.time != null ? order.time : Date.now(),
+    date      : order.date != null ? order.date : '',
+    source    : order.source != null ? order.source : 'pos',
     pickupTime: order.pickupTime || '',
     phone     : order.phone || '',
-    remark    : order.remark || order.notes || '',
+    remark    : order.remark || '',
+    notes     : order.notes || '',
     total     : order.total != null ? order.total : 0,
-    items     : Array.isArray(order.items) ? order.items : []
+    items     : Array.isArray(order.items) ? order.items : [],
+    merchantPromoTelegram: order.merchantPromoTelegram && typeof order.merchantPromoTelegram === 'object'
+      ? order.merchantPromoTelegram : undefined,
+    orderDetailTextForPrint: (typeof order.orderDetailTextForPrint === 'string' && order.orderDetailTextForPrint.trim())
+      ? String(order.orderDetailTextForPrint).trim() : undefined
   };
   const prev = _activeTsplFontProfile_;
   setActiveTsplFontProfile_('detail');
@@ -13940,11 +13976,18 @@ window.addEventListener('message', async (event) => {
         orderId   : payload.orderId || payload.id || ('LOCAL-' + Date.now()),
         shortId   : payload.shortId || (payload.orderId ? String(payload.orderId).slice(-3) : ''),
         timestamp : payload.timestamp || payload.time || Date.now(),
+        date      : payload.date || '',
+        source    : payload.source || 'pos',
         pickupTime: payload.pickupTime || '',
         phone     : payload.phone || '',
-        remark    : payload.remark || payload.notes || '',
+        remark    : payload.remark || '',
+        notes     : payload.notes || '',
         total     : payload.total != null ? payload.total : 0,
         items     : Array.isArray(payload.items) ? payload.items : [],
+        merchantPromoTelegram: payload.merchantPromoTelegram && typeof payload.merchantPromoTelegram === 'object'
+          ? payload.merchantPromoTelegram : undefined,
+        orderDetailTextForPrint: (typeof payload.orderDetailTextForPrint === 'string' && payload.orderDetailTextForPrint.trim())
+          ? String(payload.orderDetailTextForPrint).trim() : undefined,
         printMode : (payload.printMode === 'label' || payload.printMode === 'detail') ? payload.printMode : undefined
       };
 
@@ -14869,8 +14912,10 @@ function stripOrderDateToYyyyMmDdForPrint_(raw) {
 function buildReceiptDetailBodyMirroringGas_(ord) {
   if (!ord) return '';
   var packed = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
+  var hasItems = Array.isArray(ord.items) && ord.items.length > 0;
+  if (hasItems) return _itemsBlock_(ord, { telegramLayout: true });
   if (packed) return packed;
-  return _itemsBlock_(ord, { telegramLayout: true });
+  return '';
 }
 function buildReceiptPlainTextMirroringGas_(ord) {
   if (!ord) return '';
