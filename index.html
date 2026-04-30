@@ -13477,7 +13477,7 @@ function ensureTsplForManualPrint_(raw) {
   return blocks.join('\n') + '\n';
 }
 
-/** 相容舊呼叫：與 buildPrintTextFromBackendOrder_ 相同邏輯（明細樣版＋Telegram 式品項） */
+/** 相容舊呼叫：與 buildPrintTextFromBackendOrder_ 相同邏輯（卷起明細＝通知同版，送印前 emoji->>）。 */
 function buildPrintText(order) {
   if (!order) return '\n';
   const ord = {
@@ -13492,7 +13492,7 @@ function buildPrintText(order) {
   };
   const prev = _activeTsplFontProfile_;
   setActiveTsplFontProfile_('detail');
-  const out = renderDetailFromOrder_(ord);
+  const out = _printerEmojisToGt_(buildReceiptPlainTextMirroringGas_(ord));
   setActiveTsplFontProfile_(prev);
   return out;
 }
@@ -14373,51 +14373,130 @@ function _parseAddonEntryForPrintBridge_(o) {
   return { name: s, price: 0 };
 }
 
-/**
- * {品項}：無加購 →「全名 x n $總」；有加購 →「主品名>    $主品小計」+ 各行「加飯 +10」（表情→>）。
- */
-function _itemsBlock_(items) {
-  if (!Array.isArray(items)) return '';
-  const lines = [];
-  _sortOrderItemsByMainName_(items).forEach(function (item) {
-    const quantity = parseInt(item.quantity != null ? item.quantity : (item.qty || 1), 10);
-    const basePrice = parseInt(item.price != null ? item.price : 0, 10);
-    var bare = _bareProductNameForPrint_(item);
-    var addons = [];
-    if (item.options && item.options.length) {
-      addons = item.options.map(_parseAddonEntryForPrintBridge_).filter(function (a) {
-        return a && String(a.name || '').trim();
-      });
-    }
-    var addonPerUnit = addons.reduce(function (s, a) { return s + (parseInt(a.price, 10) || 0); }, 0);
-    var unitMain = Math.max(0, basePrice - addonPerUnit);
-    var mainLineTotal = unitMain * quantity;
+function _orderItemLineFullNameForPrint_(item) {
+  if (!item) return '';
+  return String(_orderItemDisplayNameForPrint_(item) || '').replace(/^'/, '').trim();
+}
+function _optionsRedundantWithParenInnerBridge_(fullName, optArr) {
+  if (!Array.isArray(optArr) || optArr.length === 0) return false;
+  var sp = _splitItemBaseAndAddonInner_(fullName);
+  var inner = sp && sp.inner ? String(sp.inner).trim() : '';
+  if (!inner) return false;
+  var innerSeg = inner.split('、').map(function (x) { return String(x || '').trim(); }).filter(Boolean);
+  var optLabs = optArr.map(_parseAddonEntryForPrintBridge_).map(function (o) { return String((o && o.name) || '').trim(); }).filter(Boolean);
+  if (innerSeg.length !== optLabs.length) return false;
+  var normInner = innerSeg.map(function (seg) { return String((_parseAddonEntryForPrintBridge_(seg).name) || '').trim(); }).filter(Boolean);
+  if (normInner.length !== optLabs.length) return false;
+  normInner.sort();
+  var ol = optLabs.slice().sort();
+  for (var i = 0; i < normInner.length; i++) {
+    if (normInner[i] !== ol[i]) return false;
+  }
+  return true;
+}
+function _parenInnerWithNoOptionsArrayBridge_(fullName, optArr) {
+  if (Array.isArray(optArr) && optArr.length > 0) return false;
+  var sp = _splitItemBaseAndAddonInner_(fullName);
+  return !!(sp.inner && String(sp.inner).trim());
+}
+function _collapseParenAddonsForPrintBridge_(fullName, optArr) {
+  return _optionsRedundantWithParenInnerBridge_(fullName, optArr) || _parenInnerWithNoOptionsArrayBridge_(fullName, optArr);
+}
 
-    var block;
-    if (!addons.length) {
-      var fullLineName = _printerEmojisToGt_(String(item.name || '').replace(/^'/, '').trim());
-      block = fullLineName + ' x ' + quantity + '        $' + (basePrice * quantity);
+/**
+ * 列印明細的商品區塊（預設：列印格式；telegramLayout=true：與通知明細同格式，之後再統一把 emoji 轉為 >）。
+ * @param {Array|object} itemsOrOrder
+ * @param {{ telegramLayout?: boolean }} [opts]
+ */
+function _itemsBlock_(itemsOrOrder, opts) {
+  opts = opts || {};
+  var telegramLayout = opts.telegramLayout === true;
+  var ord = Array.isArray(itemsOrOrder) ? { items: itemsOrOrder, source: 'pos' } : (itemsOrOrder || {});
+  var items = Array.isArray(ord.items) ? ord.items : [];
+  if (!items.length) return '';
+  var chunks = [];
+  var isPos = (ord.source === 'pos' || ord.source === undefined || ord.source === null || String(ord.source).trim() === '');
+  _sortOrderItemsByMainName_(items).forEach(function (item) {
+    var quantity = parseInt(item.quantity != null ? item.quantity : (item.qty || 1), 10);
+    if (!quantity || isNaN(quantity)) quantity = 1;
+    var basePrice = parseInt(item.price != null ? item.price : 0, 10);
+    if (isNaN(basePrice)) basePrice = 0;
+    var fullName = _orderItemLineFullNameForPrint_(item);
+    var optArr = (item.options && item.options.length) ? item.options : (item.addons || []);
+    var baseName = fullName.trim();
+    var addons = [];
+    if (Array.isArray(optArr) && optArr.length > 0) {
+      var bare = fullName.trim();
+      for (var z = 0; z < 3; z++) {
+        var t = bare.replace(/（[^）]*）\s*$/, '').replace(/\([^)]*\)\s*$/, '').trim();
+        if (t === bare) break;
+        bare = t;
+      }
+      baseName = bare;
+      addons = optArr.map(_parseAddonEntryForPrintBridge_);
     } else {
-      block = _printerEmojisToGt_(String(bare).trim()) + '    $' + mainLineTotal;
-      addons.forEach(function (ad) {
-        var ap = parseInt(ad.price, 10) || 0;
-        var adName = _printerEmojisToGt_(String(ad.name || '').trim());
-        if (!adName) return;
-        var ext = (ap * quantity) > 0 ? ' +' + (ap * quantity) : '';
-        block += '\n' + adName + ext;
+      var nameMatch = fullName.match(/^(.+?)（(.+)）$/);
+      if (!nameMatch) {
+        var hm = fullName.match(/^(.+?)\(([\s\S]+)\)$/);
+        if (hm) nameMatch = hm;
+      }
+      if (nameMatch) {
+        baseName = nameMatch[1].trim();
+        addons = String(nameMatch[2]).split('、').map(_parseAddonEntryForPrintBridge_);
+      } else {
+        baseName = fullName;
+        addons = [];
+      }
+    }
+    var redundant = _collapseParenAddonsForPrintBridge_(fullName, optArr || []);
+    var useDisc = item.telegramDiscountSaleLine != null && item.telegramDiscountOrigLine != null;
+    var effRedundant = redundant;
+    if (telegramLayout && !useDisc && redundant && Array.isArray(optArr) && optArr.length > 0) {
+      effRedundant = false;
+    }
+    var origFromPayload = useDisc ? (parseInt(item.telegramDiscountOrigLine, 10) || 0) : 0;
+    var listUnitRaw = item.telegramDisplayUnitPrice;
+    var useListUnit = !isPos && !useDisc && listUnitRaw != null && listUnitRaw !== ''
+      && !isNaN(parseInt(listUnitRaw, 10));
+    var priceForLine = useListUnit ? Math.max(0, parseInt(listUnitRaw, 10)) : basePrice;
+    var addonPerUnit = addons.reduce(function (sum, a) { return sum + (parseInt(a.price, 10) || 0); }, 0);
+    var bundledOnline = !isPos;
+    var unitMain = effRedundant || bundledOnline ? priceForLine : Math.max(0, priceForLine - addonPerUnit);
+    var mainLineTotal = effRedundant ? (priceForLine * quantity) : (unitMain * quantity);
+    var lineAmt = useDisc ? (origFromPayload || mainLineTotal) : mainLineTotal;
+    var displayName = effRedundant ? fullName.trim() : baseName;
+    var line = telegramLayout
+      ? (displayName + ' x ' + quantity + '        $' + lineAmt)
+      : (displayName + '*' + quantity + '    $' + lineAmt);
+    if (item.telegramItemDiscountParen) line += ' (' + String(item.telegramItemDiscountParen) + ')';
+    if (!useDisc && !effRedundant) {
+      addons.forEach(function (addon) {
+        if (!addon || !addon.name) return;
+        var priceText = '';
+        if (!bundledOnline && addon.price > 0) priceText = '        $' + (addon.price * quantity);
+        line += '\n➜ ' + addon.name + ' x' + quantity + priceText;
       });
     }
-    var _lnBridge = '';
-    try {
-      if (typeof posPrinterOrderLineNote_ === 'function') _lnBridge = posPrinterOrderLineNote_(item);
-    } catch (_eNn) { /* 略 */ }
-    if (!_lnBridge && item && item.note && String(item.note).trim() !== '') _lnBridge = String(item.note).trim();
-    if (_lnBridge) {
-      block += '\n（' + _printerEmojisToGt_(_lnBridge) + '）';
+    var noteLine = (item.note && String(item.note).trim() !== '') ? String(item.note).trim() : '';
+    if (!noteLine) {
+      try { noteLine = (typeof posPrinterOrderLineNote_ === 'function') ? (posPrinterOrderLineNote_(item) || '') : ''; } catch (_eN) { noteLine = ''; }
     }
-    lines.push(block);
+    if (noteLine) line += '\n（' + noteLine + '）';
+    chunks.push(telegramLayout ? line : _printerEmojisToGt_(line));
   });
-  return lines.join('\n\n');
+  var mpt = ord.merchantPromoTelegram;
+  if (mpt && Array.isArray(mpt.gifts)) {
+    mpt.gifts.forEach(function (g) {
+      if (!g) return;
+      var gt = String(g.title != null ? g.title : '').trim();
+      if (!gt) return;
+      var gq = parseInt(g.qty, 10);
+      if (!gq || isNaN(gq)) gq = 1;
+      if (telegramLayout) chunks.push('🎁 ' + gt + ' x ' + gq + '        $0');
+      else chunks.push(_printerEmojisToGt_('🎁 ' + gt + '*' + gq + '    $0'));
+    });
+  }
+  return chunks.join('\n\n');
 }
 
 /**
@@ -14732,7 +14811,72 @@ function buildPrintTextFromBackendOrder_(ord) {
   }
   setActiveTsplFontProfile_(mode === 'label' ? 'label' : 'detail');
   if (mode === 'label') return renderLabelsFromOrder_(ord);
-  return renderDetailFromOrder_(ord);
+  return _printerEmojisToGt_(buildReceiptPlainTextMirroringGas_(ord));
+}
+
+function stripOrderDateToYyyyMmDdForPrint_(raw) {
+  if (raw === null || raw === undefined || raw === '') return '';
+  if (Object.prototype.toString.call(raw) === '[object Date]' && !isNaN(raw.getTime())) {
+    var d = raw;
+    var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  var s = String(raw).replace(/^'/, '').trim();
+  var m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) return m[1] + '-' + String(parseInt(m[2], 10)).padStart(2, '0') + '-' + String(parseInt(m[3], 10)).padStart(2, '0');
+  if (/^\d+$/.test(s) && s.length >= 12) {
+    var dt = new Date(parseInt(s, 10));
+    if (!isNaN(dt.getTime())) {
+      var pad2 = function (n) { return n < 10 ? '0' + n : '' + n; };
+      return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate());
+    }
+  }
+  var first = s.split(/\s+/)[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(first)) return first;
+  return first.length >= 10 ? first.slice(0, 10) : first;
+}
+function buildReceiptDetailBodyMirroringGas_(ord) {
+  if (!ord) return '';
+  var packed = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
+  if (packed) return packed;
+  return _itemsBlock_(ord, { telegramLayout: true });
+}
+function buildReceiptPlainTextMirroringGas_(ord) {
+  if (!ord) return '';
+  var srcRaw = ord.source;
+  var isPos = (srcRaw === 'pos' || srcRaw === undefined || srcRaw === null || String(srcRaw).trim() === '');
+  var srcTag = isPos ? '🏪【現場/POS】' : '📱【線上】';
+  var dateStr = '';
+  if (ord.date != null && String(ord.date).trim() !== '') {
+    dateStr = stripOrderDateToYyyyMmDdForPrint_(ord.date);
+  } else {
+    var ft = _formatOrderTime_(ord.timestamp);
+    dateStr = String(ft.date || '').replace(/\//g, '-');
+  }
+  var message = '📦 有一筆新訂單！' + srcTag + '\n' +
+    '編號：' + String(ord.orderId != null ? ord.orderId : '') + '\n' +
+    '日期：' + dateStr;
+  if (ord.pickupTime) message += '\n取餐時間：' + String(ord.pickupTime);
+  if (ord.phone) message += '\n電話：' + String(ord.phone);
+  message += '\n金額：' + String(ord.total != null ? ord.total : '') + ' 元';
+  var mpt = ord.merchantPromoTelegram;
+  if (mpt && mpt.lineItemCount != null) message += '\n品項：共 ' + String(mpt.lineItemCount) + ' 項';
+  var orderNotes = (ord.notes != null ? String(ord.notes).trim() : '') || (ord.remark != null ? String(ord.remark).trim() : '');
+  if (orderNotes) message += '\n備註：' + orderNotes;
+  if (mpt && Array.isArray(mpt.activityParenLines) && mpt.activityParenLines.length) {
+    mpt.activityParenLines.forEach(function (ln) {
+      if (!ln) return;
+      var s = String(ln).trim();
+      if (s === '單項商品打折') return;
+      message += '\n(' + s + ')';
+    });
+  }
+  message += '\n\n商品明細：';
+  var detailPlain = buildReceiptDetailBodyMirroringGas_(ord);
+  if (detailPlain) message += '\n\n' + detailPlain;
+  return message;
 }
 
 /**
