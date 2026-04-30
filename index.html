@@ -86,6 +86,11 @@
       justify-content: center;
       flex-direction: column;
       transition: opacity 0.38s ease, visibility 0.38s ease;
+      padding: max(env(safe-area-inset-top, 0px), 16px)
+        max(env(safe-area-inset-right, 0px), 16px)
+        max(env(safe-area-inset-bottom, 0px), 16px)
+        max(env(safe-area-inset-left, 0px), 16px);
+      box-sizing: border-box;
     }
     #initial-loader.initial-loader-exit {
       opacity: 0;
@@ -248,28 +253,33 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      --pos-loader-truck-scale: 2;
+      --pos-loader-truck-scale: min(2, max(1, calc((100vw - 56px) / 200)));
       --pos-loader-truck-base-width: 200px;
+      max-width: 100%;
+      overflow: visible;
     }
     /* 首屏商品載入：卡車動畫（與提供之 HTML/CSS 一致；選擇器限縮在 #initial-loader 內） */
     #initial-loader .loader {
       width: fit-content;
       height: fit-content;
+      max-width: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      transform: scale(var(--pos-loader-truck-scale));
+      transform: scale(var(--pos-loader-truck-scale)) translateZ(0);
       transform-origin: center center;
+      will-change: transform;
     }
     #initial-loader .truckWrapper {
       width: 200px;
-      height: 100px;
+      height: 110px;
       display: flex;
       flex-direction: column;
       position: relative;
       align-items: center;
       justify-content: flex-end;
       overflow-x: hidden;
+      overflow-y: visible;
     }
     #initial-loader .truckBody {
       width: 130px;
@@ -7645,6 +7655,13 @@ function posPromoPercentPayMultiplier_(v) {
   return 1;
 }
 
+/** 滿額門檻「折後」是否以單品折後合計為準（對齊試算表設定之 amountBasis／thresholdBasis） */
+function posMerchantPromoRuleUsesPostItemBasis_(rule) {
+  if (!rule || typeof rule !== 'object') return false;
+  var b = rule.amountBasis != null ? rule.amountBasis : rule.thresholdBasis;
+  return String(b || '').replace(/_/g, '').replace(/\s+/g, '').toLowerCase() === 'postitem';
+}
+
 /** 品卡：單品活動後單價（與購物車明細一致的打折／每份減價規則） */
 function posMerchantPromoUnitPriceForMenuCard_(productId, unitPrice, promo) {
   var uid = String(productId || '').trim();
@@ -7754,7 +7771,7 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
     var gid = String(rule.giftProductId || '').trim();
     var gq = Math.max(1, parseInt(rule.giftQty, 10) || 1);
     if (!gid || th <= 0) return;
-    var basisAmt = rule.amountBasis === 'postItem' ? afterItemSum : rawSubtotal;
+    var basisAmt = posMerchantPromoRuleUsesPostItemBasis_(rule) ? afterItemSum : rawSubtotal;
     if (basisAmt < th) return;
     var times = 1;
     var maxPO = parseInt(rule.maxPerOrder, 10);
@@ -7775,7 +7792,7 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
     if (!rule || rule.enabled === false) return;
     var th = Math.max(0, parseInt(rule.threshold, 10) || 0);
     if (th <= 0) return;
-    var basisAmt = rule.amountBasis === 'postItem' ? afterItemSum : rawSubtotal;
+    var basisAmt = posMerchantPromoRuleUsesPostItemBasis_(rule) ? afterItemSum : rawSubtotal;
     if (basisAmt < th) return;
     var mode = String(rule.mode || 'percent').trim().toLowerCase() === 'amount' ? 'amount' : 'percent';
     var v = parseFloat(rule.value);
@@ -7788,7 +7805,7 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
         mode: 'amount',
         value: v,
         threshold: th,
-        amountBasis: rule.amountBasis === 'postItem' ? 'postItem' : 'preItem'
+        amountBasis: posMerchantPromoRuleUsesPostItemBasis_(rule) ? 'postItem' : 'preItem'
       });
     } else if (v > 0 && v <= 100) {
       orderTotal = Math.round(orderTotal * posPromoPercentPayMultiplier_(v));
@@ -7796,7 +7813,7 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
         mode: 'percent',
         value: v,
         threshold: th,
-        amountBasis: rule.amountBasis === 'postItem' ? 'postItem' : 'preItem'
+        amountBasis: posMerchantPromoRuleUsesPostItemBasis_(rule) ? 'postItem' : 'preItem'
       });
     }
   });
