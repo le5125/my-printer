@@ -14449,6 +14449,7 @@ function _optionsRedundantWithParenInnerBridge_(fullName, optArr) {
   var sp = _splitItemBaseAndAddonInner_(fullName);
   var inner = sp && sp.inner ? String(sp.inner).trim() : '';
   if (!inner) return false;
+  if (!/[+＋]\s*\d+/.test(inner)) return false;
   var innerSeg = inner.split('、').map(function (x) { return String(x || '').trim(); }).filter(Boolean);
   var optLabs = optArr.map(_parseAddonEntryForPrintBridge_).map(function (o) { return String((o && o.name) || '').trim(); }).filter(Boolean);
   if (innerSeg.length !== optLabs.length) return false;
