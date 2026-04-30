@@ -2488,7 +2488,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       </div>
       <button type="button" id="merchant-promo-save" class="bg-violet-600 text-white px-6 py-1.5 rounded-md font-bold shadow-md hover:bg-violet-700 transition shrink-0">儲存設定</button>
     </div>
-    <p class="text-xs text-gray-500 -mt-2 mb-3 px-1">靜態託管（GitHub Pages 等）在已設定 Web App 網址時，可在此直接編輯並按「儲存設定」寫入後端。</p>
+   
     <div id="merchant-promo-scroll-area" class="flex flex-col rounded-lg bg-white p-4 shadow-md border border-gray-100 space-y-8">
 
       <section>
@@ -2496,18 +2496,17 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <h3 class="text-lg font-bold text-gray-800">1. 買 A 送 B</h3>
           <button type="button" class="merchant-promo-add-row px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700" data-merchant-section="buyAgetB">＋ 新增一組</button>
         </div>
-        <p class="text-xs text-gray-500 mb-2">滿額門檻可依各列選「折前／折後」；贈品為預覽列，不加入購物車。</p>
+        
         <div class="overflow-x-auto">
-          <table class="min-w-[720px] w-full text-sm text-left border border-gray-100 rounded-md overflow-hidden">
+          <table class="min-w-[820px] w-full text-sm text-left border border-gray-100 rounded-md overflow-hidden">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
-                <th class="p-2 w-10">啟用</th>
-                <th class="p-2">買（商品）</th>
-                <th class="p-2 w-20">件數</th>
-                <th class="p-2">贈（商品）</th>
-                <th class="p-2 w-20">件數</th>
-                <th class="p-2 w-24">每單上限<br><span class="font-normal text-gray-400">0＝不限</span></th>
-                <th class="p-2 w-20" title="勾選後：整筆訂單裡，此買送規則最多只生效一次。例：買2送1 時不論買 4 份或 8 份，贈品列只送 1 梯；不勾選則依買量倍數遞加（買 4 送 2）。">僅觸發一次</th>
+                <th class="p-2 w-16 whitespace-nowrap text-center">啟用</th>
+                <th class="p-2 whitespace-nowrap">買A（商品）</th>
+                <th class="p-2 w-20 whitespace-nowrap">件數</th>
+                <th class="p-2 whitespace-nowrap">送B（商品）</th>
+                <th class="p-2 w-20 whitespace-nowrap">件數</th>
+                <th class="p-2 w-36 whitespace-nowrap">每單上限（0＝不限）</th>
                 <th class="p-2 w-14"></th>
               </tr>
             </thead>
@@ -2525,7 +2524,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <table class="min-w-[680px] w-full text-sm text-left border border-gray-100 rounded-md overflow-hidden">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
-                <th class="p-2 w-10">啟用</th>
+                <th class="p-2 w-16 whitespace-nowrap text-center">啟用</th>
                 <th class="p-2">商品</th>
                 <th class="p-2 w-40">方式</th>
                 <th class="p-2 w-32">數值</th>
@@ -2535,7 +2534,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <tbody id="merchant-promo-tbody-itemDiscounts"></tbody>
           </table>
         </div>
-        <p class="text-xs text-gray-500 mt-2">「打折」填折數：9＝九折、8.5＝八五折；若填 11–100 則為應付成數％（例如 90 同九折）。預設 10 ＝無額外折扣。「每份減價」為每份商品折讓金額（可疊加在多條規則）。</p>
+        <p class="text-xs text-gray-500 mt-2">「打折」填折數：9＝九折、8.5＝八五折；「每份減價」為每份商品折讓金額。</p>
       </section>
 
       <section>
@@ -2547,7 +2546,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <table class="min-w-[680px] w-full text-sm text-left border border-gray-100 rounded-md overflow-hidden">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
-                <th class="p-2 w-10">啟用</th>
+                <th class="p-2 w-16 whitespace-nowrap text-center">啟用</th>
                 <th class="p-2 w-[88px]">門檻<br><span class="font-normal text-gray-400 text-xs">折前／折後</span></th>
                 <th class="p-2 w-24">滿額（元）</th>
                 <th class="p-2">贈品</th>
@@ -2570,8 +2569,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <table class="min-w-[680px] w-full text-sm text-left border border-gray-100 rounded-md overflow-hidden">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
-                <th class="p-2 w-10">啟用</th>
-                <th class="p-2 w-[88px]">門檻<br><span class="font-normal text-gray-400 text-xs">折前／折後</span></th>
+                <th class="p-2 w-16 whitespace-nowrap text-center">啟用</th>
+                <th class="p-2 w-[88px]">門檻</th>
                 <th class="p-2 w-24">滿額（元）</th>
                 <th class="p-2 w-40">方式</th>
                 <th class="p-2 w-32">數值</th>
@@ -2581,7 +2580,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <tbody id="merchant-promo-tbody-thresholdOrder"></tbody>
           </table>
         </div>
-        <p class="text-xs text-gray-500 mt-2">門檻可比對折前或折後（單品折價後小計）；整單折價套用於單品折後金額；多條整單規則依序疊加。整單「打折」欄位：填 9＝九折、8.5＝八五折；11–100 為應付成數％（例如 90 同九折）；預設 10 ＝無額外折扣。</p>
+        <p class="text-xs text-gray-500 mt-2">整單「打折」欄位：填 9＝九折、8.5＝八五折；</p>
       </section>
     </div>
   </div>
@@ -4112,7 +4111,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
               '<td class="p-2 align-middle"><select class="mp-sel-giftprod w-full border rounded px-1 py-1 text-sm max-w-[220px]">' + mpProductOptionsHtml(r.giftProductId) + '</select></td>' +
               '<td class="p-2 align-middle"><input type="number" min="1" class="mp-inp-giftqty w-full border rounded px-1 py-1 text-center" value="' + escOpt_(gq) + '"></td>' +
               '<td class="p-2 align-middle"><input type="number" min="0" class="mp-inp-maxpo w-full border rounded px-1 py-1 text-center" value="' + escOpt_(mx) + '"></td>' +
-              '<td class="p-2 align-middle text-center"><input type="checkbox" class="mp-chk-once w-4 h-4 rounded border-gray-300" title="整筆訂單此規則最多送一次"' + (r.oncePerOrder ? ' checked' : '') + '></td>' +
               '<td class="p-2 align-middle"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
             );
           }
@@ -4225,7 +4223,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
                 giftProductId: (tr.querySelector('.mp-sel-giftprod') || {}).value || '',
                 giftQty: parseInt((tr.querySelector('.mp-inp-giftqty') || {}).value, 10),
                 maxPerOrder: parseInt((tr.querySelector('.mp-inp-maxpo') || {}).value, 10),
-                oncePerOrder: !!((tr.querySelector('.mp-chk-once') || {}).checked)
+                oncePerOrder: false
               };
             });
             var itemDiscounts = scan(tbItem, function (tr) {
@@ -7802,7 +7800,6 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
       return posCatalogProductIdFromOrderLine_(it) === bid ? s + (it.quantity || 0) : s;
     }, 0);
     var times = Math.floor(totalBuy / bq);
-    if (rule.oncePerOrder) times = Math.min(times, 1);
     var maxPO = parseInt(rule.maxPerOrder, 10);
     if (!isNaN(maxPO) && maxPO > 0) times = Math.min(times, maxPO);
     if (times > 0) {
