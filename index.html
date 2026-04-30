@@ -14729,7 +14729,7 @@ function _itemsBlock_(itemsOrOrder, opts) {
       addons.forEach(function (addon) {
         if (!addon || !addon.name) return;
         var priceText = '';
-        if (!bundledOnline && addon.price > 0) priceText = '        $' + (addon.price * quantity);
+        if (addon.price > 0) priceText = '        $' + (addon.price * quantity);
         line += '\n➜ ' + addon.name + ' x' + quantity + priceText;
       });
     }
