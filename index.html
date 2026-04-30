@@ -8571,15 +8571,6 @@ function _posItemsBlock_(items) {
     var discText = '';
     if (item.telegramItemDiscountParen != null && String(item.telegramItemDiscountParen).trim() !== '') {
       discText = String(item.telegramItemDiscountParen).trim();
-      if (/^商品打折-\d+$/.test(discText) && useDisc) {
-        var _o = parseInt(item.telegramDiscountOrigLine, 10) || 0;
-        var _s = parseInt(item.telegramDiscountSaleLine, 10) || 0;
-        if (_o > 0 && _s > 0 && _s < _o) {
-          var _z = Math.round((_s / _o * 10) * 10) / 10;
-          var _zTxt = (Math.abs(_z - Math.round(_z)) < 1e-9) ? String(Math.round(_z)) : String(_z);
-          discText = '商品打' + _zTxt + '折';
-        }
-      }
     }
 
     var block;
@@ -9282,9 +9273,28 @@ function buildCurrentOrderData() {
       if (row && row.hasDiscount) {
         base.telegramDiscountOrigLine = row.origLine;
         base.telegramDiscountSaleLine = row.saleLine;
+        var cidRule = String(item.id || '').trim();
+        var multRule = 1;
+        var hasPercentRule = false;
+        (promoCfg && promoCfg.itemDiscounts || []).forEach(function (rule) {
+          if (!rule || rule.enabled === false) return;
+          if (String(rule.productId || '').trim() !== cidRule) return;
+          var modeRule = String(rule.mode || 'percent').trim().toLowerCase() === 'amount' ? 'amount' : 'percent';
+          if (modeRule !== 'percent') return;
+          var vRule = parseFloat(rule.value);
+          if (!(vRule > 0 && vRule <= 100)) return;
+          hasPercentRule = true;
+          multRule *= posPromoPercentPayMultiplier_(vRule);
+        });
         var saveAmt = Math.max(0, (parseInt(row.origLine, 10) || 0) - (parseInt(row.saleLine, 10) || 0));
         if (saveAmt > 0) {
-          base.telegramItemDiscountParen = '商品打折-' + saveAmt;
+          if (hasPercentRule) {
+            var zRule = Math.round((multRule * 10) * 10) / 10;
+            var zRuleText = (Math.abs(zRule - Math.round(zRule)) < 1e-9) ? String(Math.round(zRule)) : String(zRule);
+            base.telegramItemDiscountParen = '商品打' + zRuleText + '折';
+          } else {
+            base.telegramItemDiscountParen = '商品打折-' + saveAmt;
+          }
         }
       }
       return base;
@@ -14722,15 +14732,6 @@ function _itemsBlock_(itemsOrOrder, opts) {
     var discText = '';
     if (item.telegramItemDiscountParen != null && String(item.telegramItemDiscountParen).trim() !== '') {
       discText = String(item.telegramItemDiscountParen).trim();
-      if (/^商品打折-\d+$/.test(discText) && useDisc) {
-        var _orig = parseInt(item.telegramDiscountOrigLine, 10) || 0;
-        var _sale = parseInt(item.telegramDiscountSaleLine, 10) || 0;
-        if (_orig > 0 && _sale > 0 && _sale < _orig) {
-          var _z = Math.round((_sale / _orig * 10) * 10) / 10;
-          var _zText = (Math.abs(_z - Math.round(_z)) < 1e-9) ? String(Math.round(_z)) : String(_z);
-          discText = '商品打' + _zText + '折';
-        }
-      }
     }
     var displayName = effRedundant ? fullName.trim() : baseName;
     var line = telegramLayout
