@@ -8410,13 +8410,28 @@ function _posBareProductNameForPrint_(item) {
   }).filter(Boolean);
   if (!optLabels.length) return s;
   var canon = function (v) { return String(v || '').replace(/\s+/g, '').trim(); };
+  var splitInnerParts = function (v) {
+    return String(v || '')
+      .split(/[、,，\/]/)
+      .map(function (x) { return String(x || '').trim(); })
+      .filter(Boolean);
+  };
   var i;
   for (i = 0; i < 3; i++) {
     var mm = s.match(/(?:（([^）]*)）|\(([^)]*)\))\s*$/);
     if (!mm) break;
     var inner = String(mm[1] != null ? mm[1] : mm[2] || '').trim();
     if (!inner) break;
-    var hit = optLabels.some(function (x) { return canon(x) === canon(inner); });
+    var innerParts = splitInnerParts(inner).map(canon).filter(Boolean);
+    var optCanon = optLabels.map(canon).filter(Boolean);
+    var innerHasAddonPrice = /[+＋]\s*\d+|[\(（]\s*[+＋]?\s*\d+\s*[\)）]/.test(inner);
+    var hit = optCanon.some(function (x) { return x === canon(inner); });
+    if (!hit && innerParts.length && optCanon.length) {
+      hit = innerParts.every(function (p) {
+        return optCanon.some(function (o) { return o === p || o.indexOf(p) >= 0 || p.indexOf(o) >= 0; });
+      });
+    }
+    if (!hit && innerHasAddonPrice) hit = true;
     if (!hit) break;
     s = s.slice(0, mm.index).trim();
   }
