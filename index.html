@@ -8394,16 +8394,31 @@ function _posSortOrderItemsByMainName_(items) {
   });
   return arr.map(function (x) { return x.it; });
 }
-/** 有 options 時先脫掉 name 尾端全形／半形括號，避免組出「炒泡麵（原味）（加辣）」導致列印／拆項錯亂 */
+/** 僅在尾端括號內容與附加選項重複時才移除，商品名本體括號（如「(原味)」）必須保留 */
 function _posBareProductNameForPrint_(item) {
   var s = String(item && item.name != null ? item.name : '').replace(/^'/, '').trim();
   var hasOpts = item && Array.isArray(item.options) && item.options.length > 0;
   if (!hasOpts) return s;
+  var optLabels = (item.options || []).map(function (o) {
+    var t = (typeof o === 'string') ? o : (o && o.name != null ? String(o.name) : '');
+    t = String(t || '').trim();
+    var m = t.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*\d+\s*[\)）]\s*$/);
+    if (m) t = m[1].trim();
+    m = t.match(/^(.+?)\s*[+＋]\s*\d+\s*$/);
+    if (m) t = m[1].trim();
+    return t;
+  }).filter(Boolean);
+  if (!optLabels.length) return s;
+  var canon = function (v) { return String(v || '').replace(/\s+/g, '').trim(); };
   var i;
   for (i = 0; i < 3; i++) {
-    var t = s.replace(/（[^）]*）\s*$/, '').replace(/\([^)]*\)\s*$/, '').trim();
-    if (t === s) break;
-    s = t;
+    var mm = s.match(/(?:（([^）]*)）|\(([^)]*)\))\s*$/);
+    if (!mm) break;
+    var inner = String(mm[1] != null ? mm[1] : mm[2] || '').trim();
+    if (!inner) break;
+    var hit = optLabels.some(function (x) { return canon(x) === canon(inner); });
+    if (!hit) break;
+    s = s.slice(0, mm.index).trim();
   }
   return s;
 }
