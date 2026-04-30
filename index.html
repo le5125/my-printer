@@ -8554,7 +8554,8 @@ function _posItemsBlock_(items) {
     var origFromPayload = useDisc ? (parseInt(item.telegramDiscountOrigLine, 10) || 0) : 0;
     var lineAmt = useDisc ? (origFromPayload || mainLineTotal) : null;
     if (useDisc && !effCollapse && hasAddonLines) {
-      lineAmt = Math.max(0, basePrice * quantity);
+      var origLineForSplit = (origFromPayload > 0) ? origFromPayload : mainLineTotal;
+      lineAmt = Math.max(0, origLineForSplit - (addonPerUnit * quantity));
     }
     var discText = '';
     if (item.telegramItemDiscountParen != null && String(item.telegramItemDiscountParen).trim() !== '') {
@@ -14704,7 +14705,8 @@ function _itemsBlock_(itemsOrOrder, opts) {
     var mainLineTotal = effRedundant ? (priceForLine * quantity) : (unitMain * quantity);
     var lineAmt = useDisc ? (origFromPayload || mainLineTotal) : mainLineTotal;
     if (useDisc && !effRedundant && Array.isArray(addons) && addons.length > 0) {
-      lineAmt = Math.max(0, basePrice * quantity);
+      var origLineForSplit2 = (origFromPayload > 0) ? origFromPayload : mainLineTotal;
+      lineAmt = Math.max(0, origLineForSplit2 - (addonPerUnit * quantity));
     }
     var discText = '';
     if (item.telegramItemDiscountParen != null && String(item.telegramItemDiscountParen).trim() !== '') {
