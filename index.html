@@ -14509,9 +14509,12 @@ function _itemsBlock_(itemsOrOrder, opts) {
       addons = optArr.map(_parseAddonEntryForPrintBridge_);
     } else {
       var nameMatch = fullName.match(/^(.+?)（(.+)）$/);
+      if (nameMatch && !/[+＋]\s*\d+/.test(String(nameMatch[2] || ''))) {
+        nameMatch = null;
+      }
       if (!nameMatch) {
         var hm = fullName.match(/^(.+?)\(([\s\S]+)\)$/);
-        if (hm) nameMatch = hm;
+        if (hm && /[+＋]\s*\d+/.test(String(hm[2] || ''))) nameMatch = hm;
       }
       if (nameMatch) {
         baseName = nameMatch[1].trim();
