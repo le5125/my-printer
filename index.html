@@ -2502,9 +2502,9 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <thead class="bg-gray-50 text-gray-600">
               <tr>
                 <th class="p-2 w-12 align-middle text-center whitespace-nowrap">啟用</th>
-                <th class="p-2 align-middle whitespace-nowrap">買A（商品）</th>
+                <th class="p-2 align-middle whitespace-nowrap">買（商品）</th>
                 <th class="p-2 w-20 align-middle text-center whitespace-nowrap">件數</th>
-                <th class="p-2 align-middle whitespace-nowrap">送B（商品）</th>
+                <th class="p-2 align-middle whitespace-nowrap">贈（商品）</th>
                 <th class="p-2 w-20 align-middle text-center whitespace-nowrap">件數</th>
                 <th class="p-2 w-20 align-middle text-center whitespace-nowrap" title="每單上限（0＝不限）">每單上限</th>
                 <th class="p-2 w-12 align-middle text-center"></th>
@@ -2523,14 +2523,16 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <div class="overflow-x-auto">
           <table class="w-full table-fixed text-sm text-left border border-gray-100 rounded-md overflow-hidden">
             <thead class="bg-gray-50 text-gray-600">
-              <tr>
-                <th class="p-2 w-12 align-middle text-center whitespace-nowrap">啟用</th>
-                <th class="p-2 align-middle whitespace-nowrap">商品</th>
-                <th class="p-2 w-28 align-middle whitespace-nowrap">方式</th>
-                <th class="p-2 w-20 align-middle text-center whitespace-nowrap">數值</th>
-                <th class="p-2 w-12 align-middle text-center"></th>
-              </tr>
-            </thead>
+  <tr>
+    <th class="p-2 w-12 align-middle text-center whitespace-nowrap">啟用</th>
+    <th class="p-2 align-middle whitespace-nowrap">商品</th>
+    <!-- 1. 將 w-28 改為 w-44 (約 176px)，讓方式有空間 -->
+    <th class="p-2 w-44 align-middle text-center whitespace-nowrap">方式</th> 
+    <!-- 2. 將 w-20 改為 w-32 (約 128px)，讓數值有空間 -->
+    <th class="p-2 w-32 align-middle text-center whitespace-nowrap">數值</th>
+    <th class="p-2 w-16 align-middle text-center"></th>
+  </tr>
+</thead>
             <tbody id="merchant-promo-tbody-itemDiscounts"></tbody>
           </table>
         </div>
@@ -2544,17 +2546,21 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         </div>
         <div class="overflow-x-auto">
           <table class="w-full table-fixed text-sm text-left border border-gray-100 rounded-md overflow-hidden">
-            <thead class="bg-gray-50 text-gray-600">
-              <tr>
-                <th class="p-2 w-12 align-middle text-center whitespace-nowrap">啟用</th>
-                <th class="p-2 w-16 align-middle text-center whitespace-nowrap">門檻</th>
-                <th class="p-2 w-20 align-middle text-center whitespace-nowrap">滿額（元）</th>
-                <th class="p-2 align-middle whitespace-nowrap">贈品</th>
-                <th class="p-2 w-20 align-middle text-center whitespace-nowrap">數量</th>
-                <th class="p-2 w-20 align-middle text-center whitespace-nowrap" title="每單上限（0＝不限）">每單上限</th>
-                <th class="p-2 w-12 align-middle text-center"></th>
-              </tr>
-            </thead>
+          <thead class="bg-gray-50 text-gray-600">
+  <tr>
+    <th class="p-2 w-12 align-middle text-center">啟用</th>
+    <!-- 縮小門檻與滿額，原 w-28/w-32 太寬了 -->
+    <th class="p-2 w-24 align-middle text-center whitespace-nowrap">門檻</th>
+    <th class="p-2 w-28 align-middle text-center whitespace-nowrap">滿額（元）</th>
+    <!-- 贈品不設寬度，讓它自動適應剩餘空間 -->
+    <th class="p-2 align-middle whitespace-nowrap">贈品</th>
+    <!-- 數量與上限縮小到 w-20 -->
+    <th class="p-2 w-20 align-middle text-center whitespace-nowrap">數量</th>
+    <th class="p-2 w-20 align-middle text-center whitespace-nowrap">上限</th>
+    <!-- 給按鈕足夠的 w-16 (約 64px) 確保它看得到 -->
+    <th class="p-2 w-16 align-middle text-center"></th>
+  </tr>
+</thead>
             <tbody id="merchant-promo-tbody-thresholdGifts"></tbody>
           </table>
         </div>
@@ -4096,77 +4102,188 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             return parts.join('');
           }
 
-          function mpRowBuyGet(r) {
-            r = r || {};
-            var bq = r.buyQty != null ? r.buyQty : 1;
-            var gq = r.giftQty != null ? r.giftQty : 1;
-            var mx = r.maxPerOrder != null ? r.maxPerOrder : 0;
-            return (
-              '<tr class="merchant-promo-data-row">' +
-              '<td class="p-2 align-middle text-center"><input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300 mx-auto block"' + (r.enabled !== false ? ' checked' : '') + '></td>' +
-              '<td class="p-2 align-middle min-w-0"><select class="mp-sel-buy w-full min-w-0 max-w-[7rem] border rounded px-1 py-1 text-sm">' + mpProductOptionsHtml(r.buyProductId) + '</select></td>' +
-              '<td class="p-2 align-middle text-center"><input type="number" min="1" class="mp-inp-buyqty w-20 max-w-[5rem] border rounded px-1 py-1 text-center mx-auto block" value="' + escOpt_(bq) + '"></td>' +
-              '<td class="p-2 align-middle min-w-0"><select class="mp-sel-giftprod w-full min-w-0 max-w-[7rem] border rounded px-1 py-1 text-sm">' + mpProductOptionsHtml(r.giftProductId) + '</select></td>' +
-              '<td class="p-2 align-middle text-center"><input type="number" min="1" class="mp-inp-giftqty w-20 max-w-[5rem] border rounded px-1 py-1 text-center mx-auto block" value="' + escOpt_(gq) + '"></td>' +
-              '<td class="p-2 align-middle text-center"><input type="number" min="0" class="mp-inp-maxpo w-20 max-w-[5rem] border rounded px-1 py-1 text-center mx-auto block" value="' + escOpt_(mx) + '"></td>' +
-              '<td class="p-2 align-middle text-center"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
-            );
-          }
+           /**1. 買 A 送 B*/
+           function mpRowBuyGet(r) {
+  r = r || {};
+  var bq = r.buyQty != null ? r.buyQty : 1;
+  var gq = r.giftQty != null ? r.giftQty : 1;
+  var mx = r.maxPerOrder != null ? r.maxPerOrder : 0;
 
-          function mpRowItemDisc(r) {
-            r = r || {};
-            var mode = String(r.mode || 'percent') === 'amount' ? 'amount' : 'percent';
-            var val = r.value != null ? r.value : (mode === 'percent' ? 10 : 0);
-            return (
-              '<tr class="merchant-promo-data-row">' +
-              '<td class="p-2 align-middle text-center"><input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300 mx-auto block"' + (r.enabled !== false ? ' checked' : '') + '></td>' +
-              '<td class="p-2 align-middle min-w-0"><select class="mp-sel-product w-full min-w-0 max-w-[7rem] border rounded px-1 py-1 text-sm">' + mpProductOptionsHtml(r.productId) + '</select></td>' +
-              '<td class="p-2 align-middle min-w-0"><select class="mp-sel-mode-item w-full min-w-0 max-w-[9rem] border rounded px-1 py-1 text-sm">' +
-              '<option value="percent"' + (mode === 'percent' ? ' selected' : '') + '>打折（折數）</option>' +
-              '<option value="amount"' + (mode === 'amount' ? ' selected' : '') + '>每份減價（元）</option></select></td>' +
-              '<td class="p-2 align-middle text-center"><input type="number" min="0" step="0.01" class="mp-inp-value w-20 max-w-[5rem] border rounded px-1 py-1 text-center mx-auto block" value="' + escOpt_(val) + '"></td>' +
-              '<td class="p-2 align-middle text-center"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
-            );
-          }
+  return (
+    '<tr class="merchant-promo-data-row border-b border-gray-100 hover:bg-gray-50">' +
+    // 1. 啟用勾選 (固定小寬度)
+    '<td class="p-3 align-middle text-center"><input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300" ' + (r.enabled !== false ? ' checked' : '') + '></td>' +
+    
+    // 2. 買什麼 (加大寬度限制，從 10rem 調整)
+    '<td class="p-2 align-middle"><select class="mp-sel-buy w-full min-w-[120px] max-w-[12rem] border rounded-md px-2 py-1.5 text-sm font-bold shadow-sm">' + mpProductOptionsHtml(r.buyProductId) + '</select></td>' +
+    
+    // 3. 買多少 (數量)
+    '<td class="p-2 align-middle"><input type="number" min="1" class="mp-inp-buyqty w-full min-w-[60px] max-w-[5rem] border rounded-md px-1 py-1.5 text-center text-sm font-bold shadow-sm" value="' + escOpt_(bq) + '"></td>' +
+    
+    // 4. 送什麼 (加大寬度限制，從 7rem 顯著調大)
+    '<td class="p-2 align-middle"><select class="mp-sel-giftprod w-full min-w-[120px] max-w-[12rem] border rounded-md px-2 py-1.5 text-sm font-bold shadow-sm">' + mpProductOptionsHtml(r.giftProductId) + '</select></td>' +
+    
+    // 5. 送多少 (數量)
+    '<td class="p-2 align-middle"><input type="number" min="1" class="mp-inp-giftqty w-full min-w-[60px] max-w-[5rem] border rounded-md px-1 py-1.5 text-center text-sm font-bold shadow-sm" value="' + escOpt_(gq) + '"></td>' +
+    
+    // 6. 每單上限
+    '<td class="p-2 align-middle"><input type="number" min="0" class="mp-inp-maxpo w-full min-w-[60px] max-w-[5rem] border rounded-md px-1 py-1.5 text-center text-sm font-bold shadow-sm" value="' + escOpt_(mx) + '"></td>' +
+    
+    // 7. 操作
+    '<td class="p-2 align-middle text-center"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700  font-bold text-sm  transition-colors">刪除</button></td>' +
+    '</tr>'
+  );
+}
 
-          function mpRowThGift(r) {
-            r = r || {};
-            var gq = r.giftQty != null ? r.giftQty : 1;
-            var mx = r.maxPerOrder != null ? r.maxPerOrder : 0;
-            var basis = String(r.amountBasis || '').toLowerCase() === 'postitem' ? 'postItem' : 'preItem';
-            return (
-              '<tr class="merchant-promo-data-row">' +
-              '<td class="p-2 align-middle text-center"><input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300 mx-auto block"' + (r.enabled !== false ? ' checked' : '') + '></td>' +
-              '<td class="p-2 align-middle text-center"><select class="mp-sel-th-basis w-full max-w-[5.5rem] border rounded px-1 py-1 text-sm mx-auto block">' +
-              '<option value="preItem"' + (basis === 'preItem' ? ' selected' : '') + '>折前</option>' +
-              '<option value="postItem"' + (basis === 'postItem' ? ' selected' : '') + '>折後</option></select></td>' +
-              '<td class="p-2 align-middle text-center"><input type="number" min="0" class="mp-inp-th w-20 max-w-[5rem] border rounded px-1 py-1 text-center mx-auto block" value="' + escOpt_(r.threshold != null ? r.threshold : '') + '"></td>' +
-              '<td class="p-2 align-middle min-w-0"><select class="mp-sel-giftprod w-full min-w-0 max-w-[7rem] border rounded px-1 py-1 text-sm">' + mpProductOptionsHtml(r.giftProductId) + '</select></td>' +
-              '<td class="p-2 align-middle text-center"><input type="number" min="1" class="mp-inp-giftqty w-20 max-w-[5rem] border rounded px-1 py-1 text-center mx-auto block" value="' + escOpt_(gq) + '"></td>' +
-              '<td class="p-2 align-middle text-center"><input type="number" min="0" class="mp-inp-maxpo w-20 max-w-[5rem] border rounded px-1 py-1 text-center mx-auto block" value="' + escOpt_(mx) + '"></td>' +
-              '<td class="p-2 align-middle text-center"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
-            );
-          }
+/**
+ * 2. 單項商品打折 / 減價
+ * 修正重點：優化寬度分配，讓方式與數值靠中間對齊，並解決刪除按鈕重疊問題
+ */
+function mpRowItemDisc(r) {
+  r = r || {};
+  var mode = String(r.mode || 'percent') === 'amount' ? 'amount' : 'percent';
+  var val = r.value != null ? r.value : (mode === 'percent' ? 10 : 0);
 
-          function mpRowThOrder(r) {
-            r = r || {};
-            var mode = String(r.mode || 'percent') === 'amount' ? 'amount' : 'percent';
-            var val = r.value != null ? r.value : (mode === 'percent' ? 10 : 0);
-            var basis = String(r.amountBasis || '').toLowerCase() === 'postitem' ? 'postItem' : 'preItem';
-            return (
-              '<tr class="merchant-promo-data-row">' +
-              '<td class="p-2 align-middle text-center"><input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300 mx-auto block"' + (r.enabled !== false ? ' checked' : '') + '></td>' +
-              '<td class="p-2 align-middle text-center"><select class="mp-sel-th-basis w-full max-w-[5.5rem] border rounded px-1 py-1 text-sm mx-auto block">' +
-              '<option value="preItem"' + (basis === 'preItem' ? ' selected' : '') + '>折前</option>' +
-              '<option value="postItem"' + (basis === 'postItem' ? ' selected' : '') + '>折後</option></select></td>' +
-              '<td class="p-2 align-middle text-center"><input type="number" min="0" class="mp-inp-th w-20 max-w-[5rem] border rounded px-1 py-1 text-center mx-auto block" value="' + escOpt_(r.threshold != null ? r.threshold : '') + '"></td>' +
-              '<td class="p-2 align-middle min-w-0"><select class="mp-sel-mode-order w-full min-w-0 max-w-[9rem] border rounded px-1 py-1 text-sm">' +
-              '<option value="percent"' + (mode === 'percent' ? ' selected' : '') + '>整單打折</option>' +
-              '<option value="amount"' + (mode === 'amount' ? ' selected' : '') + '>整單折讓（元）</option></select></td>' +
-              '<td class="p-2 align-middle text-center"><input type="number" min="0" step="0.01" class="mp-inp-value w-20 max-w-[5rem] border rounded px-1 py-1 text-center mx-auto block" value="' + escOpt_(val) + '"></td>' +
-              '<td class="p-2 align-middle text-center"><button type="button" class="mp-btn-del text-red-500 hover:text-red-700 text-sm px-1">刪除</button></td></tr>'
-            );
-          }
+  return (
+    '<tr class="merchant-promo-data-row border-b border-gray-100 hover:bg-gray-50">' +
+    
+    // 1. 啟用
+    '<td class="p-2 align-middle text-center">' +
+      '<input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300" ' + (r.enabled !== false ? ' checked' : '') + '>' +
+    '</td>' +
+    
+    // 2. 商品
+    '<td class="p-2 align-middle">' +
+      '<select class="mp-sel-product w-full min-w-[120px] max-w-[12rem] border rounded-md px-2 py-1.5 text-sm font-bold shadow-sm">' + 
+        mpProductOptionsHtml(r.productId) + 
+      '</select>' +
+    '</td>' +
+    
+    // 3. 方式 (對齊標題 w-44)
+    '<td class="p-2 align-middle text-center">' +
+      '<select class="mp-sel-mode-item w-full border rounded-md px-2 py-1.5 text-sm font-bold shadow-sm bg-white">' +
+        '<option value="percent"' + (mode === 'percent' ? ' selected' : '') + '>打折（折數）</option>' +
+        '<option value="amount"' + (mode === 'amount' ? ' selected' : '') + '>每份減價（元）</option>' +
+      '</select>' +
+    '</td>' +
+    
+    // 4. 數值 (對齊標題 w-32)
+    '<td class="p-2 align-middle text-center">' +
+      '<input type="number" min="0" step="0.01" class="mp-inp-value w-full border rounded-md px-1 py-1.5 text-center text-sm font-bold shadow-sm" value="' + escOpt_(val) + '">' +
+    '</td>' +
+    
+    // 5. 操作按鈕
+    '<td class="p-2 align-middle text-center">' +
+      '<button type="button" class="mp-btn-del text-red-500 hover:text-red-700 font-bold text-sm transition-colors">刪除</button>' +
+    '</td>' +
+    
+    '</tr>'
+  );
+}
+
+          /**3. 消費滿額送商品*/
+function mpRowThGift(r) {
+  r = r || {};
+  var gq = r.giftQty != null ? r.giftQty : 1;
+  var mx = r.maxPerOrder != null ? r.maxPerOrder : 0;
+  var basis = String(r.amountBasis || '').toLowerCase() === 'postitem' ? 'postItem' : 'preItem';
+
+  return (
+    '<tr class="merchant-promo-data-row border-b border-gray-100 hover:bg-gray-50">' +
+    
+    // 1. 啟用
+    '<td class="p-2 align-middle text-center">' +
+      '<input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300" ' + (r.enabled !== false ? ' checked' : '') + '>' +
+    '</td>' +
+    
+    // 2. 門檻
+    '<td class="p-2 align-middle text-center">' +
+      '<select class="mp-sel-th-basis w-full border rounded-md px-1 py-1 text-sm font-bold shadow-sm bg-white">' +
+        '<option value="preItem"' + (basis === 'preItem' ? ' selected' : '') + '>折前</option>' +
+        '<option value="postItem"' + (basis === 'postItem' ? ' selected' : '') + '>折後</option>' +
+      '</select>' +
+    '</td>' +
+    
+    // 3. 滿額
+    '<td class="p-2 align-middle text-center">' +
+      '<input type="number" min="0" class="mp-inp-th w-full border rounded-md px-1 py-1 text-center text-sm font-bold shadow-sm" value="' + escOpt_(r.threshold != null ? r.threshold : '') + '">' +
+    '</td>' +
+    
+    // 4. 贈品 - 限制最大寬度，防止擠壓右邊
+    '<td class="p-2 align-middle">' +
+      '<select class="mp-sel-giftprod w-full max-w-[12rem] border rounded-md px-2 py-1 text-sm font-bold shadow-sm bg-white">' + 
+        mpProductOptionsHtml(r.giftProductId) + 
+      '</select>' +
+    '</td>' +
+
+    // 5. 數量 (縮小寬度)
+    '<td class="p-2 align-middle text-center">' +
+      '<input type="number" min="1" class="mp-inp-giftqty w-14 border rounded-md px-1 py-1 text-center text-sm font-bold shadow-sm" value="' + escOpt_(gq) + '">' +
+    '</td>' +
+    
+    // 6. 每單上限 (縮小寬度)
+    '<td class="p-2 align-middle text-center">' +
+      '<input type="number" min="0" class="mp-inp-maxpo w-14 border rounded-md px-1 py-1 text-center text-sm font-bold shadow-sm" value="' + escOpt_(mx) + '">' +
+    '</td>' +
+    
+    // 7. 操作按鈕 (確保不被擠壓)
+    '<td class="p-2 align-middle text-center">' +
+      '<button type="button" class="mp-btn-del text-red-500 hover:text-red-700 font-bold text-sm transition-colors">刪除</button>' +
+    '</td>' +
+    
+    '</tr>'
+  );
+}
+
+          /**4. 消費滿額整單打折 / 折讓*/
+function mpRowThOrder(r) {
+  r = r || {};
+  var mode = String(r.mode || 'percent') === 'amount' ? 'amount' : 'percent';
+  var val = r.value != null ? r.value : (mode === 'percent' ? 10 : 0);
+  var basis = String(r.amountBasis || '').toLowerCase() === 'postitem' ? 'postItem' : 'preItem';
+
+  return (
+    '<tr class="merchant-promo-data-row border-b border-gray-100 hover:bg-gray-50">' +
+    
+    // 1. 啟用勾選
+    '<td class="p-3 align-middle text-center">' +
+      '<input type="checkbox" class="mp-inp-enabled w-4 h-4 rounded border-gray-300" ' + (r.enabled !== false ? ' checked' : '') + '>' +
+    '</td>' +
+    
+    // 2. 判定基準 (加粗)
+    '<td class="p-2 align-middle text-center">' +
+      '<select class="mp-sel-th-basis w-full min-w-[85px] max-w-[6.5rem] border rounded-md px-1 py-1.5 text-sm font-bold shadow-sm bg-white">' +
+        '<option value="preItem"' + (basis === 'preItem' ? ' selected' : '') + '>折前</option>' +
+        '<option value="postItem"' + (basis === 'postItem' ? ' selected' : '') + '>折後</option>' +
+      '</select>' +
+    '</td>' +
+    
+    // 3. 門檻金額 (加粗)
+    '<td class="p-2 align-middle text-center">' +
+      '<input type="number" min="0" placeholder="門檻" class="mp-inp-th w-full min-w-[90px] max-w-[6.5rem] border rounded-md px-1 py-1.5 text-center text-sm font-bold shadow-sm" value="' + escOpt_(r.threshold != null ? r.threshold : '') + '">' +
+    
+    
+    // 4. 折扣模式 (加粗並加寬)
+    '<td class="p-2 align-middle">' +
+      '<select class="mp-sel-mode-order w-full min-w-[130px] max-w-[10rem] border rounded-md px-2 py-1.5 text-sm font-bold shadow-sm bg-white">' +
+        '<option value="percent"' + (mode === 'percent' ? ' selected' : '') + '>整單打折</option>' +
+        '<option value="amount"' + (mode === 'amount' ? ' selected' : '') + '>整單折讓（元）</option>' +
+      '</select>' +
+    '</td>' +
+    
+    // 5. 折扣數值 (加粗)
+    '<td class="p-2 align-middle text-center">' +
+      '<input type="number" min="0" step="0.01" class="mp-inp-value w-full min-w-[80px] max-w-[6rem] border rounded-md px-1 py-1.5 text-center text-sm font-bold shadow-sm" value="' + escOpt_(val) + '">' +
+    '</td>' +
+    
+    // 6. 操作按鈕
+    '<td class="p-2 align-middle text-center">' +
+      '<button type="button" class="mp-btn-del text-red-500 hover:text-red-700  font-bold text-sm  px-2 transition-colors">刪除</button>' +
+    '</td>' +
+    
+    '</tr>'
+  );
+}
 
           function renderAllFromPayload_(payload) {
             payload = payload || {};
