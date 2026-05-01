@@ -12326,7 +12326,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           var detailLines = [];
           if (row.reservationDate) detailLines.push('日期：' + String(row.reservationDate));
           if (row.reservationTime) detailLines.push('時間：' + String(row.reservationTime));
+          if (row.people) detailLines.push('人數：' + String(row.people));
           if (row.phone) detailLines.push('電話：' + String(row.phone));
+          if (row.note) detailLines.push('備註: ' + String(row.note));
           if (totalNum) detailLines.push('金額：' + String(totalNum));
           if (row.itemCount) detailLines.push('品項：共 ' + String(row.itemCount) + ' 項');
           if (row.paymentType) {
