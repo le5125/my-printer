@@ -8326,9 +8326,46 @@ function buildPrinterOrderPayloadFull_(orderData) {
       printThisLabel: false
     }];
   }
-  var packedReservationText = (typeof orderData.orderDetailTextForPrint === 'string' && orderData.orderDetailTextForPrint.trim())
-    ? String(orderData.orderDetailTextForPrint).trim()
-    : reservationDetailText;
+  var packedReservationText = '';
+  if (reservationForPrint) {
+    var totalNum = parseInt(orderData.total, 10) || 0;
+    var depositNum = parseInt(reservationForPrint.depositAmount, 10) || 0;
+    var unpaidRaw = parseInt(orderData.unpaidAmount, 10);
+    var unpaidNum = isFinite(unpaidRaw) ? unpaidRaw : ((reservationForPrint.paymentType === '訂金') ? Math.max(0, totalNum - depositNum) : 0);
+    var itemCountNum = 0;
+    if (orderData.merchantPromoTelegram && orderData.merchantPromoTelegram.lineItemCount != null) {
+      itemCountNum = parseInt(orderData.merchantPromoTelegram.lineItemCount, 10) || 0;
+    }
+    if (!itemCountNum && mappedItems.length) {
+      itemCountNum = mappedItems.reduce(function (sum, it) {
+        return sum + (parseInt(it.quantity, 10) || 0);
+      }, 0);
+    }
+    var lines = [];
+    if (reservationForPrint.date) lines.push('日期：' + reservationForPrint.date);
+    if (reservationForPrint.time) lines.push('時間：' + reservationForPrint.time);
+    if (reservationForPrint.people) lines.push('人數：' + reservationForPrint.people);
+    if (reservationForPrint.phone) lines.push('電話：' + reservationForPrint.phone);
+    if (reservationForPrint.note) lines.push('備註: ' + reservationForPrint.note);
+    if (totalNum) lines.push('金額：' + String(totalNum));
+    if (itemCountNum > 0) lines.push('品項：共 ' + String(itemCountNum) + ' 項');
+    if (reservationForPrint.paymentType) {
+      if (reservationForPrint.paymentType === '訂金') lines.push('訂金:' + String(depositNum || 0));
+      else lines.push('付清');
+    }
+    if (unpaidNum > 0) lines.push('未清：' + String(unpaidNum));
+    var itemBody = '';
+    try { itemBody = _itemsBlock_(orderData, { telegramLayout: true }); } catch (eBody) { itemBody = ''; }
+    if (itemBody && String(itemBody).trim()) {
+      lines.push('商品明細：');
+      lines.push(String(itemBody).trim());
+    }
+    packedReservationText = lines.join('\n');
+  } else {
+    packedReservationText = (typeof orderData.orderDetailTextForPrint === 'string' && orderData.orderDetailTextForPrint.trim())
+      ? String(orderData.orderDetailTextForPrint).trim()
+      : reservationDetailText;
+  }
   return {
     clientId : 'C' + nowTs + '-' + Math.floor(Math.random() * 1e6),
     orderId  : orderData.orderId || '',
@@ -8343,7 +8380,7 @@ function buildPrinterOrderPayloadFull_(orderData) {
     merchantPromoTelegram: orderData.merchantPromoTelegram && typeof orderData.merchantPromoTelegram === 'object'
       ? orderData.merchantPromoTelegram : undefined,
     reservation: reservationForPrint || undefined,
-    reservationCardPrint: orderData && orderData.reservationCardPrint === true,
+    reservationCardPrint: !!reservationForPrint || (orderData && orderData.reservationCardPrint === true),
     orderDetailTextForPrint: packedReservationText || undefined,
     items    : mappedItems
   };
