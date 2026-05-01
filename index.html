@@ -8355,11 +8355,11 @@ function _posPreviewSampleOrder_() {
     return sum + (Number(it.price) || 0) * (Number(it.quantity) || 0);
   }, 0);
   return {
-    orderId: 'A1734',
-    shortId: '734',
+    orderId: 'A1688',
+    shortId: '1688',
     timestamp: now,
     pickupTime: pad(now.getHours()) + ':' + pad((now.getMinutes() + 15) % 60),
-    phone: '0912345678',
+    phone: '0988168168',
     remark: '不要餐具',
     total: total,
     items: items,
@@ -8701,45 +8701,10 @@ function _posCurrentStoreName_() {
   return '';
 }
 
-/** 打印設定「模式B」預覽：{品項} 僅示範第一個主餐＋附加選項＋單品備註（與菜單第一筆對齊） */
+/** 打印設定「模式B」預覽：{品項} 與送印相同（_itemsBlock_ telegram 版面＋emoji→>） */
 function _posDetailTemplateBPreviewItemsBlock_(ord) {
-  var arr = ord && Array.isArray(ord.items) ? ord.items : [];
-  var it = arr[0];
-  if (!it) it = _posFirstMenuItemForPreview_();
-  if (!it) return '';
-  var q = parseInt(it.quantity != null ? it.quantity : (it.qty || 1), 10) || 1;
-  var basePrice = parseInt(it.price != null ? it.price : 0, 10) || 0;
-  var fullNm = String(it.name || '').replace(/^'/, '').trim();
-  var bare = _posBareProductNameForPrint_(it);
-  var optArr = it.options || it.addons;
-  var addons = [];
-  if (Array.isArray(optArr) && optArr.length) {
-    addons = optArr.map(_posParseAddonEntryForPrint_).filter(function (a) {
-      return a && String(a.name || '').trim();
-    });
-  }
-  var collapse = _posCollapseParenAddonsForPrint_(fullNm, optArr || []);
-  var priceBasis = basePrice;
-  var addonPerUnit = addons.reduce(function (s, a) { return s + (parseInt(a.price, 10) || 0); }, 0);
-  var hasAddonLines = addons.length > 0;
-  var effCollapse = collapse;
-  var unitMain = effCollapse ? priceBasis : Math.max(0, priceBasis - addonPerUnit);
-  var mainLineTotal = effCollapse ? (priceBasis * q) : (unitMain * q);
-  var displayName = effCollapse ? fullNm : (String(bare).trim() || fullNm);
-  displayName = _posPrinterEmojisToGt_(String(displayName).trim());
-  var lines = [displayName + ' *' + q + '   $' + mainLineTotal];
-  if (!effCollapse && hasAddonLines) {
-    addons.forEach(function (ad) {
-      var adName = _posPrinterEmojisToGt_(String(ad.name || '').trim());
-      if (!adName) return;
-      lines.push(adName + '*' + q);
-    });
-  }
-  var noteLine = '';
-  try { noteLine = (typeof _labelItemNoteText_ === 'function') ? String(_labelItemNoteText_(it) || '').trim() : ''; } catch (eN) { noteLine = ''; }
-  if (!noteLine && it.note != null) noteLine = String(it.note).trim();
-  if (noteLine) lines.push('（' + _posPrinterEmojisToGt_(noteLine) + '）');
-  return lines.join('\n');
+  var o = ord && Array.isArray(ord.items) && ord.items.length ? ord : _posPreviewSampleOrder_();
+  return _printerEmojisToGt_(_itemsBlock_(o, { telegramLayout: true }));
 }
 
 function _posPreviewDetail_(tpl) {
@@ -15121,7 +15086,8 @@ function renderDetailFromOrder_(ord) {
     '電話'    : _printerEmojisToGt_(ord.phone || ''),
     '備註'    : _printerEmojisToGt_(ord.remark || ord.notes || ''),
     '總計'    : ord.total != null ? ord.total : '',
-    '品項'    : _itemsBlock_(ord.items)
+    /* 模式B {品項}：與「打印明細／通知同版」商品區塊相同（ x 數　　$、➜ 加購、贈品列，再 emoji→>） */
+    '品項'    : _printerEmojisToGt_(_itemsBlock_(ord, { telegramLayout: true }))
   };
   return _renderTemplate_(getDetailTemplate_(), map);
 }
