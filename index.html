@@ -16046,9 +16046,9 @@ function stripOrderDateToYyyyMmDdForPrint_(raw) {
 function buildReceiptDetailBodyMirroringGas_(ord) {
   if (!ord) return '';
   var packed = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
+  if (packed) return packed;
   var hasItems = Array.isArray(ord.items) && ord.items.length > 0;
   if (hasItems) return _itemsBlock_(ord, { telegramLayout: true });
-  if (packed) return packed;
   return '';
 }
 function buildReservationBlockForPrint_(ord) {
@@ -16075,6 +16075,15 @@ function buildReservationBlockForPrint_(ord) {
 }
 function buildReceiptPlainTextMirroringGas_(ord) {
   if (!ord) return '';
+  var packed = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
+  var hasReservationObj = !!(ord.reservation && typeof ord.reservation === 'object');
+  var isReservationCardPrint = ord.reservationCardPrint === true
+    || (hasReservationObj && !!packed && /(^|\n)日期：/.test(packed) && /(^|\n)時間：/.test(packed));
+  if (isReservationCardPrint) {
+    if (packed) return '(預約)\n' + packed;
+    var rb = buildReservationBlockForPrint_(ord);
+    return rb ? ('(預約)\n' + rb) : '(預約)';
+  }
   var srcRaw = ord.source;
   var isPos = (srcRaw === 'pos' || srcRaw === undefined || srcRaw === null || String(srcRaw).trim() === '');
   var srcTag = isPos ? '🏪【現場/POS】' : '📱【線上】';
