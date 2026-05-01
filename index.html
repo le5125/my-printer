@@ -12366,25 +12366,30 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (!isFinite(unpaidNum)) {
             unpaidNum = String(row.paymentType || '') === '訂金' ? Math.max(0, totalNum - depositNum) : 0;
           }
+          var packedFromCard = (row.orderDetailTextForPrint != null ? String(row.orderDetailTextForPrint) : '').replace(/\r\n/g, '\n').trim();
           var detailLines = [];
-          if (row.reservationDate) detailLines.push('日期：' + String(row.reservationDate));
-          if (row.reservationTime) detailLines.push('時間：' + String(row.reservationTime));
-          if (row.people) detailLines.push('人數：' + String(row.people));
-          if (row.phone) detailLines.push('電話：' + String(row.phone));
-          if (row.note) detailLines.push('備註: ' + String(row.note));
-          if (totalNum) detailLines.push('金額：' + String(totalNum));
-          if (row.itemCount) detailLines.push('品項：共 ' + String(row.itemCount) + ' 項');
-          if (row.paymentType) {
-            if (String(row.paymentType) === '訂金') detailLines.push('訂金:' + String(depositNum || 0));
-            else detailLines.push('付清');
-          }
-          if (unpaidNum > 0) detailLines.push('未清：' + String(unpaidNum));
-          if (row.itemDetail) {
-            detailLines.push('商品明細：');
-            String(row.itemDetail).split('\n').forEach(function (ln) {
-              var t = String(ln || '');
-              if (t !== '') detailLines.push(t);
-            });
+          if (packedFromCard) {
+            detailLines = packedFromCard.split('\n');
+          } else {
+            if (row.reservationDate) detailLines.push('日期：' + String(row.reservationDate));
+            if (row.reservationTime) detailLines.push('時間：' + String(row.reservationTime));
+            if (row.people) detailLines.push('人數：' + String(row.people));
+            if (row.phone) detailLines.push('電話：' + String(row.phone));
+            if (row.note) detailLines.push('備註: ' + String(row.note));
+            if (totalNum) detailLines.push('金額：' + String(totalNum));
+            if (row.itemCount) detailLines.push('品項：共 ' + String(row.itemCount) + ' 項');
+            if (row.paymentType) {
+              if (String(row.paymentType) === '訂金') detailLines.push('訂金:' + String(depositNum || 0));
+              else detailLines.push('付清');
+            }
+            if (unpaidNum > 0) detailLines.push('未清：' + String(unpaidNum));
+            if (row.itemDetail) {
+              detailLines.push('商品明細：');
+              String(row.itemDetail).split('\n').forEach(function (ln) {
+                var t = String(ln || '');
+                if (t !== '') detailLines.push(t);
+              });
+            }
           }
           return {
             orderId: printOrderId,
