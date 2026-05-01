@@ -7316,8 +7316,16 @@ function _posMigrateDetailTemplatePlaceholders_(tpl) {
   return tpl.replace(/(備註:\s*\{備註\})/, '$1\n{品項數量}\n{促銷資訊}');
 }
 function getPosDetailTemplate_() {
-  var t = (typeof _posDetailTplCache_ === 'string' && _posDetailTplCache_.length)
-    ? _posDetailTplCache_ : POS_DEFAULT_DETAIL_TEMPLATE;
+  var t = null;
+  if (typeof _posDetailTplCache_ === 'string' && _posDetailTplCache_.length) {
+    t = _posDetailTplCache_;
+  } else {
+    try {
+      var v = localStorage.getItem(LS_DETAIL_TEMPLATE);
+      if (typeof v === 'string' && v.length) t = v;
+    } catch (eLS) { /* 略 */ }
+  }
+  if (typeof t !== 'string' || !t.length) t = POS_DEFAULT_DETAIL_TEMPLATE;
   return _posMigrateDetailTemplatePlaceholders_(t);
 }
 function getPosLabelTemplate_() {
@@ -15264,6 +15272,9 @@ async function syncPrintSettingsFromBackend_() {
       const rw = parseInt(String(data.rollWidthMm).trim(), 10);
       if (rw >= 40 && rw <= 120) localStorage.setItem(LS_ROLL_WIDTH_MM, String(rw));
     }
+    try {
+      applyPrintSettingsBackendPayloadToCaches_(data);
+    } catch (eC) { /* 略：與列印 UI 用同一套記憶體快取 */ }
     return true;
   } catch (e) {
     return false;
