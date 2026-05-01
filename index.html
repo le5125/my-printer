@@ -12313,23 +12313,25 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           var printTs = Date.now();
           var printNonce = Math.floor(Math.random() * 1000000);
           var printOrderId = 'RES-' + String(row.rowNo || 'X') + '-' + String(printTs) + '-' + String(printNonce);
+          var totalNum = parseInt(row.total, 10) || 0;
+          var depositNum = parseInt(row.depositAmount, 10) || 0;
+          var unpaidNum = parseInt(row.unpaidAmount, 10);
+          if (!isFinite(unpaidNum)) {
+            unpaidNum = String(row.paymentType || '') === '訂金' ? Math.max(0, totalNum - depositNum) : 0;
+          }
           var detailLines = [];
           if (row.reservationDate) detailLines.push('日期：' + String(row.reservationDate));
           if (row.reservationTime) detailLines.push('時間：' + String(row.reservationTime));
-          if (row.people) detailLines.push('人數：' + String(row.people));
           if (row.phone) detailLines.push('電話：' + String(row.phone));
-          if (row.total) detailLines.push('金額：' + String(row.total));
+          if (totalNum) detailLines.push('金額：' + String(totalNum));
           if (row.itemCount) detailLines.push('品項：共 ' + String(row.itemCount) + ' 項');
           if (row.paymentType) {
-            if (String(row.paymentType) === '訂金') detailLines.push('訂金:' + String(row.depositAmount || ''));
+            if (String(row.paymentType) === '訂金') detailLines.push('訂金:' + String(depositNum || 0));
             else detailLines.push('付清');
           }
-          if (row.unpaidAmount) detailLines.push('未清：' + String(row.unpaidAmount));
-          if (row.note) detailLines.push('備註: ' + String(row.note));
+          if (unpaidNum > 0) detailLines.push('未清：' + String(unpaidNum));
           if (row.itemDetail) {
-            detailLines.push('');
             detailLines.push('商品明細：');
-            detailLines.push('');
             String(row.itemDetail).split('\n').forEach(function (ln) {
               var t = String(ln || '');
               if (t !== '') detailLines.push(t);
@@ -12350,10 +12352,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               phone: String(row.phone || ''),
               note: String(row.note || ''),
               paymentType: String(row.paymentType || ''),
-              depositAmount: String(row.depositAmount || '')
+              depositAmount: String(row.depositAmount || ''),
+              unpaidAmount: String(unpaidNum || 0)
             },
             items: [],
-            orderDetailTextForPrint: detailLines.join('\n')
+            orderDetailTextForPrint: detailLines.join('\n'),
+            reservationCardPrint: true
           };
         }
         function printReservationCard_(r) {
