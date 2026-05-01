@@ -8285,6 +8285,17 @@ function buildPrinterOrderPayloadFull_(orderData) {
     detailPrintLayout: getPosDetailPrintLayout_(),
     merchantPromoTelegram: orderData.merchantPromoTelegram && typeof orderData.merchantPromoTelegram === 'object'
       ? orderData.merchantPromoTelegram : undefined,
+    reservation: orderData.reservation && typeof orderData.reservation === 'object'
+      ? {
+          date: String(orderData.reservation.date || '').trim(),
+          time: String(orderData.reservation.time || '').trim(),
+          people: String(orderData.reservation.people || '').trim(),
+          phone: String(orderData.reservation.phone || '').trim(),
+          note: String(orderData.reservation.note || '').trim(),
+          paymentType: String(orderData.reservation.paymentType || '').trim(),
+          depositAmount: String(orderData.reservation.depositAmount || '').trim()
+        }
+      : undefined,
     items    : items.map(function (i) {
       var o = {
         name    : i.name || '',
@@ -9801,6 +9812,17 @@ function submitReservationOnly_(orderData) {
   }
   if (_posOrderSubmitInFlight) return;
   _posOrderSubmitInFlight = true;
+  var snapshot;
+  try {
+    snapshot = JSON.parse(JSON.stringify(orderData));
+  } catch (eSnap) {
+    snapshot = orderData;
+  }
+  try {
+    if (typeof pingPrinterPageInstantTrigger_ === 'function') {
+      pingPrinterPageInstantTrigger_(snapshot);
+    }
+  } catch (ePr) { /* 略 */ }
   try { clearOrder(); } catch (e) {}
   posReservationDraft = null;
   posRefreshReservationButtonState_();
@@ -15932,11 +15954,35 @@ function buildReceiptDetailBodyMirroringGas_(ord) {
   if (packed) return packed;
   return '';
 }
+function buildReservationBlockForPrint_(ord) {
+  var r = ord && ord.reservation && typeof ord.reservation === 'object' ? ord.reservation : null;
+  if (!r) return '';
+  var lines = [];
+  var date = String(r.date || '').trim();
+  var time = String(r.time || '').trim();
+  var people = String(r.people || '').trim();
+  var phone = String(r.phone || '').trim();
+  var note = String(r.note || '').trim();
+  var paymentType = String(r.paymentType || '').trim();
+  var deposit = String(r.depositAmount || '').trim();
+  if (date) lines.push('日期：' + date);
+  if (time) lines.push('時間：' + time);
+  if (people) lines.push('人數：' + people);
+  if (phone) lines.push('電話：' + phone);
+  if (note) lines.push('備註：' + note);
+  if (paymentType) {
+    if (paymentType === '訂金') lines.push('付清/訂金：訂金 ' + (deposit || '0'));
+    else lines.push('付清/訂金：' + paymentType);
+  }
+  return lines.join('\n');
+}
 function buildReceiptPlainTextMirroringGas_(ord) {
   if (!ord) return '';
   var srcRaw = ord.source;
   var isPos = (srcRaw === 'pos' || srcRaw === undefined || srcRaw === null || String(srcRaw).trim() === '');
   var srcTag = isPos ? '🏪【現場/POS】' : '📱【線上】';
+  var reservationBlock = buildReservationBlockForPrint_(ord);
+  var hasReservation = !!reservationBlock;
   var dateStr = '';
   if (ord.date != null && String(ord.date).trim() !== '') {
     dateStr = stripOrderDateToYyyyMmDdForPrint_(ord.date);
@@ -15944,7 +15990,8 @@ function buildReceiptPlainTextMirroringGas_(ord) {
     var ft = _formatOrderTime_(ord.timestamp);
     dateStr = String(ft.date || '').replace(/\//g, '-');
   }
-  var message = '📦 有一筆新訂單！' + srcTag + '\n' +
+  var title = hasReservation ? '📦 有一筆新預約！' : '📦 有一筆新訂單！';
+  var message = title + srcTag + '\n' +
     '編號：' + String(ord.orderId != null ? ord.orderId : '') + '\n' +
     '日期：' + dateStr;
   if (ord.pickupTime) message += '\n取餐時間：' + String(ord.pickupTime);
@@ -15954,6 +16001,7 @@ function buildReceiptPlainTextMirroringGas_(ord) {
   if (mpt && mpt.lineItemCount != null) message += '\n品項：共 ' + String(mpt.lineItemCount) + ' 項';
   var orderNotes = (ord.notes != null ? String(ord.notes).trim() : '') || (ord.remark != null ? String(ord.remark).trim() : '');
   if (orderNotes) message += '\n備註：' + orderNotes;
+  if (hasReservation) message += '\n\n【預約資訊】\n' + reservationBlock;
   if (mpt && Array.isArray(mpt.activityParenLines) && mpt.activityParenLines.length) {
     mpt.activityParenLines.forEach(function (ln) {
       if (!ln) return;
