@@ -12353,6 +12353,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         const orderBoardMenuBtn = document.getElementById('order-board-menu-btn');
         const reservationViewTab = document.getElementById('reservation-view-tab');
         var _reservationBoardRows = [];
+        var _reservationPrintTextByRowNo = {};
         var _reservationBoardPrefetched = false;
         function buildReservationPrintPayload_(r) {
           var row = r || {};
@@ -12426,6 +12427,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           const grid = document.getElementById('reservation-board-grid');
           if (!grid) return;
           _reservationBoardRows = Array.isArray(rows) ? rows.slice() : [];
+          _reservationPrintTextByRowNo = {};
           var dateFilterEl = document.getElementById('reservation-filter-date');
           var phoneFilterEl = document.getElementById('reservation-filter-phone');
           var dateFilter = dateFilterEl ? String(dateFilterEl.value || '').trim() : '';
@@ -12444,18 +12446,31 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             const card = document.createElement('div');
             card.className = 'order-card card-pos';
             const lines = [];
+            const printLines = [];
             if (r.reservationDate) lines.push('日期：' + kdsEscapeHtml(r.reservationDate));
+            if (r.reservationDate) printLines.push('日期：' + String(r.reservationDate));
             if (r.reservationTime) lines.push('時間：' + kdsEscapeHtml(r.reservationTime));
+            if (r.reservationTime) printLines.push('時間：' + String(r.reservationTime));
             if (r.people) lines.push('人數：' + kdsEscapeHtml(r.people));
+            if (r.people) printLines.push('人數：' + String(r.people));
             if (r.phone) lines.push('電話：' + kdsEscapeHtml(r.phone));
+            if (r.phone) printLines.push('電話：' + String(r.phone));
             var noteHtml = r.note ? ('<div class="order-card-remark">備註: ' + kdsEscapeHtml(r.note) + '</div>') : '';
+            if (r.note) printLines.push('備註: ' + String(r.note));
             if (r.total) lines.push('金額：' + kdsEscapeHtml(r.total));
+            if (r.total) printLines.push('金額：' + String(r.total));
             if (r.itemCount) lines.push('品項：共 ' + kdsEscapeHtml(r.itemCount) + ' 項');
+            if (r.itemCount) printLines.push('品項：共 ' + String(r.itemCount) + ' 項');
             if (r.paymentType) {
               if (r.paymentType === '訂金') lines.push('訂金:' + kdsEscapeHtml(r.depositAmount || ''));
               else lines.push('付清');
             }
+            if (r.paymentType) {
+              if (r.paymentType === '訂金') printLines.push('訂金:' + String(r.depositAmount || ''));
+              else printLines.push('付清');
+            }
             if (r.unpaidAmount) lines.push('未清：' + kdsEscapeHtml(r.unpaidAmount));
+            if (r.unpaidAmount) printLines.push('未清：' + String(r.unpaidAmount));
             var detailBlock = '';
             if (r.itemDetail) {
               var detailLinesHtml = String(r.itemDetail || '').split('\n').map(function (ln) {
@@ -12466,7 +12481,13 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                   '<div class="order-card-line-telegram">商品明細：</div>' +
                   '<div class="mt-1">' + detailLinesHtml + '</div>' +
                 '</div>';
+              printLines.push('商品明細：');
+              String(r.itemDetail || '').split('\n').forEach(function (ln) {
+                var t = String(ln || '').trim();
+                if (t) printLines.push(t);
+              });
             }
+            _reservationPrintTextByRowNo[String(r.rowNo)] = printLines.join('\n');
             card.innerHTML =
               '<div class="order-card-header">' +
                 '<span class="order-card-tag tag-pos">預約</span>' +
@@ -12488,6 +12509,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               var rn = parseInt(this.getAttribute('data-row'), 10);
               var row = (_reservationBoardRows || []).find(function (x) { return parseInt(x.rowNo, 10) === rn; });
               if (!row) return;
+              var rawPrintText = _reservationPrintTextByRowNo[String(rn)] || '';
+              if (rawPrintText) row.orderDetailTextForPrint = rawPrintText;
+              row.reservationCardPrint = true;
               printReservationCard_(row);
             });
           });
