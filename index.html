@@ -2716,14 +2716,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
       <!-- 打印明細編輯區 -->
       <div id="print-template-detail" class="flex flex-col gap-2 flex-1 min-h-0">
-        <div class="bg-amber-50 border border-amber-200 rounded p-2 flex flex-wrap items-center gap-3 text-sm">
-          <span class="font-bold text-amber-900">明細紙張</span>
-          <label class="inline-flex items-center gap-1">
-            <span class="text-gray-700">捲紙寬度（mm）</span>
-            <input type="number" id="detail-roll-width-mm" min="40" max="120" step="1" value="80"
-              class="border border-amber-300 rounded px-2 py-1 w-20 bg-white">
-          </label>
-        </div>
         <div class="bg-blue-50 border border-blue-200 rounded p-2 flex flex-wrap items-center gap-3 text-sm">
           <span class="font-bold text-blue-900">明細模式</span>
           <label class="inline-flex items-center gap-1">
@@ -2735,10 +2727,16 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <span class="text-gray-700">模式B：模板明細</span>
           </label>
         </div>
-        <div class="bg-gray-50 border border-gray-200 rounded p-2 flex flex-wrap items-center gap-3 text-sm">
-          <span class="font-bold text-gray-800">明細字體</span>
+        <div class="bg-gray-50 border border-gray-200 rounded p-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          <span class="font-bold text-gray-800 shrink-0">紙張</span>
           <label class="inline-flex items-center gap-1">
-            <span class="text-gray-700">大小</span>
+            <input type="number" id="detail-roll-width-mm" min="40" max="120" step="1" value="80"
+              class="border border-gray-300 rounded px-2 py-1 w-16 bg-white text-right">
+            <span class="text-gray-600">mm</span>
+          </label>
+          <span class="text-gray-400 hidden sm:inline" aria-hidden="true">|</span>
+          <span class="font-bold text-gray-800 shrink-0">字體</span>
+          <label class="inline-flex items-center gap-1">
             <select id="detail-font-size" class="border border-gray-300 rounded px-2 py-1 bg-white">
               <option value="small">小</option>
               <option value="normal" selected>中（預設）</option>
@@ -7214,14 +7212,12 @@ function sendToPrinter(/* order */) { /* no-op */ }
 const POS_LS_PRINTER_URL = 'pos_printer_page_url'; // 只剩這個還用 LS（純粹是 GitHub Pages 列印頁網址，不是樣版內容）
 
 const POS_DEFAULT_DETAIL_TEMPLATE = [
-  '{中}{粗}== {店名} =={重置}',
+  '{小}{粗}== {店名} =={重置}',
   '訂單 #{訂單編號}',
   '時間: {時間}',
-  '{粗}取餐時間: {細}{取餐時間}{細}',
+  '{粗}取餐時間: {細}{取餐時間}',
   '電話: {電話}',
   '備註: {備註}',
-  '{品項數量}',
-  '{促銷資訊}',
   '----------------',
   '{品項}',
   '----------------',
@@ -8705,6 +8701,47 @@ function _posCurrentStoreName_() {
   return '';
 }
 
+/** 打印設定「模式B」預覽：{品項} 僅示範第一個主餐＋附加選項＋單品備註（與菜單第一筆對齊） */
+function _posDetailTemplateBPreviewItemsBlock_(ord) {
+  var arr = ord && Array.isArray(ord.items) ? ord.items : [];
+  var it = arr[0];
+  if (!it) it = _posFirstMenuItemForPreview_();
+  if (!it) return '';
+  var q = parseInt(it.quantity != null ? it.quantity : (it.qty || 1), 10) || 1;
+  var basePrice = parseInt(it.price != null ? it.price : 0, 10) || 0;
+  var fullNm = String(it.name || '').replace(/^'/, '').trim();
+  var bare = _posBareProductNameForPrint_(it);
+  var optArr = it.options || it.addons;
+  var addons = [];
+  if (Array.isArray(optArr) && optArr.length) {
+    addons = optArr.map(_posParseAddonEntryForPrint_).filter(function (a) {
+      return a && String(a.name || '').trim();
+    });
+  }
+  var collapse = _posCollapseParenAddonsForPrint_(fullNm, optArr || []);
+  var priceBasis = basePrice;
+  var addonPerUnit = addons.reduce(function (s, a) { return s + (parseInt(a.price, 10) || 0); }, 0);
+  var hasAddonLines = addons.length > 0;
+  var effCollapse = collapse;
+  var unitMain = effCollapse ? priceBasis : Math.max(0, priceBasis - addonPerUnit);
+  var mainLineTotal = effCollapse ? (priceBasis * q) : (unitMain * q);
+  var displayName = effCollapse ? fullNm : (String(bare).trim() || fullNm);
+  displayName = _posPrinterEmojisToGt_(String(displayName).trim());
+  var lines = [displayName + ' *' + q + '   $' + mainLineTotal];
+  if (!effCollapse && hasAddonLines) {
+    addons.forEach(function (ad) {
+      var adName = _posPrinterEmojisToGt_(String(ad.name || '').trim());
+      if (!adName) return;
+      lines.push(adName + '*' + q);
+    });
+  }
+  var noteLine = '';
+  try { noteLine = (typeof _labelItemNoteText_ === 'function') ? String(_labelItemNoteText_(it) || '').trim() : ''; } catch (eN) { noteLine = ''; }
+  if (!noteLine && it.note != null) noteLine = String(it.note).trim();
+  if (noteLine) lines.push('（' + _posPrinterEmojisToGt_(noteLine) + '）');
+  return lines.join('\n');
+}
+
 function _posPreviewDetail_(tpl) {
   const ord = _posPreviewSampleOrder_();
   const ft = _posFmtTime_(ord.timestamp);
@@ -8718,7 +8755,7 @@ function _posPreviewDetail_(tpl) {
     '總計'    : ord.total,
     '品項數量': _posLineItemCountLabelForPrint_(ord),
     '促銷資訊': _posMerchantPromoExtraBlockForPrint_(ord),
-    '品項'    : _posItemsBlock_(ord.items)
+    '品項'    : _posDetailTemplateBPreviewItemsBlock_(ord)
   });
 }
 function _posPreviewTelegramLikeDetail_() {
@@ -8977,9 +9014,10 @@ window.__initPrintSettingsUi_ = (function () {
         preview.style.fontWeight = fontCfg.detail.bold ? '700' : '400';
         // 解析占位符 + 樣式 token → HTML
         const layout = getDetailPrintLayoutFromUi_();
+        var tplForPrev = (dText && String(dText.value || '').trim()) ? dText.value : POS_DEFAULT_DETAIL_TEMPLATE;
         const txt = (layout === 'telegram')
           ? _posPreviewTelegramLikeDetail_()
-          : _posPreviewDetail_(dText.value);
+          : _posPreviewDetail_(tplForPrev);
         const lines = _posParseStyledLines_(txt, fontCfg.detail);
         preview.innerHTML = _posStyledLinesToHtml_(lines);
       }
@@ -9210,9 +9248,10 @@ window.__initPrintSettingsUi_ = (function () {
         const dfs = _posFontSizeToken_(fcD.size);
         preview.style.fontSize  = dfs.previewPx + 'px';
         preview.style.fontWeight = fcD.bold ? '700' : '400';
+        var tplApply = (dText && String(dText.value || '').trim()) ? dText.value : POS_DEFAULT_DETAIL_TEMPLATE;
         const baseTxt = (detailLayout === 'telegram')
           ? _posPreviewTelegramLikeDetail_()
-          : _posPreviewDetail_(dText ? dText.value : POS_DEFAULT_DETAIL_TEMPLATE);
+          : _posPreviewDetail_(tplApply);
         const baseLines = _posParseStyledLines_(baseTxt, fcD);
         preview.innerHTML = _posStyledLinesToHtml_(baseLines);
       }
@@ -14472,16 +14511,16 @@ function addPrintedOrderId_(id) {
  * `{品項}` 僅供列印：金額拆法與通知相同，加購行以 `> `；其餘表情／emoji 亦改為 `>`（與 Telegram 無關）。
  */
 const DEFAULT_DETAIL_TEMPLATE = [
-  '{中}{粗}== {店名} =={重置}',
+  '{小}{粗}== {店名} =={重置}',
   '訂單 #{訂單編號}',
   '時間: {時間}',
-  '{粗}取餐時間: {取餐時間}{細}',
+  '{粗}取餐時間: {細}{取餐時間}',
   '電話: {電話}',
   '備註: {備註}',
   '----------------',
   '{品項}',
   '----------------',
-  '{粗}總計: ${總計}{細}',
+  '{粗}總計: {細}${總計}',
   '謝謝光臨！',
   '',
   '',
