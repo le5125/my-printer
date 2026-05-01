@@ -16181,7 +16181,7 @@ async function pollPendingOrdersOnce_() {
     // 先 await 同步，避免與 getPendingOrders 並行時仍用舊的 printMode 組版
     await syncPrintSettingsFromBackend_();
     const sep = url.indexOf('?') >= 0 ? '&' : '?';
-    const fullUrl = url + sep + 'action=getPendingOrders&_=' + Date.now();
+    const fullUrl = url + sep + 'action=getPendingOrders&includeReservationPrint=1&_=' + Date.now();
     const res = await fetch(fullUrl, { method: 'GET', cache: 'no-store' });
     if (!res.ok) {
       setPollStatus_('輪詢 HTTP ' + res.status + '（請確認 Web App 已部署且可匿名 GET）', 'err');
