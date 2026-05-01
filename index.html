@@ -12310,6 +12310,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         var _reservationBoardPrefetched = false;
         function buildReservationPrintPayload_(r) {
           var row = r || {};
+          var printTs = Date.now();
+          var printNonce = Math.floor(Math.random() * 1000000);
+          var printOrderId = 'RES-' + String(row.rowNo || 'X') + '-' + String(printTs) + '-' + String(printNonce);
           var detailLines = [];
           if (row.reservationDate) detailLines.push('日期：' + String(row.reservationDate));
           if (row.reservationTime) detailLines.push('時間：' + String(row.reservationTime));
@@ -12333,7 +12336,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             });
           }
           return {
-            orderId: 'RES-' + String(row.rowNo || Date.now()),
+            orderId: printOrderId,
             date: String(row.reservationDate || ''),
             pickupTime: String(row.reservationTime || ''),
             phone: String(row.phone || ''),
