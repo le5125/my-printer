@@ -8272,6 +8272,60 @@ function buildPrinterOrderPayloadFull_(orderData) {
   if (!orderData) return null;
   var nowTs = Date.now();
   var items = Array.isArray(orderData.items) ? orderData.items : [];
+  var reservationForPrint = (orderData.reservation && typeof orderData.reservation === 'object')
+    ? {
+        date: String(orderData.reservation.date || '').trim(),
+        time: String(orderData.reservation.time || '').trim(),
+        people: String(orderData.reservation.people || '').trim(),
+        phone: String(orderData.reservation.phone || '').trim(),
+        note: String(orderData.reservation.note || '').trim(),
+        paymentType: String(orderData.reservation.paymentType || '').trim(),
+        depositAmount: String(orderData.reservation.depositAmount || '').trim()
+      }
+    : null;
+  var reservationDetailLines = [];
+  if (reservationForPrint) {
+    if (reservationForPrint.date) reservationDetailLines.push('日期：' + reservationForPrint.date);
+    if (reservationForPrint.time) reservationDetailLines.push('時間：' + reservationForPrint.time);
+    if (reservationForPrint.people) reservationDetailLines.push('人數：' + reservationForPrint.people);
+    if (reservationForPrint.phone) reservationDetailLines.push('電話：' + reservationForPrint.phone);
+    if (reservationForPrint.note) reservationDetailLines.push('備註：' + reservationForPrint.note);
+    if (reservationForPrint.paymentType) {
+      if (reservationForPrint.paymentType === '訂金') reservationDetailLines.push('付清/訂金：訂金 ' + (reservationForPrint.depositAmount || '0'));
+      else reservationDetailLines.push('付清/訂金：' + reservationForPrint.paymentType);
+    }
+  }
+  var reservationDetailText = reservationDetailLines.join('\n');
+  var mappedItems = items.map(function (i) {
+    var o = {
+      name    : i.name || '',
+      quantity: i.quantity != null ? i.quantity : (i.qty || 1),
+      price   : i.price != null ? i.price : 0,
+      options : i.options || [],
+      note    : posPrinterOrderLineNote_(i),
+      labelName: posLabelNameFromProductSheetY_(i),
+      catalogProductId: posCatalogProductIdFromOrderLine_(i),
+      printLabel: posFinalPrintProductLabel_(i),
+      printThisLabel: i.printThisLabel !== false
+    };
+    if (i.telegramDiscountOrigLine != null) o.telegramDiscountOrigLine = i.telegramDiscountOrigLine;
+    if (i.telegramDiscountSaleLine != null) o.telegramDiscountSaleLine = i.telegramDiscountSaleLine;
+    if (i.telegramItemDiscountParen != null && String(i.telegramItemDiscountParen).trim() !== '') {
+      o.telegramItemDiscountParen = String(i.telegramItemDiscountParen).trim();
+    }
+    return o;
+  });
+  if (!mappedItems.length && reservationDetailText) {
+    mappedItems = [{
+      name: '預約單',
+      quantity: 1,
+      price: 0,
+      options: [],
+      note: '',
+      printLabel: false,
+      printThisLabel: false
+    }];
+  }
   return {
     clientId : 'C' + nowTs + '-' + Math.floor(Math.random() * 1e6),
     orderId  : orderData.orderId || '',
@@ -8285,36 +8339,9 @@ function buildPrinterOrderPayloadFull_(orderData) {
     detailPrintLayout: getPosDetailPrintLayout_(),
     merchantPromoTelegram: orderData.merchantPromoTelegram && typeof orderData.merchantPromoTelegram === 'object'
       ? orderData.merchantPromoTelegram : undefined,
-    reservation: orderData.reservation && typeof orderData.reservation === 'object'
-      ? {
-          date: String(orderData.reservation.date || '').trim(),
-          time: String(orderData.reservation.time || '').trim(),
-          people: String(orderData.reservation.people || '').trim(),
-          phone: String(orderData.reservation.phone || '').trim(),
-          note: String(orderData.reservation.note || '').trim(),
-          paymentType: String(orderData.reservation.paymentType || '').trim(),
-          depositAmount: String(orderData.reservation.depositAmount || '').trim()
-        }
-      : undefined,
-    items    : items.map(function (i) {
-      var o = {
-        name    : i.name || '',
-        quantity: i.quantity != null ? i.quantity : (i.qty || 1),
-        price   : i.price != null ? i.price : 0,
-        options : i.options || [],
-        note    : posPrinterOrderLineNote_(i),
-        labelName: posLabelNameFromProductSheetY_(i),
-        catalogProductId: posCatalogProductIdFromOrderLine_(i),
-        printLabel: posFinalPrintProductLabel_(i),
-        printThisLabel: i.printThisLabel !== false
-      };
-      if (i.telegramDiscountOrigLine != null) o.telegramDiscountOrigLine = i.telegramDiscountOrigLine;
-      if (i.telegramDiscountSaleLine != null) o.telegramDiscountSaleLine = i.telegramDiscountSaleLine;
-      if (i.telegramItemDiscountParen != null && String(i.telegramItemDiscountParen).trim() !== '') {
-        o.telegramItemDiscountParen = String(i.telegramItemDiscountParen).trim();
-      }
-      return o;
-    })
+    reservation: reservationForPrint || undefined,
+    orderDetailTextForPrint: reservationDetailText || undefined,
+    items    : mappedItems
   };
 }
 
