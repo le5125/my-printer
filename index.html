@@ -12392,6 +12392,8 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             phone: String(row.phone || ''),
             notes: String(row.note || ''),
             total: parseInt(row.total, 10) || 0,
+            itemCount: String(row.itemCount || ''),
+            itemDetail: String(row.itemDetail || ''),
             source: 'pos',
             reservation: {
               date: String(row.reservationDate || ''),
@@ -15149,8 +15151,14 @@ window.addEventListener('message', async (event) => {
           ? String(payload.orderDetailTextForPrint).trim() : undefined,
         printMode : (payload.printMode === 'label' || payload.printMode === 'detail') ? payload.printMode : undefined,
         reservation: (payload.reservation && typeof payload.reservation === 'object') ? payload.reservation : undefined,
-        reservationCardPrint: payload.reservationCardPrint === true
+        reservationCardPrint: payload.reservationCardPrint === true,
+        itemCount: payload.itemCount,
+        itemDetail: payload.itemDetail
       };
+      if (ord.reservationCardPrint && ord.reservation && typeof ord.reservation === 'object') {
+        if (!ord.reservation.itemCount && ord.itemCount != null) ord.reservation.itemCount = ord.itemCount;
+        if (!ord.reservation.itemDetail && ord.itemDetail != null) ord.reservation.itemDetail = ord.itemDetail;
+      }
 
       // 防重：相同指紋（時間+電話+總額+品項數）若 5 分鐘內已印過 → 跳過
       const fp = [ord.timestamp, ord.total, ord.items.length, ord.phone].join('|');
@@ -16144,7 +16152,7 @@ function buildReceiptPlainTextMirroringGas_(ord) {
     var depositNum = parseInt(r.depositAmount, 10) || 0;
     var unpaidNum = parseInt((r.unpaidAmount != null ? r.unpaidAmount : ord.unpaidAmount), 10);
     if (!isFinite(unpaidNum)) unpaidNum = (String(r.paymentType || '') === '訂金') ? Math.max(0, totalNum - depositNum) : 0;
-    var itemCountNum = parseInt(r.itemCount, 10) || 0;
+    var itemCountNum = parseInt((r.itemCount != null ? r.itemCount : ord.itemCount), 10) || 0;
     if (!itemCountNum && ord.merchantPromoTelegram && ord.merchantPromoTelegram.lineItemCount != null) {
       itemCountNum = parseInt(ord.merchantPromoTelegram.lineItemCount, 10) || 0;
     }
@@ -16160,7 +16168,7 @@ function buildReceiptPlainTextMirroringGas_(ord) {
       else lines.push('付清');
     }
     if (unpaidNum > 0) lines.push('未清：' + String(unpaidNum));
-    var detail = String(r.itemDetail || '').replace(/\r\n/g, '\n').trim();
+    var detail = String((r.itemDetail != null ? r.itemDetail : ord.itemDetail) || '').replace(/\r\n/g, '\n').trim();
     if (detail) {
       lines.push('商品明細：');
       detail.split('\n').forEach(function (ln) {
