@@ -7215,7 +7215,7 @@ const POS_DEFAULT_DETAIL_TEMPLATE = [
   '{小}{粗}== {店名} =={重置}',
   '訂單 #{訂單編號}',
   '時間: {時間}',
-  '{粗}取餐時間: {細}{取餐時間}',
+  '{粗}取餐時間: {細}{取餐時間}{細}',
   '電話: {電話}',
   '備註: {備註}',
   '----------------',
@@ -8753,8 +8753,9 @@ function _posPreviewDetail_(tpl) {
     '電話'    : _posPrinterEmojisToGt_(ord.phone || ''),
     '備註'    : _posPrinterEmojisToGt_(ord.remark || ''),
     '總計'    : ord.total,
-    '品項數量': _posLineItemCountLabelForPrint_(ord),
-    '促銷資訊': _posMerchantPromoExtraBlockForPrint_(ord),
+    /* 打印設定預覽：不示範 {品項數量}{促銷資訊}（模板預設已不含，避免舊樣板殘留顯示） */
+    '品項數量': '',
+    '促銷資訊': '',
     '品項'    : _posDetailTemplateBPreviewItemsBlock_(ord)
   });
 }
@@ -8768,21 +8769,14 @@ function _posPreviewTelegramLikeDetail_() {
     '取餐時間：',
     '電話：',
     '金額：',
-    '品項：',
     '備註：',
-    '(滿元打折/如果有顯示)',
     '',
     '商品明細：',
     '',
     sampleName + ' x 1        $100',
-    '(商品打折/如果有顯示)',
     '> 附加選項1 x1        $10',
     '> 附加選項2 x1        $10',
-    '（單品項備註）',
-    '',
-    '> (買A送B/如果有顯示)',
-    '',
-    '> (滿額贈商品/如果有顯示)'
+    '（單品項備註）'
   ].join('\n');
 }
 function _posStripAddonTokenForLabelSlash_(raw) {
@@ -14514,7 +14508,7 @@ const DEFAULT_DETAIL_TEMPLATE = [
   '{小}{粗}== {店名} =={重置}',
   '訂單 #{訂單編號}',
   '時間: {時間}',
-  '{粗}取餐時間: {細}{取餐時間}',
+  '{粗}取餐時間: {細}{取餐時間}{細}',
   '電話: {電話}',
   '備註: {備註}',
   '----------------',
