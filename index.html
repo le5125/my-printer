@@ -12281,6 +12281,60 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         const reservationViewTab = document.getElementById('reservation-view-tab');
         var _reservationBoardRows = [];
         var _reservationBoardPrefetched = false;
+        function buildReservationPrintPayload_(r) {
+          var row = r || {};
+          var detailLines = [];
+          if (row.reservationDate) detailLines.push('日期：' + String(row.reservationDate));
+          if (row.reservationTime) detailLines.push('時間：' + String(row.reservationTime));
+          if (row.people) detailLines.push('人數：' + String(row.people));
+          if (row.phone) detailLines.push('電話：' + String(row.phone));
+          if (row.total) detailLines.push('金額：' + String(row.total));
+          if (row.itemCount) detailLines.push('品項：共 ' + String(row.itemCount) + ' 項');
+          if (row.paymentType) {
+            if (String(row.paymentType) === '訂金') detailLines.push('訂金:' + String(row.depositAmount || ''));
+            else detailLines.push('付清');
+          }
+          if (row.unpaidAmount) detailLines.push('未清：' + String(row.unpaidAmount));
+          if (row.note) detailLines.push('備註: ' + String(row.note));
+          if (row.itemDetail) {
+            detailLines.push('');
+            detailLines.push('商品明細：');
+            detailLines.push('');
+            String(row.itemDetail).split('\n').forEach(function (ln) {
+              var t = String(ln || '');
+              if (t !== '') detailLines.push(t);
+            });
+          }
+          return {
+            orderId: 'RES-' + String(row.rowNo || Date.now()),
+            date: String(row.reservationDate || ''),
+            pickupTime: String(row.reservationTime || ''),
+            phone: String(row.phone || ''),
+            notes: String(row.note || ''),
+            total: parseInt(row.total, 10) || 0,
+            source: 'pos',
+            reservation: {
+              date: String(row.reservationDate || ''),
+              time: String(row.reservationTime || ''),
+              people: String(row.people || ''),
+              phone: String(row.phone || ''),
+              note: String(row.note || ''),
+              paymentType: String(row.paymentType || ''),
+              depositAmount: String(row.depositAmount || '')
+            },
+            items: [],
+            orderDetailTextForPrint: detailLines.join('\n')
+          };
+        }
+        function printReservationCard_(r) {
+          try {
+            var payload = buildReservationPrintPayload_(r);
+            pingPrinterPageInstantTrigger_(payload);
+            posSwalToastSuccess('預約單已送到打印機', 1500);
+          } catch (e) {
+            posSwalAlert('預約單打印失敗：' + (e && e.message ? e.message : e), 'error');
+          }
+        }
         function renderReservationBoard_(rows) {
           const grid = document.getElementById('reservation-board-grid');
           if (!grid) return;
@@ -12335,11 +12389,20 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                 return '<div class="order-card-line-telegram">' + ln + '</div>';
               }).join('') + noteHtml + detailBlock + '</div></div>' +
               '<div class="order-card-footer flex gap-2">' +
+                '<button class="reservation-print-btn px-3 py-2 rounded-md bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold" data-row="' + String(r.rowNo) + '">打印</button>' +
                 '<button class="reservation-complete-btn px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold" data-row="' + String(r.rowNo) + '">完成預約</button>' +
                 '<button class="reservation-edit-btn px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold" data-row="' + String(r.rowNo) + '">更改預約</button>' +
                 '<button class="reservation-cancel-btn px-3 py-2 rounded-md bg-red-500 hover:bg-red-600 text-white text-sm font-bold" data-row="' + String(r.rowNo) + '">取消預約</button>' +
               '</div>';
             grid.appendChild(card);
+          });
+          grid.querySelectorAll('.reservation-print-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var rn = parseInt(this.getAttribute('data-row'), 10);
+              var row = (_reservationBoardRows || []).find(function (x) { return parseInt(x.rowNo, 10) === rn; });
+              if (!row) return;
+              printReservationCard_(row);
+            });
           });
           grid.querySelectorAll('.reservation-edit-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
