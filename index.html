@@ -8326,6 +8326,9 @@ function buildPrinterOrderPayloadFull_(orderData) {
       printThisLabel: false
     }];
   }
+  var packedReservationText = (typeof orderData.orderDetailTextForPrint === 'string' && orderData.orderDetailTextForPrint.trim())
+    ? String(orderData.orderDetailTextForPrint).trim()
+    : reservationDetailText;
   return {
     clientId : 'C' + nowTs + '-' + Math.floor(Math.random() * 1e6),
     orderId  : orderData.orderId || '',
@@ -8340,7 +8343,8 @@ function buildPrinterOrderPayloadFull_(orderData) {
     merchantPromoTelegram: orderData.merchantPromoTelegram && typeof orderData.merchantPromoTelegram === 'object'
       ? orderData.merchantPromoTelegram : undefined,
     reservation: reservationForPrint || undefined,
-    orderDetailTextForPrint: reservationDetailText || undefined,
+    reservationCardPrint: orderData && orderData.reservationCardPrint === true,
+    orderDetailTextForPrint: packedReservationText || undefined,
     items    : mappedItems
   };
 }
@@ -15096,7 +15100,9 @@ window.addEventListener('message', async (event) => {
           ? payload.merchantPromoTelegram : undefined,
         orderDetailTextForPrint: (typeof payload.orderDetailTextForPrint === 'string' && payload.orderDetailTextForPrint.trim())
           ? String(payload.orderDetailTextForPrint).trim() : undefined,
-        printMode : (payload.printMode === 'label' || payload.printMode === 'detail') ? payload.printMode : undefined
+        printMode : (payload.printMode === 'label' || payload.printMode === 'detail') ? payload.printMode : undefined,
+        reservation: (payload.reservation && typeof payload.reservation === 'object') ? payload.reservation : undefined,
+        reservationCardPrint: payload.reservationCardPrint === true
       };
 
       // 防重：相同指紋（時間+電話+總額+品項數）若 5 分鐘內已印過 → 跳過
@@ -16012,6 +16018,9 @@ function buildPrintTextFromBackendOrder_(ord) {
   }
   setActiveTsplFontProfile_(mode === 'label' ? 'label' : 'detail');
   if (mode === 'label') return renderLabelsFromOrder_(ord);
+  if (ord && ord.reservationCardPrint === true) {
+    return _printerEmojisToGt_(buildReceiptPlainTextMirroringGas_(ord));
+  }
   var detailLayout = getDetailPrintLayout_();
   if (ord && (ord.detailPrintLayout === 'template' || ord.detailPrintLayout === 'telegram')) {
     detailLayout = ord.detailPrintLayout;
@@ -16217,8 +16226,12 @@ async function pollPendingOrdersOnce_() {
       setPollStatus_('回應格式異常' + (msg ? '：' + msg : '（需 result:success 與 orders 陣列）'), 'err');
       return;
     }
+    var pendingBoardCount = (data.orders || []).filter(function (o) {
+      var oid = (o && o.orderId != null) ? String(o.orderId) : '';
+      return !(o && o.reservationCardPrint === true) && !/^RES-/i.test(oid);
+    }).length;
     setPollStatus_('輪詢中（最後 ' + new Date().toTimeString().slice(0,8)
-      + '）／待出餐 ' + data.orders.length + ' 筆', 'ok');
+      + '）／待出餐 ' + pendingBoardCount + ' 筆', 'ok');
     await processBackendOrders_(data.orders);
   } catch (e) {
     setPollStatus_('輪詢連線／請求失敗：' + (e && e.message ? e.message : String(e)), 'err');
