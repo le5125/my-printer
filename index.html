@@ -8271,6 +8271,10 @@ function posPrinterOrderLineNote_(it) {
 function buildPrinterOrderPayloadFull_(orderData) {
   if (!orderData) return null;
   var nowTs = Date.now();
+  var incomingPackedText = (typeof orderData.orderDetailTextForPrint === 'string' && orderData.orderDetailTextForPrint.trim())
+    ? String(orderData.orderDetailTextForPrint).trim()
+    : '';
+  var isReservationCardInput = orderData && orderData.reservationCardPrint === true;
   var items = Array.isArray(orderData.items) ? orderData.items : [];
   var reservationForPrint = (orderData.reservation && typeof orderData.reservation === 'object')
     ? {
@@ -8315,7 +8319,7 @@ function buildPrinterOrderPayloadFull_(orderData) {
     }
     return o;
   });
-  if (!mappedItems.length && reservationDetailText) {
+  if (!mappedItems.length && reservationDetailText && !isReservationCardInput) {
     mappedItems = [{
       name: '預約單',
       quantity: 1,
@@ -8327,7 +8331,7 @@ function buildPrinterOrderPayloadFull_(orderData) {
     }];
   }
   var packedReservationText = '';
-  if (reservationForPrint) {
+  if (reservationForPrint && !isReservationCardInput) {
     var totalNum = parseInt(orderData.total, 10) || 0;
     var depositNum = parseInt(reservationForPrint.depositAmount, 10) || 0;
     var unpaidRaw = parseInt(orderData.unpaidAmount, 10);
@@ -8361,11 +8365,12 @@ function buildPrinterOrderPayloadFull_(orderData) {
       lines.push(String(itemBody).trim());
     }
     packedReservationText = lines.join('\n');
-  } else {
+  } else if (!isReservationCardInput) {
     packedReservationText = (typeof orderData.orderDetailTextForPrint === 'string' && orderData.orderDetailTextForPrint.trim())
       ? String(orderData.orderDetailTextForPrint).trim()
       : reservationDetailText;
   }
+  var finalPackedText = (isReservationCardInput && incomingPackedText) ? incomingPackedText : (packedReservationText || '');
   return {
     clientId : 'C' + nowTs + '-' + Math.floor(Math.random() * 1e6),
     orderId  : orderData.orderId || '',
@@ -8381,7 +8386,7 @@ function buildPrinterOrderPayloadFull_(orderData) {
       ? orderData.merchantPromoTelegram : undefined,
     reservation: reservationForPrint || undefined,
     reservationCardPrint: !!reservationForPrint || (orderData && orderData.reservationCardPrint === true),
-    orderDetailTextForPrint: packedReservationText || undefined,
+    orderDetailTextForPrint: finalPackedText || undefined,
     items    : mappedItems
   };
 }
