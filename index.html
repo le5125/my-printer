@@ -12401,7 +12401,10 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               note: String(row.note || ''),
               paymentType: String(row.paymentType || ''),
               depositAmount: String(row.depositAmount || ''),
-              unpaidAmount: String(unpaidNum || 0)
+              unpaidAmount: String(unpaidNum || 0),
+              itemCount: String(row.itemCount || ''),
+              itemDetail: String(row.itemDetail || ''),
+              total: String(totalNum || 0)
             },
             items: [],
             orderDetailTextForPrint: detailLines.join('\n'),
@@ -16133,7 +16136,39 @@ function buildReceiptPlainTextMirroringGas_(ord) {
   var isReservationCardPrint = ord.reservationCardPrint === true
     || (hasReservationObj && !!packed && /(^|\n)日期：/.test(packed) && /(^|\n)時間：/.test(packed));
   if (isReservationCardPrint) {
-    if (packed) return '(預約)\n' + packed;
+    var placeholderOnly = /^預約單 x 1\s+\$0$/m.test(packed);
+    var r = hasReservationObj ? ord.reservation : {};
+    var lines = [];
+    if (!placeholderOnly && packed) return '(預約)\n' + packed;
+    var totalNum = parseInt((ord.total != null ? ord.total : r.total), 10) || 0;
+    var depositNum = parseInt(r.depositAmount, 10) || 0;
+    var unpaidNum = parseInt((r.unpaidAmount != null ? r.unpaidAmount : ord.unpaidAmount), 10);
+    if (!isFinite(unpaidNum)) unpaidNum = (String(r.paymentType || '') === '訂金') ? Math.max(0, totalNum - depositNum) : 0;
+    var itemCountNum = parseInt(r.itemCount, 10) || 0;
+    if (!itemCountNum && ord.merchantPromoTelegram && ord.merchantPromoTelegram.lineItemCount != null) {
+      itemCountNum = parseInt(ord.merchantPromoTelegram.lineItemCount, 10) || 0;
+    }
+    if (r.date) lines.push('日期：' + String(r.date));
+    if (r.time) lines.push('時間：' + String(r.time));
+    if (r.people) lines.push('人數：' + String(r.people));
+    if (r.phone) lines.push('電話：' + String(r.phone));
+    if (r.note) lines.push('備註: ' + String(r.note));
+    if (totalNum) lines.push('金額：' + String(totalNum));
+    if (itemCountNum > 0) lines.push('品項：共 ' + String(itemCountNum) + ' 項');
+    if (r.paymentType) {
+      if (String(r.paymentType) === '訂金') lines.push('訂金:' + String(depositNum || 0));
+      else lines.push('付清');
+    }
+    if (unpaidNum > 0) lines.push('未清：' + String(unpaidNum));
+    var detail = String(r.itemDetail || '').replace(/\r\n/g, '\n').trim();
+    if (detail) {
+      lines.push('商品明細：');
+      detail.split('\n').forEach(function (ln) {
+        var t = String(ln || '').trim();
+        if (t) lines.push(t);
+      });
+    }
+    if (lines.length) return '(預約)\n' + lines.join('\n');
     var rb = buildReservationBlockForPrint_(ord);
     return rb ? ('(預約)\n' + rb) : '(預約)';
   }
