@@ -7212,7 +7212,7 @@ function sendToPrinter(/* order */) { /* no-op */ }
 const POS_LS_PRINTER_URL = 'pos_printer_page_url'; // 只剩這個還用 LS（純粹是 GitHub Pages 列印頁網址，不是樣版內容）
 
 const POS_DEFAULT_DETAIL_TEMPLATE = [
-  '{小}{粗}== {店名} =={重置}',
+  '{小}{粗}== {店名} ==',
   '訂單 #{訂單編號}',
   '時間: {時間}',
   '{粗}取餐時間: {細}{取餐時間}{細}',
@@ -7220,9 +7220,7 @@ const POS_DEFAULT_DETAIL_TEMPLATE = [
   '備註: {備註}',
   '----------------',
   '{品項}',
-  '----------------',
-  '{粗}總計: {細}${總計}',
-  '謝謝光臨！'
+  '----------------'
 ].join('\n');
 
 const POS_DEFAULT_LABEL_TEMPLATE = [
@@ -7309,6 +7307,8 @@ function _posFontSizeToken_(token) {
 
 function _posMigrateDetailTemplatePlaceholders_(tpl) {
   if (typeof tpl !== 'string' || tpl.indexOf('{品項數量}') >= 0) return tpl;
+  /* 已含 {品項} ＝ 模板明細簡版：與試算表一致，不在「備註」後強塞 {品項數量}/{促銷資訊} */
+  if (tpl.indexOf('{品項}') >= 0) return tpl;
   if (tpl.indexOf('{備註}') < 0) return tpl;
   if (tpl.indexOf('{促銷資訊}') >= 0) {
     return tpl.replace(/(備註:\s*\{備註\})/, '$1\n{品項數量}');
@@ -14478,7 +14478,7 @@ function addPrintedOrderId_(id) {
  * `{品項}` 僅供列印：金額拆法與通知相同，加購行以 `> `；其餘表情／emoji 亦改為 `>`（與 Telegram 無關）。
  */
 const DEFAULT_DETAIL_TEMPLATE = [
-  '{小}{粗}== {店名} =={重置}',
+  '{小}{粗}== {店名} ==',
   '訂單 #{訂單編號}',
   '時間: {時間}',
   '{粗}取餐時間: {細}{取餐時間}{細}',
@@ -14487,8 +14487,6 @@ const DEFAULT_DETAIL_TEMPLATE = [
   '----------------',
   '{品項}',
   '----------------',
-  '{粗}總計: {細}${總計}',
-  '謝謝光臨！',
   '',
   '',
   ''
