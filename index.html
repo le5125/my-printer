@@ -13818,7 +13818,10 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             var nowD = new Date(); nowMin = nowD.getHours() * 60 + nowD.getMinutes();
           }
           var SLOT_H = 24;
-          var totalHeight = slots.length * SLOT_H;
+          var RESV_CAL_RIGHT_STRIP_PX = 116;
+          var pickupLaneLeftPx = totalSeats > 0 ? 44 : 8;
+          var totalSlots = slots.length;
+          var totalHeight = totalSlots * SLOT_H;
           var html = [];
           html.push(
             '<div class="resv-cal-root" style="position:relative;display:flex;font-size:13px;">' +
@@ -13853,8 +13856,8 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             }
             var capLabel = '';
             if (totalSeats > 0) {
-              capLabel = '<span style="position:absolute;left:6px;top:2px;font-size:10px;color:#475569;font-weight:600;">' + booked + '/' + totalSeats + '</span>';
-              if (isBlocked) capLabel += '<span style="position:absolute;right:32px;top:2px;font-size:10px;color:#b91c1c;font-weight:700;">客滿</span>';
+              capLabel = '<span style="position:absolute;left:6px;top:2px;z-index:10;font-size:10px;color:#475569;font-weight:600;">' + booked + '/' + totalSeats + '</span>';
+              if (isBlocked) capLabel += '<span style="position:absolute;right:' + (RESV_CAL_RIGHT_STRIP_PX + 28) + 'px;top:2px;z-index:10;font-size:10px;color:#b91c1c;font-weight:700;background:rgba(255,255,255,.93);padding:0 4px;border-radius:4px;">客滿</span>';
             }
             html.push(
               '<div class="resv-cal-slot" data-min="' + m + '" data-time="' + hhmm + '" data-blocked="' + (isBlocked ? '1' : '0') + '" ' +
@@ -13862,7 +13865,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                 (isBlocked ? 'background-image:repeating-linear-gradient(45deg,rgba(239,68,68,.15),rgba(239,68,68,.15) 6px,transparent 6px,transparent 12px);' : '') +
                 'border-top:' + (i === 0 ? 'none' : (isHourTop ? '1px solid #cbd5e1' : '1px dashed #e5e7eb')) + ';">' +
                 capLabel +
-                '<button class="resv-slot-block-btn" type="button" style="position:absolute;right:4px;top:2px;font-size:10px;font-weight:700;border-radius:9999px;padding:1px 6px;border:1px solid ' + (isBlocked ? '#dc2626' : '#94a3b8') + ';background:' + (isBlocked ? '#dc2626' : '#fff') + ';color:' + (isBlocked ? '#fff' : '#475569') + ';">' + (isBlocked ? '解鎖' : '客滿') + '</button>' +
+                '<button class="resv-slot-block-btn" type="button" style="position:absolute;right:4px;top:2px;z-index:11;font-size:10px;font-weight:700;border-radius:9999px;padding:1px 6px;border:1px solid ' + (isBlocked ? '#dc2626' : '#94a3b8') + ';background:' + (isBlocked ? '#dc2626' : '#fff') + ';color:' + (isBlocked ? '#fff' : '#475569') + ';">' + (isBlocked ? '解鎖' : '客滿') + '</button>' +
               '</div>'
             );
           });
@@ -13884,31 +13887,45 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             var eM = Math.min(endMin, b.endMin);
             var top = ((sM - startMin) / slotMin) * SLOT_H;
             var height = Math.max(SLOT_H * 0.85, ((eM - sM) / slotMin) * SLOT_H - 2);
-            var widthPct = 100 / trackCount;
-            var leftPct = widthPct * b._track;
+            var lf = (b._track / trackCount);
+            var wf = (1 / trackCount);
             var bgColor = b.weak ? '#fee2e2' : '#fecaca';
             var borderColor = b.weak ? '#ef4444' : '#b91c1c';
             var label = '訂位 · ' + (b.row.people ? (b.row.people + '人') : '') + (b.row.phone ? '  ☎' + b.row.phone.slice(-4) : '');
             html.push(
               '<div class="resv-cal-booking" data-row="' + resvCalEscape_(b.row.rowNo) + '" ' +
-                'style="position:absolute;top:' + top + 'px;height:' + height + 'px;left:calc(' + leftPct + '% + 4px);width:calc(' + widthPct + '% - 8px);background:' + bgColor + ';border-left:4px solid ' + borderColor + ';color:#7f1d1d;' +
+                'style="position:absolute;z-index:2;top:' + top + 'px;height:' + height + 'px;left:calc(4px + (100% - ' + RESV_CAL_RIGHT_STRIP_PX + 'px) * ' + lf + ');width:calc((100% - ' + RESV_CAL_RIGHT_STRIP_PX + 'px) * ' + wf + ' - 8px);background:' + bgColor + ';border-left:4px solid ' + borderColor + ';color:#7f1d1d;' +
                 'border-radius:6px;padding:4px 6px;font-weight:700;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden;">' +
                 '<div style="font-size:12px;line-height:1.15;">' + resvCalEscape_(b.row.reservationTime || '') + '</div>' +
                 '<div style="font-size:12px;line-height:1.15;">' + resvCalEscape_(label) + '</div>' +
               '</div>'
             );
           });
+          var pickupLanesBySlot_ = {};
           pickups.forEach(function (p) {
             if (p.startMin < startMin || p.startMin >= endMin) return;
-            var top = ((p.startMin - startMin) / slotMin) * SLOT_H;
-            var label = '取貨 · ' + (p.row.itemCount ? (p.row.itemCount + '項') : '') + (p.row.phone ? '  ☎' + p.row.phone.slice(-4) : '');
+            var si = Math.floor((p.startMin - startMin) / slotMin);
+            if (si < 0 || si >= totalSlots) return;
+            if (!pickupLanesBySlot_[si]) pickupLanesBySlot_[si] = [];
+            pickupLanesBySlot_[si].push(p);
+          });
+          Object.keys(pickupLanesBySlot_).sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); }).forEach(function (k) {
+            var si = parseInt(k, 10);
+            var list = pickupLanesBySlot_[k];
+            list.sort(function (a, b) { return a.startMin - b.startMin; });
+            var chips = list.map(function (p) {
+              var label = '取貨 · ' + (p.row.itemCount ? (p.row.itemCount + '項') : '') + (p.row.phone ? '  ☎' + p.row.phone.slice(-4) : '');
+              return '<div class="resv-cal-pickup" data-row="' + resvCalEscape_(p.row.rowNo) + '" ' +
+                'style="flex:0 1 auto;display:inline-flex;align-items:center;gap:4px;max-width:calc(100% - 4px);min-height:' + (SLOT_H - 6) + 'px;box-sizing:border-box;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;' +
+                'padding:1px 6px;border-radius:9999px;font-size:11px;font-weight:700;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.05);pointer-events:auto;white-space:normal;line-height:1.15;">' +
+                '<i class="fas fa-shopping-bag" style="font-size:10px;flex-shrink:0;"></i>' +
+                '<span style="flex-shrink:0;">' + resvCalEscape_(p.row.reservationTime || '') + '</span>' +
+                '<span style="font-weight:600;word-break:break-all;">' + resvCalEscape_(label) + '</span>' +
+              '</div>';
+            }).join('');
             html.push(
-              '<div class="resv-cal-pickup" data-row="' + resvCalEscape_(p.row.rowNo) + '" ' +
-                'style="position:absolute;top:' + (top + 2) + 'px;height:' + (SLOT_H - 4) + 'px;right:6px;display:flex;align-items:center;gap:4px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;' +
-                'padding:1px 6px;border-radius:9999px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.05);">' +
-                '<i class="fas fa-shopping-bag" style="font-size:11px;"></i>' +
-                '<span>' + resvCalEscape_(p.row.reservationTime || '') + '</span>' +
-                '<span style="font-weight:600;">' + resvCalEscape_(label) + '</span>' +
+              '<div class="resv-cal-pickup-lane" style="position:absolute;left:' + pickupLaneLeftPx + 'px;right:' + RESV_CAL_RIGHT_STRIP_PX + 'px;top:' + (si * SLOT_H + 1) + 'px;height:' + (SLOT_H - 2) + 'px;display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:3px 4px;z-index:3;pointer-events:none;overflow:hidden;">' +
+                chips +
               '</div>'
             );
           });
