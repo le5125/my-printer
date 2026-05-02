@@ -3171,7 +3171,10 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             </div>
           </div>
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-1">人數</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-sm font-semibold text-gray-700">人數</label>
+              <span id="reservation-remaining-hint" class="text-xs font-bold text-slate-500"></span>
+            </div>
             <input type="number" id="reservation-people" min="1" step="1" placeholder="例如 4" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm">
           </div>
           <div>
@@ -3179,6 +3182,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <input type="tel" id="reservation-phone" placeholder="09xxxxxxxx" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm">
           </div>
         </div>
+        <div id="reservation-overcap-msg" class="hidden mt-2 text-xs text-red-600 font-bold bg-red-50 border border-red-200 rounded px-2 py-1"></div>
         <div class="mt-3">
           <label class="block text-sm font-semibold text-gray-700 mb-1">備註</label>
           <textarea id="reservation-note" rows="2" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm" placeholder="可留空"></textarea>
@@ -3234,6 +3238,14 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <div class="mt-2 flex justify-between text-sm font-bold text-slate-700">
             <span>總桌數：<span id="resv-tables-total-count">0</span> 張</span>
             <span>總座位數：<span id="resv-tables-total-seats">0</span> 人</span>
+          </div>
+        </div>
+        <div class="border-t border-slate-200 pt-3 mt-3">
+          <label class="text-sm font-bold text-gray-700 block mb-1">最長用餐時間（分鐘）</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="resv-hold-min" min="30" max="360" step="15" value="90"
+              class="border border-slate-300 rounded-md px-2 py-1 text-sm w-24 text-center font-bold">
+            <span class="text-xs text-slate-500">每組訂位最長佔用時間；日曆會用此長度計算各時段的剩餘人數。</span>
           </div>
         </div>
         <div class="mt-4 flex justify-end gap-2">
@@ -10225,6 +10237,27 @@ function buildReservationTimeSelectsFromBusinessHours_() {
   for (var m = 0; m < 60; m += 10) mm.push('<option value="' + String(m).padStart(2, '0') + '">' + String(m).padStart(2, '0') + '</option>');
   rm.innerHTML = mm.join('');
 }
+/** 預設日期：明天（YYYY-MM-DD，本地時區）；預設時間：商家營業開始時間（POS／GitHub／order 三端統一） */
+function _resvDefaultTomorrowDate_() {
+  var d = new Date();
+  d.setDate(d.getDate() + 1);
+  var y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + dd;
+}
+function _resvDefaultOpenTime_() {
+  try {
+    var ranges = parseOpenCloseRangesFromHoursStr(_lastPickupOpeningHours || '09:00-21:00');
+    if (Array.isArray(ranges) && ranges.length) {
+      var openMin = ranges[0].openMin;
+      var hh = String(Math.floor(openMin / 60)).padStart(2, '0');
+      var mmI = openMin % 60;
+      mmI = Math.ceil(mmI / 10) * 10;
+      if (mmI === 60) { mmI = 0; hh = String(parseInt(hh, 10) + 1).padStart(2, '0'); }
+      return hh + ':' + String(mmI).padStart(2, '0');
+    }
+  } catch (e) {}
+  return '11:00';
+}
 function openReservationModal_() {
   window.__reservationModalMode = 'draft';
   window.__editingReservationRowNo = null;
@@ -10233,8 +10266,10 @@ function openReservationModal_() {
   if (!modal) return;
   buildReservationTimeSelectsFromBusinessHours_();
   var d = posNormalizeReservationDraft_(posReservationDraft || {});
-  document.getElementById('reservation-date').value = d.date || '';
-  var hm = String(d.time || '').match(/^(\d{1,2}):(\d{2})$/);
+  var dateVal = (d && d.date) ? d.date : _resvDefaultTomorrowDate_();
+  var timeVal = (d && d.time) ? d.time : _resvDefaultOpenTime_();
+  document.getElementById('reservation-date').value = dateVal;
+  var hm = String(timeVal).match(/^(\d{1,2}):(\d{2})$/);
   document.getElementById('reservation-hour').value = hm ? String(parseInt(hm[1], 10)).padStart(2, '0') : '';
   document.getElementById('reservation-minute').value = hm ? String(hm[2]).padStart(2, '0') : '';
   document.getElementById('reservation-people').value = d.people || '';
@@ -10248,7 +10283,103 @@ function openReservationModal_() {
   if (itemsWrap) itemsWrap.classList.add('hidden');
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  try { _resvUpdateRemainingHint_(); } catch (e0) {}
 }
+
+/** 依目前 modal 上的日期／時間／人數，計算「該時段剩餘可預約人數」 */
+window.__resvCapCacheByDate = window.__resvCapCacheByDate || Object.create(null);
+function _resvCalcRemainingForCurrentInputs_() {
+  var s = window._reservationSettings || {};
+  var totalSeats = parseInt(s.totalSeats, 10) || 0;
+  if (!totalSeats) return null;
+  var date = document.getElementById('reservation-date');
+  var hour = document.getElementById('reservation-hour');
+  var minute = document.getElementById('reservation-minute');
+  if (!date || !hour || !minute) return null;
+  var dateStr = String(date.value || '').trim();
+  var hh = String(hour.value || '').trim();
+  var mm = String(minute.value || '').trim();
+  if (!dateStr || !hh || !mm) return { totalSeats: totalSeats, available: totalSeats };
+  var holdMin = parseInt(s.bookingHoldMin, 10) || 90;
+  var slotMin = 30;
+  var startMin = parseInt(hh, 10) * 60 + parseInt(mm, 10);
+  var bookedByMin = {};
+  (window._reservationBoardRows || []).forEach(function (r) {
+    if (!r || String(r.reservationDate || '') !== dateStr) return;
+    var p = parseInt(r.people, 10) || 0;
+    if (!p) return;
+    var t2 = String(r.reservationTime || '').match(/^(\d{1,2}):(\d{2})/);
+    if (!t2) return;
+    var sm = parseInt(t2[1], 10) * 60 + parseInt(t2[2], 10);
+    for (var em = sm - (sm % slotMin); em < sm + holdMin; em += slotMin) {
+      bookedByMin[em] = (bookedByMin[em] || 0) + p;
+    }
+  });
+  var excludeMap = {};
+  if (window.__reservationModalMode === 'edit' && window.__editingReservationRowNo) {
+    var src = (window._reservationBoardRows || []).find(function (x) { return parseInt(x.rowNo, 10) === parseInt(window.__editingReservationRowNo, 10); });
+    if (src && String(src.reservationDate || '') === dateStr) {
+      var p2 = parseInt(src.people, 10) || 0;
+      var t3 = String(src.reservationTime || '').match(/^(\d{1,2}):(\d{2})/);
+      if (p2 && t3) {
+        var sm2 = parseInt(t3[1], 10) * 60 + parseInt(t3[2], 10);
+        for (var em2 = sm2 - (sm2 % slotMin); em2 < sm2 + holdMin; em2 += slotMin) {
+          excludeMap[em2] = (excludeMap[em2] || 0) + p2;
+        }
+      }
+    }
+  }
+  var maxBooked = 0;
+  for (var m = startMin - (startMin % slotMin); m < startMin + holdMin; m += slotMin) {
+    var b = (bookedByMin[m] || 0) - (excludeMap[m] || 0);
+    if (b < 0) b = 0;
+    if (b > maxBooked) maxBooked = b;
+  }
+  var blockedList = (s.blockedSlots && Array.isArray(s.blockedSlots[dateStr])) ? s.blockedSlots[dateStr] : [];
+  var hhmm = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+  var blocked = blockedList.indexOf(hhmm) >= 0;
+  return { totalSeats: totalSeats, available: Math.max(0, totalSeats - maxBooked), blocked: blocked };
+}
+function _resvUpdateRemainingHint_() {
+  var hintEl = document.getElementById('reservation-remaining-hint');
+  var msgEl = document.getElementById('reservation-overcap-msg');
+  var info = _resvCalcRemainingForCurrentInputs_();
+  if (!hintEl) return;
+  if (!info) {
+    hintEl.textContent = '';
+    if (msgEl) { msgEl.classList.add('hidden'); msgEl.textContent = ''; }
+    return;
+  }
+  if (info.blocked) {
+    hintEl.textContent = '已客滿';
+    hintEl.style.color = '#b91c1c';
+  } else {
+    hintEl.textContent = '剩餘 ' + info.available + ' 位 / 共 ' + info.totalSeats + ' 位';
+    hintEl.style.color = info.available > 0 ? '#0f766e' : '#b91c1c';
+  }
+  var people = parseInt((document.getElementById('reservation-people') || {}).value, 10) || 0;
+  if (people > 0 && msgEl) {
+    if (info.blocked) {
+      msgEl.textContent = '該時段已被店家標記客滿，無法預約';
+      msgEl.classList.remove('hidden');
+    } else if (people > info.totalSeats) {
+      msgEl.textContent = '人數過多，超過餐廳總座位數（最多 ' + info.totalSeats + ' 位）';
+      msgEl.classList.remove('hidden');
+    } else if (people > info.available) {
+      msgEl.textContent = '人數過多，該時段剩餘 ' + info.available + ' 位';
+      msgEl.classList.remove('hidden');
+    } else {
+      msgEl.classList.add('hidden');
+      msgEl.textContent = '';
+    }
+  }
+}
+['reservation-date','reservation-hour','reservation-minute','reservation-people'].forEach(function (id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('change', function () { try { _resvUpdateRemainingHint_(); } catch (e) {} });
+  el.addEventListener('input', function () { try { _resvUpdateRemainingHint_(); } catch (e) {} });
+});
 window.__editingReservationItems = window.__editingReservationItems || [];
 function _resvEditFmtMoney_(n) { return 'NT$ ' + (parseInt(n, 10) || 0).toLocaleString(); }
 function renderReservationItemsListInModal_() {
@@ -10385,6 +10516,24 @@ document.getElementById('reservation-close')?.addEventListener('click', closeRes
 document.getElementById('reservation-cancel')?.addEventListener('click', closeReservationModal_);
 document.getElementById('reservation-confirm')?.addEventListener('click', function () {
   var mode = window.__reservationModalMode || 'draft';
+  /* 容量檢查：若該時段剩餘不足，直接擋下並顯示「無法預約 / 人數過多」 */
+  var capInfo = null;
+  try { capInfo = _resvCalcRemainingForCurrentInputs_(); } catch (eCap) { capInfo = null; }
+  var peopleCheck = parseInt((document.getElementById('reservation-people') || {}).value, 10) || 0;
+  if (peopleCheck > 0 && capInfo) {
+    if (capInfo.blocked) {
+      posSwalAlert('該時段已被店家標記客滿，無法預約', 'error');
+      return;
+    }
+    if (peopleCheck > capInfo.totalSeats) {
+      posSwalAlert('人數過多，超過餐廳總座位數（最多 ' + capInfo.totalSeats + ' 位）', 'error');
+      return;
+    }
+    if (peopleCheck > capInfo.available) {
+      posSwalAlert('人數過多，該時段剩餘 ' + capInfo.available + ' 位', 'error');
+      return;
+    }
+  }
   if (mode === 'edit') {
     var rowNo = parseInt(window.__editingReservationRowNo, 10);
     var d = collectReservationFromModal_();
@@ -13312,12 +13461,14 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           rows.forEach(function (r) {
             var startM = resvCalParseHHMM_(r.reservationTime);
             if (startM == null) return;
+            /* 訂位塊長度＝預約設定中的「最長用餐時間」holdMin（後台調整後此處立即生效） */
+            var blockLen = holdMin || RESV_BOOKING_DEFAULT_MIN;
             if (resvCalIsTableBooking_(r)) {
-              bookings.push({ row: r, startMin: startM, endMin: startM + RESV_BOOKING_DEFAULT_MIN });
+              bookings.push({ row: r, startMin: startM, endMin: startM + blockLen });
             } else if (resvCalIsPickup_(r)) {
               pickups.push({ row: r, startMin: startM });
             } else {
-              bookings.push({ row: r, startMin: startM, endMin: startM + RESV_BOOKING_DEFAULT_MIN, weak: true });
+              bookings.push({ row: r, startMin: startM, endMin: startM + blockLen, weak: true });
             }
           });
           function hourLoadPercent_(hourStartMin) {
@@ -13570,9 +13721,37 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           });
         }
         function applyReservationSettingsToUi_() {
+          var s = window._reservationSettings || {};
           var t = document.getElementById('resv-open-toggle');
-          if (t) t.checked = !!(window._reservationSettings && window._reservationSettings.open);
+          if (t) t.checked = !!s.open;
+          var hm = document.getElementById('resv-hold-min');
+          if (hm && document.activeElement !== hm) {
+            hm.value = String(s.bookingHoldMin || 90);
+          }
         }
+        /* 設定變動偵測：定時輪詢 version，若另一端（POS）已修改設定，這邊自動同步並重渲日曆 */
+        var _resvSettingsLastVersion = 0;
+        function _resvStartSettingsPoll_() {
+          if (window.__resvSettingsPollStarted) return;
+          window.__resvSettingsPollStarted = true;
+          setInterval(function () {
+            try {
+              if (document.hidden) return;
+              _resvSettingsRunGet_('getReservationSettingsFromPosClient').then(function (s) {
+                if (!s || s.result !== 'success') return;
+                var v = parseInt(s.version || 0, 10);
+                if (v && v !== _resvSettingsLastVersion) {
+                  _resvSettingsLastVersion = v;
+                  window._reservationSettings = s;
+                  applyReservationSettingsToUi_();
+                  try { if (typeof renderReservationCalendar_ === 'function' && _reservationBoardViewMode === 'calendar') renderReservationCalendar_(); } catch (e0) {}
+                  try { if (typeof _resvUpdateRemainingHint_ === 'function') _resvUpdateRemainingHint_(); } catch (e1) {}
+                }
+              }).catch(function () { /* 略 */ });
+            } catch (eP) { /* 略 */ }
+          }, 20000);
+        }
+        try { _resvStartSettingsPoll_(); } catch (ePs) { /* 略 */ }
         function saveReservationSettingsToBackend_(payload) {
           return posRunSheetMutation_({
             gasMethod: 'setReservationSettingsFromPosClient',
@@ -13654,6 +13833,8 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (!modal) return;
           window.__resvTablesDraft = JSON.parse(JSON.stringify((window._reservationSettings && window._reservationSettings.tables) || []));
           renderResvSettingsTablesList_(window.__resvTablesDraft);
+          var hm = document.getElementById('resv-hold-min');
+          if (hm) hm.value = String((window._reservationSettings && window._reservationSettings.bookingHoldMin) || 90);
           modal.classList.remove('hidden'); modal.classList.add('flex');
         }
         function closeReservationSettingsModal_() {
@@ -13678,7 +13859,11 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           var clean = (window.__resvTablesDraft || []).map(function (t) {
             return { seats: parseInt(t.seats, 10) || 0, count: parseInt(t.count, 10) || 0 };
           }).filter(function (t) { return t.seats > 0 && t.count > 0; });
-          saveReservationSettingsToBackend_({ tables: clean }).then(function (ret) {
+          var holdInp = document.getElementById('resv-hold-min');
+          var holdMin = parseInt(holdInp && holdInp.value, 10);
+          if (!holdMin || holdMin < 30) holdMin = 90;
+          if (holdMin > 360) holdMin = 360;
+          saveReservationSettingsToBackend_({ tables: clean, bookingHoldMin: holdMin }).then(function (ret) {
             if (!ret || ret.result !== 'success') {
               posSwalAlert('儲存失敗：' + ((ret && ret.message) || ''), 'error');
               return;
