@@ -1120,10 +1120,19 @@
     color: #b91c1c; font-weight: 700; font-size: 14px; line-height: 1.4;
   }
   .order-card-footer { flex-shrink: 0; padding: 10px 12px; border-top: 1px solid #e5e7eb; background: #fafafa; }
+  .order-card-footer-actions { display: flex; gap: 8px; align-items: stretch; }
+  .order-card-footer-actions .btn-complete,
+  .order-card-footer-actions .btn-kds-print { flex: 1; width: auto; min-width: 0; }
+  .btn-kds-print {
+    padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer;
+    font-weight: 700; font-size: 15px; background: #fff; color: #334155;
+  }
+  .btn-kds-print:hover { background: #f1f5f9; border-color: #94a3b8; }
   .btn-complete {
     width: 100%; padding: 10px 12px; border: none; border-radius: 8px; cursor: pointer;
     font-weight: 800; font-size: 16px; background: #059669; color: #fff;
   }
+  .order-card-footer-actions .btn-complete { width: auto; }
   .btn-complete:hover { background: #047857; }
   .btn-complete:disabled { opacity: 0.6; cursor: not-allowed; }
   .order-board-empty {
@@ -12257,6 +12266,20 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             });
         }
 
+        function kdsReprintPendingOrder_(orderSnap) {
+          if (!orderSnap) return;
+          try {
+            if (typeof pingPrinterPageInstantTrigger_ !== 'function') {
+              posSwalAlert('無法送印：列印功能未就緒', 'error');
+              return;
+            }
+            pingPrinterPageInstantTrigger_(orderSnap);
+            try { posSwalToastSuccess && posSwalToastSuccess('已送打印機', 1500); } catch (_t) {}
+          } catch (e) {
+            posSwalAlert('打印失敗：' + (e && e.message ? e.message : e), 'error');
+          }
+        }
+
         function renderOrderBoard(orders) {
           const grid = document.getElementById('order-board-grid');
           if (!grid) return;
@@ -12337,9 +12360,17 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               '<div class="order-card-body-wrap">' +
                 '<div class="order-card-body">' + linesHtml + remarkHtml + '</div>' +
               '</div>' +
-              '<div class="order-card-footer">' +
+              '<div class="order-card-footer order-card-footer-actions">' +
+                '<button type="button" class="btn-kds-print">打印</button>' +
                 '<button type="button" class="btn-complete">完成出餐</button>' +
               '</div>';
+            const printBtn = card.querySelector('.btn-kds-print');
+            if (printBtn) {
+              printBtn.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                kdsReprintPendingOrder_(o);
+              });
+            }
             const btn = card.querySelector('.btn-complete');
             if (btn) {
               btn.addEventListener('click', function () {
