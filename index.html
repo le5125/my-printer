@@ -10601,7 +10601,32 @@ function posQueryCountLineItems_(o) {
   } catch (_eGc) { /* 略 */ }
 
   var items = o.items;
-  if (items && items.length) return items.length + giftExtra;
+  if (items && items.length) {
+    var sum = 0;
+    items.forEach(function (it) {
+      sum += parseInt(it && it.quantity, 10) || 0;
+    });
+    try {
+      var mpt2 = o.merchantPromoTelegram;
+      if (mpt2 && Array.isArray(mpt2.gifts) && mpt2.gifts.length) {
+        mpt2.gifts.forEach(function (g) {
+          if (!g || !String(g.title != null ? g.title : '').trim()) return;
+          var gq = parseInt(g.qty, 10);
+          if (!gq || isNaN(gq)) gq = 1;
+          sum += gq;
+        });
+      } else {
+        var dt = (o.orderDetailTextForPrint || '').toString();
+        if (dt) {
+          dt.split('\n').forEach(function (ln) {
+            var t = String(ln || '').trim();
+            if (t.indexOf('🎁') === 0) sum += 1;
+          });
+        }
+      }
+    } catch (_eG2) { /* 略 */ }
+    return sum;
+  }
 
   var lines = o.itemLines;
   if (!lines || !lines.length) return giftExtra;
@@ -12286,7 +12311,32 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           } catch (_eGc) { /* 略 */ }
 
           const items = o.items;
-          if (items && items.length) return items.length + giftExtra;
+          if (items && items.length) {
+            var sum = 0;
+            items.forEach(function (it) {
+              sum += parseInt(it && it.quantity, 10) || 0;
+            });
+            try {
+              var mpt2 = o.merchantPromoTelegram;
+              if (mpt2 && Array.isArray(mpt2.gifts) && mpt2.gifts.length) {
+                mpt2.gifts.forEach(function (g) {
+                  if (!g || !String(g.title != null ? g.title : '').trim()) return;
+                  var gq = parseInt(g.qty, 10);
+                  if (!gq || isNaN(gq)) gq = 1;
+                  sum += gq;
+                });
+              } else {
+                var dt = (o.orderDetailTextForPrint || '').toString();
+                if (dt) {
+                  dt.split('\n').forEach(function (ln) {
+                    var t = String(ln || '').trim();
+                    if (t.indexOf('🎁') === 0) sum += 1;
+                  });
+                }
+              }
+            } catch (_eG2) { /* 略 */ }
+            return sum;
+          }
 
           const lines = o.itemLines;
           if (!lines || !lines.length) return giftExtra;
@@ -12770,10 +12820,6 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             btn.addEventListener('click', function () {
               var rn = parseInt(this.getAttribute('data-row'), 10);
               var doComplete = function () {
-                _reservationBoardRows = (_reservationBoardRows || []).filter(function (x) {
-                  return parseInt(x.rowNo, 10) !== rn;
-                });
-                applyReservationBoardFilter_();
                 posRunSheetMutation_({
                   gasMethod: 'completeReservationFromPosClient',
                   gasArgs: [{ rowNo: rn }],
@@ -12785,6 +12831,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                     return;
                   }
                   posSwalToastSuccess('已完成預約', 1800);
+                  loadReservationBoard_();
                 }).catch(function (err) {
                   loadReservationBoard_();
                   posSwalAlert('完成預約失敗：' + (err && err.message ? err.message : err), 'error');
@@ -12860,6 +12907,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           applyReservationBoardFilter_();
         });
         function loadReservationBoard_() {
+          var myGen = ++_reservationBoardLoadGen;
           var viaGet = function () {
             if (!currentWebAppUrl) return Promise.resolve({ result: 'error' });
             return fetch(currentWebAppUrl + '?action=getReservations&_=' + Date.now())
@@ -12879,26 +12927,32 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           } else {
             loader = viaGet();
           }
+          var apply = function (list) {
+            if (myGen !== _reservationBoardLoadGen) return;
+            _reservationBoardPrefetched = true;
+            renderReservationBoard_(list || []);
+          };
           loader.then(function (ret) {
+            if (myGen !== _reservationBoardLoadGen) return;
             if ((!ret || ret.result !== 'success') && currentWebAppUrl) {
               viaGet().then(function (ret2) {
+                if (myGen !== _reservationBoardLoadGen) return;
                 if (!ret2 || ret2.result !== 'success') {
-                  renderReservationBoard_([]);
+                  apply([]);
                   return;
                 }
-                _reservationBoardPrefetched = true;
-                renderReservationBoard_(ret2.reservations || []);
+                apply(ret2.reservations || []);
               });
               return;
             }
             if (!ret || ret.result !== 'success') {
-              renderReservationBoard_([]);
+              apply([]);
               return;
             }
-            _reservationBoardPrefetched = true;
-            renderReservationBoard_(ret.reservations || []);
+            apply(ret.reservations || []);
           });
         }
+        var _reservationBoardLoadGen = 0;
         var _reservationPollTimer = null;
         function startReservationPolling_() {
           if (_reservationPollTimer) clearInterval(_reservationPollTimer);
