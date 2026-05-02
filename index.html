@@ -2114,11 +2114,20 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
       <div id="reservation-board-content" class="hidden flex-grow flex flex-col min-h-0 px-3 pb-3">
         <div class="order-board-wrap flex-grow min-h-0 flex flex-col">
-          <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
             <div class="order-board-title mb-0"><i class="fas fa-calendar-check mr-2 text-blue-600"></i><span id="reservation-board-title-label">預約查看（依預約日期）</span></div>
-            <div class="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-              <button type="button" id="reservation-view-mode-list" class="px-3 py-1.5 text-sm font-semibold bg-blue-600 text-white">卡片列表</button>
-              <button type="button" id="reservation-view-mode-calendar" class="px-3 py-1.5 text-sm font-semibold bg-white text-gray-700 hover:bg-gray-100">預約日曆</button>
+            <div class="flex items-center gap-2">
+              <label class="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-md px-2 py-1.5">
+                <input type="checkbox" id="resv-open-toggle" class="w-4 h-4 accent-blue-600">
+                <span>開放預約</span>
+              </label>
+              <button type="button" id="resv-settings-btn" class="px-3 py-1.5 text-sm font-semibold border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md">
+                <i class="fas fa-cog mr-1"></i>預約設定
+              </button>
+              <div class="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                <button type="button" id="reservation-view-mode-list" class="px-3 py-1.5 text-sm font-semibold bg-blue-600 text-white">卡片列表</button>
+                <button type="button" id="reservation-view-mode-calendar" class="px-3 py-1.5 text-sm font-semibold bg-white text-gray-700 hover:bg-gray-100">預約日曆</button>
+              </div>
             </div>
           </div>
 
@@ -3200,6 +3209,36 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <button type="button" id="reservation-cancel" class="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-md px-3 py-2 text-sm font-bold">取消</button>
             <button type="button" id="reservation-confirm" class="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-2 text-sm font-bold">確定</button>
           </div>
+        </div>
+      </div>
+    </div>
+    <!-- 預約設定（桌型 / 開放預約 / 客滿時段）GitHub 端 -->
+    <div id="resv-settings-modal" class="hidden fixed inset-0 z-[10005] bg-black/45 items-center justify-center">
+      <div class="bg-white rounded-xl shadow-2xl w-[92%] max-w-[560px] p-4 md:p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-chair mr-1 text-blue-600"></i>預約設定</h3>
+          <button type="button" id="resv-settings-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-md px-3 py-2 mb-3 text-sm text-blue-800 leading-relaxed">
+          <div class="font-semibold mb-1"><i class="fas fa-info-circle mr-1"></i>說明</div>
+          <div>1. 開放預約打開後，<b>線上點餐頁</b>右上角會出現預約圖示，消費者可送出預約。</div>
+          <div>2. 桌型可自由設定（如 2 人 ×5、4 人 ×2），系統依「總座位人數」自動判斷各時段是否還能預約。</div>
+          <div>3. 預約日曆上時段標『客滿』後，該時段消費者就無法預約（手動鎖定優先於人數計算）。</div>
+        </div>
+        <div class="border-t border-slate-200 pt-3">
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-sm font-bold text-gray-700">座位／桌型</label>
+            <button type="button" id="resv-tables-add" class="border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-md px-2 py-1 text-xs font-bold">＋ 新增桌型</button>
+          </div>
+          <div id="resv-tables-list" class="space-y-1 text-sm bg-slate-50 rounded-md border border-slate-200 p-2 max-h-64 overflow-y-auto"></div>
+          <div class="mt-2 flex justify-between text-sm font-bold text-slate-700">
+            <span>總桌數：<span id="resv-tables-total-count">0</span> 張</span>
+            <span>總座位數：<span id="resv-tables-total-seats">0</span> 人</span>
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" id="resv-settings-cancel" class="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-md px-3 py-2 text-sm font-bold">取消</button>
+          <button type="button" id="resv-settings-save" class="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-2 text-sm font-bold">儲存</button>
         </div>
       </div>
     </div>
@@ -13254,6 +13293,21 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           for (var t = startMin; t < endMin; t += slotMin) slots.push(t);
           var dateStr = _reservationCalendarDate;
           var rows = resvCalRowsForDate_(dateStr);
+          /* 容量計算：每個 30 分鐘格子內目前已預約人數（同步當前列表，配合樂觀更新） */
+          var settings = window._reservationSettings || { totalSeats: 0, tables: [], blockedSlots: {}, bookingHoldMin: 90 };
+          var totalSeats = parseInt(settings.totalSeats, 10) || 0;
+          var holdMin = parseInt(settings.bookingHoldMin, 10) || 90;
+          var blockedListForDate = (settings.blockedSlots && Array.isArray(settings.blockedSlots[dateStr])) ? settings.blockedSlots[dateStr] : [];
+          var bookedByMin = {};
+          rows.forEach(function (r) {
+            var p = parseInt(r.people, 10) || 0;
+            if (!p) return;
+            var sm = resvCalParseHHMM_(r.reservationTime);
+            if (sm == null) return;
+            for (var mb = sm - (sm % slotMin); mb < sm + holdMin; mb += slotMin) {
+              bookedByMin[mb] = (bookedByMin[mb] || 0) + p;
+            }
+          });
           var bookings = [], pickups = [];
           rows.forEach(function (r) {
             var startM = resvCalParseHHMM_(r.reservationTime);
@@ -13300,11 +13354,34 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               '</div>' +
               '<div class="resv-cal-axis" style="flex:1;position:relative;min-width:0;height:' + totalHeight + 'px;">'
           );
+          /* 背景格：依容量決定底色；客滿格再覆蓋紅斜線 */
           slots.forEach(function (m, i) {
             var isHourTop = (m % 60 === 0);
+            var hh = String(Math.floor(m / 60)).padStart(2, '0');
+            var mm = String(m % 60).padStart(2, '0');
+            var hhmm = hh + ':' + mm;
+            var booked = bookedByMin[m] || 0;
+            var isBlocked = blockedListForDate.indexOf(hhmm) >= 0;
+            var bg = '#f8fafc';
+            if (totalSeats > 0) {
+              var ratio = booked / totalSeats;
+              if (booked >= totalSeats || isBlocked) bg = '#fecaca';
+              else if (ratio >= 0.5) bg = '#fef3c7';
+              else if (booked > 0) bg = '#dcfce7';
+            }
+            var capLabel = '';
+            if (totalSeats > 0) {
+              capLabel = '<span style="position:absolute;left:6px;top:2px;font-size:10px;color:#475569;font-weight:600;">' + booked + '/' + totalSeats + '</span>';
+              if (isBlocked) capLabel += '<span style="position:absolute;right:32px;top:2px;font-size:10px;color:#b91c1c;font-weight:700;">客滿</span>';
+            }
             html.push(
-              '<div class="resv-cal-slot" data-min="' + m + '" style="position:absolute;left:0;right:0;top:' + (i * SLOT_H) + 'px;height:' + SLOT_H + 'px;background:#f8fafc;' +
-                'border-top:' + (i === 0 ? 'none' : (isHourTop ? '1px solid #cbd5e1' : '1px dashed #e5e7eb')) + ';"></div>'
+              '<div class="resv-cal-slot" data-min="' + m + '" data-time="' + hhmm + '" data-blocked="' + (isBlocked ? '1' : '0') + '" ' +
+                'style="position:absolute;left:0;right:0;top:' + (i * SLOT_H) + 'px;height:' + SLOT_H + 'px;background:' + bg + ';' +
+                (isBlocked ? 'background-image:repeating-linear-gradient(45deg,rgba(239,68,68,.15),rgba(239,68,68,.15) 6px,transparent 6px,transparent 12px);' : '') +
+                'border-top:' + (i === 0 ? 'none' : (isHourTop ? '1px solid #cbd5e1' : '1px dashed #e5e7eb')) + ';">' +
+                capLabel +
+                '<button class="resv-slot-block-btn" type="button" style="position:absolute;right:4px;top:2px;font-size:10px;font-weight:700;border-radius:9999px;padding:1px 6px;border:1px solid ' + (isBlocked ? '#dc2626' : '#94a3b8') + ';background:' + (isBlocked ? '#dc2626' : '#fff') + ';color:' + (isBlocked ? '#fff' : '#475569') + ';">' + (isBlocked ? '解鎖' : '客滿') + '</button>' +
+              '</div>'
             );
           });
           var bookingTracks = [];
@@ -13394,6 +13471,30 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           wrap.querySelectorAll('.resv-cal-booking, .resv-cal-pickup').forEach(function (el) {
             el.addEventListener('click', function () { openCardForRow_(this.getAttribute('data-row')); });
           });
+          /* 客滿／解鎖切換 */
+          wrap.querySelectorAll('.resv-slot-block-btn').forEach(function (btn) {
+            btn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              var slot = this.closest('.resv-cal-slot');
+              if (!slot) return;
+              var time = slot.getAttribute('data-time');
+              var blocked = slot.getAttribute('data-blocked') === '1';
+              posRunSheetMutation_({
+                gasMethod: 'toggleReservationBlockedSlotFromPosClient',
+                gasArgs: [{ date: dateStr, time: time, blocked: !blocked }],
+                postBody: { action: 'toggleReservationBlockedSlot', date: dateStr, time: time, blocked: !blocked }
+              }).then(function (ret) {
+                if (!ret || ret.result !== 'success') {
+                  posSwalAlert('設定客滿失敗：' + ((ret && ret.message) || ''), 'error');
+                  return;
+                }
+                window._reservationSettings = window._reservationSettings || {};
+                window._reservationSettings.blockedSlots = ret.blockedSlots || {};
+                renderReservationCalendar_();
+                posSwalToastSuccess(!blocked ? ('已標記 ' + time + ' 客滿') : ('已解鎖 ' + time), 1200);
+              });
+            });
+          });
         }
         function showReservationViewMode_(mode) {
           _reservationBoardViewMode = (mode === 'calendar') ? 'calendar' : 'list';
@@ -13410,6 +13511,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (titleLabel) titleLabel.textContent = '預約日曆';
             var input = document.getElementById('resv-cal-date');
             if (input && !input.value) input.value = _reservationCalendarDate;
+            try { if (typeof _resvLoadSettingsIfNeeded_ === 'function') _resvLoadSettingsIfNeeded_(); } catch (eLS) {}
             renderReservationCalendar_();
             if (_reservationCalendarTimer) clearInterval(_reservationCalendarTimer);
             _reservationCalendarTimer = setInterval(function () {
@@ -13436,6 +13538,162 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           var input = document.getElementById('resv-cal-date');
           if (input && !input.value) input.value = _reservationCalendarDate;
         })();
+
+        /* ────── 預約設定 / 桌型 / 容量（GitHub 端） ────── */
+        window._reservationSettings = { open: false, tables: [], totalSeats: 0, totalTables: 0, blockedSlots: {}, bookingHoldMin: 90 };
+        function _resvSettingsRunGet_(act) {
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            return new Promise(function (resolve) {
+              google.script.run
+                .withSuccessHandler(resolve)
+                .withFailureHandler(function () { resolve({ result: 'error' }); })
+                [act]();
+            });
+          }
+          if (act === 'getReservationSettingsFromPosClient' && currentWebAppUrl) {
+            return fetch(currentWebAppUrl + '?action=getReservationSettings&_=' + Date.now()).then(function (r) { return r.json(); }).catch(function () { return { result: 'error' }; });
+          }
+          return Promise.resolve({ result: 'error' });
+        }
+        function loadReservationSettings_() {
+          return _resvSettingsRunGet_('getReservationSettingsFromPosClient').then(function (s) {
+            if (s && s.result === 'success') {
+              window._reservationSettings = s;
+              applyReservationSettingsToUi_();
+              try {
+                if (typeof renderReservationCalendar_ === 'function' && _reservationBoardViewMode === 'calendar') {
+                  renderReservationCalendar_();
+                }
+              } catch (eRC) { /* 略 */ }
+            }
+            return s;
+          });
+        }
+        function applyReservationSettingsToUi_() {
+          var t = document.getElementById('resv-open-toggle');
+          if (t) t.checked = !!(window._reservationSettings && window._reservationSettings.open);
+        }
+        function saveReservationSettingsToBackend_(payload) {
+          return posRunSheetMutation_({
+            gasMethod: 'setReservationSettingsFromPosClient',
+            gasArgs: [payload],
+            postBody: Object.assign({ action: 'setReservationSettings' }, payload)
+          }).then(function (ret) {
+            if (ret && ret.result === 'success') {
+              window._reservationSettings = ret;
+              applyReservationSettingsToUi_();
+              try { if (typeof renderReservationCalendar_ === 'function' && _reservationBoardViewMode === 'calendar') renderReservationCalendar_(); } catch (e0) {}
+            }
+            return ret;
+          });
+        }
+        document.getElementById('resv-open-toggle')?.addEventListener('change', function () {
+          var checked = !!this.checked;
+          saveReservationSettingsToBackend_({ open: checked }).then(function (ret) {
+            if (!ret || ret.result !== 'success') {
+              posSwalAlert('儲存失敗：' + ((ret && ret.message) || ''), 'error');
+              return;
+            }
+            posSwalToastSuccess(checked ? '已開放線上預約' : '已關閉線上預約', 1500);
+          });
+        });
+        function renderResvSettingsTablesList_(list) {
+          var listEl = document.getElementById('resv-tables-list');
+          if (!listEl) return;
+          var arr = Array.isArray(list) ? list : [];
+          if (!arr.length) {
+            listEl.innerHTML = '<div class="text-slate-400 text-xs px-2 py-3 text-center">（尚未新增桌型，按上方「＋ 新增桌型」開始）</div>';
+          } else {
+            listEl.innerHTML = arr.map(function (t, idx) {
+              return '<div class="flex items-center gap-2 bg-white border border-slate-200 rounded-md px-2 py-1" data-idx="' + idx + '">' +
+                '<span class="font-semibold text-slate-700">每桌</span>' +
+                '<input type="number" min="1" step="1" class="resv-tbl-seats w-20 border border-slate-300 rounded px-2 py-1 text-sm" value="' + (parseInt(t.seats, 10) || 0) + '">' +
+                '<span class="text-slate-700">人 ×</span>' +
+                '<input type="number" min="1" step="1" class="resv-tbl-count w-20 border border-slate-300 rounded px-2 py-1 text-sm" value="' + (parseInt(t.count, 10) || 0) + '">' +
+                '<span class="text-slate-700">張</span>' +
+                '<span class="ml-auto text-xs text-slate-500"><span class="resv-tbl-sub">' + ((parseInt(t.seats, 10) || 0) * (parseInt(t.count, 10) || 0)) + '</span> 人</span>' +
+                '<button type="button" class="resv-tbl-del w-7 h-7 rounded bg-red-50 hover:bg-red-100 text-red-600 leading-none">×</button>' +
+              '</div>';
+            }).join('');
+          }
+          var totalSeats = 0, totalCount = 0;
+          arr.forEach(function (t) {
+            totalSeats += (parseInt(t.seats, 10) || 0) * (parseInt(t.count, 10) || 0);
+            totalCount += (parseInt(t.count, 10) || 0);
+          });
+          var seatsEl = document.getElementById('resv-tables-total-seats');
+          var countEl = document.getElementById('resv-tables-total-count');
+          if (seatsEl) seatsEl.textContent = String(totalSeats);
+          if (countEl) countEl.textContent = String(totalCount);
+          listEl.querySelectorAll('.resv-tbl-del').forEach(function (b) {
+            b.addEventListener('click', function () {
+              var idx = parseInt(this.parentElement.getAttribute('data-idx'), 10);
+              window.__resvTablesDraft.splice(idx, 1);
+              renderResvSettingsTablesList_(window.__resvTablesDraft);
+            });
+          });
+          listEl.querySelectorAll('.resv-tbl-seats, .resv-tbl-count').forEach(function (inp) {
+            inp.addEventListener('input', function () {
+              var row = this.parentElement;
+              var idx = parseInt(row.getAttribute('data-idx'), 10);
+              var seatsInp = row.querySelector('.resv-tbl-seats');
+              var countInp = row.querySelector('.resv-tbl-count');
+              var seats = parseInt(seatsInp.value, 10) || 0;
+              var count = parseInt(countInp.value, 10) || 0;
+              window.__resvTablesDraft[idx] = { seats: seats, count: count };
+              row.querySelector('.resv-tbl-sub').textContent = String(seats * count);
+              var ts = 0, tc = 0;
+              window.__resvTablesDraft.forEach(function (tt) { ts += tt.seats * tt.count; tc += tt.count; });
+              document.getElementById('resv-tables-total-seats').textContent = String(ts);
+              document.getElementById('resv-tables-total-count').textContent = String(tc);
+            });
+          });
+        }
+        function openReservationSettingsModal_() {
+          var modal = document.getElementById('resv-settings-modal');
+          if (!modal) return;
+          window.__resvTablesDraft = JSON.parse(JSON.stringify((window._reservationSettings && window._reservationSettings.tables) || []));
+          renderResvSettingsTablesList_(window.__resvTablesDraft);
+          modal.classList.remove('hidden'); modal.classList.add('flex');
+        }
+        function closeReservationSettingsModal_() {
+          var m = document.getElementById('resv-settings-modal');
+          if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+        }
+        document.getElementById('resv-settings-btn')?.addEventListener('click', function () {
+          /* 開啟前先抓最新設定，確保桌型與啟用狀態為當下值 */
+          loadReservationSettings_().then(openReservationSettingsModal_);
+        });
+        document.getElementById('resv-settings-close')?.addEventListener('click', closeReservationSettingsModal_);
+        document.getElementById('resv-settings-cancel')?.addEventListener('click', closeReservationSettingsModal_);
+        document.getElementById('resv-settings-modal')?.addEventListener('click', function (e) {
+          if (e.target && e.target.id === 'resv-settings-modal') closeReservationSettingsModal_();
+        });
+        document.getElementById('resv-tables-add')?.addEventListener('click', function () {
+          window.__resvTablesDraft = window.__resvTablesDraft || [];
+          window.__resvTablesDraft.push({ seats: 4, count: 1 });
+          renderResvSettingsTablesList_(window.__resvTablesDraft);
+        });
+        document.getElementById('resv-settings-save')?.addEventListener('click', function () {
+          var clean = (window.__resvTablesDraft || []).map(function (t) {
+            return { seats: parseInt(t.seats, 10) || 0, count: parseInt(t.count, 10) || 0 };
+          }).filter(function (t) { return t.seats > 0 && t.count > 0; });
+          saveReservationSettingsToBackend_({ tables: clean }).then(function (ret) {
+            if (!ret || ret.result !== 'success') {
+              posSwalAlert('儲存失敗：' + ((ret && ret.message) || ''), 'error');
+              return;
+            }
+            posSwalToastSuccess('預約設定已儲存', 1500);
+            closeReservationSettingsModal_();
+          });
+        });
+        function _resvLoadSettingsIfNeeded_() {
+          if (!window._reservationSettings || (!window._reservationSettings.totalSeats && !(window._reservationSettings.tables || []).length)) {
+            try { loadReservationSettings_(); } catch (e0) {}
+          }
+        }
+        /* 開機後背景抓一次預約設定（POS 模式才需要） */
+        try { setTimeout(loadReservationSettings_, 1500); } catch (eLs) { /* 略 */ }
 
         function loadReservationBoard_() {
           var myGen = ++_reservationBoardLoadGen;
