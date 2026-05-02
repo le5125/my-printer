@@ -8369,8 +8369,11 @@ function _indexReservationCountPieces_(data) {
   data = data || {};
   if (!Array.isArray(data.items) || !data.items.length) return 0;
   var n = (data.items || []).reduce(function (s, it) {
-    var q = parseInt(it && it.quantity, 10);
-    if (isNaN(q)) q = parseInt(it && it.qty, 10) || 0;
+    if (!it) return s;
+    var nm = String(it.name || '').trim();
+    if (!nm || nm === '預約單') return s;
+    var q = parseInt(it.quantity != null ? it.quantity : it.qty, 10);
+    if (!q || isNaN(q) || q < 1) q = 1;
     return s + q;
   }, 0);
   var mpt = data.merchantPromoTelegram;
@@ -8405,11 +8408,16 @@ function _indexBuildReservationThermalDetailForPrint_(orderData) {
   }
   if (ds) lines.push('預約  ' + ds);
 
+  function resvThermalLineQty_(it) {
+    var q = parseInt(it.quantity != null ? it.quantity : it.qty, 10);
+    if (!q || isNaN(q) || q < 1) q = 1;
+    return q;
+  }
   function isRealReservationItem(it) {
     if (!it) return false;
     var nm = String(it.name || '').trim();
-    var q = parseInt(it.quantity != null ? it.quantity : it.qty, 10) || 0;
-    return nm && nm !== '預約單' && q > 0;
+    if (!nm || nm === '預約單') return false;
+    return true;
   }
   var realItems = (Array.isArray(data.items) ? data.items : []).filter(isRealReservationItem);
   var hasItems = realItems.length > 0;
@@ -8437,7 +8445,7 @@ function _indexBuildReservationThermalDetailForPrint_(orderData) {
   var sortFn = typeof sortOrderItemsByMainNameClient_ === 'function' ? sortOrderItemsByMainNameClient_ : function (xs) { return (xs || []).slice(); };
   sortFn(realItems).forEach(function (it) {
     var nm = String(it.name || '').trim();
-    var q = parseInt(it.quantity != null ? it.quantity : it.qty, 10) || 0;
+    var q = resvThermalLineQty_(it);
     var pu = parseInt(it.price != null ? it.price : 0, 10) || 0;
     var sub = Math.round(q * pu);
     var left = nm + ' x ' + q;
@@ -17804,6 +17812,53 @@ function buildReservationBlockForPrint_(ord) {
   }
   return lines.join('\n');
 }
+
+function _printerBridgeReservationThermalHeader_(ord) {
+  if (!ord) return '';
+  var r = (ord.reservation && typeof ord.reservation === 'object') ? ord.reservation : {};
+  function ne(v) { return v != null && String(v).trim() !== ''; }
+  var lines = [];
+  var ds = '';
+  if (ne(r.date)) ds = String(r.date).trim();
+  if (ne(r.time)) {
+    if (ds) ds += ' ';
+    var tm = String(r.time).trim();
+    var m = tm.match(/^(\d{1,2})\s*:?\s*(\d{1,2})/);
+    ds += m ? (String(parseInt(m[1], 10)).padStart(2, '0') + ':' + String(parseInt(m[2], 10)).padStart(2, '0')) : tm;
+  }
+  if (ds) lines.push('預約  ' + ds);
+  var totalNum = parseFloat(ord.total != null ? ord.total : NaN);
+  if (!isNaN(totalNum) && totalNum >= 0) lines.push('金額：' + String(Math.round(totalNum)));
+  var cnt = 0;
+  if (ord.merchantPromoTelegram && ord.merchantPromoTelegram.lineItemCount != null) {
+    cnt = parseInt(ord.merchantPromoTelegram.lineItemCount, 10) || 0;
+  }
+  if (!cnt && Array.isArray(ord.items)) {
+    ord.items.forEach(function (it) {
+      if (!it) return;
+      var nm = String(it.name || '').trim();
+      if (!nm || nm === '預約單') return;
+      var q = parseInt(it.quantity != null ? it.quantity : it.qty, 10);
+      if (!q || isNaN(q) || q < 1) q = 1;
+      cnt += q;
+    });
+  }
+  if (cnt > 0) lines.push('品項：共 ' + String(cnt) + ' 項');
+  if (ne(r.paymentType)) {
+    if (r.paymentType === '訂金') {
+      var depShow = parseFloat(r.depositAmount);
+      if (!isNaN(depShow) && depShow > 0) lines.push('訂金  :  ' + String(depShow));
+      if (!isNaN(totalNum) && totalNum > 0 && !isNaN(depShow) && depShow > 0) {
+        var unpaid = totalNum - depShow;
+        if (unpaid > 0) lines.push('未清：' + String(Math.round(unpaid)));
+      }
+    } else if (!isNaN(totalNum) && totalNum > 0) {
+      lines.push('付清');
+    }
+  }
+  return lines.join('\n');
+}
+
 function buildReceiptPlainTextMirroringGas_(ord) {
   if (!ord) return '';
   var packed = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
@@ -17818,7 +17873,17 @@ function buildReceiptPlainTextMirroringGas_(ord) {
       : '');
     var lines = [];
     /* 與 POS 預約卡列印字串一致，勿再加「(預約)」前綴（紙張應與畫面同一套文字） */
-    if (!placeholderOnly && packed) return packed;
+    if (!placeholderOnly && packed) {
+      var pTrim = String(packed).trim();
+      var firstLn = (pTrim.split('\n')[0] || '').trim();
+      var looksItemOnly = firstLn && !/^預約\s/.test(pTrim) && !/(^|\n)日期：/.test(pTrim) && !/(^|\n)金額：/.test(pTrim)
+        && / x \d+/.test(firstLn) && /\$/.test(firstLn);
+      if (looksItemOnly && hasReservationObj) {
+        var hdr = _printerBridgeReservationThermalHeader_(ord);
+        if (hdr) return hdr + '\n\n商品明細：\n\n' + pTrim;
+      }
+      return packed;
+    }
     var totalNum = parseInt((ord.total != null ? ord.total : r.total), 10) || 0;
     var depositNum = parseInt(r.depositAmount, 10) || 0;
     var unpaidNum = parseInt((r.unpaidAmount != null ? r.unpaidAmount : ord.unpaidAmount), 10);
