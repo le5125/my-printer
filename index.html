@@ -10478,7 +10478,7 @@ function posInvalidateOrderRelatedCaches_() {
 }
 
 function fetchOrdersAndRender() {
-  fetch(`${currentWebAppUrl}?action=getOrders`)
+  fetch(`${currentWebAppUrl}?action=getOrders&servedOnly=1`)
     .then(res => res.json())
     .then(data => {
       allOrders = data.orders || [];
@@ -10519,8 +10519,93 @@ function posEscapeHtmlOrderQuery_(s) {
     .replace(/"/g, '&quot;');
 }
 
-/** 訂單查詢卡片：品項明細 HTML（與看板行樣式一致） */
-function posOrdersQueryDetailHtml_(o) {
+function posQueryKdsLineToHtml_(line) {
+  var raw = String(line);
+  var esc = posEscapeHtmlOrderQuery_(raw);
+  var lead = raw.trim();
+  if (lead.indexOf('➜') === 0 || lead.indexOf('+ ') === 0 || lead.indexOf('> ') === 0 || /^>\s*\S/.test(lead)) {
+    return '<div class="order-card-line-telegram order-card-line-addon">' + esc + '</div>';
+  }
+  if (lead.indexOf('（') === 0 || lead.indexOf('(') === 0) {
+    return '<div class="order-card-line-telegram order-card-line-item-note">' + esc + '</div>';
+  }
+  return '<div class="order-card-line-telegram">' + esc + '</div>';
+}
+
+function posQueryFormatKdsTimeLabel_(ts) {
+  if (ts == null || ts === '') return '';
+  try {
+    var d = new Date(ts);
+    if (!isNaN(d.getTime())) {
+      var h = d.getHours();
+      var m = d.getMinutes();
+      return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    }
+  } catch (e) { /* 略 */ }
+  var s = String(ts).trim();
+  var m24 = s.match(/(\d{1,2}):(\d{2})/);
+  if (m24) return String(parseInt(m24[1], 10)).padStart(2, '0') + ':' + m24[2];
+  return s.slice(0, 5);
+}
+
+function posQueryFormatPendingTotal_(o) {
+  var t = o && o.total;
+  if (t === undefined || t === null || t === '') return '總金額：—';
+  var n = Number(t);
+  if (!isNaN(n)) return '總金額：$' + n.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
+  return '總金額：' + posEscapeHtmlOrderQuery_(String(t));
+}
+
+function posQueryPickupDisplay_(raw) {
+  var s = (raw == null ? '' : String(raw)).replace(/^'/, '').trim();
+  return s;
+}
+
+function posQueryPhoneDisplay_(o) {
+  if (!o) return '—';
+  var p = (o.phone || '').toString().replace(/^'/, '').trim();
+  return p || '—';
+}
+
+function posQueryCountLineItems_(o) {
+  if (!o) return 0;
+  var giftExtra = 0;
+  try {
+    var mpt = o.merchantPromoTelegram;
+    if (mpt && Array.isArray(mpt.gifts)) {
+      mpt.gifts.forEach(function (g) {
+        if (g && String(g.title != null ? g.title : '').trim()) giftExtra++;
+      });
+    }
+    if (!giftExtra) {
+      var dt = (o.orderDetailTextForPrint || '').toString();
+      if (dt) {
+        dt.split('\n').forEach(function (ln) {
+          var t = String(ln || '').trim();
+          if (t.indexOf('🎁') === 0) giftExtra++;
+        });
+      }
+    }
+  } catch (_eGc) { /* 略 */ }
+
+  var items = o.items;
+  if (items && items.length) return items.length + giftExtra;
+
+  var lines = o.itemLines;
+  if (!lines || !lines.length) return giftExtra;
+  var mains = lines.filter(function (line) {
+    var t = String(line).trim();
+    if (!t) return false;
+    if (t.indexOf('🎁') === 0) return false;
+    if (t.indexOf('➜') === 0 || t.indexOf('+ ') === 0 || t.indexOf('> ') === 0) return false;
+    if (t.indexOf('（') === 0 || t.indexOf('(') === 0) return false;
+    return true;
+  }).length;
+  return mains + giftExtra;
+}
+
+/** 與 renderOrderBoard 明細區同一資料源／分行邏輯 */
+function posQueryBoardLinesHtml_(o) {
   if (!o) return '';
   var detailText = (o.orderDetailTextForPrint || '').toString().trim();
   var blockLines = '';
@@ -10531,38 +10616,76 @@ function posOrdersQueryDetailHtml_(o) {
       blockLines = _posItemsBlock_.length >= 3
         ? (_posItemsBlock_(o, true, true) || '')
         : (_posItemsBlock_(o.items) || '');
-    } catch (_e0) {
+    } catch (_kdsBlk) {
       blockLines = '';
     }
   }
   if (!blockLines && o.itemLines && o.itemLines.length) {
     blockLines = o.itemLines.join('\n');
   }
-  if (!blockLines && o.items && o.items.length) {
-    var arr = typeof sortOrderItemsByMainNameClient_ === 'function'
-      ? sortOrderItemsByMainNameClient_(o.items)
-      : o.items.slice();
-    return arr.map(function (it) {
-      var nm = posEscapeHtmlOrderQuery_(it.name || '');
-      var qty = parseInt(it.quantity || 0, 10) || 0;
-      return '<div class="order-card-line-telegram">' + nm + ' x ' + qty + '</div>';
+  if (blockLines) {
+    return blockLines.split('\n').map(function (line) {
+      return posQueryKdsLineToHtml_(line);
     }).join('');
   }
-  if (!blockLines) return '';
+  var arr = typeof sortOrderItemsByMainNameClient_ === 'function'
+    ? sortOrderItemsByMainNameClient_(o.items || [])
+    : (o.items || []).slice();
+  return arr.map(function (it) {
+    var nm = posEscapeHtmlOrderQuery_(it.name || '');
+    var qty = parseInt(it.quantity || 0, 10) || 0;
+    return '<div class="order-card-line-telegram">' + nm + ' x ' + qty + '</div>';
+  }).join('');
+}
 
-  function lineToHtml(line) {
-    var raw = String(line);
-    var esc = posEscapeHtmlOrderQuery_(raw);
-    var lead = raw.trim();
-    if (lead.indexOf('➜') === 0 || lead.indexOf('+ ') === 0 || lead.indexOf('> ') === 0 || /^>\s*\S/.test(lead)) {
-      return '<div class="order-card-line-telegram order-card-line-addon">' + esc + '</div>';
-    }
-    if (lead.indexOf('（') === 0 || lead.indexOf('(') === 0) {
-      return '<div class="order-card-line-telegram order-card-line-item-note">' + esc + '</div>';
-    }
-    return '<div class="order-card-line-telegram">' + esc + '</div>';
-  }
-  return blockLines.split('\n').map(lineToHtml).join('');
+function posQueryNormalizeSourceForCard_(o) {
+  if (!o) return 'POS';
+  if (o.source === 'Online') return 'Online';
+  if (o.source && String(o.source).toUpperCase() === 'POS') return 'POS';
+  var ks = String(o.kdsSource || '').trim().toLowerCase();
+  if (ks === 'online' || ks === 'order') return 'Online';
+  return 'POS';
+}
+
+/** 訂單查詢卡片 HTML：版型與訂單看板卡片一致（底部僅刪除） */
+function posQueryOrderCardHtmlBoardLike_(order) {
+  var src = posQueryNormalizeSourceForCard_(order);
+  var isOnline = src === 'Online';
+  var tagText = isOnline ? '線上訂單' : '現場訂單';
+  var tagClass = isOnline ? 'tag-online' : 'tag-pos';
+  var displayId = posEscapeHtmlOrderQuery_(posQueryPhoneDisplay_(order));
+  var timeLabel = posEscapeHtmlOrderQuery_(posQueryFormatKdsTimeLabel_(order.timestamp || order.date));
+  var linesHtml = posQueryBoardLinesHtml_(order);
+  var remark = (order.remark || order.notes || '').toString().trim();
+  var remarkHtml = remark ? '<div class="order-card-remark">備註: ' + posEscapeHtmlOrderQuery_(remark) + '</div>' : '';
+  var pickupStr = posQueryPickupDisplay_(order.pickupTime);
+  var pickupMainHtml = pickupStr
+    ? ('取餐時間：' + posEscapeHtmlOrderQuery_(pickupStr))
+    : '取餐時間：<span style="color:#9ca3af;font-weight:600;">未指定</span>';
+  var lineItemCount = posQueryCountLineItems_(order);
+  var pickupBlockHtml =
+    '<div class="order-card-pickup-block">' +
+      '<div class="order-card-pickup-row">' +
+        '<span class="order-card-pickup-main">' + pickupMainHtml + '</span>' +
+        '<span class="order-card-total">' + posQueryFormatPendingTotal_(order) + '</span>' +
+      '</div>' +
+      '<div class="order-card-item-count-row">共 ' + String(lineItemCount) + ' 項</div>' +
+    '</div>';
+  var oid = String(order.orderId || '').replace(/"/g, '');
+  return (
+    '<div class="order-card-header">' +
+      '<span class="order-card-id">' + displayId + '</span>' +
+      '<span class="order-card-tag ' + tagClass + '">' + tagText + '</span>' +
+      '<span class="order-card-time" title="下單時間">' + timeLabel + '</span>' +
+    '</div>' +
+    pickupBlockHtml +
+    '<div class="order-card-body-wrap">' +
+      '<div class="order-card-body">' + linesHtml + remarkHtml + '</div>' +
+    '</div>' +
+    '<div class="order-card-footer order-card-footer-actions">' +
+      '<button type="button" class="btn-complete delete-order" style="background:#dc2626;" data-id="' + oid + '">刪除</button>' +
+    '</div>'
+  );
 }
 
  // 🌟 根據查詢條件篩選並顯示（forceRefresh 為 true 時略過同日快取並顯示載入列）
@@ -10587,7 +10710,7 @@ function loadOrders(forceRefresh) {
     clearTimeout(window.__posOrdersBgFetchTimer_);
     window.__posOrdersBgFetchTimer_ = setTimeout(function () {
       if (!currentWebAppUrl) return;
-      fetch(currentWebAppUrl + '?action=getOrders')
+      fetch(currentWebAppUrl + '?action=getOrders&servedOnly=1')
         .then(function (response) { return response.json(); })
         .then(function (data) {
           if (data.result !== 'success') return;
@@ -10606,7 +10729,7 @@ function loadOrders(forceRefresh) {
     grid.innerHTML = '<div class="order-board-empty"><div class="flex items-center justify-center gap-2"><div class="animate-spin h-6 w-6 border-4 border-blue-500 border-t-transparent rounded-full"></div><span>載入中...</span></div></div>';
   }
 
-  fetch(currentWebAppUrl + '?action=getOrders')
+  fetch(currentWebAppUrl + '?action=getOrders&servedOnly=1')
     .then(response => response.json())
     .then(applyServerOrders_)
     .catch(error => {
@@ -10645,42 +10768,11 @@ function loadOrders(forceRefresh) {
 
           grid.innerHTML = '';
           orders.forEach(function (order) {
-            var isOnline = order.source === 'Online';
             var card = document.createElement('div');
-            card.className = 'order-card ' + (isOnline ? 'card-online' : 'card-pos');
-            var tagText = isOnline ? '線上訂單' : '現場訂單';
-            var tagClass = isOnline ? 'tag-online' : 'tag-pos';
-            var whenStr = (order.date || '-').toString().replace('T', ' ');
-            var notes = (order.notes || '').toString().trim();
-            var noteHtml = notes ? ('<div class="order-card-remark">備註: ' + posEscapeHtmlOrderQuery_(notes) + '</div>') : '';
-            var pickupRaw = order.pickupTime != null ? order.pickupTime : order.pickup;
-            var pickupStr = pickupRaw != null ? String(pickupRaw).replace(/^'/, '').trim() : '';
-            var pickupHtml = pickupStr
-              ? ('<div class="order-card-line-telegram">取餐時間：' + posEscapeHtmlOrderQuery_(pickupStr) + '</div>')
-              : '';
-            var detailHtml = posOrdersQueryDetailHtml_(order);
-            var itemsSection = detailHtml
-              ? ('<div style="margin-top:10px;font-weight:700;color:#111827;border-top:1px solid #e5e7eb;padding-top:8px;">品項明細</div>' + detailHtml)
-              : '<div class="order-card-remark" style="margin-top:8px;color:#9ca3af;">無品項明細</div>';
-
-            card.innerHTML =
-              '<div class="order-card-header">' +
-                '<span class="order-card-tag ' + tagClass + '">' + tagText + '</span>' +
-                '<span class="order-card-id">' + posEscapeHtmlOrderQuery_(order.orderId || '') + '</span>' +
-                '<span class="order-card-time">' + posEscapeHtmlOrderQuery_(whenStr) + '</span>' +
-              '</div>' +
-              '<div class="order-card-body-wrap"><div class="order-card-body">' +
-                '<div class="order-card-line-telegram">電話：' + posEscapeHtmlOrderQuery_(order.phone || '—') + '</div>' +
-                pickupHtml +
-                '<div class="order-card-total" style="margin-top:8px;font-weight:800;color:#92400e;">NT$ ' + posEscapeHtmlOrderQuery_(String(order.total != null ? order.total : '—')) + '</div>' +
-                noteHtml +
-                itemsSection +
-              '</div></div>' +
-              '<div class="order-card-footer">' +
-                '<div class="order-card-footer-actions">' +
-                  '<button type="button" class="btn-complete delete-order" style="background:#dc2626;" data-id="' + String(order.orderId || '').replace(/"/g, '') + '">刪除</button>' +
-                '</div>' +
-              '</div>';
+            var src = posQueryNormalizeSourceForCard_(order);
+            card.className = 'order-card ' + (src === 'Online' ? 'card-online' : 'card-pos');
+            card.dataset.orderId = (order.orderId || '').toString();
+            card.innerHTML = posQueryOrderCardHtmlBoardLike_(order);
 
             grid.appendChild(card);
           });
@@ -13491,7 +13583,7 @@ function posDefaultStatsMonthRangeStrings_() {
 
 function posWarmOrdersCacheOnly_() {
   if (!currentWebAppUrl) return;
-  fetch(currentWebAppUrl + '?action=getOrders')
+  fetch(currentWebAppUrl + '?action=getOrders&servedOnly=1')
     .then(function (res) { return res.json(); })
     .then(function (data) {
       if (!data || data.result !== 'success') return;
