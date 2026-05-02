@@ -8354,6 +8354,97 @@ function posPrinterOrderLineNote_(it) {
   return '';
 }
 
+/** 與後端 reservationCountPiecesFromPayload_ 一致（送印統計「品項：共 N 項」） */
+function _indexReservationCountPieces_(data) {
+  data = data || {};
+  if (!Array.isArray(data.items) || !data.items.length) return 0;
+  var n = (data.items || []).reduce(function (s, it) {
+    var q = parseInt(it && it.quantity, 10);
+    if (isNaN(q)) q = parseInt(it && it.qty, 10) || 0;
+    return s + q;
+  }, 0);
+  var mpt = data.merchantPromoTelegram;
+  if (mpt && Array.isArray(mpt.gifts)) {
+    mpt.gifts.forEach(function (g) {
+      if (!g) return;
+      if (!String(g.title != null ? g.title : '').trim()) return;
+      var gq = parseInt(g.qty, 10);
+      if (!gq || isNaN(gq)) gq = 1;
+      n += gq;
+    });
+  }
+  return n;
+}
+/**
+ * 與後端 buildReservationUnifiedDetail_(data,{forTelegram:true}) 對齊的送印正文（預約與 Telegram 同版）。
+ */
+function _indexBuildReservationUnifiedDetailForPrint_(orderData) {
+  var data = orderData || {};
+  var r = (data.reservation && typeof data.reservation === 'object') ? data.reservation : {};
+  function ne(v) { return v != null && String(v).trim() !== ''; }
+  var lines = [];
+  var isPosSrc = data.source === 'pos' || data.source === undefined || data.source === null || String(data.source).trim() === '';
+  var srcTag = isPosSrc ? '🏪【現場/POS】' : '📱【線上】';
+  lines.push('有一筆新預約！' + srcTag);
+  if (ne(r.date)) lines.push('日期：' + String(r.date).trim());
+  if (ne(r.time)) lines.push('時間：' + String(r.time).trim());
+  var hasItems = Array.isArray(data.items) && data.items.some(function (it) {
+    if (!it) return false;
+    var nm = String(it.name || '').trim();
+    var q = parseInt(it.quantity != null ? it.quantity : it.qty, 10) || 0;
+    return nm && nm !== '預約單' && q > 0;
+  });
+  if (ne(r.people) && parseInt(r.people, 10) > 0) lines.push('人數：' + String(r.people));
+  var phoneDisp = ne(r.phone) ? String(r.phone).trim()
+    : (data.phone != null ? String(data.phone).replace(/^'/, '').trim() : '');
+  if (phoneDisp) lines.push('電話：' + phoneDisp);
+  var noteOrder = data.notes != null ? String(data.notes).trim() : '';
+  if (noteOrder) lines.push('備註：' + noteOrder);
+  else if (ne(r.note)) lines.push('備註：' + String(r.note));
+  var totalNum = parseFloat(data.total);
+  if (hasItems && !isNaN(totalNum) && totalNum > 0) lines.push('金額：' + String(totalNum));
+  var cnt = _indexReservationCountPieces_(data);
+  if (hasItems && cnt > 0) lines.push('品項：共 ' + String(cnt) + ' 項');
+  else if (!hasItems && ne(r.itemCount) && parseInt(r.itemCount, 10) > 0) {
+    lines.push('品項：共 ' + String(r.itemCount).trim() + ' 項');
+  }
+  if (ne(r.paymentType)) {
+    if (r.paymentType === '訂金') {
+      var depShow = parseFloat(r.depositAmount);
+      if (!isNaN(depShow) && depShow > 0) lines.push('訂金  :  ' + String(depShow));
+      if (hasItems && !isNaN(totalNum) && totalNum > 0 && !isNaN(depShow) && depShow > 0) {
+        var unpaid = totalNum - depShow;
+        if (unpaid > 0) lines.push('未清：' + String(unpaid));
+      }
+    } else if (hasItems || (!isNaN(totalNum) && totalNum > 0)) {
+      lines.push('付清');
+    }
+  }
+  if (hasItems) {
+    var detailBody = '';
+    try { detailBody = _itemsBlock_(data, { telegramLayout: true }); } catch (eB) { detailBody = ''; }
+    if (detailBody && String(detailBody).trim()) {
+      lines.push('');
+      lines.push('商品明細：');
+      lines.push('');
+      lines.push(String(detailBody).trim());
+    }
+  } else {
+    var idetail = String(r.itemDetail || '').replace(/\r\n/g, '\n').trim();
+    if (!idetail && data.itemDetail) idetail = String(data.itemDetail).replace(/\r\n/g, '\n').trim();
+    if (idetail) {
+      lines.push('');
+      lines.push('商品明細：');
+      lines.push('');
+      idetail.split('\n').forEach(function (ln) {
+        var t = String(ln || '').trim();
+        if (t) lines.push(t);
+      });
+    }
+  }
+  return lines.join('\n');
+}
+
 /**
  * 把 orderData 轉成列印頁 PRINT_ORDER 的 payload。
  * 列印頁會用自己 localStorage 的樣版 + 店名渲染。
@@ -8417,56 +8508,33 @@ function buildPrinterOrderPayloadFull_(orderData) {
       printThisLabel: false
     }];
   }
-  /* 預約 packed 文字（送往列印頁的 orderDetailTextForPrint）：與 Telegram 通知 / POS 端版面同步。
-   *  列印頁會自帶「預約 YYYY-MM-DD HH:MM」header，因此這裡 NOT 包含日期/時間行避免重複；
-   *  順序：人數 → 電話 → 備註 → 金額 → 品項 → 訂金/付清 → 未清 → 商品明細。 */
+  /* 預約送印：與後端 Telegram buildReservationUnifiedDetail_ 同一套文字（含「有一筆新預約！」與商品明細） */
   var packedReservationText = '';
   if (reservationForPrint && !isReservationCardInput) {
-    var totalNum = parseInt(orderData.total, 10) || 0;
-    var depositNum = parseInt(reservationForPrint.depositAmount, 10) || 0;
-    var unpaidRaw = parseInt(orderData.unpaidAmount, 10);
-    var unpaidNum = isFinite(unpaidRaw) ? unpaidRaw : ((reservationForPrint.paymentType === '訂金') ? Math.max(0, totalNum - depositNum) : 0);
-    var itemCountNum = 0;
-    if (orderData.merchantPromoTelegram && orderData.merchantPromoTelegram.lineItemCount != null) {
-      itemCountNum = parseInt(orderData.merchantPromoTelegram.lineItemCount, 10) || 0;
+    try {
+      packedReservationText = _indexBuildReservationUnifiedDetailForPrint_(orderData);
+    } catch (eUnif) {
+      packedReservationText = '';
     }
-    if (!itemCountNum && mappedItems.length) {
-      itemCountNum = mappedItems.reduce(function (sum, it) {
-        return sum + (parseInt(it.quantity, 10) || 0);
-      }, 0);
-    }
-    var hasItemsR = mappedItems.length > 0 || itemCountNum > 0;
-    var lines = [];
-    if (reservationForPrint.people) lines.push('人數：' + reservationForPrint.people);
-    if (reservationForPrint.phone) lines.push('電話：' + reservationForPrint.phone);
-    if (reservationForPrint.note) lines.push('備註：' + reservationForPrint.note);
-    if (hasItemsR && totalNum > 0) lines.push('金額：' + String(totalNum));
-    if (hasItemsR && itemCountNum > 0) lines.push('品項：共 ' + String(itemCountNum) + ' 項');
-    if (reservationForPrint.paymentType) {
-      if (reservationForPrint.paymentType === '訂金') {
-        if (depositNum > 0) lines.push('訂金  :  ' + String(depositNum));
-        if (hasItemsR && totalNum > 0 && depositNum > 0 && unpaidNum > 0) lines.push('未清：' + String(unpaidNum));
-      } else if (hasItemsR || totalNum > 0) {
-        lines.push('付清');
-      }
-    } else if (unpaidNum > 0) {
-      lines.push('未清：' + String(unpaidNum));
-    }
-    var itemBody = '';
-    try { itemBody = _itemsBlock_(orderData, { telegramLayout: true }); } catch (eBody) { itemBody = ''; }
-    if (itemBody && String(itemBody).trim()) {
-      lines.push('');
-      lines.push('商品明細：');
-      lines.push('');
-      lines.push(String(itemBody).trim());
-    }
-    packedReservationText = lines.join('\n');
-  } else if (!isReservationCardInput) {
-    packedReservationText = (typeof orderData.orderDetailTextForPrint === 'string' && orderData.orderDetailTextForPrint.trim())
-      ? String(orderData.orderDetailTextForPrint).trim()
-      : reservationDetailText;
   }
-  var finalPackedText = (isReservationCardInput && incomingPackedText) ? incomingPackedText : (packedReservationText || '');
+  var finalPackedText = '';
+  if (isReservationCardInput && incomingPackedText) {
+    finalPackedText = incomingPackedText;
+  } else {
+    finalPackedText = (function () {
+      try {
+        if (packedReservationText) return packedReservationText;
+        var preset = (typeof orderData.orderDetailTextForPrint === 'string' && orderData.orderDetailTextForPrint.trim())
+          ? String(orderData.orderDetailTextForPrint).trim() : '';
+        if (preset) return preset;
+        var s = _itemsBlock_(orderData, { telegramLayout: true });
+        if (!s && reservationDetailText) s = reservationDetailText;
+        return s ? String(s) : '';
+      } catch (eDet) {
+        return packedReservationText || reservationDetailText || '';
+      }
+    })();
+  }
   var outPayload = {
     clientId : 'C' + nowTs + '-' + Math.floor(Math.random() * 1e6),
     orderId  : orderData.orderId || '',
