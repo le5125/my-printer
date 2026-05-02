@@ -10656,7 +10656,7 @@ function posQueryOrderCardHtmlBoardLike_(order) {
   var displayId = posEscapeHtmlOrderQuery_(posQueryPhoneDisplay_(order));
   var timeLabel = posEscapeHtmlOrderQuery_(posQueryFormatKdsTimeLabel_(order.timestamp || order.date));
   var linesHtml = posQueryBoardLinesHtml_(order);
-  var remark = (order.remark || order.notes || '').toString().trim();
+  var remark = (order.remark || '').toString().trim();
   var remarkHtml = remark ? '<div class="order-card-remark">備註: ' + posEscapeHtmlOrderQuery_(remark) + '</div>' : '';
   var pickupStr = posQueryPickupDisplay_(order.pickupTime);
   var pickupMainHtml = pickupStr
@@ -10787,8 +10787,35 @@ function loadOrders(forceRefresh) {
           });
         }
 
-        // 🌟 刪除訂單
+        // 🌟 刪除訂單（先從畫面移除，背景再打 API）
         function deleteOrder(orderId) {
+          var idNorm = String(orderId || '').trim();
+          var grid = document.getElementById('orders-query-grid');
+          if (grid) {
+            var cards = grid.querySelectorAll('.order-card');
+            for (var ci = 0; ci < cards.length; ci++) {
+              if (String(cards[ci].dataset.orderId || '').trim() === idNorm) {
+                cards[ci].remove();
+                break;
+              }
+            }
+            if (!grid.querySelector('.order-card')) {
+              grid.innerHTML = '<div class="order-board-empty">沒有找到符合條件的訂單</div>';
+            }
+          }
+          try {
+            if (window.__posOrdersCache && Array.isArray(window.__posOrdersCache.orders)) {
+              window.__posOrdersCache.orders = window.__posOrdersCache.orders.filter(function (o) {
+                return String(o.orderId || '').trim() !== idNorm;
+              });
+            }
+          } catch (eC) { /* 略 */ }
+          try {
+            allOrders = (allOrders || []).filter(function (o) {
+              return String(o.orderId || '').trim() !== idNorm;
+            });
+          } catch (eA) { /* 略 */ }
+
           fetch(`${currentWebAppUrl}?action=deleteOrder&orderId=${encodeURIComponent(orderId)}`, {
             method: 'GET'
           })
@@ -10796,15 +10823,17 @@ function loadOrders(forceRefresh) {
             .then(data => {
               if (data.result === 'success') {
                 posSwalToastSuccess('已刪除訂單', 2000);
-                posInvalidateOrderRelatedCaches_();
-                loadOrders(true); // 重新載入訂單
+                window.__posKdsCache = null;
+                window.__posStatsCacheByKey_ = null;
               } else {
                 posSwalAlert('刪除失敗：' + (data.message || ''), 'error');
+                loadOrders(true);
               }
             })
             .catch(error => {
               console.error('刪除錯誤:', error);
               posSwalAlert('刪除失敗，請稍後再試', 'error');
+              loadOrders(true);
             });
         }
 
