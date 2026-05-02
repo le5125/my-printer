@@ -10365,31 +10365,90 @@ initializeCheckoutCalculatorToggle();
 initializePosTelegramNotifyToggle_();
 window.__reservationModalMode = 'draft';
 window.__editingReservationRowNo = null;
+function _resvGetSortedValidTimesHHMM_() {
+  var ranges = parseOpenCloseRangesFromHoursStr(_lastPickupOpeningHours || '09:00-21:00');
+  var setObj = {}, list = [];
+  ranges.forEach(function (rng) {
+    var o = parseInt(rng.openMin, 10), c = parseInt(rng.closeMin, 10);
+    if (!(o === o) || !(c === c)) return;
+    for (var t = o; t < c; t += 10) {
+      var hh = String(Math.floor(t / 60)).padStart(2, '0');
+      var mi = String(t % 60).padStart(2, '0');
+      var key = hh + ':' + mi;
+      if (!setObj[key]) { setObj[key] = true; list.push(key); }
+    }
+  });
+  list.sort(function (a, b) { return a.localeCompare(b); });
+  if (!list.length) {
+    var d0 = [{ openMin: 10 * 60, closeMin: 22 * 60 }];
+    d0.forEach(function (rng) {
+      for (var t = rng.openMin; t < rng.closeMin; t += 10) {
+        list.push(String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'));
+      }
+    });
+  }
+  return list;
+}
+function _resvFillReservationMinuteOptionsForHour_(hourStr, preferredMm) {
+  var rm = document.getElementById('reservation-minute');
+  if (!rm) return;
+  var hh = String(hourStr || '').trim();
+  var times = window.__reservationValidTimesHHMM || [];
+  var opts = [];
+  times.forEach(function (hm) {
+    if (!hh) return;
+    if (hm.slice(0, 2) !== hh) return;
+    opts.push(hm.slice(3, 5));
+  });
+  var mmSeen = {}, uniq = [];
+  opts.forEach(function (m0) {
+    if (!mmSeen[m0]) { mmSeen[m0] = true; uniq.push(m0); }
+  });
+  rm.innerHTML = '<option value="">分</option>' + uniq.map(function (mv) {
+    return '<option value="' + mv + '">' + mv + '</option>';
+  }).join('');
+  var pref = String(preferredMm || '').trim().padStart(2, '0');
+  if (pref.length === 2 && uniq.indexOf(pref) >= 0) rm.value = pref;
+  else if (uniq.length) rm.value = uniq[0];
+}
 function buildReservationTimeSelectsFromBusinessHours_() {
   var rh = document.getElementById('reservation-hour');
   var rm = document.getElementById('reservation-minute');
   if (!rh || !rm) return;
-  var minHour = 9;
-  var maxHour = 21;
-  try {
-    var ranges = parseOpenCloseRangesFromHoursStr(_lastPickupOpeningHours || '09:00-21:00');
-    if (Array.isArray(ranges) && ranges.length) {
-      var minOpen = ranges[0].openMin;
-      var maxClose = ranges[0].closeMin;
-      for (var ri = 1; ri < ranges.length; ri++) {
-        minOpen = Math.min(minOpen, ranges[ri].openMin);
-        maxClose = Math.max(maxClose, ranges[ri].closeMin);
-      }
-      minHour = Math.floor(minOpen / 60);
-      maxHour = Math.floor(maxClose / 60);
-    }
-  } catch (e) {}
-  var hh = ['<option value="">時</option>'];
-  for (var h = minHour; h <= maxHour; h++) hh.push('<option value="' + String(h).padStart(2, '0') + '">' + String(h).padStart(2, '0') + '</option>');
-  rh.innerHTML = hh.join('');
-  var mm = ['<option value="">分</option>'];
-  for (var m = 0; m < 60; m += 10) mm.push('<option value="' + String(m).padStart(2, '0') + '">' + String(m).padStart(2, '0') + '</option>');
-  rm.innerHTML = mm.join('');
+  window.__reservationValidTimesHHMM = _resvGetSortedValidTimesHHMM_();
+  var hoursSeen = {}, times = window.__reservationValidTimesHHMM;
+  times.forEach(function (key) {
+    hoursSeen[String(key.slice(0, 2))] = true;
+  });
+  var hourKeys = Object.keys(hoursSeen).sort();
+  rh.innerHTML = '<option value="">時</option>' +
+    hourKeys.map(function (h) { return '<option value="' + h + '">' + h + '</option>'; }).join('');
+  if (!window.__reservationHourMinuteBound__) {
+    window.__reservationHourMinuteBound__ = true;
+    rh.addEventListener('change', function () {
+      _resvFillReservationMinuteOptionsForHour_(rh.value);
+      try { _resvUpdateRemainingHint_(); } catch (eH) {}
+    });
+  }
+  _resvFillReservationMinuteOptionsForHour_('');
+}
+function _resvApplyReservationModalTime_(timeStr) {
+  var rh = document.getElementById('reservation-hour');
+  if (!rh) return;
+  var timesArr = window.__reservationValidTimesHHMM || [];
+  var want = String(timeStr || '').match(/^(\d{1,2}):(\d{2})$/);
+  var hhW = want ? String(parseInt(want[1], 10)).padStart(2, '0') : '';
+  var mmW = want ? String(parseInt(want[2], 10)).padStart(2, '0') : '';
+  var full = (hhW && mmW) ? (hhW + ':' + mmW) : '';
+  if (full && timesArr.indexOf(full) >= 0) {
+    rh.value = hhW;
+    _resvFillReservationMinuteOptionsForHour_(hhW, mmW);
+    return;
+  }
+  var first = timesArr[0];
+  if (!first) return;
+  rh.value = first.slice(0, 2);
+  _resvFillReservationMinuteOptionsForHour_(rh.value, first.slice(3, 5));
 }
 /** 預設日期：明天（YYYY-MM-DD，本地時區）；預設時間：商家營業開始時間（POS／GitHub／order 三端統一） */
 function _resvDefaultTomorrowDate_() {
@@ -10399,18 +10458,8 @@ function _resvDefaultTomorrowDate_() {
   return y + '-' + m + '-' + dd;
 }
 function _resvDefaultOpenTime_() {
-  try {
-    var ranges = parseOpenCloseRangesFromHoursStr(_lastPickupOpeningHours || '09:00-21:00');
-    if (Array.isArray(ranges) && ranges.length) {
-      var openMin = ranges[0].openMin;
-      var hh = String(Math.floor(openMin / 60)).padStart(2, '0');
-      var mmI = openMin % 60;
-      mmI = Math.ceil(mmI / 10) * 10;
-      if (mmI === 60) { mmI = 0; hh = String(parseInt(hh, 10) + 1).padStart(2, '0'); }
-      return hh + ':' + String(mmI).padStart(2, '0');
-    }
-  } catch (e) {}
-  return '11:00';
+  var list = _resvGetSortedValidTimesHHMM_();
+  return list[0] || '11:00';
 }
 function openReservationModal_() {
   window.__reservationModalMode = 'draft';
@@ -10423,9 +10472,7 @@ function openReservationModal_() {
   var dateVal = (d && d.date) ? d.date : _resvDefaultTomorrowDate_();
   var timeVal = (d && d.time) ? d.time : _resvDefaultOpenTime_();
   document.getElementById('reservation-date').value = dateVal;
-  var hm = String(timeVal).match(/^(\d{1,2}):(\d{2})$/);
-  document.getElementById('reservation-hour').value = hm ? String(parseInt(hm[1], 10)).padStart(2, '0') : '';
-  document.getElementById('reservation-minute').value = hm ? String(hm[2]).padStart(2, '0') : '';
+  _resvApplyReservationModalTime_(timeVal);
   document.getElementById('reservation-people').value = d.people || '';
   document.getElementById('reservation-phone').value = d.phone || '';
   document.getElementById('reservation-note').value = d.note || '';
@@ -13559,9 +13606,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               if (!modal) return;
               buildReservationTimeSelectsFromBusinessHours_();
               document.getElementById('reservation-date').value = row.reservationDate || '';
-              var hm = String(row.reservationTime || '').match(/^(\d{1,2}):(\d{2})$/);
-              document.getElementById('reservation-hour').value = hm ? String(parseInt(hm[1], 10)).padStart(2, '0') : '';
-              document.getElementById('reservation-minute').value = hm ? String(hm[2]).padStart(2, '0') : '';
+              _resvApplyReservationModalTime_(String(row.reservationTime || '').trim());
               document.getElementById('reservation-people').value = row.people || '';
               document.getElementById('reservation-phone').value = row.phone || '';
               document.getElementById('reservation-note').value = row.note || '';
@@ -13703,21 +13748,67 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         var _reservationCalendarDate = _resvCalLocalDateStr_();
         var _reservationCalendarTimer = null;
         var RESV_BOOKING_DEFAULT_MIN = 90;
-        function resvCalGetBusinessRange_() {
-          var startMin = 10 * 60, endMin = 22 * 60;
+        function resvCalGetMerchantHoursStrForCal_() {
           try {
-            var hoursStr = (typeof syncMerchantHoursInput === 'function' ? syncMerchantHoursInput() : '') ||
+            return (typeof syncMerchantHoursInput === 'function' ? syncMerchantHoursInput() : '') ||
               (typeof _lastPickupOpeningHours !== 'undefined' ? _lastPickupOpeningHours : '');
-            if (hoursStr && /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/.test(String(hoursStr))) {
-              var m = String(hoursStr).match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
-              if (m) {
-                startMin = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-                endMin = parseInt(m[3], 10) * 60 + parseInt(m[4], 10);
-                if (endMin <= startMin) endMin = startMin + 12 * 60;
-              }
+          } catch (eHs) {
+            return typeof _lastPickupOpeningHours !== 'undefined' ? _lastPickupOpeningHours : '';
+          }
+        }
+        /** 分段營業時間 → 預約日曆可用的 30 分鐘格（多段並列）；與 parseOpenCloseRangesFromHoursStr 規則一致 */
+        function resvCalGetReservationSlotsPack_() {
+          var slotMin = 30;
+          var hs = String(resvCalGetMerchantHoursStrForCal_() || '').trim() || '10:00-22:00';
+          var ranges = parseOpenCloseRangesFromHoursStr(hs);
+          var segments = ranges.map(function (r) {
+            return { startMin: r.openMin, endMin: r.closeMin };
+          });
+          var seen = {};
+          var slots = [];
+          segments.forEach(function (seg) {
+            var sm0 = parseInt(seg.startMin, 10) || 0;
+            var em0 = parseInt(seg.endMin, 10) || 0;
+            for (var tt = sm0; tt < em0; tt += slotMin) {
+              if (!seen[tt]) { seen[tt] = true; slots.push(tt); }
             }
-          } catch (e) { /* 略 */ }
-          return { startMin: startMin, endMin: endMin };
+          });
+          slots.sort(function (a, b) { return a - b; });
+          if (!slots.length) {
+            for (var t2 = 10 * 60; t2 < 22 * 60; t2 += slotMin) slots.push(t2);
+          }
+          return { slots: slots, slotMin: slotMin };
+        }
+        function resvCalSlotAlignedIndex_(slots, slotMin, minute) {
+          var mn = parseInt(minute, 10);
+          if (isNaN(mn)) return -1;
+          var a = mn - (mn % slotMin);
+          return slots.indexOf(a);
+        }
+        function resvCalBookingBarPixels_(slots, slotMin, bStart, bEnd, SLOT_H) {
+          var i0 = -1, i1 = -1;
+          for (var i = 0; i < slots.length; i++) {
+            var sm = slots[i];
+            var se = sm + slotMin;
+            if (se <= bStart) continue;
+            if (sm >= bEnd) break;
+            if (i0 < 0) i0 = i;
+            i1 = i;
+          }
+          if (i0 < 0) return null;
+          return {
+            top: i0 * SLOT_H,
+            height: Math.max(SLOT_H * 0.85, (i1 - i0 + 1) * SLOT_H - 2)
+          };
+        }
+        function resvCalNowLineTopPx_(slots, slotMin, nowMin, SLOT_H) {
+          for (var ix = 0; ix < slots.length; ix++) {
+            var sm = slots[ix];
+            if (nowMin >= sm && nowMin < sm + slotMin) {
+              return ix * SLOT_H + ((nowMin - sm) / slotMin) * SLOT_H;
+            }
+          }
+          return null;
         }
         function resvCalParseHHMM_(s) {
           var t = String(s || '').trim();
@@ -13795,10 +13886,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           var showIdle = !filtIdleEl || filtIdleEl.checked;
           var showPickup = !filtPickupEl || filtPickupEl.checked;
           var showBooking = !filtBookingEl || filtBookingEl.checked;
-          var range = resvCalGetBusinessRange_();
-          var startMin = range.startMin, endMin = range.endMin, slotMin = 30;
-          var slots = [];
-          for (var t = startMin; t < endMin; t += slotMin) slots.push(t);
+          var slotPackCal = resvCalGetReservationSlotsPack_();
+          var slots = slotPackCal.slots;
+          var slotMin = slotPackCal.slotMin;
           var dateStr = _reservationCalendarDate;
           var rows = resvCalRowsForDate_(dateStr);
           /* 容量計算：每個 30 分鐘格子內目前已預約人數（同步當前列表，配合樂觀更新） */
@@ -13830,16 +13920,19 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               bookings.push({ row: r, startMin: startM, endMin: startM + blockLen, weak: true });
             }
           });
-          function hourLoadPercent_(hourStartMin) {
+          function hourLoadPercent_(minuteM) {
             if (!showBooking) return 0;
-            var totalSlots = 60 / slotMin;
-            var occupied = 0;
-            for (var i = 0; i < totalSlots; i++) {
-              var s = hourStartMin + i * slotMin;
-              var hit = bookings.some(function (b) { return b.startMin < (s + slotMin) && b.endMin > s; });
+            var hourFloor = minuteM - (minuteM % 60);
+            var count = 0, occupied = 0;
+            for (var xi = 0; xi < slots.length; xi++) {
+              var sm = slots[xi];
+              if (sm < hourFloor) continue;
+              if (sm >= hourFloor + 60) break;
+              count++;
+              var hit = bookings.some(function (b) { return b.startMin < (sm + slotMin) && b.endMin > sm; });
               if (hit) occupied++;
             }
-            return Math.round(occupied / totalSlots * 100);
+            return count ? Math.round(occupied / count * 100) : 0;
           }
           var todayStr = _resvCalLocalDateStr_();
           var nowMin = -1;
@@ -13921,11 +14014,10 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           });
           var trackCount = Math.max(1, bookingTracks.length);
           bookings.forEach(function (b) {
-            if (b.startMin >= endMin || b.endMin <= startMin) return;
-            var sM = Math.max(startMin, b.startMin);
-            var eM = Math.min(endMin, b.endMin);
-            var top = ((sM - startMin) / slotMin) * SLOT_H;
-            var height = Math.max(SLOT_H * 0.85, ((eM - sM) / slotMin) * SLOT_H - 2);
+            var barPx = resvCalBookingBarPixels_(slots, slotMin, b.startMin, b.endMin, SLOT_H);
+            if (!barPx) return;
+            var top = barPx.top;
+            var height = barPx.height;
             var lf = (b._track / trackCount);
             var wf = (1 / trackCount);
             var bgColor = b.weak ? '#fee2e2' : '#fecaca';
@@ -13944,8 +14036,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (showPickup) {
           var pickupLanesBySlot_ = {};
           pickups.forEach(function (p) {
-            if (p.startMin < startMin || p.startMin >= endMin) return;
-            var si = Math.floor((p.startMin - startMin) / slotMin);
+            var si = resvCalSlotAlignedIndex_(slots, slotMin, p.startMin);
             if (si < 0 || si >= totalSlots) return;
             if (!pickupLanesBySlot_[si]) pickupLanesBySlot_[si] = [];
             pickupLanesBySlot_[si].push(p);
@@ -13971,15 +14062,17 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             );
           });
           }
-          if (nowMin > 0 && nowMin >= startMin && nowMin <= endMin) {
-            var top = ((nowMin - startMin) / slotMin) * SLOT_H;
-            html.push(
-              '<div class="resv-cal-now-line" style="position:absolute;left:0;right:0;top:' + top + 'px;height:0;border-top:2px solid #ef4444;z-index:5;pointer-events:none;">' +
-                '<span style="position:absolute;left:-58px;top:-10px;background:#ef4444;color:#fff;padding:1px 5px;border-radius:4px;font-size:11px;font-weight:700;">現在 ' +
-                String(Math.floor(nowMin / 60)).padStart(2, '0') + ':' + String(nowMin % 60).padStart(2, '0') +
-                '</span>' +
-              '</div>'
-            );
+          if (nowMin > 0) {
+            var topNowPx = resvCalNowLineTopPx_(slots, slotMin, nowMin, SLOT_H);
+            if (topNowPx != null) {
+              html.push(
+                '<div class="resv-cal-now-line" style="position:absolute;left:0;right:0;top:' + topNowPx + 'px;height:0;border-top:2px solid #ef4444;z-index:5;pointer-events:none;">' +
+                  '<span style="position:absolute;left:-58px;top:-10px;background:#ef4444;color:#fff;padding:1px 5px;border-radius:4px;font-size:11px;font-weight:700;">現在 ' +
+                  String(Math.floor(nowMin / 60)).padStart(2, '0') + ':' + String(nowMin % 60).padStart(2, '0') +
+                  '</span>' +
+                '</div>'
+              );
+            }
           }
           html.push('</div></div>');
           var summary = document.getElementById('resv-cal-summary');
@@ -14773,7 +14866,7 @@ function parseOpenCloseRangesFromHoursStr(openingHours) {
     .replace(/[：﹕]/g, ':')
     .replace(/[～~－–—‒−﹣]/g, '-')
     .trim();
-  const ranges = cleaned.split(',').map(function (seg) {
+  const ranges = cleaned.split(/[,，、]/).map(function (seg) {
     const m = seg.trim().match(/^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/);
     if (!m) return null;
     const oH = parseInt(m[1], 10);
