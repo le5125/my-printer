@@ -2157,10 +2157,10 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
                 <label class="block text-xs text-gray-600 mb-1">日期</label>
                 <input type="date" id="resv-cal-date" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
               </div>
-              <div class="flex items-center gap-3 text-xs text-gray-700">
-                <span class="inline-flex items-center"><span class="inline-block w-3 h-3 rounded-sm mr-1" style="background:#10b981;"></span>空閒</span>
-                <span class="inline-flex items-center"><span class="inline-block w-3 h-3 rounded-sm mr-1" style="background:#f59e0b;"></span>取貨</span>
-                <span class="inline-flex items-center"><span class="inline-block w-3 h-3 rounded-sm mr-1" style="background:#ef4444;"></span>訂位</span>
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-700">
+                <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="resv-cal-filter-idle" class="rounded border-gray-300" checked><span class="inline-block w-3 h-3 rounded-sm flex-shrink-0" style="background:#bbf7d0;border:1px solid #86efac;"></span>空閒</label>
+                <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="resv-cal-filter-pickup" class="rounded border-gray-300" checked><i class="fas fa-shopping-bag text-amber-600 text-xs"></i>取貨</label>
+                <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="resv-cal-filter-booking" class="rounded border-gray-300" checked><i class="fas fa-utensils text-red-800 text-xs"></i>訂位</label>
               </div>
               <div class="text-xs text-gray-500 ml-auto" id="resv-cal-summary"></div>
             </div>
@@ -13767,6 +13767,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         function renderReservationCalendar_() {
           var wrap = document.getElementById('reservation-calendar-wrap');
           if (!wrap) return;
+          var filtIdleEl = document.getElementById('resv-cal-filter-idle');
+          var filtPickupEl = document.getElementById('resv-cal-filter-pickup');
+          var filtBookingEl = document.getElementById('resv-cal-filter-booking');
+          var showIdle = !filtIdleEl || filtIdleEl.checked;
+          var showPickup = !filtPickupEl || filtPickupEl.checked;
+          var showBooking = !filtBookingEl || filtBookingEl.checked;
           var range = resvCalGetBusinessRange_();
           var startMin = range.startMin, endMin = range.endMin, slotMin = 30;
           var slots = [];
@@ -13803,6 +13809,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             }
           });
           function hourLoadPercent_(hourStartMin) {
+            if (!showBooking) return 0;
             var totalSlots = 60 / slotMin;
             var occupied = 0;
             for (var i = 0; i < totalSlots; i++) {
@@ -13833,7 +13840,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                   return '<div class="resv-cal-time-cell" style="height:' + SLOT_H + 'px;display:flex;align-items:flex-start;justify-content:flex-end;padding:1px 6px 0 0;color:' +
                     (isHourTop ? '#0f172a' : '#94a3b8') + ';font-weight:' + (isHourTop ? 700 : 500) + ';' +
                     'border-top:' + (i === 0 ? 'none' : (isHourTop ? '1px solid #cbd5e1' : '1px dashed #e5e7eb')) + ';">' +
-                    hh + ':' + mm + (isHourTop ? '<span style="margin-left:4px;font-weight:600;color:#475569;font-size:11px;">' + hourLoadPercent_(m) + '%</span>' : '') +
+                    hh + ':' + mm + (isHourTop && showBooking ? '<span style="margin-left:4px;font-weight:600;color:#475569;font-size:11px;">' + hourLoadPercent_(m) + '%</span>' : '') +
                   '</div>';
                 }).join('') +
               '</div>' +
@@ -13845,14 +13852,24 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             var hh = String(Math.floor(m / 60)).padStart(2, '0');
             var mm = String(m % 60).padStart(2, '0');
             var hhmm = hh + ':' + mm;
-            var booked = bookedByMin[m] || 0;
+            var booked = showBooking ? (bookedByMin[m] || 0) : 0;
             var isBlocked = blockedListForDate.indexOf(hhmm) >= 0;
             var bg = '#f8fafc';
-            if (totalSeats > 0) {
+            if (isBlocked) {
+              bg = '#fecaca';
+            } else if (totalSeats > 0) {
               var ratio = booked / totalSeats;
-              if (booked >= totalSeats || isBlocked) bg = '#fecaca';
-              else if (ratio >= 0.5) bg = '#fef3c7';
-              else if (booked > 0) bg = '#dcfce7';
+              if (showIdle) {
+                if (booked >= totalSeats) bg = '#fecaca';
+                else if (ratio >= 0.5) bg = '#fef3c7';
+                else if (booked > 0) bg = '#dcfce7';
+              } else if (booked >= totalSeats) {
+                bg = '#fecaca';
+              } else {
+                bg = '#e8eef4';
+              }
+            } else if (!showIdle) {
+              bg = '#e8eef4';
             }
             var capLabel = '';
             if (totalSeats > 0) {
@@ -13868,6 +13885,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               '</div>'
             );
           });
+          if (showBooking) {
           var bookingTracks = [];
           bookings.sort(function (a, b) { return a.startMin - b.startMin; });
           bookings.forEach(function (b) {
@@ -13895,11 +13913,13 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               '<div class="resv-cal-booking" data-row="' + resvCalEscape_(b.row.rowNo) + '" ' +
                 'style="position:absolute;z-index:2;top:' + top + 'px;height:' + height + 'px;left:calc(4px + (100% - ' + RESV_CAL_RIGHT_STRIP_PX + 'px) * ' + lf + ');width:calc((100% - ' + RESV_CAL_RIGHT_STRIP_PX + 'px) * ' + wf + ' - 8px);background:' + bgColor + ';border-left:4px solid ' + borderColor + ';color:#7f1d1d;' +
                 'border-radius:6px;padding:4px 6px;font-weight:700;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden;">' +
-                '<div style="font-size:12px;line-height:1.15;">' + resvCalEscape_(b.row.reservationTime || '') + '</div>' +
+                '<div style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:1.15;"><i class="fas fa-utensils" style="font-size:11px;opacity:.9;flex-shrink:0;"></i>' + resvCalEscape_(b.row.reservationTime || '') + '</div>' +
                 '<div style="font-size:12px;line-height:1.15;">' + resvCalEscape_(label) + '</div>' +
               '</div>'
             );
           });
+          }
+          if (showPickup) {
           var pickupLanesBySlot_ = {};
           pickups.forEach(function (p) {
             if (p.startMin < startMin || p.startMin >= endMin) return;
@@ -13928,6 +13948,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               '</div>'
             );
           });
+          }
           if (nowMin > 0 && nowMin >= startMin && nowMin <= endMin) {
             var top = ((nowMin - startMin) / slotMin) * SLOT_H;
             html.push(
@@ -14032,6 +14053,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         document.getElementById('resv-cal-next')?.addEventListener('click', function () { resvCalShiftDate_(1); });
         document.getElementById('resv-cal-today')?.addEventListener('click', function () { resvCalSetDate_(_resvCalLocalDateStr_()); });
         document.getElementById('resv-cal-date')?.addEventListener('change', function () { resvCalSetDate_(this.value); });
+        ['resv-cal-filter-idle', 'resv-cal-filter-pickup', 'resv-cal-filter-booking'].forEach(function (fid) {
+          document.getElementById(fid)?.addEventListener('change', function () { renderReservationCalendar_(); });
+        });
         (function _initResvCalDateInput_() {
           var input = document.getElementById('resv-cal-date');
           if (input && !input.value) input.value = _reservationCalendarDate;
