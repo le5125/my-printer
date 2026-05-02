@@ -13819,7 +13819,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           }
           var SLOT_H = 24;
           var RESV_CAL_RIGHT_STRIP_PX = 116;
-          var pickupLaneLeftPx = totalSeats > 0 ? 44 : 8;
+          var pickupLaneLeftPx = 8;
           var totalSlots = slots.length;
           var totalHeight = totalSlots * SLOT_H;
           var html = [];
@@ -13856,8 +13856,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             }
             var capLabel = '';
             if (totalSeats > 0) {
-              capLabel = '<span style="position:absolute;left:6px;top:2px;z-index:10;font-size:10px;color:#475569;font-weight:600;">' + booked + '/' + totalSeats + '</span>';
-              if (isBlocked) capLabel += '<span style="position:absolute;right:' + (RESV_CAL_RIGHT_STRIP_PX + 28) + 'px;top:2px;z-index:10;font-size:10px;color:#b91c1c;font-weight:700;background:rgba(255,255,255,.93);padding:0 4px;border-radius:4px;">客滿</span>';
+              if (isBlocked) capLabel = '<span style="position:absolute;right:' + (RESV_CAL_RIGHT_STRIP_PX + 28) + 'px;top:2px;z-index:10;font-size:10px;color:#b91c1c;font-weight:700;background:rgba(255,255,255,.93);padding:0 4px;border-radius:4px;">客滿</span>';
             }
             html.push(
               '<div class="resv-cal-slot" data-min="' + m + '" data-time="' + hhmm + '" data-blocked="' + (isBlocked ? '1' : '0') + '" ' +
