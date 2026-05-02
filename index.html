@@ -13764,6 +13764,28 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           d.setDate(d.getDate() + deltaDays);
           resvCalSetDate_(_resvCalLocalDateStr_(d));
         }
+        function _resvCloneBlockedSlots_(bs) {
+          var out = {};
+          if (!bs || typeof bs !== 'object') return out;
+          Object.keys(bs).forEach(function (d) {
+            out[d] = Array.isArray(bs[d]) ? bs[d].slice() : [];
+          });
+          return out;
+        }
+        function _resvOptimisticApplySlotBlocked_(dateStr, time, makeBlocked) {
+          window._reservationSettings = window._reservationSettings || {};
+          var bs = _resvCloneBlockedSlots_(window._reservationSettings.blockedSlots);
+          var arr = bs[dateStr] ? bs[dateStr].slice() : [];
+          var ix = arr.indexOf(time);
+          if (makeBlocked) {
+            if (ix < 0) arr.push(time);
+          } else if (ix >= 0) {
+            arr.splice(ix, 1);
+          }
+          arr.sort();
+          bs[dateStr] = arr;
+          window._reservationSettings.blockedSlots = bs;
+        }
         function renderReservationCalendar_() {
           var wrap = document.getElementById('reservation-calendar-wrap');
           if (!wrap) return;
@@ -13998,19 +14020,32 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               if (!slot) return;
               var time = slot.getAttribute('data-time');
               var blocked = slot.getAttribute('data-blocked') === '1';
+              var nextBlocked = !blocked;
+              var prevSnap = _resvCloneBlockedSlots_((window._reservationSettings || {}).blockedSlots);
+              _resvOptimisticApplySlotBlocked_(dateStr, time, nextBlocked);
+              renderReservationCalendar_();
+              if (typeof posSwalToastSuccess === 'function') {
+                posSwalToastSuccess(nextBlocked ? ('已標記 ' + time + ' 客滿') : ('已解鎖 ' + time), 1200);
+              }
               posRunSheetMutation_({
                 gasMethod: 'toggleReservationBlockedSlotFromPosClient',
-                gasArgs: [{ date: dateStr, time: time, blocked: !blocked }],
-                postBody: { action: 'toggleReservationBlockedSlot', date: dateStr, time: time, blocked: !blocked }
+                gasArgs: [{ date: dateStr, time: time, blocked: nextBlocked }],
+                postBody: { action: 'toggleReservationBlockedSlot', date: dateStr, time: time, blocked: nextBlocked }
               }).then(function (ret) {
                 if (!ret || ret.result !== 'success') {
+                  window._reservationSettings = window._reservationSettings || {};
+                  window._reservationSettings.blockedSlots = prevSnap;
+                  renderReservationCalendar_();
                   posSwalAlert('設定客滿失敗：' + ((ret && ret.message) || ''), 'error');
                   return;
                 }
-                window._reservationSettings = window._reservationSettings || {};
-                window._reservationSettings.blockedSlots = ret.blockedSlots || {};
+                window._reservationSettings.blockedSlots = ret.blockedSlots || window._reservationSettings.blockedSlots;
                 renderReservationCalendar_();
-                posSwalToastSuccess(!blocked ? ('已標記 ' + time + ' 客滿') : ('已解鎖 ' + time), 1200);
+              }).catch(function (err) {
+                window._reservationSettings = window._reservationSettings || {};
+                window._reservationSettings.blockedSlots = prevSnap;
+                renderReservationCalendar_();
+                posSwalAlert('設定客滿失敗：' + (err ? String(err.message || err) : '連線異常'), 'error');
               });
             });
           });
