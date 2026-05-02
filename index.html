@@ -12371,6 +12371,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (packedFromCard) {
             detailLines = packedFromCard.split('\n');
           } else {
+            var _hd0 = String(row.reservationDate || '').trim();
+            var _ht0 = String(row.reservationTime || '').trim();
+            detailLines.push('預約' + ((_hd0 || _ht0) ? '  ' + [_hd0, _ht0].filter(Boolean).join(' ') : ''));
             if (row.reservationDate) detailLines.push('日期：' + String(row.reservationDate));
             if (row.reservationTime) detailLines.push('時間：' + String(row.reservationTime));
             if (row.people) detailLines.push('人數：' + String(row.people));
@@ -12452,6 +12455,11 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             card.className = 'order-card card-pos';
             const lines = [];
             const printLines = [];
+            (function () {
+              var _hd = String(r.reservationDate || '').trim();
+              var _ht = String(r.reservationTime || '').trim();
+              printLines.push('預約' + ((_hd || _ht) ? '  ' + [_hd, _ht].filter(Boolean).join(' ') : ''));
+            })();
             if (r.reservationDate) lines.push('日期：' + kdsEscapeHtml(r.reservationDate));
             if (r.reservationDate) printLines.push('日期：' + String(r.reservationDate));
             if (r.reservationTime) lines.push('時間：' + kdsEscapeHtml(r.reservationTime));
@@ -16175,8 +16183,12 @@ function buildReceiptPlainTextMirroringGas_(ord) {
   if (isReservationCardPrint) {
     var placeholderOnly = /^預約單 x 1\s+\$0$/m.test(packed);
     var r = hasReservationObj ? ord.reservation : {};
+    var resCardHdr = '預約' + ((String(r.date || '').trim() || String(r.time || '').trim())
+      ? '  ' + [String(r.date || '').trim(), String(r.time || '').trim()].filter(Boolean).join(' ')
+      : '');
     var lines = [];
-    if (!placeholderOnly && packed) return '(預約)\n' + packed;
+    /* 與 POS 預約卡列印字串一致，勿再加「(預約)」前綴（紙張應與畫面同一套文字） */
+    if (!placeholderOnly && packed) return packed;
     var totalNum = parseInt((ord.total != null ? ord.total : r.total), 10) || 0;
     var depositNum = parseInt(r.depositAmount, 10) || 0;
     var unpaidNum = parseInt((r.unpaidAmount != null ? r.unpaidAmount : ord.unpaidAmount), 10);
@@ -16205,9 +16217,9 @@ function buildReceiptPlainTextMirroringGas_(ord) {
         if (t) lines.push(t);
       });
     }
-    if (lines.length) return '(預約)\n' + lines.join('\n');
+    if (lines.length) return resCardHdr + '\n' + lines.join('\n');
     var rb = buildReservationBlockForPrint_(ord);
-    return rb ? ('(預約)\n' + rb) : '(預約)';
+    return rb ? (resCardHdr + '\n' + rb) : resCardHdr;
   }
   var srcRaw = ord.source;
   var isPos = (srcRaw === 'pos' || srcRaw === undefined || srcRaw === null || String(srcRaw).trim() === '');
