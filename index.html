@@ -12825,6 +12825,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                     return;
                   }
                   posSwalToastSuccess('已取消預約', 1800);
+                  loadReservationBoard_();
                 }).catch(function (err) {
                   loadReservationBoard_();
                   posSwalAlert('取消預約失敗：' + (err && err.message ? err.message : err), 'error');
@@ -12956,12 +12957,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             this.classList.remove('text-gray-500');
             setFeatureDropdownLabel('預約查看');
             posBindBoardGridWheelScroll_();
-            if (_reservationBoardPrefetched && Array.isArray(_reservationBoardRows)) {
-              renderReservationBoard_(_reservationBoardRows);
-              setTimeout(loadReservationBoard_, 0);
-            } else {
-              loadReservationBoard_();
-            }
+            loadReservationBoard_();
             startReservationPolling_();
           });
         }
