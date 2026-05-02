@@ -10511,6 +10511,60 @@ function posEnsureOrdersFilterDefaultDate_() {
   if (!el.value) el.value = new Date().toISOString().slice(0, 10);
 }
 
+function posEscapeHtmlOrderQuery_(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** 訂單查詢卡片：品項明細 HTML（與看板行樣式一致） */
+function posOrdersQueryDetailHtml_(o) {
+  if (!o) return '';
+  var detailText = (o.orderDetailTextForPrint || '').toString().trim();
+  var blockLines = '';
+  if (detailText) {
+    blockLines = detailText;
+  } else if (o.items && o.items.length && typeof _posItemsBlock_ === 'function') {
+    try {
+      blockLines = _posItemsBlock_.length >= 3
+        ? (_posItemsBlock_(o, true, true) || '')
+        : (_posItemsBlock_(o.items) || '');
+    } catch (_e0) {
+      blockLines = '';
+    }
+  }
+  if (!blockLines && o.itemLines && o.itemLines.length) {
+    blockLines = o.itemLines.join('\n');
+  }
+  if (!blockLines && o.items && o.items.length) {
+    var arr = typeof sortOrderItemsByMainNameClient_ === 'function'
+      ? sortOrderItemsByMainNameClient_(o.items)
+      : o.items.slice();
+    return arr.map(function (it) {
+      var nm = posEscapeHtmlOrderQuery_(it.name || '');
+      var qty = parseInt(it.quantity || 0, 10) || 0;
+      return '<div class="order-card-line-telegram">' + nm + ' x ' + qty + '</div>';
+    }).join('');
+  }
+  if (!blockLines) return '';
+
+  function lineToHtml(line) {
+    var raw = String(line);
+    var esc = posEscapeHtmlOrderQuery_(raw);
+    var lead = raw.trim();
+    if (lead.indexOf('➜') === 0 || lead.indexOf('+ ') === 0 || lead.indexOf('> ') === 0 || /^>\s*\S/.test(lead)) {
+      return '<div class="order-card-line-telegram order-card-line-addon">' + esc + '</div>';
+    }
+    if (lead.indexOf('（') === 0 || lead.indexOf('(') === 0) {
+      return '<div class="order-card-line-telegram order-card-line-item-note">' + esc + '</div>';
+    }
+    return '<div class="order-card-line-telegram">' + esc + '</div>';
+  }
+  return blockLines.split('\n').map(lineToHtml).join('');
+}
+
  // 🌟 根據查詢條件篩選並顯示（forceRefresh 為 true 時略過同日快取並顯示載入列）
 function loadOrders(forceRefresh) {
   var force = forceRefresh === true;
@@ -10598,43 +10652,37 @@ function loadOrders(forceRefresh) {
             var tagClass = isOnline ? 'tag-online' : 'tag-pos';
             var whenStr = (order.date || '-').toString().replace('T', ' ');
             var notes = (order.notes || '').toString().trim();
-            var noteHtml = notes ? ('<div class="order-card-remark">備註: ' + notes.replace(/</g, '&lt;').replace(/&/g, '&amp;') + '</div>') : '';
+            var noteHtml = notes ? ('<div class="order-card-remark">備註: ' + posEscapeHtmlOrderQuery_(notes) + '</div>') : '';
+            var pickupRaw = order.pickupTime != null ? order.pickupTime : order.pickup;
+            var pickupStr = pickupRaw != null ? String(pickupRaw).replace(/^'/, '').trim() : '';
+            var pickupHtml = pickupStr
+              ? ('<div class="order-card-line-telegram">取餐時間：' + posEscapeHtmlOrderQuery_(pickupStr) + '</div>')
+              : '';
+            var detailHtml = posOrdersQueryDetailHtml_(order);
+            var itemsSection = detailHtml
+              ? ('<div style="margin-top:10px;font-weight:700;color:#111827;border-top:1px solid #e5e7eb;padding-top:8px;">品項明細</div>' + detailHtml)
+              : '<div class="order-card-remark" style="margin-top:8px;color:#9ca3af;">無品項明細</div>';
+
             card.innerHTML =
               '<div class="order-card-header">' +
                 '<span class="order-card-tag ' + tagClass + '">' + tagText + '</span>' +
-                '<span class="order-card-id">' + String(order.orderId || '').replace(/</g, '&lt;') + '</span>' +
-                '<span class="order-card-time">' + whenStr.replace(/</g, '&lt;') + '</span>' +
+                '<span class="order-card-id">' + posEscapeHtmlOrderQuery_(order.orderId || '') + '</span>' +
+                '<span class="order-card-time">' + posEscapeHtmlOrderQuery_(whenStr) + '</span>' +
               '</div>' +
               '<div class="order-card-body-wrap"><div class="order-card-body">' +
-                '<div class="order-card-line-telegram">電話：' + String(order.phone || '—').replace(/</g, '&lt;') + '</div>' +
-                '<div class="order-card-total" style="margin-top:8px;font-weight:800;color:#92400e;">NT$ ' + String(order.total != null ? order.total : '—') + '</div>' +
+                '<div class="order-card-line-telegram">電話：' + posEscapeHtmlOrderQuery_(order.phone || '—') + '</div>' +
+                pickupHtml +
+                '<div class="order-card-total" style="margin-top:8px;font-weight:800;color:#92400e;">NT$ ' + posEscapeHtmlOrderQuery_(String(order.total != null ? order.total : '—')) + '</div>' +
                 noteHtml +
+                itemsSection +
               '</div></div>' +
               '<div class="order-card-footer">' +
                 '<div class="order-card-footer-actions">' +
-                  '<button type="button" class="btn-kds-print view-order-detail" data-order="">查看</button>' +
                   '<button type="button" class="btn-complete delete-order" style="background:#dc2626;" data-id="' + String(order.orderId || '').replace(/"/g, '') + '">刪除</button>' +
                 '</div>' +
               '</div>';
 
-            var vo = card.querySelector('.view-order-detail');
-            var enc = encodeURIComponent(JSON.stringify(order));
-            vo.setAttribute('data-order', enc);
-
             grid.appendChild(card);
-          });
-
-          grid.querySelectorAll('.view-order-detail').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-              var encoded = this.getAttribute('data-order');
-              try {
-                var orderData = JSON.parse(decodeURIComponent(encoded));
-                showOrderDetail(orderData);
-              } catch (err) {
-                posSwalAlert('⚠️ 無法載入訂單資料，可能格式錯誤！', 'warning');
-                console.error('JSON parse 錯誤：', err);
-              }
-            });
           });
 
           grid.querySelectorAll('.delete-order').forEach(function (btn) {
