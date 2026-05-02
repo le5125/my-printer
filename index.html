@@ -3255,13 +3255,23 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       </div>
     </div>
     <div id="reservation-pick-modal" class="hidden fixed inset-0 z-[10010] bg-black/50 items-center justify-center">
-      <div class="bg-white rounded-xl shadow-2xl w-[92%] max-w-[420px] p-4">
-        <div class="flex items-center justify-between mb-2">
+      <div class="bg-white rounded-xl shadow-2xl w-[92%] max-w-[520px] p-4">
+        <div class="flex items-center justify-between mb-3">
           <h3 class="text-base font-bold text-gray-800">挑選商品</h3>
           <button type="button" id="reservation-pick-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
         </div>
-        <input type="text" id="reservation-pick-search" placeholder="搜尋商品名" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm mb-2">
-        <div id="reservation-pick-list" class="space-y-1 max-h-72 overflow-y-auto text-sm border border-slate-200 rounded-md p-1"></div>
+        <div class="flex flex-row gap-3 mb-2">
+          <div class="flex-1 min-w-0 flex flex-col gap-1">
+            <span class="text-xs font-bold text-gray-600">菜單</span>
+            <select id="reservation-pick-menu" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm bg-white"></select>
+          </div>
+          <div class="flex-1 min-w-0 flex flex-col gap-1">
+            <span class="text-xs font-bold text-gray-600">商品</span>
+            <select id="reservation-pick-product" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm bg-white"></select>
+          </div>
+        </div>
+        <button type="button" id="reservation-pick-add" class="w-full py-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold mb-2">加入預約明細</button>
+        <input type="text" id="reservation-pick-search" placeholder="搜尋商品（只在目前選取菜單內過濾）" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm">
       </div>
     </div>
 
@@ -8375,6 +8385,68 @@ function _indexReservationCountPieces_(data) {
   }
   return n;
 }
+/** POS／GitHub 預約＋商品列印正文：與店內熱敏規格一致（首行「預約  yyyy-mm-dd hh:mm」＋簡式品項列）。 */
+function _resIndexThermalNormTime_(tm) {
+  var s = String(tm || '').trim();
+  var m = s.match(/^(\d{1,2})\s*:?\s*(\d{1,2})(?::(\d{1,2}))?$/);
+  if (!m) return s || '';
+  return String(parseInt(m[1], 10)).padStart(2, '0') + ':' + String(parseInt(m[2], 10)).padStart(2, '0');
+}
+function _indexBuildReservationThermalDetailForPrint_(orderData) {
+  var data = orderData || {};
+  var r = (data.reservation && typeof data.reservation === 'object') ? data.reservation : {};
+  function ne(v) { return v != null && String(v).trim() !== ''; }
+  var lines = [];
+  var ds = '';
+  if (ne(r.date)) ds = String(r.date).trim();
+  if (ne(r.time)) {
+    if (ds) ds += ' ';
+    ds += _resIndexThermalNormTime_(r.time);
+  }
+  if (ds) lines.push('預約  ' + ds);
+
+  function isRealReservationItem(it) {
+    if (!it) return false;
+    var nm = String(it.name || '').trim();
+    var q = parseInt(it.quantity != null ? it.quantity : it.qty, 10) || 0;
+    return nm && nm !== '預約單' && q > 0;
+  }
+  var realItems = (Array.isArray(data.items) ? data.items : []).filter(isRealReservationItem);
+  var hasItems = realItems.length > 0;
+  var totalNum = parseFloat(data.total);
+  if (hasItems && !isNaN(totalNum) && totalNum >= 0) lines.push('金額：' + String(Math.round(totalNum)));
+  var cnt = _indexReservationCountPieces_(data);
+  if (hasItems && cnt > 0) lines.push('品項：共 ' + String(cnt) + ' 項');
+  if (ne(r.paymentType)) {
+    if (r.paymentType === '訂金') {
+      var depShow = parseFloat(r.depositAmount);
+      if (!isNaN(depShow) && depShow > 0) lines.push('訂金  :  ' + String(depShow));
+      if (hasItems && !isNaN(totalNum) && totalNum > 0 && !isNaN(depShow) && depShow > 0) {
+        var unpaid = totalNum - depShow;
+        if (unpaid > 0) lines.push('未清：' + String(Math.round(unpaid)));
+      }
+    } else if (hasItems || (!isNaN(totalNum) && totalNum > 0)) {
+      lines.push('付清');
+    }
+  }
+  if (!hasItems) return lines.join('\n');
+  lines.push('');
+  lines.push('商品明細：');
+  lines.push('');
+  var colW = 32;
+  var sortFn = typeof sortOrderItemsByMainNameClient_ === 'function' ? sortOrderItemsByMainNameClient_ : function (xs) { return (xs || []).slice(); };
+  sortFn(realItems).forEach(function (it) {
+    var nm = String(it.name || '').trim();
+    var q = parseInt(it.quantity != null ? it.quantity : it.qty, 10) || 0;
+    var pu = parseInt(it.price != null ? it.price : 0, 10) || 0;
+    var sub = Math.round(q * pu);
+    var left = nm + ' x ' + q;
+    var right = '$' + sub;
+    var spaces = Math.max(2, colW - left.length - right.length);
+    lines.push(left + new Array(spaces + 1).join(' ') + right);
+  });
+  return lines.join('\n');
+}
 /**
  * 與後端 buildReservationUnifiedDetail_(data,{forTelegram:true}) 對齊的送印正文（預約與 Telegram 同版）。
  */
@@ -8508,11 +8580,11 @@ function buildPrinterOrderPayloadFull_(orderData) {
       printThisLabel: false
     }];
   }
-  /* 預約送印：與後端 Telegram buildReservationUnifiedDetail_ 同一套文字（含「有一筆新預約！」與商品明細） */
+  /* 預約送印：熱敏內文明細（同上 pos 規格）。 */
   var packedReservationText = '';
   if (reservationForPrint && !isReservationCardInput) {
     try {
-      packedReservationText = _indexBuildReservationUnifiedDetailForPrint_(orderData);
+      packedReservationText = _indexBuildReservationThermalDetailForPrint_(orderData);
     } catch (eUnif) {
       packedReservationText = '';
     }
@@ -10552,41 +10624,120 @@ function _resvCollectMenuProducts_() {
     return { name: String(p.name).trim(), price: parseInt(p.price, 10) || 0 };
   });
 }
+function _resvFindMenuIdForProductName_(nm) {
+  var target = String(nm || '').trim();
+  if (!target || typeof menuTabs !== 'object' || !menuTabs) return null;
+  var ids = [];
+  try { ids = (typeof getSortedMenuIds === 'function' ? getSortedMenuIds() : null) || []; } catch (e) { ids = []; }
+  if (!ids.length) ids = Object.keys(menuTabs);
+  for (var i = 0; i < ids.length; i++) {
+    var arr = menuTabs[ids[i]];
+    if (!arr || !arr.length) continue;
+    for (var j = 0; j < arr.length; j++) {
+      var it = arr[j];
+      if (it && String(it.name || '').trim() === target) return ids[i];
+    }
+  }
+  return null;
+}
 function openReservationPickModal_() {
   var modal = document.getElementById('reservation-pick-modal');
   if (!modal) return;
-  modal.classList.remove('hidden'); modal.classList.add('flex');
-  var listEl = document.getElementById('reservation-pick-list');
+  var menuSel = document.getElementById('reservation-pick-menu');
+  var prodSel = document.getElementById('reservation-pick-product');
   var search = document.getElementById('reservation-pick-search');
-  var all = _resvCollectMenuProducts_();
-  function render() {
-    var q = String((search && search.value) || '').trim();
-    var matched = !q ? all : all.filter(function (p) { return p.name.indexOf(q) >= 0; });
-    if (!matched.length) {
-      listEl.innerHTML = '<div class="text-slate-400 text-xs px-2 py-3 text-center">（沒有符合的商品）</div>';
-      return;
+  var defaultMenuId = (typeof currentTab !== 'undefined' && currentTab) ? String(currentTab).trim() : 'menu-1';
+  var edits = Array.isArray(window.__editingReservationItems) ? window.__editingReservationItems : [];
+  if (edits.length) {
+    var guess = _resvFindMenuIdForProductName_(edits[edits.length - 1].name);
+    if (guess) defaultMenuId = guess;
+  }
+  modal.classList.remove('hidden'); modal.classList.add('flex');
+
+  var idsList = [];
+  try {
+    idsList = (typeof getSortedMenuIds === 'function' ? getSortedMenuIds() : null) || [];
+  } catch (eSid) {
+    idsList = [];
+  }
+  if ((!idsList || !idsList.length) && typeof menuTabs === 'object' && menuTabs) {
+    idsList = Object.keys(menuTabs);
+    idsList.sort();
+  }
+  if (!idsList.length) idsList = ['menu-1'];
+
+  while (menuSel.firstChild) menuSel.removeChild(menuSel.firstChild);
+  idsList.forEach(function (mid) {
+    var o = document.createElement('option');
+    o.value = mid;
+    o.textContent = (typeof getMenuNameById === 'function') ? getMenuNameById(mid) : mid;
+    menuSel.appendChild(o);
+  });
+  if (idsList.indexOf(defaultMenuId) < 0) defaultMenuId = idsList[0];
+  menuSel.value = defaultMenuId;
+
+  function productsForCurrentMenuFiltered_() {
+    var mid = menuSel.value || idsList[0];
+    var arr = [];
+    try {
+      arr = (typeof menuTabs !== 'undefined' && menuTabs && menuTabs[mid]) ? menuTabs[mid] : [];
+    } catch (eM) {
+      arr = [];
     }
-    listEl.innerHTML = matched.map(function (p) {
-      return '<button type="button" class="resv-pick-row w-full text-left px-2 py-2 hover:bg-blue-50 rounded flex justify-between items-center" data-name="' + kdsEscapeHtml(p.name) + '" data-price="' + p.price + '">' +
-        '<span class="truncate font-semibold text-slate-800">' + kdsEscapeHtml(p.name) + '</span>' +
-        '<span class="text-blue-600 font-bold">$' + p.price + '</span>' +
-      '</button>';
-    }).join('');
-    listEl.querySelectorAll('.resv-pick-row').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var nm = this.getAttribute('data-name');
-        var px = parseInt(this.getAttribute('data-price'), 10) || 0;
-        var arr = window.__editingReservationItems = window.__editingReservationItems || [];
-        var found = arr.find(function (x) { return String(x.name) === nm; });
-        if (found) found.quantity = (parseInt(found.quantity, 10) || 0) + 1;
-        else arr.push({ name: nm, quantity: 1, price: px, note: '' });
-        renderReservationItemsListInModal_();
-        modal.classList.add('hidden'); modal.classList.remove('flex');
-      });
+    var qfilt = search ? String(search.value || '').trim() : '';
+    return (arr || []).filter(function (p) {
+      if (!p || !String(p.name || '').trim()) return false;
+      if (!qfilt) return true;
+      return String(p.name).indexOf(qfilt) >= 0;
     });
   }
-  if (search) { search.value = ''; search.oninput = render; }
-  render();
+
+  function refillProducts_() {
+    while (prodSel.firstChild) prodSel.removeChild(prodSel.firstChild);
+    window.__resvPickProductOpts = [];
+    var blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = '— 請選商品 —';
+    prodSel.appendChild(blank);
+    productsForCurrentMenuFiltered_().forEach(function (p) {
+      var nm = String(p.name).trim();
+      var pr = parseInt(p.price, 10) || 0;
+      window.__resvPickProductOpts.push({ name: nm, price: pr });
+      var ix = window.__resvPickProductOpts.length - 1;
+      var op = document.createElement('option');
+      op.value = String(ix);
+      op.textContent = nm + '\u3000$' + pr;
+      prodSel.appendChild(op);
+    });
+  }
+
+  menuSel.onchange = function () { refillProducts_(); };
+  if (search) {
+    search.value = '';
+    search.oninput = function () { refillProducts_(); };
+  }
+  refillProducts_();
+
+  var addBtn = document.getElementById('reservation-pick-add');
+  if (addBtn) {
+    addBtn.onclick = function () {
+      var v = prodSel.value;
+      if (!v) {
+        try { posSwalAlert('請選擇商品', 'warning'); } catch (eA) {}
+        return;
+      }
+      var row = window.__resvPickProductOpts && window.__resvPickProductOpts[parseInt(v, 10)];
+      if (!row || !row.name) return;
+      var nm = row.name;
+      var px = parseInt(row.price, 10) || 0;
+      var arr = window.__editingReservationItems = window.__editingReservationItems || [];
+      var found = arr.find(function (x) { return String(x.name) === nm; });
+      if (found) found.quantity = (parseInt(found.quantity, 10) || 0) + 1;
+      else arr.push({ name: nm, quantity: 1, price: px, note: '' });
+      renderReservationItemsListInModal_();
+      modal.classList.add('hidden'); modal.classList.remove('flex');
+    };
+  }
 }
 document.getElementById('reservation-pick-close')?.addEventListener('click', function () {
   var m = document.getElementById('reservation-pick-modal');
@@ -10925,6 +11076,39 @@ function posOrdersQueryTs_(order) {
   return isNaN(t) ? 0 : t;
 }
 
+/** 「取餐／預約」時間對應的本地時間毫秒；無有效取餐時間則為 null（訂單查詢排序用） */
+function posOrdersQueryPickupMomentMs_(order) {
+  if (!order) return null;
+  var day = (order.date || '').toString().slice(0, 10).trim();
+  if (!day.match(/^\d{4}-\d{2}-\d{2}$/)) return null;
+  var tp = '';
+  try { tp = posQueryPickupDisplay_(order.pickupTime); } catch (e0) { tp = ''; }
+  var m = String(tp || '').match(/^(\d{1,2})\s*:?\s*(\d{2})/);
+  var hh = m ? parseInt(m[1], 10) : 12;
+  var mm = m ? parseInt(m[2], 10) : 0;
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  var dt = new Date(day + 'T' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00');
+  var ms = dt.getTime();
+  return isNaN(ms) ? null : ms;
+}
+
+/** 越靠近現在的取餐時間越前面；過早時間往後（無取餐時間則依後端 date 時間序） */
+function posOrdersQuerySortPickupProximityToNow_(a, b) {
+  var now = Date.now();
+  var ma = posOrdersQueryPickupMomentMs_(a);
+  var mb = posOrdersQueryPickupMomentMs_(b);
+  if (ma != null && mb != null && ma !== mb) {
+    var da = Math.abs(ma - now);
+    var db = Math.abs(mb - now);
+    if (da !== db) return da - db;
+    return mb - ma;
+  }
+  if (ma == null && mb == null) {
+    return posOrdersQueryTs_(b) - posOrdersQueryTs_(a);
+  }
+  return ma != null ? -1 : 1;
+}
+
 function posOrdersFilterAndSort_(ordersList) {
   var list = Array.isArray(ordersList) ? ordersList : [];
   var dateEl = document.getElementById('orders-filter-date');
@@ -10939,9 +11123,7 @@ function posOrdersFilterAndSort_(ordersList) {
     return true;
   });
 
-  filtered.sort(function (a, b) {
-    return posOrdersQueryTs_(b) - posOrdersQueryTs_(a);
-  });
+  filtered.sort(posOrdersQuerySortPickupProximityToNow_);
   return filtered;
 }
 
