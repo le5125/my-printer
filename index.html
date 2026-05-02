@@ -12128,7 +12128,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           const raw = String(line);
           const esc = kdsEscapeHtml(raw);
           const lead = raw.trim();
-          if (lead.indexOf('➜') === 0 || lead.indexOf('+ ') === 0 || lead.indexOf('> ') === 0) {
+          if (lead.indexOf('➜') === 0 || lead.indexOf('+ ') === 0 || lead.indexOf('> ') === 0 || /^>\s*\S/.test(lead)) {
             return '<div class="order-card-line-telegram order-card-line-addon">' + esc + '</div>';
           }
           if (lead.indexOf('（') === 0 || lead.indexOf('(') === 0) {
@@ -12252,8 +12252,22 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             const tagText = isOnline ? '線上訂單' : '現場訂單';
             const tagClass = isOnline ? 'tag-online' : 'tag-pos';
             let linesHtml = '';
-            if (o.itemLines && o.itemLines.length) {
-              linesHtml = o.itemLines.map(function (line) {
+            var detailText = (o.orderDetailTextForPrint || '').toString().trim();
+            var blockLines = '';
+            if (detailText) {
+              blockLines = detailText;
+            } else if (o.items && o.items.length && typeof _itemsBlock_ === 'function') {
+              try {
+                blockLines = _itemsBlock_(o, { telegramLayout: true }) || '';
+              } catch (_kdsIb) {
+                blockLines = '';
+              }
+            }
+            if (!blockLines && o.itemLines && o.itemLines.length) {
+              blockLines = o.itemLines.join('\n');
+            }
+            if (blockLines) {
+              linesHtml = blockLines.split('\n').map(function (line) {
                 return kdsTelegramLineToHtml_(line);
               }).join('');
             } else {
