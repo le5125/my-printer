@@ -10665,6 +10665,11 @@ function posQueryOrderCardHtmlBoardLike_(order) {
   var isOnline = src === 'Online';
   var tagText = isOnline ? '線上訂單' : '現場訂單';
   var tagClass = isOnline ? 'tag-online' : 'tag-pos';
+  if (order && order.reservationCompletedQuery) {
+    tagText = '預約完成';
+    tagClass = 'tag-pos';
+    isOnline = false;
+  }
   var displayId = posEscapeHtmlOrderQuery_(posQueryPhoneDisplay_(order));
   var timeLabel = posEscapeHtmlOrderQuery_(posQueryFormatKdsTimeLabel_(order.timestamp || order.date));
   var linesHtml = posQueryBoardLinesHtml_(order);
