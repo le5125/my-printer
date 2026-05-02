@@ -3186,6 +3186,14 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <label class="block text-sm font-semibold text-gray-700 mb-1">訂金金額</label>
           <input type="number" id="reservation-deposit-amount" min="0" step="1" placeholder="僅訂金時填寫" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm">
         </div>
+        <div id="reservation-items-wrap" class="mt-3 hidden">
+          <div class="flex items-center justify-between">
+            <label class="block text-sm font-semibold text-gray-700">商品明細</label>
+            <button type="button" id="reservation-items-add" class="border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-md px-2 py-1 text-xs font-bold">＋ 新增商品</button>
+          </div>
+          <div id="reservation-items-list" class="mt-2 space-y-1 text-sm bg-slate-50 rounded-md border border-slate-200 p-2 max-h-40 overflow-y-auto"></div>
+          <div class="mt-1 text-right text-xs font-bold text-slate-600" id="reservation-items-total"></div>
+        </div>
         <div class="mt-4 flex justify-between gap-2">
           <button type="button" id="reservation-clear" class="border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-md px-3 py-2 text-sm font-bold">清除預約</button>
           <div class="flex gap-2">
@@ -3193,6 +3201,16 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <button type="button" id="reservation-confirm" class="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-2 text-sm font-bold">確定</button>
           </div>
         </div>
+      </div>
+    </div>
+    <div id="reservation-pick-modal" class="hidden fixed inset-0 z-[10010] bg-black/50 items-center justify-center">
+      <div class="bg-white rounded-xl shadow-2xl w-[92%] max-w-[420px] p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-base font-bold text-gray-800">挑選商品</h3>
+          <button type="button" id="reservation-pick-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
+        </div>
+        <input type="text" id="reservation-pick-search" placeholder="搜尋商品名" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm mb-2">
+        <div id="reservation-pick-list" class="space-y-1 max-h-72 overflow-y-auto text-sm border border-slate-200 rounded-md p-1"></div>
       </div>
     </div>
 
@@ -10171,6 +10189,7 @@ function buildReservationTimeSelectsFromBusinessHours_() {
 function openReservationModal_() {
   window.__reservationModalMode = 'draft';
   window.__editingReservationRowNo = null;
+  window.__editingReservationItems = [];
   var modal = document.getElementById('reservation-modal');
   if (!modal) return;
   buildReservationTimeSelectsFromBusinessHours_();
@@ -10186,9 +10205,114 @@ function openReservationModal_() {
   document.getElementById('reservation-deposit-amount').value = d.depositAmount || '';
   var depWrap = document.getElementById('reservation-deposit-wrap');
   if (depWrap) depWrap.classList.toggle('hidden', (document.getElementById('reservation-payment-type').value !== '訂金'));
+  var itemsWrap = document.getElementById('reservation-items-wrap');
+  if (itemsWrap) itemsWrap.classList.add('hidden');
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 }
+window.__editingReservationItems = window.__editingReservationItems || [];
+function _resvEditFmtMoney_(n) { return 'NT$ ' + (parseInt(n, 10) || 0).toLocaleString(); }
+function renderReservationItemsListInModal_() {
+  var listEl = document.getElementById('reservation-items-list');
+  var totalEl = document.getElementById('reservation-items-total');
+  if (!listEl) return;
+  var items = Array.isArray(window.__editingReservationItems) ? window.__editingReservationItems : [];
+  if (!items.length) {
+    listEl.innerHTML = '<div class="text-slate-400 text-xs">（目前沒有預約商品）</div>';
+    if (totalEl) totalEl.textContent = '';
+    return;
+  }
+  var totalAmt = 0;
+  listEl.innerHTML = items.map(function (it, idx) {
+    var nm = String(it.name || '');
+    var qty = parseInt(it.quantity, 10) || 0;
+    var px = parseInt(it.price, 10) || 0;
+    var sub = px * qty;
+    totalAmt += sub;
+    return '<div class="flex items-center gap-2 bg-white border border-slate-200 rounded-md px-2 py-1" data-idx="' + idx + '">' +
+      '<div class="flex-1 truncate"><span class="font-semibold text-slate-800">' + kdsEscapeHtml(nm) + '</span>' +
+      ' <span class="text-slate-500 text-xs">$' + px + '</span></div>' +
+      '<button type="button" class="resv-item-dec w-7 h-7 rounded bg-gray-100 hover:bg-gray-200 text-base font-bold leading-none">−</button>' +
+      '<span class="w-8 text-center font-bold">' + qty + '</span>' +
+      '<button type="button" class="resv-item-inc w-7 h-7 rounded bg-gray-100 hover:bg-gray-200 text-base font-bold leading-none">＋</button>' +
+      '<button type="button" class="resv-item-del w-7 h-7 rounded bg-red-50 hover:bg-red-100 text-red-600 leading-none" title="移除">×</button>' +
+    '</div>';
+  }).join('');
+  if (totalEl) totalEl.textContent = '合計 ' + _resvEditFmtMoney_(totalAmt);
+  listEl.querySelectorAll('.resv-item-inc').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var idx = parseInt(this.parentElement.getAttribute('data-idx'), 10);
+      window.__editingReservationItems[idx].quantity = (parseInt(window.__editingReservationItems[idx].quantity, 10) || 0) + 1;
+      renderReservationItemsListInModal_();
+    });
+  });
+  listEl.querySelectorAll('.resv-item-dec').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var idx = parseInt(this.parentElement.getAttribute('data-idx'), 10);
+      var q = (parseInt(window.__editingReservationItems[idx].quantity, 10) || 0) - 1;
+      if (q <= 0) window.__editingReservationItems.splice(idx, 1);
+      else window.__editingReservationItems[idx].quantity = q;
+      renderReservationItemsListInModal_();
+    });
+  });
+  listEl.querySelectorAll('.resv-item-del').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var idx = parseInt(this.parentElement.getAttribute('data-idx'), 10);
+      window.__editingReservationItems.splice(idx, 1);
+      renderReservationItemsListInModal_();
+    });
+  });
+}
+function _resvCollectMenuProducts_() {
+  var src = (typeof products !== 'undefined' && Array.isArray(products)) ? products : [];
+  return src.filter(function (p) { return p && p.name; }).map(function (p) {
+    return { name: String(p.name).trim(), price: parseInt(p.price, 10) || 0 };
+  });
+}
+function openReservationPickModal_() {
+  var modal = document.getElementById('reservation-pick-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden'); modal.classList.add('flex');
+  var listEl = document.getElementById('reservation-pick-list');
+  var search = document.getElementById('reservation-pick-search');
+  var all = _resvCollectMenuProducts_();
+  function render() {
+    var q = String((search && search.value) || '').trim();
+    var matched = !q ? all : all.filter(function (p) { return p.name.indexOf(q) >= 0; });
+    if (!matched.length) {
+      listEl.innerHTML = '<div class="text-slate-400 text-xs px-2 py-3 text-center">（沒有符合的商品）</div>';
+      return;
+    }
+    listEl.innerHTML = matched.map(function (p) {
+      return '<button type="button" class="resv-pick-row w-full text-left px-2 py-2 hover:bg-blue-50 rounded flex justify-between items-center" data-name="' + kdsEscapeHtml(p.name) + '" data-price="' + p.price + '">' +
+        '<span class="truncate font-semibold text-slate-800">' + kdsEscapeHtml(p.name) + '</span>' +
+        '<span class="text-blue-600 font-bold">$' + p.price + '</span>' +
+      '</button>';
+    }).join('');
+    listEl.querySelectorAll('.resv-pick-row').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var nm = this.getAttribute('data-name');
+        var px = parseInt(this.getAttribute('data-price'), 10) || 0;
+        var arr = window.__editingReservationItems = window.__editingReservationItems || [];
+        var found = arr.find(function (x) { return String(x.name) === nm; });
+        if (found) found.quantity = (parseInt(found.quantity, 10) || 0) + 1;
+        else arr.push({ name: nm, quantity: 1, price: px, note: '' });
+        renderReservationItemsListInModal_();
+        modal.classList.add('hidden'); modal.classList.remove('flex');
+      });
+    });
+  }
+  if (search) { search.value = ''; search.oninput = render; }
+  render();
+}
+document.getElementById('reservation-pick-close')?.addEventListener('click', function () {
+  var m = document.getElementById('reservation-pick-modal');
+  if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+});
+document.getElementById('reservation-pick-modal')?.addEventListener('click', function (e) {
+  if (e.target && e.target.id === 'reservation-pick-modal') { e.target.classList.add('hidden'); e.target.classList.remove('flex'); }
+});
+document.getElementById('reservation-items-add')?.addEventListener('click', openReservationPickModal_);
 function closeReservationModal_() {
   var modal = document.getElementById('reservation-modal');
   if (!modal) return;
@@ -10225,10 +10349,17 @@ document.getElementById('reservation-confirm')?.addEventListener('click', functi
   if (mode === 'edit') {
     var rowNo = parseInt(window.__editingReservationRowNo, 10);
     var d = collectReservationFromModal_();
+    var itemsBuf = (window.__editingReservationItems || []).filter(function (it) {
+      return it && it.name && (parseInt(it.quantity, 10) || 0) > 0;
+    }).map(function (it) {
+      return { name: String(it.name), quantity: parseInt(it.quantity, 10) || 0,
+        price: parseInt(it.price, 10) || 0, note: String(it.note || '') };
+    });
+    var payload = Object.assign({ rowNo: rowNo, items: itemsBuf }, d);
     posRunSheetMutation_({
       gasMethod: 'updateReservationFromPosClient',
-      gasArgs: [Object.assign({ rowNo: rowNo }, d)],
-      postBody: Object.assign({ action: 'updateReservation', rowNo: rowNo }, d)
+      gasArgs: [payload],
+      postBody: Object.assign({ action: 'updateReservation' }, payload)
     }).then(function (ret) {
       if (!ret || ret.result !== 'success') {
         posSwalAlert('更改預約失敗：' + ((ret && ret.message) || ''), 'error');
@@ -10237,8 +10368,8 @@ document.getElementById('reservation-confirm')?.addEventListener('click', functi
       closeReservationModal_();
       window.__reservationModalMode = 'draft';
       window.__editingReservationRowNo = null;
-      var btn = document.getElementById('reservation-view-tab');
-      if (btn && btn.classList.contains('border-blue-600')) btn.click();
+      window.__editingReservationItems = [];
+      try { if (typeof loadReservationBoard_ === 'function') loadReservationBoard_(); } catch (eRl) {}
       posSwalToastSuccess('預約已更新', 1800);
     }).catch(function (err) {
       posSwalAlert('更改預約失敗：' + (err && err.message ? err.message : err), 'error');
@@ -12799,10 +12930,36 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             posSwalAlert('預約單打印失敗：' + (e && e.message ? e.message : e), 'error');
           }
         }
+        /** 已『樂觀完成 / 取消』的列暫存：避免在背景刷新時，已被使用者結案的卡片再閃回來 */
+        var _reservationOptimisticSuppress = Object.create(null);
+        function _resvSuppressMark_(row) {
+          if (!row) return;
+          var key = String(row.orderId || '').replace(/^'/, '').trim();
+          var rn = parseInt(row.rowNo, 10);
+          var rec = { ts: Date.now(), rowNo: rn };
+          if (key) _reservationOptimisticSuppress['oid:' + key] = rec;
+          if (rn) _reservationOptimisticSuppress['row:' + rn] = rec;
+        }
+        function _resvSuppressFilter_(rows) {
+          if (!rows || !rows.length) return rows;
+          var now = Date.now();
+          Object.keys(_reservationOptimisticSuppress).forEach(function (k) {
+            var v = _reservationOptimisticSuppress[k];
+            if (!v || (now - (v.ts || 0)) > 60000) delete _reservationOptimisticSuppress[k];
+          });
+          return rows.filter(function (r) {
+            if (!r) return false;
+            var oid = String(r.orderId || '').replace(/^'/, '').trim();
+            var rn = parseInt(r.rowNo, 10);
+            if (oid && _reservationOptimisticSuppress['oid:' + oid]) return false;
+            if (rn && _reservationOptimisticSuppress['row:' + rn]) return false;
+            return true;
+          });
+        }
         function renderReservationBoard_(rows) {
           const grid = document.getElementById('reservation-board-grid');
           if (!grid) return;
-          _reservationBoardRows = Array.isArray(rows) ? rows.slice() : [];
+          _reservationBoardRows = _resvSuppressFilter_(Array.isArray(rows) ? rows.slice() : []);
           var dateFilterEl = document.getElementById('reservation-filter-date');
           var phoneFilterEl = document.getElementById('reservation-filter-phone');
           var dateFilter = dateFilterEl ? String(dateFilterEl.value || '').trim() : '';
@@ -12875,6 +13032,10 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               if (!row) return;
               window.__reservationModalMode = 'edit';
               window.__editingReservationRowNo = rn;
+              window.__editingReservationItems = (Array.isArray(row.items) ? row.items : []).map(function (it) {
+                return { name: String(it.name || ''), quantity: parseInt(it.quantity, 10) || 0,
+                  price: parseInt(it.price, 10) || 0, note: String(it.note || '') };
+              });
               var modal = document.getElementById('reservation-modal');
               if (!modal) return;
               buildReservationTimeSelectsFromBusinessHours_();
@@ -12889,6 +13050,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               document.getElementById('reservation-deposit-amount').value = row.depositAmount || '';
               var depWrap = document.getElementById('reservation-deposit-wrap');
               if (depWrap) depWrap.classList.toggle('hidden', (document.getElementById('reservation-payment-type').value !== '訂金'));
+              var itemsWrap = document.getElementById('reservation-items-wrap');
+              if (itemsWrap) itemsWrap.classList.remove('hidden');
+              if (typeof renderReservationItemsListInModal_ === 'function') renderReservationItemsListInModal_();
               modal.classList.remove('hidden');
               modal.classList.add('flex');
             });
@@ -12897,19 +13061,37 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             btn.addEventListener('click', function () {
               var rn = parseInt(this.getAttribute('data-row'), 10);
               var doComplete = function () {
+                /* 樂觀關閉卡片：先在前端移除，後台再非同步寫入 */
+                var targetRow = (_reservationBoardRows || []).find(function (x) { return parseInt(x.rowNo, 10) === rn; });
+                if (targetRow) _resvSuppressMark_(targetRow);
+                _reservationBoardRows = (_reservationBoardRows || []).filter(function (x) {
+                  return parseInt(x.rowNo, 10) !== rn;
+                });
+                applyReservationBoardFilter_();
+                try {
+                  if (typeof renderReservationCalendar_ === 'function' && _reservationBoardViewMode === 'calendar') renderReservationCalendar_();
+                } catch (eRC) { /* 略 */ }
+                posSwalToastSuccess('已完成預約', 1500);
                 posRunSheetMutation_({
                   gasMethod: 'completeReservationFromPosClient',
                   gasArgs: [{ rowNo: rn }],
                   postBody: { action: 'completeReservation', rowNo: rn }
                 }).then(function (ret) {
                   if (!ret || ret.result !== 'success') {
+                    if (targetRow) {
+                      delete _reservationOptimisticSuppress['oid:' + String(targetRow.orderId || '').trim()];
+                      delete _reservationOptimisticSuppress['row:' + rn];
+                    }
                     loadReservationBoard_();
                     posSwalAlert('完成預約失敗：' + ((ret && ret.message) || ''), 'error');
                     return;
                   }
-                  posSwalToastSuccess('已完成預約', 1800);
                   loadReservationBoard_();
                 }).catch(function (err) {
+                  if (targetRow) {
+                    delete _reservationOptimisticSuppress['oid:' + String(targetRow.orderId || '').trim()];
+                    delete _reservationOptimisticSuppress['row:' + rn];
+                  }
                   loadReservationBoard_();
                   posSwalAlert('完成預約失敗：' + (err && err.message ? err.message : err), 'error');
                 });
@@ -12934,10 +13116,15 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               var rn = parseInt(this.getAttribute('data-row'), 10);
               var doCancel = function () {
                 // 先更新畫面，背景再刪試算表，體感更順
+                var targetRow = (_reservationBoardRows || []).find(function (x) { return parseInt(x.rowNo, 10) === rn; });
+                if (targetRow) _resvSuppressMark_(targetRow);
                 _reservationBoardRows = (_reservationBoardRows || []).filter(function (x) {
                   return parseInt(x.rowNo, 10) !== rn;
                 });
                 applyReservationBoardFilter_();
+                try {
+                  if (typeof renderReservationCalendar_ === 'function' && _reservationBoardViewMode === 'calendar') renderReservationCalendar_();
+                } catch (eRC) { /* 略 */ }
                 posRunSheetMutation_({
                   gasMethod: 'cancelReservationFromPosClient',
                   gasArgs: [{ rowNo: rn }],
@@ -12989,7 +13176,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
 
         /* ────── 預約日曆（時間軸 + 訂位區塊 + 取貨 Pin + 負載統計 + 目前時間線） ────── */
         var _reservationBoardViewMode = 'list';
-        var _reservationCalendarDate = (new Date()).toISOString().slice(0, 10);
+        function _resvCalLocalDateStr_(dt) {
+          var d = (dt instanceof Date) ? dt : new Date();
+          var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+          return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+        }
+        var _reservationCalendarDate = _resvCalLocalDateStr_();
         var _reservationCalendarTimer = null;
         var RESV_BOOKING_DEFAULT_MIN = 90;
         function resvCalGetBusinessRange_() {
@@ -13051,7 +13243,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           var d = new Date(_reservationCalendarDate + 'T00:00:00');
           if (isNaN(d.getTime())) d = new Date();
           d.setDate(d.getDate() + deltaDays);
-          resvCalSetDate_(d.toISOString().slice(0, 10));
+          resvCalSetDate_(_resvCalLocalDateStr_(d));
         }
         function renderReservationCalendar_() {
           var wrap = document.getElementById('reservation-calendar-wrap');
@@ -13084,7 +13276,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             }
             return Math.round(occupied / totalSlots * 100);
           }
-          var todayStr = (new Date()).toISOString().slice(0, 10);
+          var todayStr = _resvCalLocalDateStr_();
           var nowMin = -1;
           if (dateStr === todayStr) {
             var nowD = new Date(); nowMin = nowD.getHours() * 60 + nowD.getMinutes();
@@ -13222,7 +13414,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (_reservationCalendarTimer) clearInterval(_reservationCalendarTimer);
             _reservationCalendarTimer = setInterval(function () {
               if (_reservationBoardViewMode !== 'calendar') return;
-              var todayStr2 = (new Date()).toISOString().slice(0, 10);
+              var todayStr2 = _resvCalLocalDateStr_();
               if (_reservationCalendarDate === todayStr2) renderReservationCalendar_();
             }, 60000);
           } else {
@@ -13238,7 +13430,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         document.getElementById('reservation-view-mode-calendar')?.addEventListener('click', function () { showReservationViewMode_('calendar'); });
         document.getElementById('resv-cal-prev')?.addEventListener('click', function () { resvCalShiftDate_(-1); });
         document.getElementById('resv-cal-next')?.addEventListener('click', function () { resvCalShiftDate_(1); });
-        document.getElementById('resv-cal-today')?.addEventListener('click', function () { resvCalSetDate_((new Date()).toISOString().slice(0, 10)); });
+        document.getElementById('resv-cal-today')?.addEventListener('click', function () { resvCalSetDate_(_resvCalLocalDateStr_()); });
         document.getElementById('resv-cal-date')?.addEventListener('change', function () { resvCalSetDate_(this.value); });
         (function _initResvCalDateInput_() {
           var input = document.getElementById('resv-cal-date');
