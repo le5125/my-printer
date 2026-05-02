@@ -2085,52 +2085,22 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 </div>
 
 
-      <!-- 訂單查詢區 -->
-      <div id="orders-content" class="hidden flex-grow overflow-hidden">
-        <div class="bg-white p-4 rounded-lg shadow mb-4">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="relative">
-  <label class="block text-sm font-medium text-gray-700 mb-1">電話搜尋</label>
-  <input type="text" id="search-phone" placeholder="輸入電話號碼"
-    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-  <button id="clear-phone" class="absolute right-2 top-7 text-gray-400 hover:text-gray-600">
-    <i class="fas fa-times"></i>
-  </button>
-</div>
-
-            <div class="relative">
-              <label class="block text-sm font-medium text-gray-700 mb-1">訂單日期</label>
-              <input type="text" id="search-date" class="w-full flatpickr-input" placeholder="選擇日期">
-              <button id="clear-date" class="absolute right-2 top-7 text-gray-400 hover:text-gray-600">
-                <i class="fas fa-times"></i>
-              </button>
+      <!-- 訂單查詢區（橫向卡片 + 日期／電話篩選，與預約查看相同版型） -->
+      <div id="orders-content" class="hidden flex-grow flex flex-col min-h-0 px-3 pb-3">
+        <div class="order-board-wrap flex-grow min-h-0">
+          <div class="order-board-title"><i class="fas fa-search mr-2 text-indigo-600"></i>訂單查詢</div>
+          <div class="bg-white border border-gray-200 rounded-lg p-3 mb-3 flex flex-wrap items-end gap-3">
+            <div>
+              <label class="block text-xs text-gray-600 mb-1">日期篩選</label>
+              <input type="date" id="orders-filter-date" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
             </div>
+            <div>
+              <label class="block text-xs text-gray-600 mb-1">搜尋電話</label>
+              <input type="text" id="orders-filter-phone" placeholder="輸入電話" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-[min(100%,220px)]">
+            </div>
+            <button type="button" id="orders-filter-reset" class="border border-gray-300 bg-white hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-semibold">清除篩選</button>
           </div>
-        </div>
-        <div id="orders-list" class="bg-white rounded-lg shadow overflow-hidden max-h-[60vh]">
-          <div class="overflow-y-auto max-height: calc(100vh - 250px)">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50 sticky top-0">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">備註</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">日期</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">電話</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">金額</th>
-                  <th class="px-6 py-3 text-center text-xs font-medium text-gray-500">操作</th>
-                </tr>
-              </thead>
-              <tbody id="orders-table-body" class="bg-white divide-y divide-gray-200">
-                <tr id="orders-loading-row">
-                  <td colspan="6" class="px-6 py-4 text-center text-gray-500">
-                    <div class="flex items-center justify-center space-x-2">
-                      <div class="animate-spin h-6 w-6 border-4 border-blue-500 border-t-transparent rounded-full"></div>
-                      <span>載入中...</span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <div id="orders-query-grid" class="order-board-grid"></div>
         </div>
       </div>
 
@@ -10475,33 +10445,30 @@ document.getElementById('submit-order').addEventListener('click', () => {
 
 let allOrders = []; // 儲存所有訂單資料
 
+function posOrdersQueryTs_(order) {
+  var d = order && order.date ? String(order.date) : '';
+  var t = Date.parse(d);
+  return isNaN(t) ? 0 : t;
+}
+
 function posOrdersFilterAndSort_(ordersList) {
-  const list = Array.isArray(ordersList) ? ordersList : [];
-  const searchPhoneValue = document.getElementById('search-phone').value.trim();
-  const searchDateValue = document.getElementById('search-date').value.trim();
-  const today = new Date().toISOString().split('T')[0];
+  var list = Array.isArray(ordersList) ? ordersList : [];
+  var dateEl = document.getElementById('orders-filter-date');
+  var phoneEl = document.getElementById('orders-filter-phone');
+  var dateFilter = dateEl ? String(dateEl.value || '').trim() : '';
+  var phoneFilter = phoneEl ? String(phoneEl.value || '').trim() : '';
 
-  const filteredOrders = list.filter(order => {
-    let matchPhone = true;
-    let matchDate = true;
-
-    if (searchPhoneValue) {
-      matchPhone = (order.phone || '').toString().includes(searchPhoneValue);
-    }
-
-    if (searchDateValue) {
-      const formattedOrderDate = (order.date || '').toString().slice(0, 10);
-      matchDate = formattedOrderDate === searchDateValue;
-    }
-
-    return matchPhone && matchDate;
+  var filtered = list.filter(function (order) {
+    var od = (order.date || '').toString().slice(0, 10);
+    if (dateFilter && od !== dateFilter) return false;
+    if (phoneFilter && (order.phone || '').toString().indexOf(phoneFilter) < 0) return false;
+    return true;
   });
 
-  const finalOrders = (!searchPhoneValue && !searchDateValue)
-    ? list.filter(order => (order.date || '') >= today)
-    : filteredOrders;
-
-  return finalOrders.sort((a, b) => (a.date || '').localeCompare(b.date));
+  filtered.sort(function (a, b) {
+    return posOrdersQueryTs_(b) - posOrdersQueryTs_(a);
+  });
+  return filtered;
 }
 
 function posInvalidateOrderRelatedCaches_() {
@@ -10524,25 +10491,45 @@ function fetchOrdersAndRender() {
 }
 
 
+function posBindBoardGridWheelScroll_() {
+  ['order-board-grid', 'reservation-board-grid', 'orders-query-grid'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el || el.dataset.posWheelBound === '1') return;
+    el.dataset.posWheelBound = '1';
+    el.addEventListener('wheel', function (e) {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      if (el.scrollWidth <= el.clientWidth) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    }, { passive: false });
+  });
+}
+
+function posEnsureOrdersFilterDefaultDate_() {
+  var el = document.getElementById('orders-filter-date');
+  if (!el) return;
+  if (!el.value) el.value = new Date().toISOString().slice(0, 10);
+}
+
  // 🌟 根據查詢條件篩選並顯示（forceRefresh 為 true 時略過同日快取並顯示載入列）
 function loadOrders(forceRefresh) {
-  const force = forceRefresh === true;
-  const tableBody = document.getElementById('orders-table-body');
-  const c = window.__posOrdersCache;
-  const cacheOk = !force && c && c.day === posTodayCacheKey_() && Array.isArray(c.orders);
+  var force = forceRefresh === true;
+  var grid = document.getElementById('orders-query-grid');
+  var c = window.__posOrdersCache;
+  var cacheOk = !force && c && c.day === posTodayCacheKey_() && Array.isArray(c.orders);
 
   function applyServerOrders_(data) {
     if (data.result === 'success') {
       window.__posOrdersCache = { day: posTodayCacheKey_(), orders: data.orders || [] };
-      displayOrders(posOrdersFilterAndSort_(window.__posOrdersCache.orders));
+      renderOrdersQueryCards_(posOrdersFilterAndSort_(window.__posOrdersCache.orders));
     } else {
       posSwalAlert('讀取訂單失敗', 'error');
-      tableBody.innerHTML = '';
+      if (grid) grid.innerHTML = '';
     }
   }
 
   if (cacheOk) {
-    displayOrders(posOrdersFilterAndSort_(c.orders));
+    renderOrdersQueryCards_(posOrdersFilterAndSort_(c.orders));
     clearTimeout(window.__posOrdersBgFetchTimer_);
     window.__posOrdersBgFetchTimer_ = setTimeout(function () {
       if (!currentWebAppUrl) return;
@@ -10553,7 +10540,7 @@ function loadOrders(forceRefresh) {
           window.__posOrdersCache = { day: posTodayCacheKey_(), orders: data.orders || [] };
           var oc = document.getElementById('orders-content');
           if (oc && !oc.classList.contains('hidden')) {
-            displayOrders(posOrdersFilterAndSort_(window.__posOrdersCache.orders));
+            renderOrdersQueryCards_(posOrdersFilterAndSort_(window.__posOrdersCache.orders));
           }
         })
         .catch(function () {});
@@ -10561,96 +10548,87 @@ function loadOrders(forceRefresh) {
     return;
   }
 
-  tableBody.innerHTML = `
-    <tr id="orders-loading-row">
-      <td colspan="6" class="px-6 py-4 text-center text-gray-500">
-        <div class="flex items-center justify-center space-x-2">
-          <div class="animate-spin h-6 w-6 border-4 border-blue-500 border-t-transparent rounded-full"></div>
-          <span>載入中...</span>
-        </div>
-      </td>
-    </tr>
-  `;
+  if (grid) {
+    grid.innerHTML = '<div class="order-board-empty"><div class="flex items-center justify-center gap-2"><div class="animate-spin h-6 w-6 border-4 border-blue-500 border-t-transparent rounded-full"></div><span>載入中...</span></div></div>';
+  }
 
   fetch(currentWebAppUrl + '?action=getOrders')
     .then(response => response.json())
     .then(applyServerOrders_)
     .catch(error => {
       console.error('loadOrders:', error);
-      if (force) {
-        tableBody.innerHTML = `
-          <tr>
-            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
-              訂單列表背景更新失敗（與送單／列印無關）。請稍後再點「訂單」分頁重新載入。
-            </td>
-          </tr>`;
+      if (force && grid) {
+        grid.innerHTML = '<div class="order-board-empty text-sm">訂單列表背景更新失敗，請稍後再開啟「訂單查詢」。</div>';
         return;
       }
       posSwalAlert('無法連線，請稍後再試', 'error');
-      tableBody.innerHTML = '';
+      if (grid) grid.innerHTML = '';
     });
 }
 
-document.getElementById('clear-phone').addEventListener('click', () => {
-  document.getElementById('search-phone').value = '';
-  loadOrders(); // ✅ 重新載入訂單
-});
+(function bindOrdersQueryFilters_() {
+  posEnsureOrdersFilterDefaultDate_();
+  var phoneEl = document.getElementById('orders-filter-phone');
+  var dateEl = document.getElementById('orders-filter-date');
+  var resetEl = document.getElementById('orders-filter-reset');
+  if (phoneEl) phoneEl.addEventListener('input', function () { loadOrders(); });
+  if (dateEl) dateEl.addEventListener('change', function () { loadOrders(); });
+  if (resetEl) resetEl.addEventListener('click', function () {
+    if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
+    if (phoneEl) phoneEl.value = '';
+    loadOrders();
+  });
+})();
 
+        function renderOrdersQueryCards_(orders) {
+          var grid = document.getElementById('orders-query-grid');
+          if (!grid) return;
 
+          if (!orders.length) {
+            grid.innerHTML = '<div class="order-board-empty">沒有找到符合條件的訂單</div>';
+            return;
+          }
 
+          grid.innerHTML = '';
+          orders.forEach(function (order) {
+            var isOnline = order.source === 'Online';
+            var card = document.createElement('div');
+            card.className = 'order-card ' + (isOnline ? 'card-online' : 'card-pos');
+            var tagText = isOnline ? '線上訂單' : '現場訂單';
+            var tagClass = isOnline ? 'tag-online' : 'tag-pos';
+            var whenStr = (order.date || '-').toString().replace('T', ' ');
+            var notes = (order.notes || '').toString().trim();
+            var noteHtml = notes ? ('<div class="order-card-remark">備註: ' + notes.replace(/</g, '&lt;').replace(/&/g, '&amp;') + '</div>') : '';
+            card.innerHTML =
+              '<div class="order-card-header">' +
+                '<span class="order-card-tag ' + tagClass + '">' + tagText + '</span>' +
+                '<span class="order-card-id">' + String(order.orderId || '').replace(/</g, '&lt;') + '</span>' +
+                '<span class="order-card-time">' + whenStr.replace(/</g, '&lt;') + '</span>' +
+              '</div>' +
+              '<div class="order-card-body-wrap"><div class="order-card-body">' +
+                '<div class="order-card-line-telegram">電話：' + String(order.phone || '—').replace(/</g, '&lt;') + '</div>' +
+                '<div class="order-card-total" style="margin-top:8px;font-weight:800;color:#92400e;">NT$ ' + String(order.total != null ? order.total : '—') + '</div>' +
+                noteHtml +
+              '</div></div>' +
+              '<div class="order-card-footer">' +
+                '<div class="order-card-footer-actions">' +
+                  '<button type="button" class="btn-kds-print view-order-detail" data-order="">查看</button>' +
+                  '<button type="button" class="btn-complete delete-order" style="background:#dc2626;" data-id="' + String(order.orderId || '').replace(/"/g, '') + '">刪除</button>' +
+                '</div>' +
+              '</div>';
 
-document.getElementById('clear-date').addEventListener('click', () => {
-  document.getElementById('search-date').value = '';
-  loadOrders();
-});
+            var vo = card.querySelector('.view-order-detail');
+            var enc = encodeURIComponent(JSON.stringify(order));
+            vo.setAttribute('data-order', enc);
 
+            grid.appendChild(card);
+          });
 
-
-        // 🌟 顯示訂單資料到畫面
-        function displayOrders(orders) {
-  const ordersTableBody = document.getElementById('orders-table-body');
-
-  if (orders.length === 0) {
-    ordersTableBody.innerHTML = `
-      <tr>
-        <td colspan="6" class="px-6 py-4 text-center text-gray-500">沒有找到符合條件的訂單</td>
-      </tr>
-    `;
-    return;
-  }
-
-          let ordersHTML = orders.map(order => {
-            const hasNotes = (order.notes || '').toString().trim() !== '';
-            const displayDate = (order.date || '-').toString().split('T')[0];
-
-            return `
-              <tr class="${hasNotes ? 'has-notes' : ''}">
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  ${hasNotes ? '<span class="text-red-500">有備註</span>' : ''}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${displayDate}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${order.phone || '-'}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">NT$ ${order.total || 0}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium orders-action-cell">
-                  <div class="orders-action-wrap">
-                    <button class="view-order-detail orders-action-btn view"
-                            data-order="${encodeURIComponent(JSON.stringify(order))}">查看</button>
-                    <button class="delete-order orders-action-btn delete"
-                            data-id="${order.orderId}">刪除</button>
-                  </div>
-                </td>
-              </tr>
-            `;
-          }).join('');
-
-          ordersTableBody.innerHTML = ordersHTML;
-
-          // 綁定「查看」按鈕事件
-          document.querySelectorAll('.view-order-detail').forEach(btn => {
+          grid.querySelectorAll('.view-order-detail').forEach(function (btn) {
             btn.addEventListener('click', function () {
-              const encoded = this.getAttribute('data-order');
+              var encoded = this.getAttribute('data-order');
               try {
-                const orderData = JSON.parse(decodeURIComponent(encoded));
+                var orderData = JSON.parse(decodeURIComponent(encoded));
                 showOrderDetail(orderData);
               } catch (err) {
                 posSwalAlert('⚠️ 無法載入訂單資料，可能格式錯誤！', 'warning');
@@ -10659,10 +10637,9 @@ document.getElementById('clear-date').addEventListener('click', () => {
             });
           });
 
-          // 綁定「刪除」按鈕事件
-          document.querySelectorAll('.delete-order').forEach(btn => {
+          grid.querySelectorAll('.delete-order').forEach(function (btn) {
             btn.addEventListener('click', function () {
-              const orderId = this.getAttribute('data-id');
+              var orderId = this.getAttribute('data-id');
               posSwalConfirm('確定要刪除這筆訂單嗎？', '刪除訂單').then(function (r) {
                 if (r.isConfirmed) deleteOrder(orderId);
               });
@@ -12072,32 +12049,13 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           }
         });
         
-        const searchDatePicker = flatpickr("#search-date", {
-          locale: {
-            months: {
-              shorthand: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
-              longhand: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
-            },
-            weekdays: {
-              shorthand: ['日', '一', '二', '三', '四', '五', '六'],
-              longhand: ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
-            }
-          },
-          locale: "zh_tw",
-          dateFormat: "Y-m-d",
-          allowInput: false,
-          clickOpens: true,
-          defaultDate: new Date(),
-          onChange: function(selectedDates, dateStr) {
-            loadOrders();
-          }
-        });
-
         holidayRangePicker = flatpickr("#holiday-range", {
           locale: "zh_tw",
           dateFormat: "Y-m-d",
           mode: "range"
         });
+
+        posBindBoardGridWheelScroll_();
 
         // 統計區
         const statsTab = document.getElementById('stats-tab');
@@ -12785,6 +12743,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             orderBoardMenuBtn.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
             orderBoardMenuBtn.classList.remove('text-gray-500');
             setFeatureDropdownLabel('訂單看板');
+            posBindBoardGridWheelScroll_();
             refreshOrders();
             if (window._kdsPollTimer) clearInterval(window._kdsPollTimer);
             window._kdsPollTimer = setInterval(function () { refreshOrders(); }, 10000);
@@ -12810,6 +12769,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
             this.classList.remove('text-gray-500');
             setFeatureDropdownLabel('預約查看');
+            posBindBoardGridWheelScroll_();
             if (_reservationBoardPrefetched && Array.isArray(_reservationBoardRows)) {
               renderReservationBoard_(_reservationBoardRows);
               setTimeout(loadReservationBoard_, 0);
@@ -12880,7 +12840,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
           this.classList.remove('text-gray-500');
           setFeatureDropdownLabel('統計');
-          document.getElementById('stats-this-month').click();
+          document.getElementById('stats-today').click();
         });
 
         const merchantTab = document.getElementById('merchant-tab');
@@ -13020,18 +12980,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           });
           this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
           this.classList.remove('text-gray-500');
-          setFeatureDropdownLabel('查詢訂單');
+            setFeatureDropdownLabel('查詢訂單');
+          posEnsureOrdersFilterDefaultDate_();
+          posBindBoardGridWheelScroll_();
           loadOrders();
 
         });
-
-const searchPhoneInput = document.getElementById('search-phone');
-if (searchPhoneInput) {
-  searchPhoneInput.addEventListener('input', () => {
-    loadOrders();
-  });
-}
-
 
         // 菜單 tab 點擊時也要隱藏統計頁
         document.querySelectorAll('.menu-tab').forEach(tab => {
@@ -13514,13 +13468,13 @@ function posWarmKdsCacheOnly_() {
     .catch(function () {});
 }
 
-/** 首屏就緒後在閒置時預載：查詢訂單、看板、本月統計、會員（不顯示載入中） */
+/** 首屏就緒後在閒置時預載：查詢訂單、看板、今日統計、會員（不顯示載入中） */
 function posPrefetchFeatureCachesBackground_() {
   if (!currentWebAppUrl) return;
   posWarmOrdersCacheOnly_();
   posWarmKdsCacheOnly_();
-  var mr = posDefaultStatsMonthRangeStrings_();
-  computeSummaryByPeriod(mr.startStr, mr.endStr, { prefetchSilent: true });
+  var t0 = new Date().toISOString().split('T')[0];
+  computeSummaryByPeriod(t0, t0, { prefetchSilent: true });
   if (typeof window.__memberHubPrefetchCachesSilent === 'function') {
     window.__memberHubPrefetchCachesSilent();
   }
