@@ -8032,6 +8032,18 @@ function posComputeMerchantPromotionsPreview_(items, promo) {
   var rawSubtotal = items.reduce(function (s, it) {
     return s + (it.price * it.quantity);
   }, 0);
+  if (typeof posHasReservationDraft_ === 'function' && posHasReservationDraft_()) {
+    return {
+      active: false,
+      rawSubtotal: rawSubtotal,
+      afterItemDiscount: rawSubtotal,
+      finalTotal: rawSubtotal,
+      detailLines: lines,
+      perItemByLineId: perItemByLineId,
+      giftRows: giftRows,
+      thresholdOrderApplied: []
+    };
+  }
   if (!posMerchantPromoIsActiveNow_(promo)) {
     return {
       active: false,
