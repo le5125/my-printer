@@ -1869,7 +1869,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <button id="open-reservation-modal" type="button" class="ml-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-bold">
               預約
             </button>
-            <button id="open-pos-dinein-table-modal" type="button" class="ml-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-bold" title="可預先綁桌；送單時若尚未綁桌，也會詢問是否選擇店內桌號（列印、看板、通知與店內流程一致）">
+            <button id="open-pos-dinein-table-modal" type="button" class="ml-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-bold" title="綁定店內桌號後送單，列印／看板／通知與店內流程一致；需綁桌請於送單前按此選桌">
               桌號
             </button>
           </div>
@@ -9556,6 +9556,8 @@ function _posPreviewLabels_(tpl) {
 /** 進入「打印設定」頁時呼叫，掛載 UI 互動（只掛一次），並自動由「打印設定工作表」載入最新樣版 */
 window.__initPrintSettingsUi_ = (function () {
   let inited = false;
+  /** 背景同步序號：儲存成功後遞增，使較舊的 fetch 不再套用 UI，避免儲存後閃跳 */
+  let _printSheetBgPullTicket_ = 0;
 
   function _setStatus_(text, type) {
     const el = document.getElementById('print-settings-sync-status');
@@ -9573,8 +9575,10 @@ window.__initPrintSettingsUi_ = (function () {
    * 開啟打印設定時：先套用記憶體快取（預載），再背景向工作表同步。
    */
   async function refreshPrintSheetInBackground_() {
+    const myTicket = ++_printSheetBgPullTicket_;
     _setStatus_('背景同步「打印設定」工作表…', 'warn');
     const data = await fetchPrintSettingsFromBackend_();
+    if (myTicket !== _printSheetBgPullTicket_) return;
     if (!data) {
       _setStatus_('同步失敗（仍顯示快取／預設內容）', 'err');
       return;
@@ -9753,6 +9757,7 @@ window.__initPrintSettingsUi_ = (function () {
       const r = await savePrintSettingsToBackend_(dVal, lVal, mode, sz, fontCfg, rwStr, detailPrintLayout);
       console.log('[POS] 儲存回應:', r);
       if (r.ok) {
+        _printSheetBgPullTicket_++;
         // 寫入成功才覆寫記憶體快取
         _posDetailTplCache_ = dVal;
         _posLabelTplCache_  = lVal;
@@ -10813,34 +10818,7 @@ function submitOrder() {
     return;
   }
 
-  if (!posHasReservationDraft_() && order.items && order.items.length > 0 && !posDineInBoundForSubmit_()) {
-    if (typeof Swal !== 'undefined' && Swal.fire) {
-      Swal.fire({
-        title: '店內用餐？',
-        text: '若要走店內桌號／看板流程，請選「選擇桌號」；外帶或無需綁桌請選「略過」。',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: '選擇桌號',
-        cancelButtonText: '略過，直接送單'
-      }).then(function (r) {
-        if (r.isConfirmed) {
-          window.__posDineInAfterBindSubmit = true;
-          openPosDineInTableModal_();
-        } else {
-          submitOrderAfterDineInChoice_();
-        }
-      });
-    } else {
-      if (window.confirm('是否先選店內桌號？\n確定＝開啟選桌；取消＝略過直接送單')) {
-        window.__posDineInAfterBindSubmit = true;
-        openPosDineInTableModal_();
-      } else {
-        submitOrderAfterDineInChoice_();
-      }
-    }
-    return;
-  }
-
+  /* 店內桌號請由工具列「選擇桌號」預先綁定；送單不再攔截詢問 */
   submitOrderAfterDineInChoice_();
 }
 
