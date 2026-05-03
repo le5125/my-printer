@@ -10233,7 +10233,7 @@ function openPosDineInTableModal_() {
     window.__POS_DINEIN_TABLE_UI_PENDING__ = tbl;
     if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
     if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
-    posSwalToastSuccess('已連結 桌 ' + posNormDineInTableDisplay_(tbl), 2200);
+    posSwalToastSuccess('已選 桌 ' + posNormDineInTableDisplay_(tbl) + '，請按「送出訂單」印單或繼續加點', 2800);
     var bindP = posRunSheetMutation_({
       gasMethod: 'dineInPosEnsureOrderSessionFromPosClient',
       gasArgs: [posGetClientKey_(), tbl],
@@ -10258,11 +10258,6 @@ function openPosDineInTableModal_() {
       try {
         if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
       } catch (eUod) { /* 略 */ }
-      try {
-        if (!order.items || order.items.length === 0) {
-          setTimeout(function () { submitOrder(); }, 0);
-        }
-      } catch (eAutoSub) { /* 略 */ }
     }).catch(function (e) {
       window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
       posSwalAlert((e && e.message) ? e.message : String(e), 'error');
