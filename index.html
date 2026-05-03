@@ -4748,31 +4748,45 @@ function mpRowThOrder(r) {
                   finish(data && typeof data === 'object' ? data : null);
                 })
                 .withFailureHandler(function () {
-                  if (!currentWebAppUrl) {
+                  var _u = posWebAppGetActionUrl_('getStorePromotions', '_=' + Date.now());
+                  if (!_u) {
                     finish(null);
                     return;
                   }
-                  fetch(currentWebAppUrl + '?action=getStorePromotions')
+                  fetch(_u, { method: 'GET', cache: 'no-store', credentials: 'omit' })
                     .then(function (r) {
-                      return r.json();
+                      return r.text();
                     })
-                    .then(finish)
+                    .then(function (t) {
+                      var data = null;
+                      try {
+                        data = t ? JSON.parse(t) : null;
+                      } catch (eJ) { /* 略 */ }
+                      finish(data);
+                    })
                     .catch(function () {
                       finish(null);
                     });
                 })
-                .getStorePromotionsData();
+                .getStorePromotionsDataFromPosClient();
               return;
             }
-            if (!currentWebAppUrl) {
+            var _u2 = posWebAppGetActionUrl_('getStorePromotions', '_=' + Date.now());
+            if (!_u2) {
               finish(null);
               return;
             }
-            fetch(currentWebAppUrl + '?action=getStorePromotions')
+            fetch(_u2, { method: 'GET', cache: 'no-store', credentials: 'omit' })
               .then(function (r) {
-                return r.json();
+                return r.text();
               })
-              .then(finish)
+              .then(function (t) {
+                var data = null;
+                try {
+                  data = t ? JSON.parse(t) : null;
+                } catch (eJ) { /* 略 */ }
+                finish(data);
+              })
               .catch(function () {
                 finish(null);
               });
@@ -4908,8 +4922,8 @@ function mpRowThOrder(r) {
             }
             if (fin) {
               fin.addEventListener('change', function () {
-                if (posIsGithubStaticPos_()) {
-                  posSwalAlert('圖片須後台或 GAS 內嵌上傳；此處可編輯文字與價格。', 'info');
+                if (!(typeof currentWebAppUrl === 'string' && currentWebAppUrl.trim())) {
+                  posSwalPleaseEditInBackend_();
                   fin.value = '';
                   return;
                 }
@@ -4935,6 +4949,29 @@ function mpRowThOrder(r) {
                 window.__merchantPromoActivityImageDraft = staging;
                 close_();
                 merchantPromoImageSyncPreview_();
+                function todayYmdMpApply_() {
+                  var d = new Date();
+                  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                }
+                var payloadApply = collectPayloadFromDom_();
+                if (payloadApply.activityEndDate && payloadApply.activityEndDate < todayYmdMpApply_()) {
+                  posSwalAlert('活動結束日須為今天（含）之後', 'warning');
+                  return;
+                }
+                if (payloadApply.activityStartDate && payloadApply.activityEndDate && payloadApply.activityStartDate > payloadApply.activityEndDate) {
+                  posSwalAlert('活動開始日不能晚於結束日', 'warning');
+                  return;
+                }
+                mpPostJson_(payloadApply, function (r, ok) {
+                  if (!ok || !r || r.result !== 'success') {
+                    posSwalAlert((r && r.message) ? r.message : '活動圖儲存失敗', 'error');
+                    return;
+                  }
+                  try { window.__mpIgnoreFetchUntil = Date.now() + 2800; } catch (eIg) { /* 略 */ }
+                  posSwalToastSuccess('活動圖已套用並儲存', 2200);
+                  applyCacheFromServer_(r);
+                  renderAllFromPayload_(r);
+                });
               });
             }
           })();
@@ -5425,6 +5462,18 @@ function posSwalPleaseEditInBackend_() {
   } else {
     try { alert(msg); } catch (e) { /* 略 */ }
   }
+}
+
+/** 靜態／GAS 共用：GET 請求的 action 網址（B2 等來源的網址若已含 ?query 則用 & 接續，避免 ?action 被吃掉） */
+function posWebAppGetActionUrl_(action, extraQuery) {
+  var u = (typeof currentWebAppUrl === 'string') ? currentWebAppUrl.trim().replace(/\?+$/, '') : '';
+  if (!u || !action) return '';
+  var sep = u.indexOf('?') >= 0 ? '&' : '?';
+  var q = 'action=' + encodeURIComponent(String(action));
+  if (extraQuery && String(extraQuery).trim()) {
+    q += '&' + String(extraQuery).replace(/^&+/, '');
+  }
+  return u + sep + q;
 }
 
 /** GitHub Pages 等：POST JSON 至已部署的 Web App（與 doPost 對接） */
