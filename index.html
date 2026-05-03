@@ -10056,6 +10056,14 @@ function posDineInAllowEmptyCartSubmit_() {
   var d = window.__POS_DINEIN_CART_CTX__;
   return !!(d && d.tableNo && d.token && d.key && d.conductMode === true);
 }
+/** 帶位中：已綁定或 UI 樂觀綁定中皆視為「可空車送出」（避免送出鈕早於 session 回來就擋提示） */
+function posDineInCanSubmitEmptyCart_() {
+  var d = window.__POS_DINEIN_CART_CTX__;
+  if (!d || !d.conductMode || !d.tableNo) return false;
+  if (d.token && d.key) return true;
+  if (d.bindOptimistic) return true;
+  return false;
+}
 
 function posOrderNotesConsumerOnly_(notes) {
   var s = String(notes == null ? '' : notes).trim();
@@ -10418,6 +10426,15 @@ function openPosDineInTableModal_() {
       cancelButtonText: '取消',
       focusConfirm: false,
       didOpen: function () {
+        try {
+          if (window.__posDineInPickBoardPollId) {
+            clearInterval(window.__posDineInPickBoardPollId);
+            window.__posDineInPickBoardPollId = null;
+          }
+        } catch (ePoll0) { /* 略 */ }
+        window.__posDineInPickBoardPollId = setInterval(function () {
+          posPrefetchDineInBoardForPick_();
+        }, 1200);
         var defPick = '';
         if (ctx && ctx.tableNo) {
           var ctn = posNormDineInTableDisplay_(ctx.tableNo);
@@ -10441,6 +10458,14 @@ function openPosDineInTableModal_() {
             posDineInGridStyleCells_(host, window.__swalPosDineinPick);
           });
         });
+      },
+      willClose: function () {
+        try {
+          if (window.__posDineInPickBoardPollId) {
+            clearInterval(window.__posDineInPickBoardPollId);
+            window.__posDineInPickBoardPollId = null;
+          }
+        } catch (ePollC) { /* 略 */ }
       },
       preConfirm: function () {
         var p = String(window.__swalPosDineinPick || '').trim();
@@ -10488,6 +10513,9 @@ function openPosDineInTableModal_() {
     });
   }
   posPrefetchDineInBoardForPick_();
+  try {
+    setTimeout(function () { posPrefetchDineInBoardForPick_(); }, 350);
+  } catch (ePr2) { /* 略 */ }
   openDineInPickSwal_(window.__dineInBoardCache__ || null);
 }
 
@@ -10818,7 +10846,7 @@ function submitOrder() {
     posSwalAlert('授權仍在驗證中或尚未通過，請稍候再試。', 'warning');
     return;
   }
-  if ((!order.items || order.items.length === 0) && !posHasReservationDraft_() && !posDineInAllowEmptyCartSubmit_()) {
+  if ((!order.items || order.items.length === 0) && !posHasReservationDraft_() && !posDineInCanSubmitEmptyCart_()) {
     posSwalAlert('請先選擇餐點或填寫預約資料！', 'warning');
     return;
   }
@@ -17971,6 +17999,155 @@ function posExtractDineInQrUrlFromDetailPrintText_(raw) {
 }
 
 /**
+ * GP-2270T（ESC/POS）：GS ( k QR — Function 167 模組大小、180 儲存內容、181 列印。
+ * moduleSize 建議 3～4（預設 4）。
+ */
+function buildEscPosQrGsKBytes_(url, moduleSize) {
+  var u = String(url || '').trim();
+  if (!u) return new Uint8Array(0);
+  var n = parseInt(moduleSize, 10);
+  if (isNaN(n)) n = 4;
+  n = Math.max(3, Math.min(4, n));
+  var enc = new TextEncoder().encode(u);
+  var out = [];
+  out.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0xA7, n);
+  var plen = 3 + enc.length;
+  out.push(0x1D, 0x28, 0x6B, plen & 0xFF, (plen >> 8) & 0xFF, 0x31, 0xB4, 0x30);
+  var j;
+  for (j = 0; j < enc.length; j++) out.push(enc[j]);
+  out.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0xB5, 0x30);
+  return new Uint8Array(out);
+}
+
+function escPosFlattenStyledLine_(line) {
+  if (!Array.isArray(line)) return String(line || '');
+  return line.map(function (r) { return r && r.text != null ? String(r.text) : ''; }).join('');
+}
+
+/** 將 parseStyledLines_ 結果輸出為 ESC/POS 可印的位元組（每行 CP950 + LF）；withInit 時含 ESC @ */
+function escPosEmitStyledLinesAsBytes_(styledLines, withInit) {
+  var parts = [];
+  if (withInit) parts.push(new Uint8Array([0x1B, 0x40]));
+  if (!Array.isArray(styledLines) || !styledLines.length) return u8concat_(parts);
+  var useUtf8 = false;
+  try { useUtf8 = window.GP2270T_FORCE_UTF8 === true; } catch (eU) { /* 略 */ }
+  var li;
+  for (li = 0; li < styledLines.length; li++) {
+    var flat = escPosFlattenStyledLine_(styledLines[li]);
+    var t = flat;
+    if (!useUtf8) {
+      try { t = stripToPrinterCp950Only_(flat); } catch (eS) { t = flat; }
+    }
+    var b;
+    if (useUtf8) {
+      b = new TextEncoder().encode(t);
+    } else {
+      try {
+        if (typeof cptable !== 'undefined' && cptable.utils && typeof cptable.utils.encode === 'function') {
+          b = new Uint8Array(cptable.utils.encode(950, t));
+        } else {
+          b = new TextEncoder().encode(t);
+        }
+      } catch (eEnc) {
+        b = new TextEncoder().encode(t);
+      }
+    }
+    parts.push(b);
+    parts.push(new Uint8Array([0x0A]));
+  }
+  return u8concat_(parts);
+}
+
+/**
+ * 組出送印用位元組：捲紙明細改走 ESC/POS；<<<__POS_DINEIN_QR__>>> 改為 GS ( k QR（167/180/181）。
+ * 標籤／已含 TSPL PRINT 的稿仍走 TSPL + encodePrinterBytes_。
+ */
+function buildPrinterBuffer(rawText, optsParam) {
+  var opts = optsParam || {};
+  var s = String(rawText == null ? '' : rawText).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (!s.trim()) return new Uint8Array([0x1B, 0x40, 0x0A]);
+  if (isProbablyTsplJob_(s)) {
+    try {
+      return encodePrinterBytes_(ensureTsplCodepage950_(s));
+    } catch (eTs) {
+      return encodePrinterBytes_(s);
+    }
+  }
+  if (_activeTsplFontProfile_ === 'label') {
+    var tsplLabel = ensureTsplForManualPrint_(rawText, opts);
+    return encodePrinterBytes_(tsplLabel);
+  }
+  try {
+    if (window.GP2270T_FORCE_UTF8 !== true) s = stripToPrinterCp950Only_(s);
+  } catch (eStrip) { /* 略 */ }
+  var qrUrl = typeof opts.dineInQrUrl === 'string' ? opts.dineInQrUrl.trim() : '';
+  if (!qrUrl) qrUrl = posExtractDineInQrUrlFromDetailPrintText_(s);
+  var mark = POS_DINEIN_QR_MARK_TSPL_;
+  var modSz = opts.qrModuleSize != null ? opts.qrModuleSize : 4;
+  var baseFc = getActiveFontCfg_();
+  var chunks = [];
+  var qrSeq = buildEscPosQrGsKBytes_(qrUrl, modSz);
+  if (qrUrl && s.indexOf(mark) !== -1) {
+    var segs = s.split(mark);
+    var si;
+    for (si = 0; si < segs.length; si++) {
+      var segStyled = parseStyledLines_(String(segs[si] || ''), baseFc);
+      chunks.push(escPosEmitStyledLinesAsBytes_(segStyled, si === 0));
+      if (si < segs.length - 1) {
+        chunks.push(new Uint8Array([0x0A]));
+        if (qrSeq.length) chunks.push(qrSeq);
+        chunks.push(new Uint8Array([0x0A]));
+      }
+    }
+  } else {
+    var styledAll = parseStyledLines_(s, baseFc);
+    chunks.push(escPosEmitStyledLinesAsBytes_(styledAll, true));
+  }
+  chunks.push(new Uint8Array([0x0A, 0x0A, 0x1D, 0x56, 0x01]));
+  return u8concat_(chunks);
+}
+
+/** 送已編好之 Uint8Array（略過 encodePrinterBytes_） */
+async function sendPrinterBuffer(bytes) {
+  var u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  if (!bleChar) throw new Error('無 characteristic');
+  if (!isConnected) throw new Error('BLE 未連線');
+  var CHUNK = BLE_WRITE_CHUNK_BYTES;
+  var baseDelay = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
+  var isLongJob = u8.length >= 1400;
+  var canWriteWithResp = !!(bleChar.properties && bleChar.properties.write);
+  var canWriteNoResp = !!(bleChar.properties && bleChar.properties.writeWithoutResponse);
+  var useReliableWrite = isLongJob && canWriteWithResp;
+  var DELAY = useReliableWrite ? Math.max(baseDelay, 45) : baseDelay;
+  log(
+    '送印 ' + u8.length + ' bytes（ESC/POS 原始），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(u8.length / CHUNK) + ' 包',
+    'info'
+  );
+  var i;
+  for (i = 0; i < u8.length; i += CHUNK) {
+    var chunk = u8.slice(i, i + CHUNK);
+    try {
+      if (useReliableWrite && canWriteWithResp) {
+        await bleChar.writeValue(chunk);
+      } else if (canWriteNoResp) {
+        await bleChar.writeValueWithoutResponse(chunk);
+      } else {
+        await bleChar.writeValue(chunk);
+      }
+    } catch (e) {
+      await sleep(50);
+      if (canWriteNoResp && !useReliableWrite) {
+        await bleChar.writeValueWithoutResponse(chunk);
+      } else {
+        await bleChar.writeValue(chunk);
+      }
+    }
+    if (i + CHUNK < u8.length) await sleep(DELAY);
+  }
+  log('送印完成', 'ok');
+}
+
+/**
  * 熱感捲紙：DIRECTION 0,0（由上往下）；內文 TST24.BF2 + 送印 CP950/Big5。
  * 原稿若已含行首 PRINT n（POS 標籤模板等）則原樣送出。
  * opts.dineInQrUrl：內文含 <<<__POS_DINEIN_QR__>>> 時於該處插入 TSPL QRCODE（與獨立 bridge 一致）。
@@ -18369,8 +18546,9 @@ async function autoPrint(data) {
     if (data && data._fontProfile === 'label') setActiveTsplFontProfile_('label');
     else if (data && data._fontProfile === 'detail') setActiveTsplFontProfile_('detail');
     else setActiveTsplFontProfile_(getPrintMode_() === 'label' ? 'label' : 'detail');
-    const payload = ensureTsplForManualPrint_(data.text, { dineInQrUrl: (data.dineInQrUrl != null ? String(data.dineInQrUrl) : '') || '' });
-    await sendRawText(payload);
+    var diQr = (data.dineInQrUrl != null ? String(data.dineInQrUrl) : '') || '';
+    const printBuf = buildPrinterBuffer(data.text, { dineInQrUrl: diQr, qrModuleSize: 4 });
+    await sendPrinterBuffer(printBuf);
     log('列印完成', 'ok');
     showAck();
     lastPrintTs = data.ts;
