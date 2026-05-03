@@ -8756,6 +8756,8 @@ function buildPrinterOrderPayloadFull_(orderData) {
     orderDetailTextForPrint: finalPackedText || undefined,
     items    : mappedItems
   };
+  var dq = String(orderData.dineInQrUrl != null ? orderData.dineInQrUrl : '').trim();
+  if (dq) outPayload.dineInQrUrl = dq;
   if (orderData.skipPrintDedup === true) outPayload.skipPrintDedup = true;
   return outPayload;
 }
@@ -10020,6 +10022,17 @@ function posNormDineInTableDisplay_(t) {
   return String(n).padStart(2, '0');
 }
 
+function posBuildDineInOrderEntryUrl_(tableNo, dineInKey) {
+  var t = posNormDineInTableDisplay_(tableNo);
+  var k = String(dineInKey != null ? dineInKey : '').trim();
+  if (!t || !k) return '';
+  var base = (typeof currentWebAppUrl === 'string' && currentWebAppUrl.trim())
+    ? currentWebAppUrl.trim().replace(/\?+$/, '') : '';
+  if (!base) return '';
+  var sep = base.indexOf('?') >= 0 ? '&' : '?';
+  return base + sep + 'page=order&table=' + encodeURIComponent(t) + '&key=' + encodeURIComponent(k);
+}
+
 function posOrderNotesConsumerOnly_(notes) {
   var s = String(notes == null ? '' : notes).trim();
   if (!s) return '';
@@ -10052,7 +10065,7 @@ function posBuildDineInOrderDetailTextForPrint_(orderData) {
   if (!t) return '';
   var detail = '';
   try {
-    detail = _posItemsBlock_(orderData.items || []);
+    detail = _posItemsBlock_(orderData, true);
   } catch (e2) {
     detail = '';
   }
@@ -10069,6 +10082,8 @@ function posBuildDineInOrderDetailTextForPrint_(orderData) {
   var cn = posOrderNotesConsumerOnly_(orderData.notes != null ? orderData.notes : orderData.remark);
   var parts = [];
   parts.push('> 店內桌號：' + t);
+  var partyN = parseInt(orderData && orderData.dineInPartySize, 10);
+  if (!isNaN(partyN) && partyN >= 1) parts.push('人數：' + String(partyN));
   parts.push('金額：' + String(orderData.total != null ? orderData.total : '') + ' 元');
   parts.push('品項：共 ' + String(cnt) + ' 項');
   if (cn) parts.push('備註：' + cn);
@@ -10081,6 +10096,13 @@ function posBuildDineInOrderDetailTextForPrint_(orderData) {
     });
   }
   parts.push('');
+  var qrLine = String(orderData && orderData.dineInQrUrl != null ? orderData.dineInQrUrl : '').trim();
+  if (!qrLine) qrLine = posBuildDineInOrderEntryUrl_(orderData.tableNo, orderData.dineInKey);
+  if (qrLine) {
+    parts.push('掃碼點餐：');
+    parts.push(qrLine);
+    parts.push('');
+  }
   parts.push('商品明細：');
   parts.push('');
   if (body) parts.push(body);
@@ -10167,6 +10189,9 @@ function buildCurrentOrderData() {
     base.dineInKey = diCtx.key;
     base.dineInSession = diCtx.token;
     base.posDineInSettlementMode = diCtx.settlementMode || 'prepay';
+    var partyN = Math.max(1, Math.min(99, parseInt(diCtx.partySize, 10) || 1));
+    base.dineInPartySize = partyN;
+    base.dineInQrUrl = posBuildDineInOrderEntryUrl_(tnorm, diCtx.key);
     var tblNum = parseInt(tnorm, 10) || 0;
     base.phone = '09' + String(1000000 + tblNum).slice(-8);
     base.notes = notesComb ? (tag + ' ' + notesComb) : tag;
@@ -10198,7 +10223,8 @@ function openPosDineInTableModal_() {
       b.style.cssText = 'font-size:15px;font-weight:700;padding:10px 6px;border-radius:10px;border:1px solid ' + (on ? '#6d28d9' : '#cbd5e1') + ';background:' + (on ? '#7c3aed' : '#fff') + ';color:' + (on ? '#fff' : '#1e293b') + ';cursor:pointer;';
     });
   }
-  function posDineInStartBindMutation_(tbl) {
+  function posDineInStartBindMutation_(tbl, partyOpt) {
+    var partyNum = Math.max(1, Math.min(99, parseInt(partyOpt, 10) || 1));
     window.__POS_DINEIN_TABLE_UI_PENDING__ = tbl;
     if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
     if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
@@ -10219,7 +10245,8 @@ function openPosDineInTableModal_() {
         tableNo: r.tableNo || tbl,
         token: r.sessionToken,
         key: r.dineInKey,
-        settlementMode: r.settlementMode || 'prepay'
+        settlementMode: r.settlementMode || 'prepay',
+        partySize: partyNum
       };
       if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
       if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
@@ -10240,6 +10267,8 @@ function openPosDineInTableModal_() {
     gridHtml += '<button type="button" class="swal-pos-dinein-cell" data-tbl="' + glabel + '">' + glabel + '</button>';
   }
   gridHtml += '</div>';
+  var partyDef = (ctx && ctx.partySize != null) ? String(Math.max(1, Math.min(99, parseInt(ctx.partySize, 10) || 1))) : '1';
+  var partyRow = '<div style="margin:8px 0 10px;text-align:left;"><label for="swal-pos-dinein-party" style="display:block;font-size:14px;color:#374151;font-weight:600;margin-bottom:6px;">用餐人數（帶位／印單）</label><input id="swal-pos-dinein-party" type="number" min="1" max="99" value="' + partyDef + '" style="width:100%;max-width:120px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px;" /></div>';
   var hint = (ctx && ctx.tableNo)
     ? ('<p style="margin:0 0 10px;font-size:14px;color:#6b21a8;text-align:left;">目前選擇：<b>桌 ' + posNormDineInTableDisplay_(ctx.tableNo) + '</b></p>')
     : '';
@@ -10252,12 +10281,14 @@ function openPosDineInTableModal_() {
       posSwalAlert('桌號無效', 'warning');
       return;
     }
-    posDineInStartBindMutation_(tbl0);
+    var pr0 = window.prompt('用餐人數（1–99）', partyDef);
+    var party0 = Math.max(1, Math.min(99, parseInt(pr0, 10) || 1));
+    posDineInStartBindMutation_(tbl0, party0);
     return;
   }
   Swal.fire({
     title: '店內桌號',
-    html: hint + '<p style="margin:0 0 10px;font-size:14px;color:#374151;text-align:left;">共 <b>' + total + '</b> 張桌，請點選桌號後按確定（送單與 QR 點餐相同：列印／通知／待出餐）：</p>' + gridHtml,
+    html: hint + partyRow + '<p style="margin:0 0 10px;font-size:14px;color:#374151;text-align:left;">共 <b>' + total + '</b> 張桌，請點選桌號／人數後按確定（送單後印單含掃碼點餐 QR）。</p>' + gridHtml,
     showCancelButton: true,
     showDenyButton: !!(ctx && ctx.tableNo),
     confirmButtonText: '確定',
@@ -10288,7 +10319,11 @@ function openPosDineInTableModal_() {
         if (typeof Swal !== 'undefined' && Swal.showValidationMessage) Swal.showValidationMessage('桌號無效');
         return false;
       }
-      return p;
+      var partyEl = document.getElementById('swal-pos-dinein-party');
+      var partyRaw = partyEl ? parseInt(String(partyEl.value || '1').trim(), 10) : 1;
+      if (!partyRaw || partyRaw < 1) partyRaw = 1;
+      if (partyRaw > 99) partyRaw = 99;
+      return { tbl: p, party: partyRaw };
     }
   }).then(function (res) {
     if (res.isDenied) {
@@ -10300,9 +10335,9 @@ function openPosDineInTableModal_() {
       return;
     }
     if (!res.isConfirmed) return;
-    var tbl = res.value;
-    if (!tbl) return;
-    posDineInStartBindMutation_(tbl);
+    var pack = res.value;
+    if (!pack || !pack.tbl) return;
+    posDineInStartBindMutation_(pack.tbl, pack.party);
   });
 }
 
