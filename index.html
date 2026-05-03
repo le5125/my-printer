@@ -3187,12 +3187,12 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <div class="px-4 pt-4 pb-2 flex-shrink-0 border-b border-gray-100 flex justify-between items-start gap-2">
           <div>
             <h2 class="text-xl font-bold text-gray-800 m-0">商家活動圖片</h2>
-            <p class="text-sm text-gray-600 m-0 mt-1">供線上點餐首頁活動視窗使用；無圖片時消費端不會顯示該視窗。建議壓縮後再傳。</p>
+            <p class="text-sm text-gray-600 m-0 mt-1">選圖後與「新增商品」相同可裁切、縮放；按裁切視窗「儲存」回到此處，再按「套用」寫入。無圖時線上點餐不顯示活動視窗。</p>
           </div>
           <button type="button" id="merchant-promo-image-close-x" class="text-gray-500 hover:text-gray-800 text-2xl leading-none p-1 flex-shrink-0" aria-label="關閉">&times;</button>
         </div>
         <div class="overflow-y-auto flex-1 min-h-0 px-4 py-3">
-          <label class="block font-medium text-gray-700 text-sm font-bold mb-1">選擇圖片</label>
+          <label class="block font-medium text-gray-700 text-sm font-bold mb-1">選擇圖片（將開啟裁切，與商品圖相同）</label>
           <input type="file" id="merchant-promo-image-file" accept="image/*" class="w-full border border-gray-300 rounded-md mb-3" style="padding: 4px; font-size: 15px;">
           <div class="text-sm text-gray-500 mb-2">預覽（無圖時不顯示底色）</div>
           <div id="merchant-promo-image-preview-wrap" class="flex justify-center items-start rounded-md overflow-hidden" style="min-height:0;">
@@ -4858,6 +4858,17 @@ function mpRowThOrder(r) {
             var btnClr = document.getElementById('merchant-promo-image-clear');
             if (!modal || !btn) return;
             var staging = '';
+            window.__onMerchantPromoCropResult_ = function (dataUrl) {
+              staging = String(dataUrl || '');
+              var im = document.getElementById('merchant-promo-image-preview');
+              if (im && staging) {
+                im.src = staging;
+                im.classList.remove('hidden');
+              } else if (im) {
+                im.removeAttribute('src');
+                im.classList.add('hidden');
+              }
+            };
             function close_() {
               modal.classList.add('hidden');
               staging = '';
@@ -4897,22 +4908,24 @@ function mpRowThOrder(r) {
             }
             if (fin) {
               fin.addEventListener('change', function () {
+                if (posIsGithubStaticPos_()) {
+                  posSwalAlert('圖片須後台或 GAS 內嵌上傳；此處可編輯文字與價格。', 'info');
+                  fin.value = '';
+                  return;
+                }
                 var f = fin.files && fin.files[0];
                 if (!f) return;
+                fin.value = '';
                 var reader = new FileReader();
                 reader.onload = function () {
                   var url = String(reader.result || '');
-                  if (url.length > 48000) {
-                    posSwalAlert('圖片編碼過長，請縮小尺寸或降低畫質後再選擇', 'warning');
-                    fin.value = '';
-                    return;
-                  }
-                  staging = url;
-                  var im = document.getElementById('merchant-promo-image-preview');
-                  if (im) {
-                    im.src = staging;
-                    im.classList.remove('hidden');
-                  }
+                  openCropModalFromDataUrl(url, 'merchantPromo', {
+                    aspectRatio: 1.5,
+                    maxWidth: 900,
+                    maxHeight: 600,
+                    quality: 0.9,
+                    lockBox: true
+                  });
                 };
                 reader.readAsDataURL(f);
               });
@@ -13692,37 +13705,54 @@ if (!isRedeem) {
           } else if (_cropTargetMode === 'cover') {
             pendingMerchantCover = out;
             renderMerchantImagePreviews();
+          } else if (_cropTargetMode === 'merchantPromo') {
+            if (typeof window.__onMerchantPromoCropResult_ === 'function') {
+              window.__onMerchantPromoCropResult_(out);
+            }
           }
+          var _cropModeClosing = _cropTargetMode;
           if (currentCropper) {
             currentCropper.destroy();
             currentCropper = null;
           }
           document.getElementById('crop-image-modal').classList.add('hidden');
           resetCropModalUi();
-          document.getElementById('edit-item-image').value = '';
+          if (_cropModeClosing !== 'merchantPromo') {
+            document.getElementById('edit-item-image').value = '';
+          }
         });
 
         // 取消裁切
         document.getElementById('cancel-crop').addEventListener('click', function() {
-          croppedImageData = null;
+          var mode = _cropTargetMode;
+          if (mode === 'product') {
+            croppedImageData = null;
+          }
           if (currentCropper) {
             currentCropper.destroy();
             currentCropper = null;
           }
           document.getElementById('crop-image-modal').classList.add('hidden');
-          document.getElementById('edit-item-image').value = '';
+          if (mode !== 'merchantPromo') {
+            document.getElementById('edit-item-image').value = '';
+          }
           resetCropModalUi();
         });
 
         // 關閉 Modal 按鈕
         document.getElementById('close-crop-modal').addEventListener('click', function() {
-          croppedImageData = null;
+          var mode = _cropTargetMode;
+          if (mode === 'product') {
+            croppedImageData = null;
+          }
           if (currentCropper) {
             currentCropper.destroy();
             currentCropper = null;
           }
           document.getElementById('crop-image-modal').classList.add('hidden');
-          document.getElementById('edit-item-image').value = '';
+          if (mode !== 'merchantPromo') {
+            document.getElementById('edit-item-image').value = '';
+          }
           resetCropModalUi();
         });
         
