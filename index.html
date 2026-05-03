@@ -1995,6 +1995,9 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <button id="reservation-view-tab" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-calendar-check mr-2"></i>預約查看
             </button>
+            <button id="dine-in-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
+              <i class="fas fa-qrcode mr-2"></i>店內用餐
+            </button>
             <button id="stats-tab" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-chart-bar mr-2"></i>統計
             </button>
@@ -2166,6 +2169,30 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             </div>
             <div id="reservation-calendar-wrap" class="flex-grow min-h-0 bg-white border border-gray-200 rounded-lg p-2 overflow-auto"></div>
           </div>
+        </div>
+      </div>
+
+      <div id="dine-in-content" class="hidden flex-grow flex flex-col min-h-0 px-3 pb-3">
+        <div class="order-board-wrap flex-grow min-h-0 flex flex-col">
+          <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <div class="order-board-title mb-0"><i class="fas fa-qrcode mr-2 text-violet-600"></i>店內用餐</div>
+            <div class="flex flex-wrap items-center gap-2 text-sm">
+              <span class="text-gray-600">結帳模式</span>
+              <label class="inline-flex items-center gap-1 bg-white border border-gray-300 rounded-md px-2 py-1.5 cursor-pointer">
+                <input type="radio" name="dinein-settle" value="prepay" id="dinein-settle-prepay">
+                <span>先結帳</span>
+              </label>
+              <label class="inline-flex items-center gap-1 bg-white border border-gray-300 rounded-md px-2 py-1.5 cursor-pointer">
+                <input type="radio" name="dinein-settle" value="postpay" id="dinein-settle-postpay">
+                <span>後結帳</span>
+              </label>
+              <button type="button" id="dinein-qr-refresh-btn" class="px-3 py-1.5 text-sm font-semibold border border-violet-300 bg-violet-50 text-violet-800 rounded-md hover:bg-violet-100">
+                更新 QR 工作表
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 mb-2">方塊：空閒（白）、使用中（黃）、待結帳（紅）。清桌後下一組客人才能掃碼進入。</p>
+          <div id="dinein-board-grid" class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(128px,1fr));"></div>
         </div>
       </div>
 
@@ -3740,10 +3767,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
   const merchantPromotionsContent = document.getElementById('merchant-promotions-content');
   const orderBoardContent = document.getElementById('order-board-content');
   const reservationBoardContent = document.getElementById('reservation-board-content');
+  const dineInContent = document.getElementById('dine-in-content');
   const printSettingsContentGlobal_ = document.getElementById('print-settings-content');
   function _hidePrintSettings_() { if (printSettingsContentGlobal_) printSettingsContentGlobal_.classList.add('hidden'); }
   function posSetTopLayer_(activeEl) {
-    var panes = [menuContent, ordersContent, statsContent, merchantContent, memberHubContent, merchantPromotionsContent, orderBoardContent, reservationBoardContent, printSettingsContentGlobal_];
+    var panes = [menuContent, ordersContent, statsContent, merchantContent, memberHubContent, merchantPromotionsContent, orderBoardContent, reservationBoardContent, dineInContent, printSettingsContentGlobal_];
     panes.forEach(function (el) {
       if (!el) return;
       el.style.zIndex = (el === activeEl) ? '3' : '1';
@@ -3759,6 +3787,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
     if (orderBoardContent) orderBoardContent.classList.add('hidden');
     if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+    if (dineInContent) dineInContent.classList.add('hidden');
     if (typeof stopReservationPolling_ === 'function') stopReservationPolling_();
     _hidePrintSettings_();
     posSetTopLayer_(menuContent);
@@ -6001,6 +6030,7 @@ function switchToMenu(menuId) {
   if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
   if (orderBoardContent) orderBoardContent.classList.add('hidden');
   if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+  if (dineInContent) dineInContent.classList.add('hidden');
   if (typeof closeReservationModal_ === 'function') closeReservationModal_();
   if (typeof stopReservationPolling_ === 'function') stopReservationPolling_();
   _hidePrintSettings_();
@@ -14466,9 +14496,11 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
             if (orderBoardContent) orderBoardContent.classList.remove('hidden');
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+            if (dineInContent) dineInContent.classList.add('hidden');
+            try { if (typeof dineInStopBoardPoll_ === 'function') dineInStopBoardPoll_(); } catch (eDi) {}
             stopReservationPolling_();
             _hidePrintSettings_();
-            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(function (tab) {
+            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
             });
@@ -14493,6 +14525,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         if (reservationViewTab) {
           reservationViewTab.addEventListener('click', function () {
             if (typeof closeReservationModal_ === 'function') closeReservationModal_();
+            try { if (typeof dineInStopBoardPoll_ === 'function') dineInStopBoardPoll_(); } catch (eDi2) {}
             document.getElementById('menu-content').classList.add('hidden');
             document.getElementById('orders-content').classList.add('hidden');
             document.getElementById('stats-content').classList.add('hidden');
@@ -14501,9 +14534,10 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             if (reservationBoardContent) reservationBoardContent.classList.remove('hidden');
+            if (dineInContent) dineInContent.classList.add('hidden');
             _hidePrintSettings_();
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
-            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(function (tab) {
+            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
             });
@@ -14519,6 +14553,146 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             startReservationPolling_();
           });
         }
+        var dineInBoardPollTimer_ = null;
+        function dineInMapStatusStyle_(st) {
+          var s = String(st || '');
+          if (s.indexOf('待結帳') >= 0) return { bg: '#fecaca', border: '#dc2626' };
+          if (s.indexOf('使用中') >= 0) return { bg: '#fef9c3', border: '#ca8a04' };
+          return { bg: '#ffffff', border: '#d1d5db' };
+        }
+        function dineInRenderBoard_(payload) {
+          var grid = document.getElementById('dinein-board-grid');
+          if (!grid) return;
+          if (!payload || payload.result !== 'success') {
+            grid.innerHTML = '<div class="text-red-600 text-sm">無法載入店內桌次</div>';
+            return;
+          }
+          var total = parseInt(payload.totalTables, 10) || 0;
+          var byT = {};
+          (payload.tables || []).forEach(function (x) {
+            if (x && x.table) byT[String(x.table).trim()] = x;
+          });
+          if (!total) {
+            grid.innerHTML = '<div class="text-gray-500 text-sm">總桌數為 0，請至「預約設定」新增桌型並儲存</div>';
+            return;
+          }
+          var html = '';
+          for (var i = 1; i <= total; i++) {
+            var label = String(i).padStart(2, '0');
+            var row = byT[label] || { status: '空閒', lastOrderId: '' };
+            var col = dineInMapStatusStyle_(row.status);
+            html += '<div class="rounded-lg border-2 p-2 flex flex-col gap-1.5 text-center shadow-sm" style="background:' + col.bg + ';border-color:' + col.border + '">';
+            html += '<div class="text-lg font-black text-gray-900">' + label + '</div>';
+            html += '<div class="text-xs font-bold text-gray-800 leading-tight">' + String(row.status || '') + '</div>';
+            if (row.lastOrderId) {
+              html += '<div class="text-[10px] text-gray-600 break-all leading-tight">' + String(row.lastOrderId) + '</div>';
+            }
+            html += '<button type="button" class="dinein-clear-btn mt-1 text-xs px-2 py-1.5 border border-gray-400 rounded bg-white hover:bg-gray-50 font-semibold text-gray-800" data-table="' + label + '">清桌</button>';
+            html += '</div>';
+          }
+          grid.innerHTML = html;
+          grid.querySelectorAll('.dinein-clear-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var tb = this.getAttribute('data-table');
+              if (!confirm('確定清空桌號 ' + tb + '？')) return;
+              posRunSheetMutation_({
+                gasMethod: 'dineInPosClearTableFromPosClient',
+                gasArgs: [posGetClientKey_(), tb],
+                postBody: { action: 'dineInPosClearTable', key: posGetClientKey_(), table: tb }
+              }).then(function (r) {
+                if (!r || r.result !== 'success') {
+                  posSwalAlert((r && r.message) || '清桌失敗', 'error');
+                  return;
+                }
+                posSwalToastSuccess('已清桌', 1200);
+                dineInLoadBoard_();
+              }).catch(function (e) {
+                posSwalAlert(e && e.message ? e.message : String(e), 'error');
+              });
+            });
+          });
+          var mode = payload.settlementMode || 'prepay';
+          var prepay = document.getElementById('dinein-settle-prepay');
+          var postpay = document.getElementById('dinein-settle-postpay');
+          if (prepay) prepay.checked = mode !== 'postpay';
+          if (postpay) postpay.checked = mode === 'postpay';
+        }
+        function dineInLoadBoard_() {
+          posRunSheetMutation_({
+            gasMethod: 'dineInPosGetBoardFromPosClient',
+            gasArgs: [posGetClientKey_()],
+            postBody: { action: 'dineInPosGetBoard', key: posGetClientKey_() }
+          }).then(function (r) { dineInRenderBoard_(r); }).catch(function () {
+            dineInRenderBoard_({ result: 'error' });
+          });
+        }
+        function dineInStopBoardPoll_() {
+          if (dineInBoardPollTimer_) {
+            clearInterval(dineInBoardPollTimer_);
+            dineInBoardPollTimer_ = null;
+          }
+        }
+        var dineInTabEl = document.getElementById('dine-in-tab');
+        if (dineInTabEl && dineInContent) {
+          dineInTabEl.addEventListener('click', function () {
+            if (typeof closeReservationModal_ === 'function') closeReservationModal_();
+            document.getElementById('menu-content').classList.add('hidden');
+            document.getElementById('orders-content').classList.add('hidden');
+            document.getElementById('stats-content').classList.add('hidden');
+            document.getElementById('merchant-content').classList.add('hidden');
+            if (memberHubContent) memberHubContent.classList.add('hidden');
+            if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
+            if (orderBoardContent) orderBoardContent.classList.add('hidden');
+            if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+            dineInContent.classList.remove('hidden');
+            stopReservationPolling_();
+            _hidePrintSettings_();
+            if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
+            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
+              tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
+              tab.classList.add('text-gray-500');
+            });
+            this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
+            this.classList.remove('text-gray-500');
+            setFeatureDropdownLabel('店內用餐');
+            posBindBoardGridWheelScroll_();
+            dineInLoadBoard_();
+            dineInStopBoardPoll_();
+            dineInBoardPollTimer_ = setInterval(function () {
+              if (!dineInContent || dineInContent.classList.contains('hidden')) return;
+              dineInLoadBoard_();
+            }, 60000);
+          });
+        }
+        ['dinein-settle-prepay', 'dinein-settle-postpay'].forEach(function (rid) {
+          var el = document.getElementById(rid);
+          if (!el) return;
+          el.addEventListener('change', function () {
+            if (!this.checked) return;
+            var v = this.value;
+            posRunSheetMutation_({
+              gasMethod: 'dineInPosSetSettlementFromPosClient',
+              gasArgs: [posGetClientKey_(), v],
+              postBody: { action: 'dineInPosSetSettlement', key: posGetClientKey_(), settlementMode: v }
+            }).then(function (r) {
+              if (!r || r.result !== 'success') posSwalAlert((r && r.message) || '儲存失敗', 'error');
+              else posSwalToastSuccess('結帳模式已更新', 1200);
+            }).catch(function (e) { posSwalAlert(e && e.message ? e.message : String(e), 'error'); });
+          });
+        });
+        document.getElementById('dinein-qr-refresh-btn')?.addEventListener('click', function () {
+          posRunSheetMutation_({
+            gasMethod: 'generateTableQRCodesFromPosClient',
+            gasArgs: [posGetClientKey_()],
+            postBody: { action: 'generateTableQRCodes', key: posGetClientKey_() }
+          }).then(function (r) {
+            if (!r || r.result !== 'success') {
+              posSwalAlert((r && r.message) || '更新失敗（請確認已設定桌型）', 'error');
+              return;
+            }
+            posSwalToastSuccess('已更新「桌號QR Code」工作表', 2000);
+          }).catch(function (e) { posSwalAlert(e && e.message ? e.message : String(e), 'error'); });
+        });
         setTimeout(function () {
           try { loadReservationBoard_(); } catch (e) {}
         }, 400);
@@ -14536,11 +14710,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+            if (dineInContent) dineInContent.classList.add('hidden');
             stopReservationPolling_();
             printSettingsContent.classList.remove('hidden');
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
-            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(function (tab) {
+            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
             });
@@ -14559,6 +14734,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
           if (orderBoardContent) orderBoardContent.classList.add('hidden');
           if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+          if (dineInContent) dineInContent.classList.add('hidden');
           stopReservationPolling_();
           _hidePrintSettings_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
@@ -14573,7 +14749,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
 
          
 
-          document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(tab => {
+          document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(tab => {
             tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
             tab.classList.add('text-gray-500');
           });
@@ -14594,11 +14770,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
           if (orderBoardContent) orderBoardContent.classList.add('hidden');
           if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+          if (dineInContent) dineInContent.classList.add('hidden');
           stopReservationPolling_();
           _hidePrintSettings_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
-          document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(tab => {
+          document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(tab => {
             tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
             tab.classList.add('text-gray-500');
           });
@@ -14638,10 +14815,11 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (memberHubContent) memberHubContent.classList.remove('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+            if (dineInContent) dineInContent.classList.add('hidden');
             stopReservationPolling_();
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
-            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(tab => {
+            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(tab => {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
             });
@@ -14681,12 +14859,13 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (memberHubContent) memberHubContent.classList.add('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+            if (dineInContent) dineInContent.classList.add('hidden');
             stopReservationPolling_();
             _hidePrintSettings_();
             merchantPromotionsContent.classList.remove('hidden');
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
-            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(function (tab) {
+            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
             });
@@ -14710,11 +14889,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
           if (orderBoardContent) orderBoardContent.classList.add('hidden');
           if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+          if (dineInContent) dineInContent.classList.add('hidden');
           stopReservationPolling_();
           _hidePrintSettings_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
-          document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(tab => {
+          document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(tab => {
             tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
             tab.classList.add('text-gray-500');
           });
@@ -14739,12 +14919,13 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+            if (dineInContent) dineInContent.classList.add('hidden');
             stopReservationPolling_();
             _hidePrintSettings_();
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
             // 清除所有 tab 的 active 樣式
-            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn').forEach(tab => {
+            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(tab => {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
             });
