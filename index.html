@@ -1120,9 +1120,22 @@
     color: #b91c1c; font-weight: 700; font-size: 14px; line-height: 1.4;
   }
   .order-card-footer { flex-shrink: 0; padding: 10px 12px; border-top: 1px solid #e5e7eb; background: #fafafa; }
-  .order-card-footer-actions { display: flex; gap: 8px; align-items: stretch; }
+  .order-card-footer-actions { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
   .order-card-footer-actions .btn-complete,
-  .order-card-footer-actions .btn-kds-print { flex: 1; width: auto; min-width: 0; }
+  .order-card-footer-actions .btn-kds-print,
+  .order-card-footer-actions .btn-kds-edit,
+  .order-card-footer-actions .btn-kds-delete { flex: 1; width: auto; min-width: 0; }
+  .order-card-footer-actions .btn-complete { flex: 1 1 100%; margin-top: 2px; }
+  .btn-kds-edit {
+    padding: 8px 10px; border: 1px solid #7dd3fc; border-radius: 8px; cursor: pointer;
+    font-weight: 700; font-size: 14px; background: #e0f2fe; color: #0369a1;
+  }
+  .btn-kds-edit:hover { background: #bae6fd; }
+  .btn-kds-delete {
+    padding: 8px 10px; border: 1px solid #fecaca; border-radius: 8px; cursor: pointer;
+    font-weight: 700; font-size: 14px; background: #fef2f2; color: #b91c1c;
+  }
+  .btn-kds-delete:hover { background: #fee2e2; }
   .btn-kds-print {
     padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer;
     font-weight: 700; font-size: 15px; background: #fff; color: #334155;
@@ -13598,6 +13611,142 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           kdsPrintPendingOrderRemoteQueue_(orderSnap);
         }
 
+        function kdsFormatPendingItemEditLabel_(it) {
+          if (!it) return '';
+          var n = String(it.name || '').trim();
+          var opts = it.options;
+          if (opts && opts.length) {
+            var parts = opts.map(function (o) {
+              var on = o && o.name != null ? String(o.name).trim() : '';
+              var op = o && o.price != null ? parseInt(o.price, 10) : 0;
+              if (!on) return '';
+              return on + (op ? ('(+' + op + ')') : '');
+            }).filter(Boolean);
+            if (parts.length) n += '（' + parts.join('、') + '）';
+          }
+          return n || '品項';
+        }
+
+        function kdsOpenPendingOrderEditModal_(orderSnap) {
+          if (typeof Swal === 'undefined' || !orderSnap) return;
+          var editable = (orderSnap.items || []).filter(function (it) {
+            return it && String(it.sheetColName || '').trim();
+          });
+          if (!editable.length) {
+            posSwalAlert('此訂單無可編輯的試算表品項（例如僅有贈品或少數特殊列）', 'info');
+            return;
+          }
+          var state = editable.map(function (it) {
+            return {
+              sheetColName: String(it.sheetColName).trim(),
+              quantity: parseInt(it.quantity, 10) || 0,
+              note: (it.note != null ? String(it.note) : ''),
+              label: kdsFormatPendingItemEditLabel_(it)
+            };
+          });
+          function renderRowsHtml() {
+            return state.map(function (row, idx) {
+              return '<div class="kds-edit-row" data-idx="' + idx + '" style="display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid #e5e7eb;">' +
+                '<div style="font-weight:800;font-size:15px;color:#111;">' + kdsEscapeHtml(row.label) + '</div>' +
+                '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+                '<label style="font-size:14px;color:#374151;">數量 <input type="number" min="0" class="kds-edit-qty quantity-input" data-idx="' + idx + '" value="' + row.quantity + '" style="width:64px;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:16px;"></label>' +
+                '<label style="font-size:14px;color:#374151;flex:1;min-width:120px;">備註 <input type="text" class="kds-edit-note" data-idx="' + idx + '" value="' + kdsEscapeHtml(row.note) + '" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:16px;"></label>' +
+                '<button type="button" class="kds-edit-remove" data-idx="' + idx + '" style="padding:6px 10px;border-radius:6px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;font-weight:700;font-size:13px;cursor:pointer;">移除此品項</button>' +
+                '</div></div>';
+            }).join('');
+          }
+          Swal.fire({
+            title: '編輯待出餐品項',
+            html: '<div id="kds-pending-edit-root" style="text-align:left;max-height:55vh;overflow-y:auto;">' + renderRowsHtml() + '</div>',
+            width: 'min(440px,96vw)',
+            showCancelButton: true,
+            confirmButtonText: '儲存',
+            cancelButtonText: '取消',
+            focusConfirm: false,
+            preConfirm: function () {
+              var items = [];
+              var si;
+              for (si = 0; si < state.length; si++) {
+                if (state[si]._removed) continue;
+                var qtyEl = document.querySelector('#kds-pending-edit-root .kds-edit-qty[data-idx="' + si + '"]');
+                var noteEl = document.querySelector('#kds-pending-edit-root .kds-edit-note[data-idx="' + si + '"]');
+                var q = qtyEl ? parseInt(qtyEl.value, 10) : 0;
+                if (isNaN(q) || q < 0) q = 0;
+                var note = noteEl ? String(noteEl.value || '').trim() : '';
+                items.push({ sheetColName: state[si].sheetColName, quantity: q, note: note });
+              }
+              if (!items.some(function (x) { return x.quantity > 0; })) {
+                Swal.showValidationMessage('至少須保留一項數量大於 0，或請改用「刪除訂單」');
+                return false;
+              }
+              return items;
+            },
+            didOpen: function () {
+              var root = document.getElementById('kds-pending-edit-root');
+              if (!root) return;
+              root.addEventListener('click', function (ev) {
+                var t = ev.target;
+                if (!t.classList || !t.classList.contains('kds-edit-remove')) return;
+                var idx = parseInt(t.getAttribute('data-idx'), 10);
+                if (state[idx]) state[idx]._removed = true;
+                var rowEl = t.closest('.kds-edit-row');
+                if (rowEl) rowEl.style.display = 'none';
+              });
+            }
+          }).then(function (res) {
+            if (!res.isConfirmed || !res.value) return;
+            posRunSheetMutation_({
+              gasMethod: 'updatePendingOrderItemsFromPosClient',
+              gasArgs: [posGetClientKey_(), orderSnap.orderId, res.value],
+              postBody: { action: 'updatePendingOrderItems', key: posGetClientKey_(), orderId: orderSnap.orderId, items: res.value }
+            }).then(function (ret) {
+              if (!ret || ret.result !== 'success') {
+                posSwalAlert((ret && ret.message) || '儲存失敗', 'error');
+                return;
+              }
+              try { posSwalToastSuccess('品項已更新', 1500); } catch (_t) {}
+              window.__posKdsCache = null;
+              refreshOrders();
+            }).catch(function (e) {
+              posSwalAlert((e && e.message) ? e.message : String(e), 'error');
+            });
+          });
+        }
+
+        function kdsDeletePendingOrderCard_(orderSnap, cardEl) {
+          var oid = orderSnap && orderSnap.orderId ? String(orderSnap.orderId).replace(/^'/, '').trim() : '';
+          if (!oid) return;
+          posSwalConfirm('確定刪除此筆待出餐訂單？將從訂單與待出餐表刪除且無法還原。', '刪除訂單').then(function (res) {
+            if (!res || !res.isConfirmed) return;
+            kdsSuppressOrderLocally_(oid, 180000);
+            if (cardEl && cardEl.parentNode) cardEl.remove();
+            var g0 = document.getElementById('order-board-grid');
+            if (g0 && !g0.querySelector('.order-card')) {
+              g0.innerHTML = '<div class="order-board-empty">目前沒有待出餐訂單</div>';
+            }
+            posRunSheetMutation_({
+              gasMethod: 'deleteOrderFromPosClient',
+              gasArgs: [posGetClientKey_(), oid],
+              postBody: { action: 'deleteOrderWithKey', key: posGetClientKey_(), orderId: oid }
+            }).then(function (ret) {
+              if (!ret || ret.result !== 'success') {
+                kdsUnsuppressOrder_(oid);
+                posSwalAlert((ret && ret.message) || '刪除失敗', 'error');
+                refreshOrders();
+                return;
+              }
+              try { posSwalToastSuccess('已刪除訂單', 2000); } catch (_t) {}
+              window.__posKdsCache = null;
+              try { window.__posStatsCacheByKey_ = null; } catch (_s) {}
+              refreshOrders();
+            }).catch(function (e) {
+              kdsUnsuppressOrder_(oid);
+              posSwalAlert((e && e.message) ? e.message : String(e), 'error');
+              refreshOrders();
+            });
+          });
+        }
+
         function renderOrderBoard(orders) {
           const grid = document.getElementById('order-board-grid');
           if (!grid) return;
@@ -13697,6 +13846,8 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               '</div>' +
               '<div class="order-card-footer order-card-footer-actions">' +
                 '<button type="button" class="btn-kds-print">打印</button>' +
+                '<button type="button" class="btn-kds-edit">編輯</button>' +
+                '<button type="button" class="btn-kds-delete">刪除</button>' +
                 '<button type="button" class="btn-complete">完成出餐</button>' +
               '</div>';
             const printBtn = card.querySelector('.btn-kds-print');
@@ -13704,6 +13855,20 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               printBtn.addEventListener('click', function (ev) {
                 ev.stopPropagation();
                 kdsReprintPendingOrder_(o);
+              });
+            }
+            var editBtn = card.querySelector('.btn-kds-edit');
+            if (editBtn) {
+              editBtn.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                kdsOpenPendingOrderEditModal_(o);
+              });
+            }
+            var delBtn = card.querySelector('.btn-kds-delete');
+            if (delBtn) {
+              delBtn.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                kdsDeletePendingOrderCard_(o, card);
               });
             }
             const btn = card.querySelector('.btn-complete');
