@@ -17999,17 +17999,19 @@ function posExtractDineInQrUrlFromDetailPrintText_(raw) {
 }
 
 /**
- * GP-2270T（ESC/POS）：GS ( k QR — Function 167 模組大小、180 儲存內容、181 列印。
- * moduleSize 建議 3～4（預設 4）。
+ * GP-2270T（ESC/POS）：GS ( k QR — Model 2、錯誤修正 L（≈7%）、Function 167 模組、180 存 UTF-8 網址、181 列印。
+ * 長網址建議 moduleSize=3，避免超出紙寬；模組 4 易失敗時可維持 3。
  */
 function buildEscPosQrGsKBytes_(url, moduleSize) {
   var u = String(url || '').trim();
   if (!u) return new Uint8Array(0);
   var n = parseInt(moduleSize, 10);
-  if (isNaN(n)) n = 4;
+  if (isNaN(n)) n = 3;
   n = Math.max(3, Math.min(4, n));
   var enc = new TextEncoder().encode(u);
   var out = [];
+  out.push(0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00);
+  out.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30);
   out.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0xA7, n);
   var plen = 3 + enc.length;
   out.push(0x1D, 0x28, 0x6B, plen & 0xFF, (plen >> 8) & 0xFF, 0x31, 0xB4, 0x30);
@@ -18059,8 +18061,9 @@ function escPosEmitStyledLinesAsBytes_(styledLines, withInit) {
 }
 
 /**
- * 組出送印用位元組：捲紙明細改走 ESC/POS；<<<__POS_DINEIN_QR__>>> 改為 GS ( k QR（167/180/181）。
- * 標籤／已含 TSPL PRINT 的稿仍走 TSPL + encodePrinterBytes_。
+ * 組出送印用 Uint8Array：捲紙明細為 ESC/POS 二進位（非 TSPL 字串）。
+ * 偵測 <<<__POS_DINEIN_QR__>>> 時插入 buildEscPosQrGsKBytes_（Uint8Array），非純文字。
+ * 標籤／稿面已含 TSPL PRINT 者仍走 TSPL + encodePrinterBytes_。
  */
 function buildPrinterBuffer(rawText, optsParam) {
   var opts = optsParam || {};
@@ -18083,7 +18086,7 @@ function buildPrinterBuffer(rawText, optsParam) {
   var qrUrl = typeof opts.dineInQrUrl === 'string' ? opts.dineInQrUrl.trim() : '';
   if (!qrUrl) qrUrl = posExtractDineInQrUrlFromDetailPrintText_(s);
   var mark = POS_DINEIN_QR_MARK_TSPL_;
-  var modSz = opts.qrModuleSize != null ? opts.qrModuleSize : 4;
+  var modSz = opts.qrModuleSize != null ? opts.qrModuleSize : 3;
   var baseFc = getActiveFontCfg_();
   var chunks = [];
   var qrSeq = buildEscPosQrGsKBytes_(qrUrl, modSz);
@@ -18107,12 +18110,14 @@ function buildPrinterBuffer(rawText, optsParam) {
   return u8concat_(chunks);
 }
 
-/** 送已編好之 Uint8Array（略過 encodePrinterBytes_） */
-async function sendPrinterBuffer(bytes) {
+/**
+ * Web Bluetooth（如 Bluefy）單次 write 多為 ≤20 bytes：將完整 ESC/POS 位元組逐段送出，長 QR 指令才不至於中斷。
+ */
+async function sendRawPayload(bytes) {
   var u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
   if (!bleChar) throw new Error('無 characteristic');
   if (!isConnected) throw new Error('BLE 未連線');
-  var CHUNK = BLE_WRITE_CHUNK_BYTES;
+  var CHUNK = Math.min(20, BLE_WRITE_CHUNK_BYTES);
   var baseDelay = Math.max(10, parseInt(cfgDelay.value, 10) || 30);
   var isLongJob = u8.length >= 1400;
   var canWriteWithResp = !!(bleChar.properties && bleChar.properties.write);
@@ -18120,7 +18125,7 @@ async function sendPrinterBuffer(bytes) {
   var useReliableWrite = isLongJob && canWriteWithResp;
   var DELAY = useReliableWrite ? Math.max(baseDelay, 45) : baseDelay;
   log(
-    '送印 ' + u8.length + ' bytes（ESC/POS 原始），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(u8.length / CHUNK) + ' 包',
+    '送印 ' + u8.length + ' bytes（二進位 ESC/POS），每包≤' + CHUNK + ' bytes，共 ' + Math.ceil(u8.length / CHUNK) + ' 包',
     'info'
   );
   var i;
@@ -18145,6 +18150,11 @@ async function sendPrinterBuffer(bytes) {
     if (i + CHUNK < u8.length) await sleep(DELAY);
   }
   log('送印完成', 'ok');
+}
+
+/** @deprecated 使用 sendRawPayload；保留相容舊呼叫 */
+async function sendPrinterBuffer(bytes) {
+  return sendRawPayload(bytes);
 }
 
 /**
@@ -18547,8 +18557,8 @@ async function autoPrint(data) {
     else if (data && data._fontProfile === 'detail') setActiveTsplFontProfile_('detail');
     else setActiveTsplFontProfile_(getPrintMode_() === 'label' ? 'label' : 'detail');
     var diQr = (data.dineInQrUrl != null ? String(data.dineInQrUrl) : '') || '';
-    const printBuf = buildPrinterBuffer(data.text, { dineInQrUrl: diQr, qrModuleSize: 4 });
-    await sendPrinterBuffer(printBuf);
+    const printBuf = buildPrinterBuffer(data.text, { dineInQrUrl: diQr, qrModuleSize: 3 });
+    await sendRawPayload(printBuf);
     log('列印完成', 'ok');
     showAck();
     lastPrintTs = data.ts;
