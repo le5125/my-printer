@@ -10033,6 +10033,11 @@ function posBuildDineInOrderEntryUrl_(tableNo, dineInKey) {
   return base + sep + 'page=order&table=' + encodeURIComponent(t) + '&key=' + encodeURIComponent(k);
 }
 
+function posDineInBoundForSubmit_() {
+  var d = window.__POS_DINEIN_CART_CTX__;
+  return !!(d && d.tableNo && d.token && d.key);
+}
+
 function posOrderNotesConsumerOnly_(notes) {
   var s = String(notes == null ? '' : notes).trim();
   if (!s) return '';
@@ -10250,6 +10255,14 @@ function openPosDineInTableModal_() {
       };
       if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
       if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
+      try {
+        if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
+      } catch (eUod) { /* 略 */ }
+      try {
+        if (!order.items || order.items.length === 0) {
+          setTimeout(function () { submitOrder(); }, 0);
+        }
+      } catch (eAutoSub) { /* 略 */ }
     }).catch(function (e) {
       window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
       posSwalAlert((e && e.message) ? e.message : String(e), 'error');
@@ -10436,7 +10449,8 @@ function performOrderSubmission(orderData) {
     orderData.reservation.phone || orderData.reservation.note || orderData.reservation.paymentType ||
     orderData.reservation.depositAmount
   ));
-  if (!hasItems && !hasReservation) {
+  var dineInSeatOk = !!(orderData && orderData.tableNo && orderData.dineInSession && orderData.dineInKey);
+  if (!hasItems && !hasReservation && !dineInSeatOk) {
     posSwalAlert('請先選擇餐點或填寫預約資料。', 'error');
     return;
   }
@@ -10662,7 +10676,7 @@ function submitOrder() {
     posSwalAlert('授權仍在驗證中或尚未通過，請稍候再試。', 'warning');
     return;
   }
-  if ((!order.items || order.items.length === 0) && !posHasReservationDraft_()) {
+  if ((!order.items || order.items.length === 0) && !posHasReservationDraft_() && !posDineInBoundForSubmit_()) {
     posSwalAlert('請先選擇餐點或填寫預約資料！', 'warning');
     return;
   }
@@ -10679,8 +10693,9 @@ function submitOrder() {
   }
   const toggle = document.getElementById('checkout-calculator-toggle');
   const isEnabled = toggle ? toggle.checked : false;
+  const totNum = parseInt(String(orderData && orderData.total != null ? orderData.total : 0), 10) || 0;
 
-  if (isEnabled) {
+  if (isEnabled && totNum > 0) {
     openCheckoutCalculator(orderData);
     return;
   }
@@ -11779,8 +11794,13 @@ document.getElementById('submit-order').addEventListener('click', () => {
           // 沒有餐點時顯示提示畫面
           if (order.items.length === 0) {
             var hasReservationHint = posHasReservationDraft_();
-            var emptyHint = hasReservationHint ? '已設定預約，可直接送出預約' : '請從右側選擇餐點';
-            var emptyHintClass = hasReservationHint ? 'text-red-600 font-bold' : '';
+            var dineInBoundHint = (typeof posDineInBoundForSubmit_ === 'function' && posDineInBoundForSubmit_());
+            var emptyHint = hasReservationHint
+              ? '已設定預約，可直接送出預約'
+              : (dineInBoundHint
+                ? '已選店內桌號，可按「送出訂單」印帶位／點餐單，或繼續從右側加點'
+                : '請從右側選擇餐點');
+            var emptyHintClass = (hasReservationHint || dineInBoundHint) ? 'text-violet-700 font-bold' : '';
             document.getElementById('order-items').innerHTML = `
               <div class="text-center text-gray-500 py-10">
                 <i class="fas fa-shopping-cart text-4xl mb-2"></i>
