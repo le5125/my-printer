@@ -10169,7 +10169,8 @@ function openPosDineInTableModal_() {
       if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
       if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
     });
-    window.__POS_DINEIN_BIND_IN_FLIGHT__ = bindP.finally(function () {
+    window.__POS_DINEIN_BIND_IN_FLIGHT__ = bindP;
+    bindP.finally(function () {
       if (window.__POS_DINEIN_BIND_IN_FLIGHT__ === bindP) window.__POS_DINEIN_BIND_IN_FLIGHT__ = null;
     });
   }
