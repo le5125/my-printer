@@ -10022,12 +10022,26 @@ function posNormDineInTableDisplay_(t) {
   return String(n).padStart(2, '0');
 }
 
+function posGetWebAppBaseForOrderLink_() {
+  var base = (typeof currentWebAppUrl === 'string' && currentWebAppUrl.trim())
+    ? currentWebAppUrl.trim().replace(/\?+$/, '') : '';
+  if (base) return base;
+  try {
+    var el = document.getElementById('cfg-backend-url');
+    if (el && String(el.value || '').trim()) return String(el.value).trim().replace(/\?+$/, '');
+  } catch (e) { /* 略 */ }
+  try {
+    var ls = localStorage.getItem('gp2270t_backend_url');
+    if (ls && String(ls).trim()) return String(ls).trim().replace(/\?+$/, '');
+  } catch (e2) { /* 略 */ }
+  return '';
+}
+
 function posBuildDineInOrderEntryUrl_(tableNo, dineInKey) {
   var t = posNormDineInTableDisplay_(tableNo);
   var k = String(dineInKey != null ? dineInKey : '').trim();
   if (!t || !k) return '';
-  var base = (typeof currentWebAppUrl === 'string' && currentWebAppUrl.trim())
-    ? currentWebAppUrl.trim().replace(/\?+$/, '') : '';
+  var base = posGetWebAppBaseForOrderLink_();
   if (!base) return '';
   var sep = base.indexOf('?') >= 0 ? '&' : '?';
   return base + sep + 'page=order&table=' + encodeURIComponent(t) + '&key=' + encodeURIComponent(k);
@@ -10097,6 +10111,7 @@ function posBuildDineInOrderDetailTextForPrint_(orderData) {
   if (!qrLine) qrLine = posBuildDineInOrderEntryUrl_(orderData.tableNo, orderData.dineInKey);
   if (qrLine) {
     parts.push('掃描點餐：');
+    parts.push(qrLine);
     parts.push('<<<__POS_DINEIN_QR__>>>');
     parts.push('');
   }
@@ -10323,11 +10338,6 @@ function openPosDineInTableModal_() {
           conductMode: conduct,
           partySize: conduct ? partyNum : null
         };
-        var dtn = posNormDineInTableDisplay_(tbl);
-        var msg = conduct
-          ? ('已選 桌 ' + dtn + '（' + String(partyNum) + ' 人）帶位，可按「送出訂單」印單或繼續加點')
-          : ('已選 桌 ' + dtn + '，請加點後按「送出訂單」，或繼續加點');
-        posSwalToastSuccess(msg, 2800);
         if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
         if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
         try {
@@ -17946,6 +17956,20 @@ function ensureTsplDetailRollFromPlainText_(sFragment, baseFc, widthMm) {
   return blocks.join('\n') + '\n';
 }
 
+/** 從列印內文擷取掃碼網址（掃描點餐：下一行為 https…），payload 未帶 dineInQrUrl 時後備 */
+function posExtractDineInQrUrlFromDetailPrintText_(raw) {
+  var lines = String(raw == null ? '' : raw).split('\n');
+  var i;
+  for (i = 0; i < lines.length - 1; i++) {
+    var lab = String(lines[i] || '').trim();
+    if (lab === '掃碼點餐：' || lab === '掃描點餐：') {
+      var cand = String(lines[i + 1] || '').trim();
+      if (/^https?:\/\//i.test(cand)) return cand.replace(/\s+$/, '');
+    }
+  }
+  return '';
+}
+
 /**
  * 熱感捲紙：DIRECTION 0,0（由上往下）；內文 TST24.BF2 + 送印 CP950/Big5。
  * 原稿若已含行首 PRINT n（POS 標籤模板等）則原樣送出。
@@ -18013,7 +18037,8 @@ function ensureTsplForManualPrint_(raw, optsParam) {
   // —— 明細捲紙：依內容推算高度（寬度由試算表 rollWidthMm／預設 80） ——
   let widthMm = getRollWidthMm_();
 
-  const qrUrl = typeof opts.dineInQrUrl === 'string' ? opts.dineInQrUrl.trim() : '';
+  let qrUrl = typeof opts.dineInQrUrl === 'string' ? opts.dineInQrUrl.trim() : '';
+  if (!qrUrl) qrUrl = posExtractDineInQrUrlFromDetailPrintText_(s);
   if (qrUrl && s.indexOf(POS_DINEIN_QR_MARK_TSPL_) !== -1) {
     const segs = s.split(POS_DINEIN_QR_MARK_TSPL_);
     let rolled = '';
