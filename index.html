@@ -8756,8 +8756,6 @@ function buildPrinterOrderPayloadFull_(orderData) {
     orderDetailTextForPrint: finalPackedText || undefined,
     items    : mappedItems
   };
-  var dq = String(orderData.dineInQrUrl != null ? orderData.dineInQrUrl : '').trim();
-  if (dq) outPayload.dineInQrUrl = dq;
   if (orderData.skipPrintDedup === true) outPayload.skipPrintDedup = true;
   return outPayload;
 }
@@ -10051,11 +10049,6 @@ function posDineInBoundForSubmit_() {
   var d = window.__POS_DINEIN_CART_CTX__;
   return !!(d && d.tableNo && d.token && d.key);
 }
-/** 僅「帶位」（有填人數）允許購物車為空送出；與後端 dineInConductMode 一致 */
-function posDineInAllowEmptyCartSubmit_() {
-  var d = window.__POS_DINEIN_CART_CTX__;
-  return !!(d && d.tableNo && d.token && d.key && d.conductMode === true);
-}
 
 function posOrderNotesConsumerOnly_(notes) {
   var s = String(notes == null ? '' : notes).trim();
@@ -10104,17 +10097,7 @@ function posBuildDineInOrderDetailTextForPrint_(orderData) {
   var body = mapped.join('\n');
   var parts = [];
   parts.push('> 店內桌號：' + t);
-  var partyN = parseInt(orderData && orderData.dineInPartySize, 10);
-  if (!isNaN(partyN) && partyN >= 1) parts.push('人數：' + String(partyN));
   parts.push('');
-  var qrLine = String(orderData && orderData.dineInQrUrl != null ? orderData.dineInQrUrl : '').trim();
-  if (!qrLine) qrLine = posBuildDineInOrderEntryUrl_(orderData.tableNo, orderData.dineInKey);
-  if (qrLine) {
-    parts.push('掃描點餐：');
-    parts.push(qrLine);
-    parts.push('<<<__POS_DINEIN_QR__>>>');
-    parts.push('');
-  }
   if (body && String(body).trim()) {
     parts.push('商品明細：');
     parts.push('');
@@ -10203,12 +10186,6 @@ function buildCurrentOrderData() {
     base.dineInKey = diCtx.key;
     base.dineInSession = diCtx.token;
     base.posDineInSettlementMode = diCtx.settlementMode || 'prepay';
-    var conduct = diCtx.conductMode === true;
-    base.dineInConductMode = conduct;
-    if (conduct && diCtx.partySize != null) {
-      base.dineInPartySize = Math.max(1, Math.min(99, parseInt(diCtx.partySize, 10) || 1));
-    }
-    base.dineInQrUrl = posBuildDineInOrderEntryUrl_(tnorm, diCtx.key);
     var tblNum = parseInt(tnorm, 10) || 0;
     base.phone = '09' + String(1000000 + tblNum).slice(-8);
     base.notes = notesComb ? (tag + ' ' + notesComb) : tag;
@@ -10289,26 +10266,7 @@ function openPosDineInTableModal_() {
   }
   function openDineInPickSwal_(boardPayload) {
     var ctx = window.__POS_DINEIN_CART_CTX__;
-    function posDineInStartBindMutation_(tbl, partyPack) {
-      var conduct = !!(partyPack && partyPack.conduct === true);
-      var partyNum = conduct && partyPack && partyPack.party != null
-        ? Math.max(1, Math.min(99, parseInt(partyPack.party, 10) || 1))
-        : null;
-      var tblNormEarly = posNormDineInTableDisplay_(tbl);
-      if (conduct) {
-        window.__POS_DINEIN_CART_CTX__ = {
-          tableNo: tblNormEarly,
-          token: null,
-          key: null,
-          settlementMode: 'prepay',
-          conductMode: true,
-          partySize: partyNum,
-          bindOptimistic: true
-        };
-        try {
-          if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
-        } catch (eOpUi) { /* 略 */ }
-      }
+    function posDineInStartBindMutation_(tbl) {
       window.__POS_DINEIN_TABLE_UI_PENDING__ = tbl;
       if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
       if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
@@ -10319,9 +10277,7 @@ function openPosDineInTableModal_() {
       }).then(function (r) {
         window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
         if (!r || r.result !== 'success') {
-          if (window.__POS_DINEIN_CART_CTX__ && window.__POS_DINEIN_CART_CTX__.bindOptimistic) {
-            window.__POS_DINEIN_CART_CTX__ = null;
-          }
+          window.__POS_DINEIN_CART_CTX__ = null;
           posSwalAlert('背景同步失敗：' + ((r && r.message) || '無法綁定桌號，請確認該桌狀態'), 'error');
           if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
           if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
@@ -10334,9 +10290,7 @@ function openPosDineInTableModal_() {
           tableNo: r.tableNo || tbl,
           token: r.sessionToken,
           key: r.dineInKey,
-          settlementMode: r.settlementMode || 'prepay',
-          conductMode: conduct,
-          partySize: conduct ? partyNum : null
+          settlementMode: r.settlementMode || 'prepay'
         };
         if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
         if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
@@ -10345,9 +10299,7 @@ function openPosDineInTableModal_() {
         } catch (eUod) { /* 略 */ }
       }).catch(function (e) {
         window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
-        if (window.__POS_DINEIN_CART_CTX__ && window.__POS_DINEIN_CART_CTX__.bindOptimistic) {
-          window.__POS_DINEIN_CART_CTX__ = null;
-        }
+        window.__POS_DINEIN_CART_CTX__ = null;
         posSwalAlert((e && e.message) ? e.message : String(e), 'error');
         if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
         if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
@@ -10371,10 +10323,6 @@ function openPosDineInTableModal_() {
       gridHtml += '<button type="button" class="swal-pos-dinein-cell"' + disAttr + ' data-tbl="' + glabel + '" data-occupied="' + occAttr + '" style="' + (busyG ? stBusy : '') + '">' + glabel + '</button>';
     }
     gridHtml += '</div>';
-    var partyDef = (ctx && ctx.conductMode && ctx.partySize != null)
-      ? String(Math.max(1, Math.min(99, parseInt(ctx.partySize, 10) || 1)))
-      : '';
-    var partyRow = '<div style="margin:8px 0 10px;text-align:left;"><label for="swal-pos-dinein-party" style="display:block;font-size:14px;color:#374151;font-weight:600;margin-bottom:6px;">用餐人數（選填：有填＝帶位／印單人數；留空＝一般店內點餐）</label><input id="swal-pos-dinein-party" type="number" inputmode="numeric" min="1" max="99" placeholder="1–99 或留空" value="' + partyDef + '" style="width:100%;max-width:140px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px;" /></div>';
     var hint = (ctx && ctx.tableNo)
       ? ('<p style="margin:0 0 10px;font-size:14px;color:#6b21a8;text-align:left;">目前選擇：<b>桌 ' + posNormDineInTableDisplay_(ctx.tableNo) + '</b></p>')
       : '';
@@ -10387,30 +10335,17 @@ function openPosDineInTableModal_() {
         posSwalAlert('桌號無效', 'warning');
         return;
       }
-      var pr0 = window.prompt('用餐人數（選填，1–99；空白＝一般點餐）', partyDef || '');
-      var prStr = String(pr0 != null ? pr0 : '').trim();
-      var conduct0 = false;
-      var party0 = null;
-      if (prStr !== '') {
-        var pnx = parseInt(prStr, 10);
-        if (isNaN(pnx) || pnx < 1 || pnx > 99) {
-          posSwalAlert('人數請填 1–99 或留空', 'warning');
-          return;
-        }
-        conduct0 = true;
-        party0 = pnx;
-      }
       var bc0 = window.__dineInBoardCache__;
       if (posDineInTableBusyForPick_(tbl0, bc0, ctx)) {
         posSwalAlert('此桌使用中，請選空桌', 'warning');
         return;
       }
-      posDineInStartBindMutation_(tbl0, { conduct: conduct0, party: party0 });
+      posDineInStartBindMutation_(tbl0);
       return;
     }
     Swal.fire({
       title: '店內桌號',
-      html: hint + partyRow + '<p style="margin:0 0 10px;font-size:14px;color:#374151;text-align:left;">共 <b>' + total + '</b> 張桌，請點選桌號後按確定。看板資料會在背景更新。</p>' + gridHtml,
+      html: hint + '<p style="margin:0 0 10px;font-size:14px;color:#374151;text-align:left;">共 <b>' + total + '</b> 張桌，請點選桌號後按確定。看板資料會在背景更新。</p>' + gridHtml,
       showCancelButton: true,
       showDenyButton: !!(ctx && ctx.tableNo),
       confirmButtonText: '確定',
@@ -10457,17 +10392,7 @@ function openPosDineInTableModal_() {
           if (typeof Swal !== 'undefined' && Swal.showValidationMessage) Swal.showValidationMessage('此桌使用中，請選空桌');
           return false;
         }
-        var partyEl = document.getElementById('swal-pos-dinein-party');
-        var partyRawStr = partyEl ? String(partyEl.value || '').trim() : '';
-        if (partyRawStr !== '') {
-          var partyParsed = parseInt(partyRawStr, 10);
-          if (isNaN(partyParsed) || partyParsed < 1 || partyParsed > 99) {
-            if (typeof Swal !== 'undefined' && Swal.showValidationMessage) Swal.showValidationMessage('人數請填 1–99，或留空（一般點餐）');
-            return false;
-          }
-          return { tbl: p, conduct: true, party: partyParsed };
-        }
-        return { tbl: p, conduct: false, party: null };
+        return p;
       }
     }).then(function (res) {
       if (res.isDenied) {
@@ -10482,9 +10407,9 @@ function openPosDineInTableModal_() {
         return;
       }
       if (!res.isConfirmed) return;
-      var pack = res.value;
-      if (!pack || !pack.tbl) return;
-      posDineInStartBindMutation_(pack.tbl, { conduct: pack.conduct, party: pack.party });
+      var tblPick = res.value;
+      if (!tblPick) return;
+      posDineInStartBindMutation_(tblPick);
     });
   }
   posPrefetchDineInBoardForPick_();
@@ -10586,7 +10511,7 @@ function performOrderSubmission(orderData) {
     orderData.reservation.phone || orderData.reservation.note || orderData.reservation.paymentType ||
     orderData.reservation.depositAmount
   ));
-  var dineInEmptySeatOk = !!(orderData && orderData.tableNo && orderData.dineInSession && orderData.dineInKey && orderData.dineInConductMode === true);
+  var dineInEmptySeatOk = false;
   if (!hasItems && !hasReservation && !dineInEmptySeatOk) {
     posSwalAlert('請先選擇餐點或填寫預約資料。', 'error');
     return;
@@ -10620,16 +10545,11 @@ function performOrderSubmission(orderData) {
     var smPre = snapshot.posDineInSettlementMode || 'prepay';
     if (snapshot.tableNo && snapshot.dineInSession && smPre === 'prepay' && typeof Swal !== 'undefined') {
       var tot0 = parseInt(snapshot.total, 10) || 0;
-      var qrUrl0 = String(snapshot.dineInQrUrl || '').trim();
-      var qrBox0 = '';
-      if (qrUrl0) {
-        qrBox0 = '<div style="margin-top:20px;text-align:center;"><p style="font-size:36px;font-weight:700;margin:0 0 12px;color:#111827;">掃碼點餐</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&data=' + encodeURIComponent(qrUrl0) + '" width="220" height="220" alt="掃碼點餐 QR" style="display:inline-block;border-radius:14px;border:3px solid #e5e7eb;background:#fff;" referrerpolicy="no-referrer" crossorigin="anonymous" /></div>';
-      }
       Swal.fire({
         title: '請先結帳',
         width: 'min(96vw, 820px)',
         padding: '32px 28px',
-        html: '<div style="font-size:52px;line-height:1.55;text-align:left;font-weight:700;color:#1a1a1a;">請至櫃台完成付款<br><br>單號：<b>' + String(snapshot.orderId || '') + '</b><br>金額：<b>$' + tot0 + '</b></div>' + qrBox0,
+        html: '<div style="font-size:52px;line-height:1.55;text-align:left;font-weight:700;color:#1a1a1a;">請至櫃台完成付款<br><br>單號：<b>' + String(snapshot.orderId || '') + '</b><br>金額：<b>$' + tot0 + '</b></div>',
         icon: 'info',
         confirmButtonText: '確定',
         customClass: { popup: 'order-dinein-prepay-swal', confirmButton: 'order-dinein-prepay-swal-btn' }
@@ -10818,7 +10738,7 @@ function submitOrder() {
     posSwalAlert('授權仍在驗證中或尚未通過，請稍候再試。', 'warning');
     return;
   }
-  if ((!order.items || order.items.length === 0) && !posHasReservationDraft_() && !posDineInAllowEmptyCartSubmit_()) {
+  if ((!order.items || order.items.length === 0) && !posHasReservationDraft_()) {
     posSwalAlert('請先選擇餐點或填寫預約資料！', 'warning');
     return;
   }
@@ -11937,18 +11857,12 @@ document.getElementById('submit-order').addEventListener('click', () => {
           if (order.items.length === 0) {
             var hasReservationHint = posHasReservationDraft_();
             var dineInBoundHint = (typeof posDineInBoundForSubmit_ === 'function' && posDineInBoundForSubmit_());
-            var diCtxE = window.__POS_DINEIN_CART_CTX__;
-            var dineInConductEmpty = !!(diCtxE && diCtxE.conductMode === true);
-            var dineInOptimisticConduct = !!(diCtxE && diCtxE.conductMode === true && diCtxE.bindOptimistic === true && diCtxE.tableNo);
-            var showConductEmptyBanner = dineInConductEmpty && (dineInBoundHint || dineInOptimisticConduct);
             var emptyHint = hasReservationHint
               ? '已設定預約，可直接送出預約'
-              : (showConductEmptyBanner
-                ? '已選店內桌號，可按「送出訂單」印帶位／點餐單，或繼續從右側加點'
-                : (dineInBoundHint
-                  ? '已選店內桌號，請加點後按「送出訂單」，或繼續從右側加點'
-                  : '請從右側選擇餐點'));
-            var emptyHintClass = (hasReservationHint || dineInBoundHint || dineInOptimisticConduct) ? 'text-violet-700 font-bold' : '';
+              : (dineInBoundHint
+                ? '已選店內桌號，請加點後按「送出訂單」，或繼續從右側加點'
+                : '請從右側選擇餐點');
+            var emptyHintClass = (hasReservationHint || dineInBoundHint) ? 'text-violet-700 font-bold' : '';
             document.getElementById('order-items').innerHTML = `
               <div class="text-center text-gray-500 py-10">
                 <i class="fas fa-shopping-cart text-4xl mb-2"></i>
