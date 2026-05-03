@@ -10279,6 +10279,21 @@ function openPosDineInTableModal_() {
       var partyNum = conduct && partyPack && partyPack.party != null
         ? Math.max(1, Math.min(99, parseInt(partyPack.party, 10) || 1))
         : null;
+      var tblNormEarly = posNormDineInTableDisplay_(tbl);
+      if (conduct) {
+        window.__POS_DINEIN_CART_CTX__ = {
+          tableNo: tblNormEarly,
+          token: null,
+          key: null,
+          settlementMode: 'prepay',
+          conductMode: true,
+          partySize: partyNum,
+          bindOptimistic: true
+        };
+        try {
+          if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
+        } catch (eOpUi) { /* 略 */ }
+      }
       window.__POS_DINEIN_TABLE_UI_PENDING__ = tbl;
       if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
       if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
@@ -10289,9 +10304,15 @@ function openPosDineInTableModal_() {
       }).then(function (r) {
         window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
         if (!r || r.result !== 'success') {
+          if (window.__POS_DINEIN_CART_CTX__ && window.__POS_DINEIN_CART_CTX__.bindOptimistic) {
+            window.__POS_DINEIN_CART_CTX__ = null;
+          }
           posSwalAlert('背景同步失敗：' + ((r && r.message) || '無法綁定桌號，請確認該桌狀態'), 'error');
           if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
           if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
+          try {
+            if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
+          } catch (eUod2) { /* 略 */ }
           return;
         }
         window.__POS_DINEIN_CART_CTX__ = {
@@ -10314,9 +10335,15 @@ function openPosDineInTableModal_() {
         } catch (eUod) { /* 略 */ }
       }).catch(function (e) {
         window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
+        if (window.__POS_DINEIN_CART_CTX__ && window.__POS_DINEIN_CART_CTX__.bindOptimistic) {
+          window.__POS_DINEIN_CART_CTX__ = null;
+        }
         posSwalAlert((e && e.message) ? e.message : String(e), 'error');
         if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
         if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
+        try {
+          if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
+        } catch (eUod3) { /* 略 */ }
       });
       window.__POS_DINEIN_BIND_IN_FLIGHT__ = bindP;
       bindP.finally(function () {
@@ -11902,14 +11929,16 @@ document.getElementById('submit-order').addEventListener('click', () => {
             var dineInBoundHint = (typeof posDineInBoundForSubmit_ === 'function' && posDineInBoundForSubmit_());
             var diCtxE = window.__POS_DINEIN_CART_CTX__;
             var dineInConductEmpty = !!(diCtxE && diCtxE.conductMode === true);
+            var dineInOptimisticConduct = !!(diCtxE && diCtxE.conductMode === true && diCtxE.bindOptimistic === true && diCtxE.tableNo);
+            var showConductEmptyBanner = dineInConductEmpty && (dineInBoundHint || dineInOptimisticConduct);
             var emptyHint = hasReservationHint
               ? '已設定預約，可直接送出預約'
-              : (dineInBoundHint
-                ? (dineInConductEmpty
-                  ? '已選店內桌號，可按「送出訂單」印帶位／點餐單，或繼續從右側加點'
-                  : '已選店內桌號，請加點後按「送出訂單」，或繼續從右側加點')
-                : '請從右側選擇餐點');
-            var emptyHintClass = (hasReservationHint || dineInBoundHint) ? 'text-violet-700 font-bold' : '';
+              : (showConductEmptyBanner
+                ? '已選店內桌號，可按「送出訂單」印帶位／點餐單，或繼續從右側加點'
+                : (dineInBoundHint
+                  ? '已選店內桌號，請加點後按「送出訂單」，或繼續從右側加點'
+                  : '請從右側選擇餐點'));
+            var emptyHintClass = (hasReservationHint || dineInBoundHint || dineInOptimisticConduct) ? 'text-violet-700 font-bold' : '';
             document.getElementById('order-items').innerHTML = `
               <div class="text-center text-gray-500 py-10">
                 <i class="fas fa-shopping-cart text-4xl mb-2"></i>
@@ -17690,6 +17719,8 @@ const TSPL_LABEL_SIZE_HEIGHT_EXTRA_MM = 1;
 const TSPL_LABEL_BLOCK_OFFSET_MM = 2;
 /** PRINT 1,1 後額外走紙（dots）；撕線仍碰不到縫隙可略為加大 */
 const TSPL_LABEL_FEED_AFTER_PRINT = 10;
+/** 店內單內文標記：於此處插入 TSPL QRCODE（需搭配 dineInQrUrl） */
+const POS_DINEIN_QR_MARK_TSPL_ = '<<<__POS_DINEIN_QR__>>>';
 // 目前列印作業要套用哪一份字體設定（'detail' / 'label'）。
 // 由呼叫 ensureTsplForManualPrint_ 之前的入口設定（例如 manual reprint、auto print、polling）。
 let _activeTsplFontProfile_ = 'detail';
@@ -17868,11 +17899,60 @@ function tsplMinimalRoll_() {
   ].join('\n');
 }
 
+function buildTsplDineInQrOnlyBlock_(qrUrl, widthMm) {
+  const w = Number(widthMm) > 0 ? Number(widthMm) : 80;
+  const escUrl = String(qrUrl || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  if (!escUrl) return '';
+  const dotsW = Math.floor(w * TSPL_DOTS_PER_MM);
+  const qrCell = 3;
+  const qrApprox = 220;
+  const xQr = Math.max(8, Math.floor((dotsW - qrApprox) / 2));
+  const yQr = 20;
+  const yLabel = yQr + qrApprox + 10;
+  const hMm = Math.min(3200, Math.max(44, Math.ceil((yLabel + 44) / TSPL_DOTS_PER_MM)));
+  return [
+    'SET TEAR ON',
+    'SIZE ' + w + ' mm, ' + hMm + ' mm',
+    'GAP 0 mm, 0 mm',
+    'CLS',
+    'CODEPAGE 950',
+    'DIRECTION ' + TSPL_DIRECTION_MODE + ',0',
+    'REFERENCE 0,0',
+    'OFFSET 0',
+    'QRCODE ' + xQr + ',' + yQr + ',M,' + qrCell + ',M2,0,"' + escUrl + '"',
+    'TEXT ' + Math.max(8, xQr) + ',' + yLabel + ',"' + TSPL_FONT_ZH + '",0,1,1,"掃描點餐"',
+    'PRINT 1,1',
+    ''
+  ].join('\n');
+}
+
+function ensureTsplDetailRollFromPlainText_(sFragment, baseFc, widthMm) {
+  let s = String(sFragment == null ? '' : sFragment).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (!s.trim()) return '';
+  try {
+    if (window.GP2270T_FORCE_UTF8 !== true) s = stripToPrinterCp950Only_(s);
+  } catch (eStrip) { /* 略 */ }
+  const styledAll = parseStyledLines_(s, baseFc);
+  const styledLines = styledAll;
+  if (!styledLines.length) return '';
+  const maxLinesPerBlock = 48;
+  const blocks = [];
+  let idx = 0;
+  while (idx < styledLines.length) {
+    const take = Math.min(maxLinesPerBlock, styledLines.length - idx);
+    blocks.push(buildRollTsplBlockFromStyled_(styledLines, idx, take, widthMm));
+    idx += take;
+  }
+  return blocks.join('\n') + '\n';
+}
+
 /**
  * 熱感捲紙：DIRECTION 0,0（由上往下）；內文 TST24.BF2 + 送印 CP950/Big5。
  * 原稿若已含行首 PRINT n（POS 標籤模板等）則原樣送出。
+ * opts.dineInQrUrl：內文含 <<<__POS_DINEIN_QR__>>> 時於該處插入 TSPL QRCODE（與獨立 bridge 一致）。
  */
-function ensureTsplForManualPrint_(raw) {
+function ensureTsplForManualPrint_(raw, optsParam) {
+  const opts = optsParam || {};
   let s = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   if (!s.trim()) return '\n';
   if (isProbablyTsplJob_(s)) {
@@ -17889,6 +17969,7 @@ function ensureTsplForManualPrint_(raw) {
   // —— 商品標籤：每張獨立 SIZE／GAP／PRINT，依縫隙停紙 ——
   // ★ 先分割再 strip：strip 內 _printerEmojisToGt_ 會破壞 <<<__POS_LABEL_BREAK__>>> 尾端 >>>
   if (_activeTsplFontProfile_ === 'label') {
+    s = s.split(POS_DINEIN_QR_MARK_TSPL_).join('\n');
     const sz = getLabelSize_();
     const widthMm = Number(sz.width) > 0 ? Number(sz.width) : 40;
     const heightMm = Number(sz.height) > 0 ? Number(sz.height) : 30;
@@ -17931,6 +18012,26 @@ function ensureTsplForManualPrint_(raw) {
 
   // —— 明細捲紙：依內容推算高度（寬度由試算表 rollWidthMm／預設 80） ——
   let widthMm = getRollWidthMm_();
+
+  const qrUrl = typeof opts.dineInQrUrl === 'string' ? opts.dineInQrUrl.trim() : '';
+  if (qrUrl && s.indexOf(POS_DINEIN_QR_MARK_TSPL_) !== -1) {
+    const segs = s.split(POS_DINEIN_QR_MARK_TSPL_);
+    let rolled = '';
+    for (let si = 0; si < segs.length; si++) {
+      rolled += ensureTsplDetailRollFromPlainText_(segs[si], baseFc, widthMm);
+      if (si < segs.length - 1) {
+        try {
+          rolled += buildTsplDineInQrOnlyBlock_(qrUrl, widthMm);
+        } catch (eQr) {
+          log('店內 QR TSPL 插入失敗: ' + (eQr && eQr.message ? eQr.message : eQr), 'warn');
+        }
+      }
+    }
+    if (String(rolled || '').trim()) {
+      log('已包成 TSPL（profile=detail；含店內掃碼 QR 段落；寬 ' + widthMm + ' mm）', 'info');
+      return rolled.endsWith('\n') ? rolled : rolled + '\n';
+    }
+  }
 
   // ⬇ 解析樣式 token：把 raw text 變成 [[{text,size,bold}, ...], ...]（每行）
   const styledAll = parseStyledLines_(s, baseFc);
@@ -18030,6 +18131,7 @@ function addToPrintHistory_(meta, text) {
     itemsCount: meta.itemsCount || 0,
     summary   : meta.summary || '',
     mode      : meta.mode || 'detail',
+    dineInQrUrl: (meta.dineInQrUrl != null && String(meta.dineInQrUrl).trim()) ? String(meta.dineInQrUrl).trim() : '',
     text      : text || '',
     receivedAt: meta.receivedAt || Date.now(),
     printedAt : printed ? Date.now() : 0,
@@ -18199,6 +18301,7 @@ async function reprintHistoryEntry_(historyId) {
       text: entry.text || '',
       backUrl: '',
       ts: Date.now(),
+      dineInQrUrl: (entry.dineInQrUrl != null ? String(entry.dineInQrUrl) : '') || '',
       _isReprint: true,
       // 用「目前的 print mode」決定字體 profile（與目前設定一致）
       _fontProfile: getPrintMode_() === 'label' ? 'label' : 'detail'
@@ -18241,7 +18344,7 @@ async function autoPrint(data) {
     if (data && data._fontProfile === 'label') setActiveTsplFontProfile_('label');
     else if (data && data._fontProfile === 'detail') setActiveTsplFontProfile_('detail');
     else setActiveTsplFontProfile_(getPrintMode_() === 'label' ? 'label' : 'detail');
-    const payload = ensureTsplForManualPrint_(data.text);
+    const payload = ensureTsplForManualPrint_(data.text, { dineInQrUrl: (data.dineInQrUrl != null ? String(data.dineInQrUrl) : '') || '' });
     await sendRawText(payload);
     log('列印完成', 'ok');
     showAck();
@@ -18422,7 +18525,9 @@ window.addEventListener('message', async (event) => {
         reservation: (payload.reservation && typeof payload.reservation === 'object') ? payload.reservation : undefined,
         reservationCardPrint: payload.reservationCardPrint === true,
         itemCount: payload.itemCount,
-        itemDetail: payload.itemDetail
+        itemDetail: payload.itemDetail,
+        dineInQrUrl: (typeof payload.dineInQrUrl === 'string' && payload.dineInQrUrl.trim())
+          ? String(payload.dineInQrUrl).trim() : ''
       };
       if (ord.reservationCardPrint && ord.reservation && typeof ord.reservation === 'object') {
         if (!ord.reservation.itemCount && ord.itemCount != null) ord.reservation.itemCount = ord.itemCount;
@@ -18441,7 +18546,8 @@ window.addEventListener('message', async (event) => {
 
       const text = buildPrintTextFromBackendOrder_(ord);
       const ts = Number(ord.timestamp) || Date.now();
-      pendingData = { text: text, backUrl: '', ts: ts };
+      const qrTail = (ord.dineInQrUrl && String(ord.dineInQrUrl).trim()) ? String(ord.dineInQrUrl).trim() : '';
+      pendingData = { text: text, backUrl: '', ts: ts, dineInQrUrl: qrTail };
       updateQueueDisplay(pendingData);
 
       const mode = getAutoPrintMode_();
@@ -18461,7 +18567,8 @@ window.addEventListener('message', async (event) => {
           summary   : (ord.items[0] ? ord.items[0].name + (ord.items.length > 1 ? ' 等 ' + ord.items.length + ' 項' : ' x' + (ord.items[0].quantity || 1)) : ''),
           mode      : getPrintMode_(),
           source    : 'queued',
-          printed   : false
+          printed   : false,
+          dineInQrUrl: qrTail
         }, text);
         // 即使是手動模式，也標 orderId 為已處理 → 避免後端輪詢一直把同一單塞進歷史
         if (ord.orderId) addPrintedOrderId_(String(ord.orderId));
@@ -18484,7 +18591,8 @@ window.addEventListener('message', async (event) => {
             summary   : (ord.items[0] ? ord.items[0].name + (ord.items.length > 1 ? ' 等 ' + ord.items.length + ' 項' : ' x' + (ord.items[0].quantity || 1)) : ''),
             mode      : getPrintMode_(),
             source    : 'postMessage',
-            printed   : true
+            printed   : true,
+            dineInQrUrl: qrTail
           }, text);
           if (ord.orderId) addPrintedOrderId_(String(ord.orderId));
         } catch (ePrint) {
@@ -18504,7 +18612,8 @@ window.addEventListener('message', async (event) => {
           summary   : (ord.items[0] ? ord.items[0].name + (ord.items.length > 1 ? ' 等 ' + ord.items.length + ' 項' : ' x' + (ord.items[0].quantity || 1)) : ''),
           mode      : getPrintMode_(),
           source    : 'queued',
-          printed   : false
+          printed   : false,
+          dineInQrUrl: qrTail
         }, text);
         if (ord.orderId) addPrintedOrderId_(String(ord.orderId));
         setTimeout(function () {
@@ -18566,7 +18675,13 @@ btnManual.addEventListener('click', async () => {
   for (let i = 0; i < pending.length; i++) {
     if (printLock) { await new Promise(function (r) { setTimeout(r, 300); }); }
     try {
-      await autoPrint({ text: pending[i].text || '', backUrl: '', ts: Date.now(), _isReprint: true });
+      await autoPrint({
+        text: pending[i].text || '',
+        backUrl: '',
+        ts: Date.now(),
+        dineInQrUrl: (pending[i].dineInQrUrl != null ? String(pending[i].dineInQrUrl) : '') || '',
+        _isReprint: true
+      });
       markHistoryAsPrinted_(pending[i].id, 'manual');
     } catch (e) {
       log('批次列印中斷: ' + (e && e.message ? e.message : e), 'err');
@@ -19737,6 +19852,7 @@ async function processBackendOrders_(orders) {
       try {
         const items = Array.isArray(ord.items) ? ord.items : [];
         text = buildPrintTextFromBackendOrder_(ord);
+        var qrPoll = (typeof ord.dineInQrUrl === 'string' && ord.dineInQrUrl.trim()) ? String(ord.dineInQrUrl).trim() : '';
         baseMeta = {
           orderId   : ord.orderId,
           shortId   : ord.shortId || (ord.orderId ? String(ord.orderId).slice(-3) : ''),
@@ -19746,7 +19862,8 @@ async function processBackendOrders_(orders) {
           total     : ord.total,
           itemsCount: items.length,
           summary   : items[0] ? items[0].name + (items.length > 1 ? ' 等 ' + items.length + ' 項' : ' x' + (items[0].quantity || 1)) : '',
-          mode      : getPrintMode_()
+          mode      : getPrintMode_(),
+          dineInQrUrl: qrPoll
         };
 
         const mode = getAutoPrintMode_();
@@ -19773,7 +19890,7 @@ async function processBackendOrders_(orders) {
           return;
         }
 
-        pendingData = { text: text, backUrl: '', ts: Date.now() };
+        pendingData = { text: text, backUrl: '', ts: Date.now(), dineInQrUrl: qrPoll };
         updateQueueDisplay(pendingData);
         log(isKdsReprint ? ('待出餐看板「打印」重印 ' + oid) : ('備援補印新訂單 ' + oid), 'info');
 
