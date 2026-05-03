@@ -3318,6 +3318,50 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       </div>
     </div>
 
+    <!-- 待出餐整單編輯（比照「更改預約」：取餐時間／電話／備註＋品項可加減與從菜單新增） -->
+    <div id="pending-order-edit-modal" class="hidden fixed inset-0 z-[10008] bg-black/45 items-center justify-center">
+      <div class="bg-white rounded-xl shadow-2xl w-[92%] max-w-[520px] p-4 md:p-5 max-h-[92vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-bold text-gray-800">編輯待出餐（整單）</h3>
+          <button type="button" id="pending-order-edit-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
+        </div>
+        <div class="grid grid-cols-1 gap-3">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">取餐時間</label>
+            <div class="flex items-center gap-1">
+              <select id="pending-order-hour" class="border border-gray-300 rounded-md px-2 py-2 text-sm w-24 bg-white">
+                <option value="">時</option>
+              </select>
+              <span>:</span>
+              <select id="pending-order-minute" class="border border-gray-300 rounded-md px-2 py-2 text-sm w-24 bg-white">
+                <option value="">分</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">電話</label>
+            <input type="tel" id="pending-order-phone" placeholder="09xxxxxxxx" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">訂單備註</label>
+            <textarea id="pending-order-remark" rows="2" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm" placeholder="可留空"></textarea>
+          </div>
+        </div>
+        <div class="mt-3">
+          <div class="flex items-center justify-between">
+            <label class="block text-sm font-semibold text-gray-700">品項明細</label>
+            <button type="button" id="pending-order-items-add" class="border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-md px-2 py-1 text-xs font-bold">＋ 新增商品</button>
+          </div>
+          <div id="pending-order-items-list" class="mt-2 space-y-1 text-sm bg-slate-50 rounded-md border border-slate-200 p-2 max-h-52 overflow-y-auto"></div>
+          <p class="mt-1 text-right text-xs text-slate-500">儲存後將依品項重算訂單總額（滿額折扣／贈品快照若與試算表不同步請留意）</p>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" id="pending-order-edit-cancel" class="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-md px-3 py-2 text-sm font-bold">取消</button>
+          <button type="button" id="pending-order-edit-save" class="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-2 text-sm font-bold">儲存</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 密鑰輸入視窗 -->
     <div id="key-modal" class="hidden fixed inset-0 bg-white flex items-center justify-center z-[10050]">
       <div class="bg-white p-6 rounded-lg shadow-lg w-11/12 max-w-sm text-center space-y-4">
@@ -11006,6 +11050,192 @@ function renderReservationItemsListInModal_() {
     });
   });
 }
+/** 待出餐整單編輯：與試算表「數量欄標題」對齊的合併鍵（優先 sheetColName） */
+function formatPendingOrderItemKey_(it) {
+  if (!it) return '';
+  var sc = String(it.sheetColName || '').trim();
+  if (sc) return sc;
+  var n = String(it.name || '').trim();
+  var opts = it.options;
+  if (opts && opts.length) {
+    var parts = opts.map(function (o) {
+      var on = o && o.name != null ? String(o.name).trim() : '';
+      var op = o && o.price != null ? parseInt(o.price, 10) || 0 : 0;
+      if (!on) return '';
+      return op > 0 ? (on + '(+' + op + ')') : on;
+    }).filter(Boolean);
+    if (parts.length) n += '（' + parts.join('、') + '）';
+  }
+  return n || '';
+}
+function escapeHtmlPendingModal_(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+function renderPendingOrderItemsListInModal_() {
+  var listEl = document.getElementById('pending-order-items-list');
+  if (!listEl) return;
+  var items = Array.isArray(window.__editingPendingOrderItems) ? window.__editingPendingOrderItems : [];
+  if (!items.length) {
+    listEl.innerHTML = '<div class="text-slate-400 text-xs">（目前沒有品項）</div>';
+    return;
+  }
+  listEl.innerHTML = items.map(function (it, idx) {
+    var label = formatPendingOrderItemKey_(it);
+    var qty = parseInt(it.quantity, 10) || 0;
+    var note = it.note != null ? String(it.note) : '';
+    return '<div class="flex flex-col gap-1 border border-slate-200 rounded-md p-2 bg-white" data-idx="' + idx + '">' +
+      '<div class="font-semibold text-slate-800 text-sm leading-snug">' + escapeHtmlPendingModal_(label) + '</div>' +
+      '<div class="flex flex-wrap items-center gap-2">' +
+      '<button type="button" class="pending-order-item-dec w-7 h-7 rounded bg-gray-100 hover:bg-gray-200 text-base font-bold leading-none">−</button>' +
+      '<span class="w-7 text-center font-bold">' + qty + '</span>' +
+      '<button type="button" class="pending-order-item-inc w-7 h-7 rounded bg-gray-100 hover:bg-gray-200 text-base font-bold leading-none">＋</button>' +
+      '<input type="text" class="pending-order-item-note flex-1 min-w-[140px] border border-slate-300 rounded px-2 py-1 text-xs" placeholder="品項備註" value="' + escapeHtmlPendingModal_(note) + '">' +
+      '<button type="button" class="pending-order-item-del w-7 h-7 rounded bg-red-50 hover:bg-red-100 text-red-600 leading-none" title="移除">×</button>' +
+      '</div></div>';
+  }).join('');
+  listEl.querySelectorAll('.pending-order-item-note').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      var idx = parseInt(this.closest('[data-idx]').getAttribute('data-idx'), 10);
+      if (window.__editingPendingOrderItems[idx]) window.__editingPendingOrderItems[idx].note = String(this.value || '');
+    });
+  });
+  listEl.querySelectorAll('.pending-order-item-inc').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var idx = parseInt(this.closest('[data-idx]').getAttribute('data-idx'), 10);
+      window.__editingPendingOrderItems[idx].quantity = (parseInt(window.__editingPendingOrderItems[idx].quantity, 10) || 0) + 1;
+      renderPendingOrderItemsListInModal_();
+    });
+  });
+  listEl.querySelectorAll('.pending-order-item-dec').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var idx = parseInt(this.closest('[data-idx]').getAttribute('data-idx'), 10);
+      var q = (parseInt(window.__editingPendingOrderItems[idx].quantity, 10) || 0) - 1;
+      if (q <= 0) window.__editingPendingOrderItems.splice(idx, 1);
+      else window.__editingPendingOrderItems[idx].quantity = q;
+      renderPendingOrderItemsListInModal_();
+    });
+  });
+  listEl.querySelectorAll('.pending-order-item-del').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var idx = parseInt(this.closest('[data-idx]').getAttribute('data-idx'), 10);
+      window.__editingPendingOrderItems.splice(idx, 1);
+      renderPendingOrderItemsListInModal_();
+    });
+  });
+}
+function _pendingFillMinuteOptionsForHour_(hourStr, preferredMm) {
+  var rh = document.getElementById('pending-order-hour');
+  var rm = document.getElementById('pending-order-minute');
+  if (!rm) return;
+  var hh = hourStr !== undefined && hourStr !== null ? String(hourStr).trim() : String(rh && rh.value || '').trim();
+  var times = window.__reservationValidTimesHHMM || [];
+  var opts = [];
+  times.forEach(function (hm) {
+    if (!hh) return;
+    if (hm.slice(0, 2) !== hh) return;
+    opts.push(hm.slice(3, 5));
+  });
+  var mmSeen = {}, uniq = [];
+  opts.forEach(function (m0) {
+    if (!mmSeen[m0]) { mmSeen[m0] = true; uniq.push(m0); }
+  });
+  rm.innerHTML = '<option value="">分</option>' + uniq.map(function (mv) {
+    return '<option value="' + mv + '">' + mv + '</option>';
+  }).join('');
+  var pref = String(preferredMm || '').trim().padStart(2, '0');
+  if (pref.length === 2 && uniq.indexOf(pref) >= 0) rm.value = pref;
+  else if (uniq.length) rm.value = uniq[0];
+}
+function _pendingFillPickupHourMinuteFromCache_() {
+  var rh = document.getElementById('pending-order-hour');
+  if (!rh) return;
+  var times = window.__reservationValidTimesHHMM || _resvGetSortedValidTimesHHMM_();
+  window.__reservationValidTimesHHMM = times;
+  var hoursSeen = {};
+  times.forEach(function (key) {
+    hoursSeen[String(key.slice(0, 2))] = true;
+  });
+  var hourKeys = Object.keys(hoursSeen).sort();
+  rh.innerHTML = '<option value="">時</option>' +
+    hourKeys.map(function (h) { return '<option value="' + h + '">' + h + '</option>'; }).join('');
+  _pendingFillMinuteOptionsForHour_('', '');
+}
+function _pendingApplyPickupModalTime_(timeStr) {
+  var rh = document.getElementById('pending-order-hour');
+  var rm = document.getElementById('pending-order-minute');
+  if (!rh || !rm) return;
+  var timesArr = window.__reservationValidTimesHHMM || [];
+  var raw = String(timeStr || '').replace(/^'/, '').trim();
+  var want = raw.match(/^(\d{1,2}):(\d{2})/);
+  var hhW = want ? String(parseInt(want[1], 10)).padStart(2, '0') : '';
+  var mmW = want ? String(parseInt(want[2], 10)).padStart(2, '0') : '';
+  var full = (hhW && mmW) ? (hhW + ':' + mmW) : '';
+  if (full && timesArr.indexOf(full) >= 0) {
+    rh.value = hhW;
+    _pendingFillMinuteOptionsForHour_(hhW, mmW);
+    return;
+  }
+  var first = timesArr[0];
+  if (first) {
+    rh.value = first.slice(0, 2);
+    _pendingFillMinuteOptionsForHour_(rh.value, first.slice(3, 5));
+  }
+}
+function _pendingBindPickupTimeHourMinute_() {
+  if (window.__pendingPickupTimeBound__) return;
+  window.__pendingPickupTimeBound__ = true;
+  var rh = document.getElementById('pending-order-hour');
+  if (rh) {
+    rh.addEventListener('change', function () {
+      _pendingFillMinuteOptionsForHour_(rh.value);
+    });
+  }
+}
+window.__editingPendingOrderId = null;
+window.__editingPendingOrderItems = [];
+window.openPendingOrderFullEditModal_ = function (orderSnap) {
+  if (!orderSnap || !orderSnap.orderId) return;
+  var modal = document.getElementById('pending-order-edit-modal');
+  if (!modal) return;
+  window.__editingPendingOrderId = String(orderSnap.orderId).replace(/^'/, '').trim();
+  window.__editingPendingOrderItems = (orderSnap.items || []).map(function (it) {
+    return {
+      name: String(it.name || ''),
+      quantity: parseInt(it.quantity, 10) || 0,
+      price: parseInt(it.price, 10) || 0,
+      note: String(it.note || ''),
+      options: Array.isArray(it.options) ? it.options.map(function (o) {
+        return { name: String(o && o.name != null ? o.name : '').trim(), price: parseInt(o && o.price, 10) || 0 };
+      }) : [],
+      sheetColName: String(it.sheetColName || '').trim()
+    };
+  }).filter(function (it) { return it.quantity > 0; });
+  if (!window.__editingPendingOrderItems.length) {
+    try { posSwalAlert('此訂單無可編輯品項', 'info'); } catch (_e) {}
+    return;
+  }
+  buildReservationTimeSelectsFromBusinessHours_();
+  _pendingFillPickupHourMinuteFromCache_();
+  _pendingBindPickupTimeHourMinute_();
+  _pendingApplyPickupModalTime_(orderSnap.pickupTime);
+  var ph = document.getElementById('pending-order-phone');
+  if (ph) ph.value = String(orderSnap.phone || '').replace(/^'/, '');
+  var rk = document.getElementById('pending-order-remark');
+  if (rk) rk.value = (orderSnap.remark || '').toString();
+  renderPendingOrderItemsListInModal_();
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+};
+window.closePendingOrderEditModal_ = function () {
+  var m = document.getElementById('pending-order-edit-modal');
+  if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+  window.__editingPendingOrderId = null;
+  window.__editingPendingOrderItems = [];
+};
 function _resvCollectMenuProducts_() {
   var src = (typeof products !== 'undefined' && Array.isArray(products)) ? products : [];
   return src.filter(function (p) { return p && p.name; }).map(function (p) {
@@ -11031,14 +11261,25 @@ function _resvFindMenuIdForProductName_(nm) {
 function openReservationPickModal_() {
   var modal = document.getElementById('reservation-pick-modal');
   if (!modal) return;
+  var pickTarget = window.__reservationPickTarget__ || 'reservation';
+  var pickTitle = modal.querySelector('h3');
+  if (pickTitle) pickTitle.textContent = pickTarget === 'pending' ? '挑選商品（待出餐）' : '挑選商品';
   var menuSel = document.getElementById('reservation-pick-menu');
   var prodSel = document.getElementById('reservation-pick-product');
   var search = document.getElementById('reservation-pick-search');
   var defaultMenuId = (typeof currentTab !== 'undefined' && currentTab) ? String(currentTab).trim() : 'menu-1';
-  var edits = Array.isArray(window.__editingReservationItems) ? window.__editingReservationItems : [];
-  if (edits.length) {
-    var guess = _resvFindMenuIdForProductName_(edits[edits.length - 1].name);
-    if (guess) defaultMenuId = guess;
+  if (pickTarget === 'pending') {
+    var ep = Array.isArray(window.__editingPendingOrderItems) ? window.__editingPendingOrderItems : [];
+    if (ep.length) {
+      var guessP = _resvFindMenuIdForProductName_(ep[ep.length - 1].name);
+      if (guessP) defaultMenuId = guessP;
+    }
+  } else {
+    var edits = Array.isArray(window.__editingReservationItems) ? window.__editingReservationItems : [];
+    if (edits.length) {
+      var guess = _resvFindMenuIdForProductName_(edits[edits.length - 1].name);
+      if (guess) defaultMenuId = guess;
+    }
   }
   modal.classList.remove('hidden'); modal.classList.add('flex');
 
@@ -11108,6 +11349,7 @@ function openReservationPickModal_() {
 
   var addBtn = document.getElementById('reservation-pick-add');
   if (addBtn) {
+    addBtn.textContent = pickTarget === 'pending' ? '加入待出餐明細' : '加入預約明細';
     addBtn.onclick = function () {
       var v = prodSel.value;
       if (!v) {
@@ -11118,11 +11360,21 @@ function openReservationPickModal_() {
       if (!row || !row.name) return;
       var nm = row.name;
       var px = parseInt(row.price, 10) || 0;
-      var arr = window.__editingReservationItems = window.__editingReservationItems || [];
-      var found = arr.find(function (x) { return String(x.name) === nm; });
-      if (found) found.quantity = (parseInt(found.quantity, 10) || 0) + 1;
-      else arr.push({ name: nm, quantity: 1, price: px, note: '' });
-      renderReservationItemsListInModal_();
+      if (pickTarget === 'pending') {
+        var arrP = window.__editingPendingOrderItems = window.__editingPendingOrderItems || [];
+        var stub = { name: nm, quantity: 1, price: px, note: '', options: [], sheetColName: '' };
+        var k = formatPendingOrderItemKey_(stub);
+        var foundP = arrP.find(function (x) { return formatPendingOrderItemKey_(x) === k; });
+        if (foundP) foundP.quantity = (parseInt(foundP.quantity, 10) || 0) + 1;
+        else arrP.push(stub);
+        renderPendingOrderItemsListInModal_();
+      } else {
+        var arr = window.__editingReservationItems = window.__editingReservationItems || [];
+        var found = arr.find(function (x) { return String(x.name) === nm; });
+        if (found) found.quantity = (parseInt(found.quantity, 10) || 0) + 1;
+        else arr.push({ name: nm, quantity: 1, price: px, note: '' });
+        renderReservationItemsListInModal_();
+      }
       modal.classList.add('hidden'); modal.classList.remove('flex');
     };
   }
@@ -11134,7 +11386,71 @@ document.getElementById('reservation-pick-close')?.addEventListener('click', fun
 document.getElementById('reservation-pick-modal')?.addEventListener('click', function (e) {
   if (e.target && e.target.id === 'reservation-pick-modal') { e.target.classList.add('hidden'); e.target.classList.remove('flex'); }
 });
-document.getElementById('reservation-items-add')?.addEventListener('click', openReservationPickModal_);
+document.getElementById('reservation-items-add')?.addEventListener('click', function () {
+  window.__reservationPickTarget__ = 'reservation';
+  openReservationPickModal_();
+});
+document.getElementById('pending-order-items-add')?.addEventListener('click', function () {
+  window.__reservationPickTarget__ = 'pending';
+  openReservationPickModal_();
+});
+document.getElementById('pending-order-edit-close')?.addEventListener('click', function () {
+  if (typeof window.closePendingOrderEditModal_ === 'function') window.closePendingOrderEditModal_();
+});
+document.getElementById('pending-order-edit-cancel')?.addEventListener('click', function () {
+  if (typeof window.closePendingOrderEditModal_ === 'function') window.closePendingOrderEditModal_();
+});
+document.getElementById('pending-order-edit-modal')?.addEventListener('click', function (e) {
+  if (e.target && e.target.id === 'pending-order-edit-modal' && typeof window.closePendingOrderEditModal_ === 'function') {
+    window.closePendingOrderEditModal_();
+  }
+});
+document.getElementById('pending-order-edit-save')?.addEventListener('click', function () {
+  var oid = window.__editingPendingOrderId;
+  if (!oid) return;
+  var items = (window.__editingPendingOrderItems || []).filter(function (it) {
+    return it && (parseInt(it.quantity, 10) || 0) > 0;
+  }).map(function (it) {
+    return {
+      sheetColName: String(it.sheetColName || ''),
+      name: String(it.name || ''),
+      options: Array.isArray(it.options) ? it.options : [],
+      quantity: parseInt(it.quantity, 10) || 0,
+      note: String(it.note || '')
+    };
+  });
+  if (!items.length) {
+    try { posSwalAlert('至少需保留一項品項', 'warning'); } catch (_e) {}
+    return;
+  }
+  var rh = document.getElementById('pending-order-hour');
+  var rm = document.getElementById('pending-order-minute');
+  var pickupTime = (rh && rm && rh.value && rm.value) ? (rh.value + ':' + rm.value) : '';
+  var phoneEl = document.getElementById('pending-order-phone');
+  var remarkEl = document.getElementById('pending-order-remark');
+  var payload = {
+    pickupTime: pickupTime,
+    phone: phoneEl ? String(phoneEl.value || '').replace(/^'/, '').trim() : '',
+    notes: remarkEl ? String(remarkEl.value || '') : '',
+    items: items
+  };
+  posRunSheetMutation_({
+    gasMethod: 'updatePendingOrderFullFromPosClient',
+    gasArgs: [posGetClientKey_(), oid, payload],
+    postBody: Object.assign({ action: 'updatePendingOrderFull', key: posGetClientKey_(), orderId: oid }, payload)
+  }).then(function (ret) {
+    if (!ret || ret.result !== 'success') {
+      try { posSwalAlert((ret && ret.message) || '儲存失敗', 'error'); } catch (_e2) {}
+      return;
+    }
+    try { posSwalToastSuccess('待出餐已更新', 1500); } catch (_t) {}
+    window.__posKdsCache = null;
+    if (typeof window.closePendingOrderEditModal_ === 'function') window.closePendingOrderEditModal_();
+    try { if (typeof window.posRefreshOrderBoardNow === 'function') window.posRefreshOrderBoardNow(); } catch (eR) { console.error(eR); }
+  }).catch(function (err) {
+    try { posSwalAlert((err && err.message) ? err.message : String(err), 'error'); } catch (_e3) {}
+  });
+});
 function closeReservationModal_() {
   var modal = document.getElementById('reservation-modal');
   if (!modal) return;
@@ -13628,89 +13944,13 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         }
 
         function kdsOpenPendingOrderEditModal_(orderSnap) {
-          if (typeof Swal === 'undefined' || !orderSnap) return;
-          var editable = (orderSnap.items || []).filter(function (it) {
-            return it && String(it.sheetColName || '').trim();
-          });
-          if (!editable.length) {
-            posSwalAlert('此訂單無可編輯的試算表品項（例如僅有贈品或少數特殊列）', 'info');
+          if (!orderSnap) return;
+          if (typeof window.openPendingOrderFullEditModal_ === 'function') {
+            window.openPendingOrderFullEditModal_(orderSnap);
             return;
           }
-          var state = editable.map(function (it) {
-            return {
-              sheetColName: String(it.sheetColName).trim(),
-              quantity: parseInt(it.quantity, 10) || 0,
-              note: (it.note != null ? String(it.note) : ''),
-              label: kdsFormatPendingItemEditLabel_(it)
-            };
-          });
-          function renderRowsHtml() {
-            return state.map(function (row, idx) {
-              return '<div class="kds-edit-row" data-idx="' + idx + '" style="display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid #e5e7eb;">' +
-                '<div style="font-weight:800;font-size:15px;color:#111;">' + kdsEscapeHtml(row.label) + '</div>' +
-                '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
-                '<label style="font-size:14px;color:#374151;">數量 <input type="number" min="0" class="kds-edit-qty quantity-input" data-idx="' + idx + '" value="' + row.quantity + '" style="width:64px;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:16px;"></label>' +
-                '<label style="font-size:14px;color:#374151;flex:1;min-width:120px;">備註 <input type="text" class="kds-edit-note" data-idx="' + idx + '" value="' + kdsEscapeHtml(row.note) + '" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:16px;"></label>' +
-                '<button type="button" class="kds-edit-remove" data-idx="' + idx + '" style="padding:6px 10px;border-radius:6px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;font-weight:700;font-size:13px;cursor:pointer;">移除此品項</button>' +
-                '</div></div>';
-            }).join('');
-          }
-          Swal.fire({
-            title: '編輯待出餐品項',
-            html: '<div id="kds-pending-edit-root" style="text-align:left;max-height:55vh;overflow-y:auto;">' + renderRowsHtml() + '</div>',
-            width: 'min(440px,96vw)',
-            showCancelButton: true,
-            confirmButtonText: '儲存',
-            cancelButtonText: '取消',
-            focusConfirm: false,
-            preConfirm: function () {
-              var items = [];
-              var si;
-              for (si = 0; si < state.length; si++) {
-                if (state[si]._removed) continue;
-                var qtyEl = document.querySelector('#kds-pending-edit-root .kds-edit-qty[data-idx="' + si + '"]');
-                var noteEl = document.querySelector('#kds-pending-edit-root .kds-edit-note[data-idx="' + si + '"]');
-                var q = qtyEl ? parseInt(qtyEl.value, 10) : 0;
-                if (isNaN(q) || q < 0) q = 0;
-                var note = noteEl ? String(noteEl.value || '').trim() : '';
-                items.push({ sheetColName: state[si].sheetColName, quantity: q, note: note });
-              }
-              if (!items.some(function (x) { return x.quantity > 0; })) {
-                Swal.showValidationMessage('至少須保留一項數量大於 0，或請改用「刪除訂單」');
-                return false;
-              }
-              return items;
-            },
-            didOpen: function () {
-              var root = document.getElementById('kds-pending-edit-root');
-              if (!root) return;
-              root.addEventListener('click', function (ev) {
-                var t = ev.target;
-                if (!t.classList || !t.classList.contains('kds-edit-remove')) return;
-                var idx = parseInt(t.getAttribute('data-idx'), 10);
-                if (state[idx]) state[idx]._removed = true;
-                var rowEl = t.closest('.kds-edit-row');
-                if (rowEl) rowEl.style.display = 'none';
-              });
-            }
-          }).then(function (res) {
-            if (!res.isConfirmed || !res.value) return;
-            posRunSheetMutation_({
-              gasMethod: 'updatePendingOrderItemsFromPosClient',
-              gasArgs: [posGetClientKey_(), orderSnap.orderId, res.value],
-              postBody: { action: 'updatePendingOrderItems', key: posGetClientKey_(), orderId: orderSnap.orderId, items: res.value }
-            }).then(function (ret) {
-              if (!ret || ret.result !== 'success') {
-                posSwalAlert((ret && ret.message) || '儲存失敗', 'error');
-                return;
-              }
-              try { posSwalToastSuccess('品項已更新', 1500); } catch (_t) {}
-              window.__posKdsCache = null;
-              refreshOrders();
-            }).catch(function (e) {
-              posSwalAlert((e && e.message) ? e.message : String(e), 'error');
-            });
-          });
+          if (typeof Swal === 'undefined') return;
+          posSwalAlert('無法開啟編輯畫面', 'error');
         }
 
         function kdsDeletePendingOrderCard_(orderSnap, cardEl) {
