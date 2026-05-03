@@ -1869,7 +1869,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <button id="open-reservation-modal" type="button" class="ml-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-bold">
               預約
             </button>
-            <button id="open-pos-dinein-table-modal" type="button" class="ml-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-bold" title="綁定店內桌號後，送單將與 QR 點餐相同：列印、通知、待出餐">
+            <button id="open-pos-dinein-table-modal" type="button" class="ml-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-bold" title="可預先綁桌；送單時若尚未綁桌，也會詢問是否選擇店內桌號（列印、看板、通知與店內流程一致）">
               桌號
             </button>
           </div>
@@ -9326,7 +9326,7 @@ function _posMerchantPromoExtraBlockForPrint_(ord) {
       if (!gt) return;
       var gq = parseInt(g.qty, 10);
       if (!gq || isNaN(gq)) gq = 1;
-      lines.push(_posPrinterEmojisToGt_('🎁 ' + gt) + ' x' + gq + '    $0');
+      lines.push(_posPrinterEmojisToGt_('🎁 ' + gt) + ' x ' + gq + '        $0');
     });
   }
   return lines.join('\n');
@@ -10080,12 +10080,29 @@ function posBuildDineInOrderDetailTextForPrint_(orderData) {
   if (!orderData || !orderData.tableNo) return '';
   var t = posNormDineInTableDisplay_(orderData.tableNo);
   if (!t) return '';
-  var detail = '';
+  var itemLines = '';
   try {
-    detail = _posItemsBlock_(orderData, true);
+    itemLines = _posItemsBlock_(orderData.items || []);
   } catch (e2) {
-    detail = '';
+    itemLines = '';
   }
+  var giftLines = [];
+  try {
+    var mptG = orderData.merchantPromoTelegram;
+    if (mptG && Array.isArray(mptG.gifts)) {
+      mptG.gifts.forEach(function (g) {
+        if (!g) return;
+        var gt = String(g.title != null ? g.title : '').trim();
+        if (!gt) return;
+        var gq = parseInt(g.qty, 10);
+        if (!gq || isNaN(gq)) gq = 1;
+        giftLines.push(_posPrinterEmojisToGt_('🎁 ' + gt) + ' x ' + gq + '        $0');
+      });
+    }
+  } catch (eG) { /* 略 */ }
+  var detail = [itemLines, giftLines.join('\n\n')].filter(function (x) {
+    return x && String(x).trim();
+  }).join('\n\n');
   var mapped = detail.split('\n').map(function (ln) {
     var trimmed = String(ln || '').trim();
     if (trimmed.indexOf('🎁') === 0) {
@@ -10097,12 +10114,22 @@ function posBuildDineInOrderDetailTextForPrint_(orderData) {
   var body = mapped.join('\n');
   var parts = [];
   parts.push('> 店內桌號：' + t);
-  parts.push('');
-  if (body && String(body).trim()) {
-    parts.push('商品明細：');
-    parts.push('');
-    parts.push(body);
+  parts.push('金額：' + String(orderData.total != null ? orderData.total : '') + ' 元');
+  parts.push('品項：共 ' + String(posDineInLineItemCountForPayload_(orderData)) + ' 項');
+  var cn = posOrderNotesConsumerOnly_(orderData.notes);
+  if (cn) parts.push('備註：' + cn);
+  var mptH = orderData.merchantPromoTelegram;
+  if (mptH && Array.isArray(mptH.activityParenLines)) {
+    mptH.activityParenLines.forEach(function (ln) {
+      var s = String(ln || '').trim();
+      if (!s || s === '單項商品打折') return;
+      parts.push('(' + s + ')');
+    });
   }
+  parts.push('');
+  parts.push('商品明細：');
+  parts.push('');
+  if (body && String(body).trim()) parts.push(body);
   return parts.join('\n');
 }
 
@@ -10277,6 +10304,7 @@ function openPosDineInTableModal_() {
       }).then(function (r) {
         window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
         if (!r || r.result !== 'success') {
+          if (window.__posDineInAfterBindSubmit) window.__posDineInAfterBindSubmit = false;
           window.__POS_DINEIN_CART_CTX__ = null;
           posSwalAlert('背景同步失敗：' + ((r && r.message) || '無法綁定桌號，請確認該桌狀態'), 'error');
           if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
@@ -10297,7 +10325,18 @@ function openPosDineInTableModal_() {
         try {
           if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
         } catch (eUod) { /* 略 */ }
+        try {
+          if (window.__posDineInAfterBindSubmit) {
+            window.__posDineInAfterBindSubmit = false;
+            setTimeout(function () {
+              try {
+                if (typeof submitOrder === 'function') submitOrder();
+              } catch (eSb) { /* 略 */ }
+            }, 0);
+          }
+        } catch (eAuto) { /* 略 */ }
       }).catch(function (e) {
+        if (window.__posDineInAfterBindSubmit) window.__posDineInAfterBindSubmit = false;
         window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
         window.__POS_DINEIN_CART_CTX__ = null;
         posSwalAlert((e && e.message) ? e.message : String(e), 'error');
@@ -10395,7 +10434,11 @@ function openPosDineInTableModal_() {
         return p;
       }
     }).then(function (res) {
+      if (window.__posDineInAfterBindSubmit && res && res.isDismissed) {
+        window.__posDineInAfterBindSubmit = false;
+      }
       if (res.isDenied) {
+        if (window.__posDineInAfterBindSubmit) window.__posDineInAfterBindSubmit = false;
         window.__POS_DINEIN_CART_CTX__ = null;
         window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
         if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
@@ -10594,7 +10637,11 @@ function performOrderSubmission(orderData) {
   if (typeof window.posRefreshOrderBoardNow === 'function') {
     window.posRefreshOrderBoardNow();
   }
-  posOrderQueueTryFlushAll();
+  setTimeout(function () {
+    try {
+      if (typeof posOrderQueueTryFlushAll === 'function') posOrderQueueTryFlushAll();
+    } catch (eFl) { /* 略 */ }
+  }, 0);
   var _toastDone = snapshot.tableNo ? '訂單已送出' : '結帳成功';
   posSwalToastSuccess(_toastDone, 2500);
 }
@@ -10731,6 +10778,24 @@ function initializeCheckoutCalculatorToggle() {
   updateOrderDisplay();
 }
 
+function submitOrderAfterDineInChoice_() {
+  const orderData = buildCurrentOrderData();
+  if (posHasReservationDraft_()) {
+    submitReservationOnly_(orderData);
+    return;
+  }
+  const toggle = document.getElementById('checkout-calculator-toggle');
+  const isEnabled = toggle ? toggle.checked : false;
+  const totNum = parseInt(String(orderData && orderData.total != null ? orderData.total : 0), 10) || 0;
+
+  if (isEnabled && totNum > 0) {
+    openCheckoutCalculator(orderData);
+    return;
+  }
+
+  finalSendOrder(orderData);
+}
+
 // ✅ Submit order to Google Sheets
 // ✅ 提交訂單到後端並觸發 Telegram 通知
 function submitOrder() {
@@ -10748,21 +10813,35 @@ function submitOrder() {
     return;
   }
 
-  const orderData = buildCurrentOrderData();
-  if (posHasReservationDraft_()) {
-    submitReservationOnly_(orderData);
+  if (!posHasReservationDraft_() && order.items && order.items.length > 0 && !posDineInBoundForSubmit_()) {
+    if (typeof Swal !== 'undefined' && Swal.fire) {
+      Swal.fire({
+        title: '店內用餐？',
+        text: '若要走店內桌號／看板流程，請選「選擇桌號」；外帶或無需綁桌請選「略過」。',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '選擇桌號',
+        cancelButtonText: '略過，直接送單'
+      }).then(function (r) {
+        if (r.isConfirmed) {
+          window.__posDineInAfterBindSubmit = true;
+          openPosDineInTableModal_();
+        } else {
+          submitOrderAfterDineInChoice_();
+        }
+      });
+    } else {
+      if (window.confirm('是否先選店內桌號？\n確定＝開啟選桌；取消＝略過直接送單')) {
+        window.__posDineInAfterBindSubmit = true;
+        openPosDineInTableModal_();
+      } else {
+        submitOrderAfterDineInChoice_();
+      }
+    }
     return;
   }
-  const toggle = document.getElementById('checkout-calculator-toggle');
-  const isEnabled = toggle ? toggle.checked : false;
-  const totNum = parseInt(String(orderData && orderData.total != null ? orderData.total : 0), 10) || 0;
 
-  if (isEnabled && totNum > 0) {
-    openCheckoutCalculator(orderData);
-    return;
-  }
-
-  finalSendOrder(orderData);
+  submitOrderAfterDineInChoice_();
 }
 
 
