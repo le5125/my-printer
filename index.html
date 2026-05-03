@@ -14585,6 +14585,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         function dineInMapStatusStyle_(st) {
           var s = String(st || '').replace(/\s/g, '');
           if (s.indexOf('待結帳') >= 0) return { bg: '#fecaca', border: '#dc2626' };
+          if (s.indexOf('待出餐') >= 0) return { bg: '#bfdbfe', border: '#2563eb' };
+          if (s.indexOf('完成出餐') >= 0) return { bg: '#bbf7d0', border: '#16a34a' };
+          if (s.indexOf('待清桌') >= 0) return { bg: '#e2e8f0', border: '#475569' };
           if (s.indexOf('使用中') >= 0) return { bg: '#fef9c3', border: '#ca8a04' };
           return { bg: '#ffffff', border: '#d1d5db' };
         }
@@ -14634,6 +14637,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             html += '<div class="text-lg font-black text-gray-900">' + label + '</div>';
             html += seatLine;
             html += '<div class="text-xs font-bold text-gray-800 leading-tight">' + String(row.status || '') + '</div>';
+            if (row.status && (String(row.status).indexOf('完成出餐') >= 0 || String(row.status).indexOf('待清桌') >= 0)) {
+              html += '<div class="text-[10px] text-gray-700 font-semibold leading-tight mt-0.5">用完餐請按「清桌」</div>';
+            }
             if (row.lastOrderId) {
               html += '<div class="text-[10px] text-gray-600 break-all leading-tight">' + String(row.lastOrderId) + '</div>';
             }
@@ -18290,7 +18296,11 @@ function _printerBridgeReservationThermalHeader_(ord) {
 
 function buildReceiptPlainTextMirroringGas_(ord) {
   if (!ord) return '';
-  var packed = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
+  var packed0 = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
+  if (packed0 && /^> 店內桌號[：:]/.test(String(packed0.split('\n')[0] || '').trim())) {
+    return packed0;
+  }
+  var packed = packed0;
   var hasReservationObj = !!(ord.reservation && typeof ord.reservation === 'object');
   var isReservationCardPrint = ord.reservationCardPrint === true
     || (hasReservationObj && !!packed && /(^|\n)日期：/.test(packed) && /(^|\n)時間：/.test(packed));
