@@ -3683,10 +3683,16 @@ function orderAfterStorePromotionsFetched_() {
   } catch (eSi) { /* 略 */ }
 }
 
-/** 進頁優先：尚未拿到 API 前顯示抽屜＋模糊遮罩（僅在首頁已露出後由 orderResumePromoAdAfterHomepageVisible_ 觸發） */
+/** 進頁時預留：原「載入商家活動…」壳；關閉促銷後不應出現，且首屏改為背景抓取完成後再決定是否開抽屜 */
 function orderPromoAdShowLoadingShell_() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
   if (!orderInitialReadyState_.memberGateDone || !orderInitialReadyState_.loadingClosed) return;
+  try {
+    if (window.__orderPromoFetchDoneOnce__) {
+      var _cfgL = orderGetMerchantPromoCfg_();
+      if (!_cfgL || _cfgL.enabled !== true) return;
+    }
+  } catch (eL0) { /* 略 */ }
   var ov = document.getElementById('merchant-promo-ad-overlay');
   var sh = document.getElementById('merchant-promo-ad-sheet');
   var wrap = document.getElementById('merchant-promo-ad-img-wrap');
@@ -3750,7 +3756,7 @@ function orderPromoAdUiAfterPromotionsPayload_() {
   orderFillAndShowMerchantPromoAdDrawer_({ requireImage: false, rememberOnOverlayClose: false });
 }
 
-/** 首屏載入結束後：必要時顯示活動抽屜（先比對／閘門→首頁→再滑出廣告） */
+/** 首屏載入結束後：背景抓取促銷資料，僅在後端開啟且檔期內時才顯示活動抽屜（不顯示「載入商家活動」壳） */
 function orderResumePromoAdAfterHomepageVisible_() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
   if (!orderInitialReadyState_.memberGateDone || !orderInitialReadyState_.loadingClosed) return;
@@ -3760,7 +3766,6 @@ function orderResumePromoAdAfterHomepageVisible_() {
       return;
     }
   } catch (e1) { /* 略 */ }
-  orderPromoAdShowLoadingShell_();
   void orderGetStorePromotionsFetchOnce_();
 }
 
@@ -3898,9 +3903,9 @@ function orderTryShowMerchantPromoAdDrawer_() {
 }
 
 function orderOpenMerchantPromoAdFromStore_() {
-  if (!orderFillAndShowMerchantPromoAdDrawer_({ requireImage: false, rememberOnOverlayClose: false })) {
-    showToast('目前無進行中的商家活動');
-  }
+  if (orderFillAndShowMerchantPromoAdDrawer_({ requireImage: false, rememberOnOverlayClose: false })) return;
+  var _cfgS = orderGetMerchantPromoCfg_();
+  if (_cfgS && _cfgS.enabled === true) showToast('目前無進行中的商家活動');
 }
 
 function orderSyncBodyOverflowToOpenSheets_() {
