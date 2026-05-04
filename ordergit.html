@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-TW" class="ordergit-pages">
+<html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<!-- GitHub／LINE：請用 ?id= 或 ?mid= GAS 部署 ID。此檔 CSS 與 order.html 相同，另僅補「外部網址視埠」與 GAS 內嵌之差異。 -->
+<!-- GitHub／LINE：請用 ?id= 或 ?mid= GAS 部署 ID -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover, shrink-to-fit=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>線上點餐</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -33,24 +33,25 @@
     --panda-light: #fce4ef;
   }
 
-  /*
-   * 僅 ordergit（非 GAS 網域）：Safari／LINE 常把字級放大、視埠變寬，像「手機開電腦版」。
-   * order.html 無此段；兩檔其餘 <style> 維持一致。
-   */
-  html.ordergit-pages {
+  * { box-sizing: border-box; }
+  /* 與 order.html 相同，並補 GitHub／外部 WebView 字級基準（非 GAS 網域常異常放大） */
+  html {
+    margin: 0;
+    padding: 0;
+    scroll-behavior: smooth;
+    overscroll-behavior-y: none;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    zoom: 1;
   }
-  @media (max-width: 767px) {
-    html.ordergit-pages { zoom: 0.2; }
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans TC', sans-serif;
+    background: #f7f7f7;
+    overflow-x: hidden;
+    overscroll-behavior-y: none; /* 與 order.html 一致（html／body 皆設定） */
   }
-  @media (min-width: 768px) and (max-width: 1199px) {
-    html.ordergit-pages { zoom: 0.78; }
-  }
-
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body { font-family: 'Noto Sans TC', sans-serif; background: #f7f7f7; overflow-x: hidden; overscroll-behavior-y: none; }
 
   /* 會員輸入／提示：須高於 #menu-loading 全螢幕等待層（1040） */
   .swal2-container {
@@ -89,7 +90,6 @@
     padding: 1rem 2rem !important;
     min-height: 4.8rem !important;
   }
-  html { overscroll-behavior-y: none; }
 
   /* ════ Hero Banner ════ */
   #hero-banner {
