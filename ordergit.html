@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" class="ordergit-standalone">
 <head>
 <meta charset="UTF-8">
 <!-- ordergit.html：GitHub Pages 用；請以 https://你的網域/ordergit.html?mid=GAS部署ID 開啟（mid 為 /macros/s/這段/ 的 ID；相容舊參數 ?id=） -->
@@ -31,6 +31,20 @@
     --panda:       #D70464;
     --panda-dark:  #b50353;
     --panda-light: #fce4ef;
+  }
+
+  /*
+   * GitHub 獨立版：菜單／抽屜等多為固定 px（與 order.html 相同）。
+   * 寬螢幕全頁瀏覽時體感會比 GAS／手機視窗「放很大」；窄視窗不縮放以保持與 order.html 一致。
+   */
+  @media (min-width: 600px) {
+    html.ordergit-standalone { zoom: 0.88; }
+  }
+  @media (min-width: 900px) {
+    html.ordergit-standalone { zoom: 0.78; }
+  }
+  @media (min-width: 1200px) {
+    html.ordergit-standalone { zoom: 0.72; }
   }
 
   * { box-sizing: border-box; }
