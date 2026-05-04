@@ -3765,6 +3765,26 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         });
       }
 
+      /** iPad／平板：依視窗較短邊調整根字級，Tailwind rem 類別會同比縮放（約略對齊設計基準 900px） */
+      function posApplyTabletViewportRatio_() {
+        try {
+          var basePx = 16;
+          var refShort = 900;
+          var m = Math.min(window.innerWidth || 0, window.innerHeight || 0);
+          if (!(m >= 320)) return;
+          var ratio = Math.min(1.14, Math.max(0.76, m / refShort));
+          document.documentElement.style.fontSize = (basePx * ratio) + 'px';
+        } catch (eRat) {}
+      }
+      posApplyTabletViewportRatio_();
+      window.addEventListener('resize', function () {
+        clearTimeout(window.__posVpRatioTimer);
+        window.__posVpRatioTimer = setTimeout(posApplyTabletViewportRatio_, 120);
+      });
+      window.addEventListener('orientationchange', function () {
+        setTimeout(posApplyTabletViewportRatio_, 320);
+      });
+
       /** GitHub 版：window load 後再跑 POS 初始化；授權字串僅由 Web App 提供（無內嵌於此檔） */
       window.addEventListener('load', async () => {
         startInitialLoaderProgress();
