@@ -5037,6 +5037,24 @@ function orderGetEffectiveMemberPtsForPointDiscount_() {
   return Math.max(0, total - reserved);
 }
 
+/** 點數兌換：向後端確認會員並同步折抵／會員專區快取 */
+async function orderResolveMemberBalanceForRedeem_(phone10) {
+  var prof = await orderFetchMemberProfile_(phone10);
+  if (!prof || prof.result !== 'success') {
+    return { ok: false, toast: '❗ 無法取得會員資料，請稍後再試' };
+  }
+  if (!prof.exists) {
+    return { ok: false, toast: '❗ 無會員紀錄，無法使用點數兌換' };
+  }
+  var balance = parseInt(prof.points, 10) || 0;
+  try {
+    window.__orderMemberPtsForDiscount = balance;
+    window.__memberCornerProfileCache = prof;
+    window.__memberCornerProfileCachePhone = phone10;
+  } catch (eSync) {}
+  return { ok: true, balance: balance };
+}
+
 function orderCartPointOffsetUsable_() {
   if (!window.__ORDER_MEMBER_SYSTEM_ENABLED__) return false;
   var m = window.__ORDER_MEMBER_SETTINGS;
@@ -5277,6 +5295,10 @@ function removeFromCart(idx) {
 function adjustCartItemQty(idx, delta) {
   const ci = cartItems[idx];
   if (!ci) return;
+  if (ci.isRedeem && delta > 0) {
+    void orderAdjustRedeemCartQtyMaybe_(idx, delta);
+    return;
+  }
   ci.qty += delta;
   if (ci.qty <= 0) {
     cartItems.splice(idx, 1);
@@ -5293,6 +5315,38 @@ function adjustCartItemQty(idx, delta) {
     updateCartBar();
     renderCartItems();
   }
+}
+
+async function orderAdjustRedeemCartQtyMaybe_(idx, delta) {
+  var ci = cartItems[idx];
+  if (!ci || !ci.isRedeem || delta <= 0) return;
+  if (!window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
+    showToast('❗ 會員功能未開啟');
+    return;
+  }
+  var phone = orderGetStoredMemberPhone10_();
+  if (!phone || !/^\d{10}$/.test(phone)) {
+    showToast('❗ 請先登入會員');
+    return;
+  }
+  var pc = parseInt(ci.pointsCost, 10) || 0;
+  var curRp = parseInt(ci.redeemPoints, 10);
+  if (!Number.isFinite(curRp) || curRp < 0) curRp = pc * Math.max(1, parseInt(ci.qty, 10) || 1);
+  var futureTotal = orderGetCartReservedRedeemPoints_() - curRp + pc * (Math.max(1, parseInt(ci.qty, 10) || 1) + delta);
+  var resolved = await orderResolveMemberBalanceForRedeem_(phone);
+  if (!resolved.ok) {
+    showToast(resolved.toast || '❗ 無法驗證點數');
+    return;
+  }
+  if (resolved.balance < futureTotal) {
+    showToast('❗ 會員點數不足（購物車兌換需 ' + futureTotal + ' 點，目前 ' + resolved.balance + ' 點）');
+    return;
+  }
+  ci.qty += delta;
+  ci.lineTotal = 0;
+  ci.redeemPoints = pc * ci.qty;
+  updateCartBar();
+  renderCartItems();
 }
 
 // 垃圾桶 SVG
@@ -5986,7 +6040,7 @@ function openMemberRedeemDrawer_() {
   if (sc) sc.scrollTop = 0;
 }
 
-function addRedeemProductToCart_(productId) {
+async function addRedeemProductToCart_(productId) {
   var list = window.__memberCornerRedeemCache || [];
   var pr = null;
   var i;
@@ -5997,10 +6051,43 @@ function addRedeemProductToCart_(productId) {
     }
   }
   if (!pr || (pr.saleStatus || '是') === '否') return;
+  if (!window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
+    showToast('❗ 會員功能未開啟');
+    return;
+  }
+  var phone = orderGetStoredMemberPhone10_();
+  if (!phone || !/^\d{10}$/.test(phone)) {
+    showToast('❗ 請先登入會員');
+    return;
+  }
+  if (!currentWebAppUrl) {
+    showToast('❗ 無法連線後端');
+    return;
+  }
   var pts = parseInt(pr.price, 10) || 0;
   var rid = String(pr.id || '').trim();
   var key = 'redeem|' + rid;
   var existing = cartItems.find(function (ci) { return ci._key === key; });
+  var futureTotal;
+  if (existing) {
+    var curRp = parseInt(existing.redeemPoints, 10);
+    if (!Number.isFinite(curRp) || curRp < 0) {
+      curRp = (parseInt(existing.pointsCost, 10) || 0) * Math.max(1, parseInt(existing.qty, 10) || 1);
+    }
+    futureTotal = orderGetCartReservedRedeemPoints_() - curRp
+      + (parseInt(existing.pointsCost, 10) || 0) * (Math.max(1, parseInt(existing.qty, 10) || 1) + 1);
+  } else {
+    futureTotal = orderGetCartReservedRedeemPoints_() + pts;
+  }
+  var resolved = await orderResolveMemberBalanceForRedeem_(phone);
+  if (!resolved.ok) {
+    showToast(resolved.toast || '❗ 無法驗證點數');
+    return;
+  }
+  if (resolved.balance < futureTotal) {
+    showToast('❗ 會員點數不足（購物車兌換需 ' + futureTotal + ' 點，目前 ' + resolved.balance + ' 點）');
+    return;
+  }
   if (existing) {
     existing.qty += 1;
     existing.redeemPoints = (existing.pointsCost || 0) * existing.qty;
