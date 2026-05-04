@@ -2,10 +2,10 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <!-- GitHub／LINE：請用 ?id= 或 ?mid= GAS 部署 ID -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>線上點餐</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -34,23 +34,24 @@
   }
 
   * { box-sizing: border-box; }
-  /* 與 order.html 相同，並補 GitHub／外部 WebView 字級基準（非 GAS 網域常異常放大） */
+  /* GitHub Pages：鎖定根字級 16px，避免與 GAS 內嵌頁不同網域下瀏覽器自動放大大寫 rem／em（無 GAS 注入樣式，僅此檔靜態 CSS） */
   html {
+    font-size: 16px !important;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     margin: 0;
     padding: 0;
     scroll-behavior: smooth;
     overscroll-behavior-y: none;
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-    zoom: 1;
   }
   body {
+    width: 100vw;
+    overflow-x: hidden;
     margin: 0;
     padding: 0;
     font-family: 'Noto Sans TC', sans-serif;
     background: #f7f7f7;
-    overflow-x: hidden;
-    overscroll-behavior-y: none; /* 與 order.html 一致（html／body 皆設定） */
+    overscroll-behavior-y: none;
   }
 
   /* 會員輸入／提示：須高於 #menu-loading 全螢幕等待層（1040） */
@@ -58,37 +59,37 @@
     z-index: 12000 !important;
   }
 
-  /* 加入會員／輸入手機：放大彈窗與輸入框（SweetAlert2） */
+  /* 加入會員／輸入手機：放大彈窗與輸入框（SweetAlert2；此段改 px／vw 避免 rem 受根字級影響） */
   .order-member-swal-popup {
     min-width: min(760px, 96vw) !important;
     width: min(96vw, 1040px) !important;
-    padding: 2.2rem 2rem 2.4rem !important;
+    padding: 35px 32px 38px !important;
     box-sizing: border-box !important;
   }
   .order-member-swal-popup .swal2-title {
-    font-size: clamp(2rem, 6vw, 2.8rem) !important;
+    font-size: clamp(32px, 6vw, 45px) !important;
     line-height: 1.35 !important;
   }
   .order-member-swal-popup .swal2-html-container {
-    font-size: 1.9rem !important;
+    font-size: 30px !important;
     line-height: 1.5 !important;
   }
   .order-member-swal-popup .swal2-input {
-    font-size: 2.6rem !important;
+    font-size: 42px !important;
     line-height: 1.4 !important;
-    padding: 1.6rem 1.6rem !important;
-    min-height: 6rem !important;
+    padding: 26px 26px !important;
+    min-height: 96px !important;
     box-sizing: border-box !important;
     width: 100% !important;
-    margin: 1rem auto 0 !important;
+    margin: 16px auto 0 !important;
   }
   .order-member-swal-popup .swal2-actions {
-    margin-top: 1.8rem !important;
+    margin-top: 29px !important;
   }
   .order-member-swal-popup .swal2-styled {
-    font-size: 1.8rem !important;
-    padding: 1rem 2rem !important;
-    min-height: 4.8rem !important;
+    font-size: 29px !important;
+    padding: 16px 32px !important;
+    min-height: 77px !important;
   }
 
   /* ════ Hero Banner ════ */
