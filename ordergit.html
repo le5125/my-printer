@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- GitHub／LINE：請用 ?id= 或 ?mid= GAS 部署 ID -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -31,24 +31,26 @@
     --panda:       #D70464;
     --panda-dark:  #b50353;
     --panda-light: #fce4ef;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   * { box-sizing: border-box; }
-  /* GitHub Pages：鎖定根字級 16px，避免與 GAS 內嵌頁不同網域下瀏覽器自動放大大寫 rem／em（無 GAS 注入樣式，僅此檔靜態 CSS） */
-  html {
-    font-size: 16px !important;
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
+
+  html, body {
+    font-size: 14px;
     margin: 0;
     padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  html {
     scroll-behavior: smooth;
     overscroll-behavior-y: none;
   }
   body {
-    width: 100vw;
-    overflow-x: hidden;
-    margin: 0;
-    padding: 0;
     font-family: 'Noto Sans TC', sans-serif;
     background: #f7f7f7;
     overscroll-behavior-y: none;
@@ -59,37 +61,49 @@
     z-index: 12000 !important;
   }
 
-  /* 加入會員／輸入手機：放大彈窗與輸入框（SweetAlert2；此段改 px／vw 避免 rem 受根字級影響） */
+  /* 會員登入（SweetAlert）：限制寬度與 px，避免 GitHub 上看起來過寬（專案無 .modal 類名） */
   .order-member-swal-popup {
-    min-width: min(760px, 96vw) !important;
-    width: min(96vw, 1040px) !important;
-    padding: 35px 32px 38px !important;
+    width: 90% !important;
+    max-width: 320px !important;
+    min-width: unset !important;
+    padding: 20px 16px 22px !important;
     box-sizing: border-box !important;
   }
   .order-member-swal-popup .swal2-title {
-    font-size: clamp(32px, 6vw, 45px) !important;
+    font-size: clamp(22px, 5vw, 26px) !important;
     line-height: 1.35 !important;
   }
   .order-member-swal-popup .swal2-html-container {
-    font-size: 30px !important;
-    line-height: 1.5 !important;
+    font-size: 22px !important;
+    line-height: 1.45 !important;
   }
   .order-member-swal-popup .swal2-input {
-    font-size: 42px !important;
-    line-height: 1.4 !important;
-    padding: 26px 26px !important;
-    min-height: 96px !important;
+    font-size: 28px !important;
+    line-height: 1.35 !important;
+    padding: 14px 14px !important;
+    min-height: 56px !important;
     box-sizing: border-box !important;
     width: 100% !important;
-    margin: 16px auto 0 !important;
+    margin: 12px auto 0 !important;
   }
   .order-member-swal-popup .swal2-actions {
-    margin-top: 29px !important;
+    margin-top: 16px !important;
   }
   .order-member-swal-popup .swal2-styled {
-    font-size: 29px !important;
-    padding: 16px 32px !important;
-    min-height: 77px !important;
+    font-size: 24px !important;
+    padding: 12px 16px !important;
+    min-height: 48px !important;
+  }
+
+  /* 主要按鈕字級 -3px（相對原 52px 設計） */
+  .add-btn,
+  .qty-btn,
+  .add-to-cart-btn,
+  #submit-btn,
+  .submit-price,
+  #resv-drawer button,
+  #resv-drawer .resv-slot-btn {
+    font-size: 49px !important;
   }
 
   /* ════ Hero Banner ════ */
@@ -486,7 +500,7 @@
     overflow: hidden;
     z-index: 3;
     background: #f6f7fb;
-    --order-truck-scale: 3;  /*整體放大倍率*/
+    --order-truck-scale: 1.5;  /* 原 3；GitHub 版視覺縮約 50% 以對齊 GAS（.loading-container 不存在，此為載入貨車區） */
     --order-truck-base-width: 200px;
   }
   #order-wait-panel-truck.order-wait-truck--on {
