@@ -221,20 +221,170 @@
   }
   .cat-tab:active { transform:scale(.95); }
 
-  /* ════ Menu Section ════ */
-  .menu-section { padding:0 1.1429rem; }
-  .section-title { font-size: 2.37712rem; font-weight:900; color:#1a1a1a; padding:28px 0 16px; border-bottom:2px solid #f0f0f0; margin-bottom:20px; }  .menu-grid { display:grid; grid-template-columns:1fr; gap:16px; padding-bottom:16px; }
-  @media (min-width: 768px) {
-    .menu-grid { grid-template-columns:repeat(2,1fr); gap:14px; }
+  /* ════ Menu Section（首頁商品卡：流動寬度、無 px、圖片比例穩定）════ */
+  .menu-section {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0 5%;
+    box-sizing: border-box;
   }
-  .menu-card { background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.07); cursor:pointer; transition:transform .2s,box-shadow .2s; position:relative; }
-  .menu-card:active { transform:scale(.97); box-shadow:0 1px 4px rgba(0,0,0,.1); }
-  .menu-card.sold-out { opacity:.55; pointer-events:none; }
-  .menu-card-img { width:100%; height:min(56vh, 28.5714rem); object-fit:cover; background:linear-gradient(135deg,#f0f0f0,#e0e0e0); display:block; }
-  @media (min-width: 768px) { .menu-card-img { height:min(48vh, 25rem); } }
-  .menu-card-no-img { width:100%; height:min(56vh, 28.5714rem); display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size: 2.37712rem; text-align:center; padding:8px; word-break:break-word; }  .menu-card-body { padding:18px; }
-  .menu-card-name { font-size: 2.37712rem; font-weight:bold; color:#1a1a1a; line-height:1.2; }  .menu-card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:14px; }
-  .menu-card-price { font-size: 2.37712rem; font-weight:bold; color:var(--panda); display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; }  .menu-card-price .mc-price-orig { font-size: 2.01144rem; font-weight:700; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; }  .menu-card-price .mc-price-sale { font-size: 2.37712rem; font-weight:800; color:#7c3aed; }  .sold-out-badge { font-size: 2.37712rem; font-weight:700; color:#fff; background:#aaa; border-radius:8px; padding:6px 14px; }  .add-btn { width:80px; height:80px; border-radius:50%; background:var(--panda); color:white; display:flex; align-items:center; justify-content:center; font-size: 2.37712rem; font-weight:300; line-height:1; box-shadow:0 3px 10px rgba(215,4,100,.4); transition:transform .15s,box-shadow .15s; flex-shrink:0; }  .add-btn:active { transform:scale(.88); box-shadow:0 1px 4px rgba(215,4,100,.3); }
+  .section-title {
+    font-size: 2.37712rem;
+    font-weight: 900;
+    color: #1a1a1a;
+    padding: 2rem 0 1.1429rem;
+    margin: 0 0 1.4286rem;
+    border-bottom: 0.1429rem solid #f0f0f0;
+    box-sizing: border-box;
+  }
+  .menu-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.1429rem;
+    padding-bottom: 1.1429rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  @media (min-width: 54.8571rem) {
+    .menu-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+  }
+  .menu-card {
+    background: #fff;
+    border-radius: 1.1429rem;
+    overflow: hidden;
+    box-shadow: 0 0.1429rem 0.5714rem rgba(0, 0, 0, 0.07);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .menu-card:active {
+    transform: scale(0.97);
+    box-shadow: 0 0.0714rem 0.2857rem rgba(0, 0, 0, 0.1);
+  }
+  .menu-card.sold-out {
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  .menu-card-img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    height: auto;
+    max-height: min(52vh, 25.7143rem);
+    object-fit: cover;
+    object-position: center;
+    background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+    display: block;
+  }
+  @supports not (aspect-ratio: 4 / 3) {
+    .menu-card-img {
+      height: min(52vh, 25.7143rem);
+    }
+  }
+  .menu-card-no-img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    min-height: 10rem;
+    max-height: min(52vh, 25.7143rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #fff;
+    font-size: 2.37712rem;
+    text-align: center;
+    padding: 0.5714rem 0.8571rem;
+    word-break: break-word;
+    box-sizing: border-box;
+  }
+  @supports not (aspect-ratio: 4 / 3) {
+    .menu-card-no-img {
+      height: min(52vh, 25.7143rem);
+    }
+  }
+  .menu-card-body {
+    padding: 1.2857rem;
+    box-sizing: border-box;
+  }
+  .menu-card-name {
+    font-size: 2.37712rem;
+    font-weight: bold;
+    color: #1a1a1a;
+    line-height: 1.25;
+    word-break: break-word;
+  }
+  .menu-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5714rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  .menu-card-price {
+    font-size: 2.37712rem;
+    font-weight: bold;
+    color: var(--panda);
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.4286rem 0.8571rem;
+    min-width: 0;
+  }
+  .menu-card-price .mc-price-orig {
+    font-size: 2.01144rem;
+    font-weight: 700;
+    color: #9ca3af;
+    text-decoration: line-through;
+    text-decoration-color: #dc2626;
+  }
+  .menu-card-price .mc-price-sale {
+    font-size: 2.37712rem;
+    font-weight: 800;
+    color: #7c3aed;
+  }
+  .sold-out-badge {
+    font-size: 2.01144rem;
+    font-weight: 700;
+    color: #fff;
+    background: #aaa;
+    border-radius: 0.5714rem;
+    padding: 0.4286rem 1rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .menu-card .add-btn {
+    width: 5.7143rem;
+    height: 5.7143rem;
+    min-width: 5.7143rem;
+    min-height: 5.7143rem;
+    border-radius: 50%;
+    background: var(--panda);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.37712rem;
+    font-weight: 300;
+    line-height: 1;
+    box-shadow: 0 0.2143rem 0.7143rem rgba(215, 4, 100, 0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+    box-sizing: border-box;
+  }
+  .menu-card .add-btn:active {
+    transform: scale(0.88);
+    box-shadow: 0 0.0714rem 0.2857rem rgba(215, 4, 100, 0.3);
+  }
+  .menu-section--redeem {
+    padding-bottom: 3.4286rem;
+  }
 
   /* ════ Bottom Sheet（商品抽屜）════ */
   #sheet-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100; opacity:0; pointer-events:none; transition:opacity .3s; }
@@ -6121,7 +6271,7 @@ function renderMemberRedeemDrawerBody_() {
     body.innerHTML = '<div class="member-meta" style="padding:24px 0;">目前無兌換品項</div>';
     return;
   }
-  body.innerHTML = '<div class="menu-section" style="padding:0 16px 48px;" onclick="memberRedeemCardClick_(event)"><div class="menu-grid">' + html + '</div></div>';
+  body.innerHTML = '<div class="menu-section menu-section--redeem" onclick="memberRedeemCardClick_(event)"><div class="menu-grid">' + html + '</div></div>';
 }
 
 function openMemberRedeemDrawer_() {
