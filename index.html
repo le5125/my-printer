@@ -16977,7 +16977,7 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
           }
 
           let totalAmount = 0;
-          const summary = [];
+          const summaryAgg = {};
 
           const filteredOrders = orderData.orders.filter(order => {
             const dateStr = normalizeDateKey_(order.date);
@@ -16998,26 +16998,26 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
               allDaysMap[orderDate] += orderTotal;
             }
 
-            // 商品數量統計
+            // 商品數量統計（以 Map 累加，避免每筆 summary.find O(n²)）
             (order.items || []).forEach(item => {
               if (!item.name || item.name === '付款' ) return;
 
               const keyword = productKeywords.find(k => item.name.includes(k));
               if (!keyword) return;
 
-              const existing = summary.find(i => i.name === keyword && i.deliveryType === order.type);
-              if (existing) {
-                existing.count += parseInt(item.quantity || 0);
-              } else {
-                summary.push({
+              var aggKey = keyword + '\x00' + String(order.type == null ? '' : order.type);
+              if (!summaryAgg[aggKey]) {
+                summaryAgg[aggKey] = {
                   name: keyword,
-                  count: parseInt(item.quantity || 0),
+                  count: 0,
                   deliveryType: order.type
-                });
+                };
               }
+              summaryAgg[aggKey].count += parseInt(item.quantity || 0);
             });
           });
 
+          const summary = Object.keys(summaryAgg).map(function (k) { return summaryAgg[k]; });
           const sortedDates = Object.keys(allDaysMap).sort();
           const chartPayload = {
             labels: sortedDates,
