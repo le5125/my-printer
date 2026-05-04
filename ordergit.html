@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" class="ordergit-pages">
 <head>
 <meta charset="UTF-8">
-<!-- GitHub Pages：請用 ordergit.html?id= 或 ?mid= GAS 部署 ID 開啟（版型 CSS 與 order.html 相同，差異僅後端連線方式） -->
+<!-- GitHub／LINE：請用 ?id= 或 ?mid= GAS 部署 ID。此檔 CSS 與 order.html 相同，另僅補「外部網址視埠」與 GAS 內嵌之差異。 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover, shrink-to-fit=no">
 <title>線上點餐</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -31,6 +31,21 @@
     --panda:       #D70464;
     --panda-dark:  #b50353;
     --panda-light: #fce4ef;
+  }
+
+  /*
+   * 僅 ordergit（非 GAS 網域）：Safari／LINE 常把字級放大、視埠變寬，像「手機開電腦版」。
+   * order.html 無此段；兩檔其餘 <style> 維持一致。
+   */
+  html.ordergit-pages {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  @media (max-width: 767px) {
+    html.ordergit-pages { zoom: 0.5; }
+  }
+  @media (min-width: 768px) and (max-width: 1199px) {
+    html.ordergit-pages { zoom: 0.78; }
   }
 
   * { box-sizing: border-box; }
