@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" class="ordergit-standalone">
 <head>
 <meta charset="UTF-8">
 <!-- GitHub Pages：請用 ordergit.html?id= 或 ?mid= GAS 部署 ID 開啟 -->
@@ -31,6 +31,22 @@
     --panda:       #D70464;
     --panda-dark:  #b50353;
     --panda-light: #fce4ef;
+  }
+
+  /*
+   * 僅 GitHub Pages：同一份 CSS 在 script.google.com 內嵌／LIFF 常正常，
+   * 在外部網域常出現字級與區塊「約 2 倍」+ 手機寬度未達 768 只顯示單欄。
+   * 以下對齊您提供的 GAS 截圖（兩欄商品、彈窗與載入畫比例）。
+   */
+  html.ordergit-standalone {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  @media (max-width: 599px) {
+    html.ordergit-standalone { zoom: 0.5; }
+  }
+  @media (min-width: 600px) and (max-width: 1023px) {
+    html.ordergit-standalone { zoom: 0.88; }
   }
 
   * { box-sizing: border-box; }
@@ -167,6 +183,16 @@
   .menu-grid { display:grid; grid-template-columns:1fr; gap:16px; padding-bottom:16px; }
   @media (min-width: 768px) {
     .menu-grid { grid-template-columns:repeat(2,1fr); gap:14px; }
+  }
+  @media (max-width: 767px) {
+    html.ordergit-standalone .menu-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    html.ordergit-standalone .menu-card-img,
+    html.ordergit-standalone .menu-card-no-img {
+      height: 200px;
+    }
   }
   .menu-card { background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.07); cursor:pointer; transition:transform .2s,box-shadow .2s; position:relative; }
   .menu-card:active { transform:scale(.97); box-shadow:0 1px 4px rgba(0,0,0,.1); }
