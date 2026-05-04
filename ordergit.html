@@ -547,6 +547,36 @@
     flex-shrink:0;
   }
   .cart-drawer-title { font-size: 2.37712rem; font-weight:900; color:#1a1a1a; }
+
+  /* 首頁右上角：商家／查詢／會員等抽屜 — 標題列縮小（購物車維持原樣） */
+  #store-info-sheet .cart-header,
+  #order-lookup-sheet .cart-header,
+  #member-corner-sheet .cart-header,
+  #member-redeem-sheet .cart-header,
+  #member-hist-sheet .cart-header,
+  #member-guide-sheet .cart-header {
+    padding: 0.85rem 1rem 0.65rem;
+    gap: 0.75rem;
+    border-bottom-width: 1px;
+  }
+  #store-info-sheet .drawer-close-btn,
+  #order-lookup-sheet .drawer-close-btn,
+  #member-corner-sheet .drawer-close-btn,
+  #member-redeem-sheet .drawer-close-btn,
+  #member-hist-sheet .drawer-close-btn,
+  #member-guide-sheet .drawer-close-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.1rem;
+  }
+  #store-info-sheet .cart-drawer-title,
+  #order-lookup-sheet .cart-drawer-title,
+  #member-corner-sheet .cart-drawer-title,
+  #member-redeem-sheet .cart-drawer-title,
+  #member-hist-sheet .cart-drawer-title,
+  #member-guide-sheet .cart-drawer-title {
+    font-size: 1.15rem;
+  }
   /* 購物車單一捲動區 */
   .cart-scroll { overflow-y:auto; flex:1; padding:0; -webkit-overflow-scrolling:touch; }
   .cart-scroll::-webkit-scrollbar { display:none; }
@@ -971,12 +1001,12 @@
     width:72px; height:72px; border-radius:50%; border:none;
     background:rgba(255,255,255,.92); color:#1e293b; font-size: 1.82856rem; font-weight:800;    box-shadow:0 2px 12px rgba(0,0,0,.12); cursor:pointer; line-height:1;
   }
-  /* 預約抽屜：由下往上滑、整版寬度、字體與購物車一致（消費者使用體感優先） */
+  /* 預約抽屜：由下往上滑、字級與首頁一致（精簡版） */
   #resv-drawer {
     position:fixed; left:0; right:0; bottom:0; top:auto;
-    width:100%; max-width:none; height:90vh; max-height:90vh;
-    border-top-left-radius:28px; border-top-right-radius:28px;
-    box-shadow:0 -18px 48px rgba(0,0,0,.25);
+    width:100%; max-width:none; height:min(88vh, 36rem); max-height:88vh;
+    border-top-left-radius:1.25rem; border-top-right-radius:1.25rem;
+    box-shadow:0 -0.5rem 1.5rem rgba(0,0,0,.22);
     transform:translateY(100%); transition:transform .35s cubic-bezier(.4,0,.2,1);
     overflow:hidden; overscroll-behavior:contain; background:#fff;
     z-index:9999; display:flex; flex-direction:column;
@@ -984,70 +1014,88 @@
   #resv-drawer.show { transform:translateY(0); }
   #resv-drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9998; }
   #resv-drawer-overlay.show { display:block !important; }
-  /* 拖曳指示條（提示可下滑關閉，與商品抽屜保持一致的操作直覺） */
   #resv-drawer .resv-d-grip {
-    flex:0 0 auto; display:flex; justify-content:center; padding:10px 0 4px;
+    flex:0 0 auto; display:flex; justify-content:center; padding:0.5rem 0 0.2rem;
   }
   #resv-drawer .resv-d-grip-bar {
-    width:54px; height:6px; background:#cbd5e1; border-radius:9999px;
+    width:2.25rem; height:0.35rem; background:#cbd5e1; border-radius:9999px;
   }
   #resv-drawer .resv-d-header {
     flex:0 0 auto; background:#fff;
     display:flex; align-items:center; justify-content:space-between;
-    padding:6px 22px 14px; border-bottom:1px solid #e5e7eb;
+    padding:0.25rem 1rem 0.65rem; border-bottom:1px solid #e5e7eb;
   }
-  #resv-drawer .resv-d-title { font-size: 2.37712rem; font-weight:900; color:#0f172a; }  #resv-drawer .resv-d-close {
-    font-size: 2.37712rem; background:none; border:none; color:#6b7280; cursor:pointer; line-height:1; padding:6px 14px;  }
-  /* 主要 scroll 區域：整個 body 可垂直滑動，且支援頂端往下拖曳關閉 */
+  #resv-drawer .resv-d-title { font-size: 1.15rem; font-weight:900; color:#0f172a; display:flex; align-items:center; gap:0.35rem; }
+  #resv-drawer .resv-d-title-icon { flex-shrink: 0; }
+  #resv-drawer .resv-d-close {
+    font-size: 1.25rem; background:none; border:none; color:#6b7280; cursor:pointer;
+    line-height:1; padding:0.25rem 0.5rem;
+  }
   #resv-drawer .resv-d-body {
     flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
-    padding:18px 22px 32px;
+    padding:0.85rem 1rem 1.5rem;
   }
-  /* 每個欄位卡 full width；日期與人數改上下排列，不靠雙欄黏在一起 */
-  #resv-drawer .resv-field { margin-top:26px; }
+  #resv-drawer .resv-field { margin-top:1rem; }
   #resv-drawer .resv-field:first-of-type { margin-top:0; }
-  #resv-drawer label { font-size: 2.37712rem; font-weight:900; color:#1f2937; display:block; margin-bottom:12px; }  #resv-drawer input, #resv-drawer textarea {
-    width:100%; padding:22px 20px; border:2px solid #cbd5e1; border-radius:16px;
-    font-size: 2.37712rem; font-weight:800; color:#0f172a; background:#fff; line-height:1.25;    min-height:1.35em;
+  #resv-drawer label {
+    font-size: 0.92rem; font-weight:800; color:#1f2937; display:block; margin-bottom:0.4rem;
+  }
+  #resv-drawer input, #resv-drawer textarea {
+    width:100%; padding:0.65rem 0.75rem; border:1px solid #cbd5e1; border-radius:0.65rem;
+    font-size: 1rem; font-weight:600; color:#0f172a; background:#fff; line-height:1.25;
+    min-height:1.35em; box-sizing:border-box;
   }
   #resv-drawer input:focus, #resv-drawer textarea:focus {
-    outline:none; border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.2);
+    outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.18);
   }
-  /* 日期與人數同寬：避免原生 date 內嵌日曆鈕把欄位撐得比數字輸入還寬 */
   #resv-drawer #resv-drawer-date,
   #resv-drawer #resv-drawer-people {
     box-sizing: border-box;
-    width: min(440px, 100%);
+    width: min(24rem, 100%);
     max-width: 100%;
   }
-  /* 時段卡格網：手機顯示 3 列、平板以上 4 列；卡片本身夠大，數字一目了然 */
-  #resv-drawer .resv-time-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-  @media (min-width: 640px) { #resv-drawer .resv-time-grid { grid-template-columns:repeat(4,1fr); } }
+  #resv-drawer .resv-time-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0.5rem; }
+  @media (min-width: 40rem) { #resv-drawer .resv-time-grid { grid-template-columns:repeat(4,1fr); } }
   #resv-drawer .resv-slot-btn {
-    border-radius:16px; padding:18px 10px; border:2px solid transparent;
-    text-align:center; font-weight:900; cursor:pointer; transition:transform .12s, box-shadow .12s, border-color .15s;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
-    min-height:120px;
+    border-radius:0.65rem; padding:0.5rem 0.35rem; border:2px solid transparent;
+    text-align:center; font-weight:800; cursor:pointer; transition:transform .12s, box-shadow .12s, border-color .15s;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+    min-height:4rem;
   }
-  #resv-drawer .resv-slot-btn .resv-slot-time { font-size: 2.37712rem; font-weight:900; line-height:1.1; }  #resv-drawer .resv-slot-btn .resv-slot-tag { font-size: 1.64568rem; font-weight:800; line-height:1.1; }  #resv-drawer .resv-slot-ok { background:#dcfce7; color:#065f46; border-color:#86efac; }
+  #resv-drawer .resv-slot-btn .resv-slot-time { font-size: 1rem; font-weight:900; line-height:1.1; }
+  #resv-drawer .resv-slot-btn .resv-slot-tag { font-size: 0.78rem; font-weight:800; line-height:1.1; }
+  #resv-drawer .resv-slot-ok { background:#dcfce7; color:#065f46; border-color:#86efac; }
   #resv-drawer .resv-slot-warn { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
   #resv-drawer .resv-slot-full { background:#e5e7eb; color:#94a3b8; border-color:#d1d5db; cursor:not-allowed; opacity:.9; }
   #resv-drawer .resv-slot-selected {
     background:#2563eb !important; color:#fff !important;
-    border-color:#1d4ed8 !important; box-shadow:0 8px 18px rgba(37,99,235,.35);
-    transform:translateY(-2px);
+    border-color:#1d4ed8 !important; box-shadow:0 4px 12px rgba(37,99,235,.3);
+    transform:translateY(-1px);
   }
   #resv-drawer .resv-cap-strip {
-    margin-top:26px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px 18px;
-    font-size: 2.37712rem; font-weight:900; color:#334155;  }
+    margin-top:1rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.4rem 0.6rem;
+    font-size: 0.92rem; font-weight:800; color:#334155;
+  }
   #resv-drawer .resv-cap-strip .resv-cap-warn { color:#b91c1c; }
   #resv-drawer-submit {
-    margin-top:26px; width:100%; padding:22px 24px; background:#2563eb; color:#fff;
-    border:none; border-radius:20px; font-size: 2.37712rem; font-weight:900; cursor:pointer;    box-shadow:0 10px 22px rgba(37,99,235,.34); letter-spacing:.5px;
+    margin-top:1rem; width:100%; padding:0.7rem 1rem; background:#2563eb; color:#fff;
+    border:none; border-radius:0.75rem; font-size: 1rem; font-weight:900; cursor:pointer;
+    box-shadow:0 6px 14px rgba(37,99,235,.28); letter-spacing:.02em;
   }
   #resv-drawer-submit:disabled { opacity:.6; cursor:not-allowed; }
   #resv-drawer-submit.loading { background:#94a3b8; box-shadow:none; pointer-events:none; }
-  #resv-drawer-submit.success { background:#22c55e; box-shadow:0 10px 22px rgba(34,197,94,.35); pointer-events:none; }
+  #resv-drawer-submit.success { background:#22c55e; box-shadow:0 6px 14px rgba(34,197,94,.3); pointer-events:none; }
+  #resv-drawer .resv-hint-line {
+    margin-top:0.75rem; font-size:0.85rem; font-weight:700; color:#64748b; line-height:1.45;
+  }
+  #resv-drawer .resv-foot-note {
+    margin-top:0.65rem; font-size:0.82rem; font-weight:700; color:#94a3b8; text-align:center; line-height:1.45;
+  }
+  #resv-drawer #resv-drawer-overcap.resv-overcap-box {
+    margin-top:0.75rem; font-size:0.88rem; font-weight:800; color:#b91c1c;
+    background:#fee2e2; border:1px solid #fca5a5; border-radius:0.65rem;
+    padding:0.65rem 0.75rem; line-height:1.35;
+  }
 
   /* ════ 會員專區（點餐頁） ════ */
   #member-corner-overlay {
@@ -1068,25 +1116,34 @@
   #member-corner-sheet.show { transform:translateY(0); }
 
   .member-corner-scroll { overflow-y:auto; flex:1; -webkit-overflow-scrolling:touch; }
-  .member-corner-pad { padding:8px 24px 48px; }
+  .member-corner-pad { padding:0.5rem 1rem 2rem; }
 
-  .member-block { margin-bottom:32px; }
-  .member-block-title { font-size: 1.82856rem; font-weight:800; color:#1a1a1a; margin:0 0 16px; }  .member-points-row { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; }
-  .member-points-val { font-size: 3.29144rem; font-weight:900; color:var(--panda); }  .member-points-label { font-size: 1.64568rem; color:#888; }  .member-meta { font-size: 1.64568rem; color:#555; line-height:1.5; }  .member-redeem-card {
-    background:#fafafa; border:2px solid #f0f0f0; border-radius:16px;
-    padding:20px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;
+  .member-block { margin-bottom:1.25rem; }
+  .member-block-title { font-size: 1.05rem; font-weight:800; color:#1a1a1a; margin:0 0 0.65rem; }
+  .member-points-row { display:flex; align-items:baseline; gap:0.65rem; flex-wrap:wrap; }
+  .member-points-val { font-size: 1.65rem; font-weight:900; color:var(--panda); }
+  .member-points-label { font-size: 0.88rem; color:#888; }
+  .member-meta { font-size: 0.88rem; color:#555; line-height:1.5; }
+  .member-redeem-card {
+    background:#fafafa; border:1px solid #f0f0f0; border-radius:0.75rem;
+    padding:0.75rem; margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;
   }
-  .member-redeem-name { font-size: 1.82856rem; font-weight:700; color:#1a1a1a; word-break:break-word; }  .member-redeem-pts { font-size: 1.64568rem; font-weight:800; color:#d97706; white-space:nowrap; }  .member-hist-row {
-    padding:16px 0; border-bottom:1px solid #f0f0f0; font-size: 1.55432rem; color:#333;  }
-  .member-hist-time { font-size: 1.37144rem; color:#999; margin-bottom:6px; }  .member-hist-delta { font-weight:800; color:var(--panda); }
+  .member-redeem-name { font-size: 1rem; font-weight:700; color:#1a1a1a; word-break:break-word; }
+  .member-redeem-pts { font-size: 0.88rem; font-weight:800; color:#d97706; white-space:nowrap; }
+  .member-hist-row {
+    padding:0.65rem 0; border-bottom:1px solid #f0f0f0; font-size: 0.88rem; color:#333;
+  }
+  .member-hist-time { font-size: 0.8rem; color:#999; margin-bottom:0.25rem; }
+  .member-hist-delta { font-weight:800; color:var(--panda); }
 
   .member-nav-row {
-    width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px;
-    padding:28px 24px; margin-bottom:16px; border:2px solid #eee; border-radius:20px;
-    background:#fff; font-size: 1.82856rem; font-weight:700; color:#1a1a1a; cursor:pointer;    text-align:left; -webkit-tap-highlight-color:transparent;
+    width:100%; display:flex; align-items:center; justify-content:space-between; gap:0.65rem;
+    padding:1rem; margin-bottom:0.65rem; border:1px solid #eee; border-radius:0.85rem;
+    background:#fff; font-size: 1rem; font-weight:700; color:#1a1a1a; cursor:pointer;
+    text-align:left; -webkit-tap-highlight-color:transparent;
   }
   .member-nav-row:active { background:#f7f7f7; }
-  .member-nav-row span { font-size: 2.01144rem; color:#bbb; font-weight:400; }
+  .member-nav-row span { font-size: 0.95rem; color:#bbb; font-weight:400; }
   .member-sub-overlay {
     position:fixed; inset:0; z-index:135; background:rgba(0,0,0,.45);
     opacity:0; pointer-events:none; transition:opacity .25s;
@@ -1103,13 +1160,15 @@
   }
   .member-sub-sheet.show { transform:translateY(0); }
   .member-hist-toolbar {
-    display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:12px 0 20px;
-    border-bottom:2px solid #f0f0f0; margin-bottom:16px;
+    display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; padding:0.5rem 0 0.85rem;
+    border-bottom:1px solid #f0f0f0; margin-bottom:0.65rem;
   }
   .member-hist-toolbar input[type="date"] {
-    font-size: 1.46288rem; padding:10px 14px; border:2px solid #ddd; border-radius:12px; background:#fafafa;  }
+    font-size: 0.88rem; padding:0.45rem 0.6rem; border:1px solid #ddd; border-radius:0.5rem; background:#fafafa;
+  }
   .member-hist-chip {
-    font-size: 1.37144rem; font-weight:700; padding:12px 20px; border-radius:999px; border:2px solid var(--panda);    background:#fff; color:var(--panda); cursor:pointer;
+    font-size: 0.82rem; font-weight:700; padding:0.45rem 0.85rem; border-radius:999px; border:1px solid var(--panda);
+    background:#fff; color:var(--panda); cursor:pointer;
   }
   .member-hist-chip:active { background:#fff0f5; }
 
@@ -1133,45 +1192,49 @@
 
   .store-info-scroll { overflow-y:auto; flex:1; padding:0; -webkit-overflow-scrolling:touch; }
   .store-info-scroll::-webkit-scrollbar { display:none; }
-  .store-info-pad { padding:4px 24px 48px; }
+  .store-info-pad { padding:0.25rem 1rem 2rem; }
   .si-store-promo-btn {
-    width:100%; margin:12px 0 24px; padding:28px 24px; border-radius:18px; cursor:pointer;
-    border:2px solid rgba(215,4,100,.35);
+    width:100%; margin:0.5rem 0 1rem; padding:0.85rem 1rem; border-radius:0.85rem; cursor:pointer;
+    border:1px solid rgba(215,4,100,.35);
     background:linear-gradient(135deg,#fff5f9 0%,#ffe8f0 100%);
-    color:var(--panda); font-size: 2.19432rem; font-weight:900; text-align:center;    box-shadow:0 4px 16px rgba(215,4,100,.12);
+    color:var(--panda); font-size: 1.05rem; font-weight:900; text-align:center;
+    box-shadow:0 2px 10px rgba(215,4,100,.1);
   }
   .si-store-promo-btn:active { opacity:.92; }
 
   /* 每一行資訊 */
   .si-row {
-    display:flex; align-items:flex-start; gap:20px;
-    padding:24px 0; border-bottom:1px solid #f2f2f2;
+    display:flex; align-items:flex-start; gap:0.85rem;
+    padding:1rem 0; border-bottom:1px solid #f2f2f2;
   }
   .si-row:last-child { border-bottom:none; }
-  .si-icon { font-size: 2.19432rem; flex-shrink:0; width:56px; text-align:center; padding-top:2px; }  .si-body { flex:1; min-width:0; }
-  .si-label { font-size: 1.64568rem; color:#aaa; margin-bottom:6px; font-weight:500; }  .si-value { font-size: 2.01144rem; color:#1a1a1a; line-height:1.55; font-weight:500; word-break:break-all; }  .si-value a { color:var(--panda); text-decoration:none; }
+  .si-icon { font-size: 1.15rem; flex-shrink:0; width:2rem; text-align:center; padding-top:0.1rem; }
+  .si-body { flex:1; min-width:0; }
+  .si-label { font-size: 0.82rem; color:#aaa; margin-bottom:0.2rem; font-weight:500; }
+  .si-value { font-size: 0.95rem; color:#1a1a1a; line-height:1.5; font-weight:500; word-break:break-all; }
+  .si-value a { color:var(--panda); text-decoration:none; }
 
   /* ── 全寬地址區塊（Foodpanda 風格）── */
   .si-addr-block {
-    padding:28px 0 0;
+    padding:1rem 0 0;
     border-top:1px solid #f2f2f2;
   }
   .si-addr-header {
-    display:flex; align-items:flex-start; gap:16px;
-    margin-bottom:20px; padding:0 24px;
+    display:flex; align-items:flex-start; gap:0.65rem;
+    margin-bottom:0.85rem; padding:0 1rem;
   }
-  .si-addr-pin { flex-shrink:0; color:#1a1a1a; margin-top:4px; }
+  .si-addr-pin { flex-shrink:0; color:#1a1a1a; margin-top:0.15rem; }
   .si-addr-text {
-    flex:1; font-size: 2.37712rem; font-weight:900;    color:#1a1a1a; line-height:1.45; word-break:break-all;
+    flex:1; font-size: 1.05rem; font-weight:900; color:#1a1a1a; line-height:1.45; word-break:break-all;
   }
 
   /* 導航按鈕 */
   .si-nav-btn {
-    display:inline-flex; align-items:center; gap:8px;
+    display:inline-flex; align-items:center; gap:0.35rem;
     background:var(--panda); color:white;
-    font-size: 1.82856rem; font-weight:700;    padding:14px 32px; border-radius:50px;
-    margin:0 24px 24px; cursor:pointer;
-    box-shadow:0 4px 14px rgba(215,4,100,.3);
+    font-size: 0.92rem; font-weight:700; padding:0.55rem 1.15rem; border-radius:999px;
+    margin:0 1rem 1rem; cursor:pointer;
+    box-shadow:0 3px 10px rgba(215,4,100,.25);
     transition:transform .15s; user-select:none;
   }
   .si-nav-btn:active { transform:scale(.95); }
@@ -1199,87 +1262,97 @@
     overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
   }
-  .ol-pad { padding:20px 20px 64px; }
+  .ol-pad { padding:0.85rem 0.85rem 3rem; }
 
   /* 搜尋欄 */
   .ol-search-row {
-    display:flex; gap:12px; margin-bottom:24px;
-    background:#fff; border-radius:16px;
-    padding:16px; box-shadow:0 2px 10px rgba(0,0,0,.06);
+    display:flex; gap:0.5rem; margin-bottom:1rem;
+    background:#fff; border-radius:0.75rem;
+    padding:0.65rem; box-shadow:0 1px 6px rgba(0,0,0,.06);
   }
   .ol-input {
-    flex:1; font-size: 2.37712rem; font-weight:600;    max-width: 700px;     /* 限制最大寬度，確保在各種手機上都不會太長 */
-    margin: 10px auto;    /* 置中對齊 */
-    padding:16px 18px; border:2px solid #e8e8e8;
-    border-radius:12px; outline:none; color:#1a1a1a;
+    flex:1; font-size: 1rem; font-weight:600; max-width:700px;
+    margin:0; padding:0.55rem 0.65rem; border:1px solid #e8e8e8;
+    border-radius:0.5rem; outline:none; color:#1a1a1a;
     -webkit-appearance:none; appearance:none; background:#fafafa;
     transition:border-color .2s;
   }
   .ol-input:focus { border-color:var(--panda); background:#fff; }
   .ol-search-btn {
     background:var(--panda); color:#fff;
-    font-size: 2.01144rem; font-weight:800;    padding:16px 28px; border:none; border-radius:12px;
+    font-size: 0.92rem; font-weight:800; padding:0.55rem 0.85rem; border:none; border-radius:0.5rem;
     cursor:pointer; white-space:nowrap; flex-shrink:0;
-    transition:opacity .15s; box-shadow:0 4px 14px rgba(215,4,100,.3);
+    transition:opacity .15s; box-shadow:0 3px 10px rgba(215,4,100,.25);
   }
   .ol-search-btn:active { opacity:.85; }
   .ol-search-btn:disabled { background:#ccc; box-shadow:none; }
   /* 兩列查詢（訂單／預約）按鈕同寬，避免一高一低 */
-  .ol-search-row .ol-search-btn { flex:0 0 min(200px, 28vw); text-align:center; justify-content:center; display:inline-flex; align-items:center; }
+  .ol-search-row .ol-search-btn { flex:0 0 min(7rem, 28vw); text-align:center; justify-content:center; display:inline-flex; align-items:center; }
 
   /* 訂單卡片 */
   .ol-card {
-    background:#fff; border-radius:18px;
-    box-shadow:0 2px 14px rgba(0,0,0,.08);
-    padding:24px; margin-bottom:16px;
+    background:#fff; border-radius:0.85rem;
+    box-shadow:0 1px 8px rgba(0,0,0,.08);
+    padding:1rem; margin-bottom:0.65rem;
     overflow:hidden;
   }
   .ol-card-header {
     display:flex; justify-content:space-between; align-items:flex-start;
-    padding-bottom:18px; margin-bottom:4px;
-    border-bottom:1.5px solid #f2f2f2;
+    padding-bottom:0.65rem; margin-bottom:0.2rem;
+    border-bottom:1px solid #f2f2f2;
   }
-  .ol-card-date { font-size: 2.01144rem; font-weight:800; color:#1a1a1a; line-height:1.3; }  .ol-card-time {
-    font-size: 2.01144rem; font-weight:700; color:var(--panda);    margin-top:6px; display:flex; align-items:center; gap:6px;
+  .ol-card-date { font-size: 0.95rem; font-weight:800; color:#1a1a1a; line-height:1.3; }
+  .ol-card-time {
+    font-size: 0.95rem; font-weight:700; color:var(--panda);
+    margin-top:0.25rem; display:flex; align-items:center; gap:0.25rem;
   }
-  .ol-card-id { font-size: 1.64568rem; color:#bbb; }
+  .ol-card-id { font-size: 0.82rem; color:#bbb; }
   .ol-item-row {
     display:flex; justify-content:space-between; align-items:flex-start;
-    padding:14px 0; border-bottom:1px solid #fafafa;
+    padding:0.55rem 0; border-bottom:1px solid #fafafa;
   }
-  .ol-item-name { flex:1; font-size: 2.01144rem; color:#1a1a1a; line-height:1.45; }  .ol-item-addon { font-size: 1.64568rem; color:#aaa; display:block; margin-top:4px; }  .ol-item-note  { font-size: 1.64568rem; color:#aaa; display:block; }  .ol-item-price { font-size: 2.01144rem; font-weight:700; color:#333; padding-left:12px; flex-shrink:0; }
+  .ol-item-name { flex:1; font-size: 0.95rem; color:#1a1a1a; line-height:1.45; }
+  .ol-item-addon { font-size: 0.82rem; color:#aaa; display:block; margin-top:0.2rem; }
+  .ol-item-note  { font-size: 0.82rem; color:#aaa; display:block; }
+  .ol-item-price { font-size: 0.95rem; font-weight:700; color:#333; padding-left:0.5rem; flex-shrink:0; }
   .ol-order-notes {
-    font-size: 1.64568rem; color:#888; padding:10px 0 0;    margin-top:10px; border-top:1px solid #f5f5f5;
+    font-size: 0.82rem; color:#888; padding:0.4rem 0 0; margin-top:0.4rem; border-top:1px solid #f5f5f5;
   }
   .ol-total {
     display:flex; justify-content:space-between; align-items:center;
-    margin-top:18px; padding-top:18px; border-top:2px solid #f0f0f0;
+    margin-top:0.85rem; padding-top:0.85rem; border-top:1px solid #f0f0f0;
   }
-  .ol-total-label  { font-size: 2.01144rem; color:#888; font-weight:600; }  .ol-total-amount { font-size: 2.74288rem; font-weight:900; color:var(--panda); }
+  .ol-total-label  { font-size: 0.92rem; color:#888; font-weight:600; }
+  .ol-total-amount { font-size: 1.2rem; font-weight:900; color:var(--panda); }
   .ol-empty {
-    text-align:center; padding:60px 20px;
-    font-size: 2.37712rem; font-weight:800; color:#ef4444;  }
+    text-align:center; padding:2rem 1rem;
+    font-size: 1rem; font-weight:800; color:#ef4444;
+  }
   .ol-count {
-    font-size: 1.64568rem; color:#aaa; margin-bottom:16px;  }
+    font-size: 0.82rem; color:#aaa; margin-bottom:0.65rem;
+  }
 
   /* 查詢預約區（店家開放線上預約時才顯示） */
   .ol-resv-block {
-    margin-top:36px; padding-top:28px;
-    border-top:2px solid #e5e7eb;
+    margin-top:1.25rem; padding-top:1rem;
+    border-top:1px solid #e5e7eb;
   }
   .ol-resv-heading {
-    font-size: 2.19432rem; font-weight:900; color:#1a1a1a;    margin-bottom:18px;
+    font-size: 1.05rem; font-weight:900; color:#1a1a1a;
+    margin-bottom:0.65rem;
     letter-spacing:.02em;
   }
   .ol-resv-hint {
-    font-size: 1.64568rem; color:#94a3b8; margin:-8px 0 18px;    line-height:1.45;
+    font-size: 0.82rem; color:#94a3b8; margin:-0.2rem 0 0.65rem;
+    line-height:1.45;
   }
   .ol-resv-meta-row {
-    display:flex; flex-wrap:wrap; align-items:center; gap:12px 16px;
-    margin-bottom:14px;
+    display:flex; flex-wrap:wrap; align-items:center; gap:0.4rem 0.65rem;
+    margin-bottom:0.45rem;
   }
   .ol-resv-chip {
-    font-size: 1.64568rem; font-weight:800; padding:8px 16px;    border-radius:10px;
+    font-size: 0.82rem; font-weight:800; padding:0.3rem 0.55rem;
+    border-radius:0.45rem;
   }
   .ol-resv-chip--ok { background:#dcfce7; color:#166534; }
   .ol-resv-chip--done { background:#e5e7eb; color:#374151; }
@@ -2034,19 +2107,17 @@
   <div id="hero-color-layer" class="hero-color-layer" aria-hidden="true"></div>
   <div class="hero-overlay"></div>
 
-  <!-- 訂單查詢按鈕（右上角左側） -->
-  <button type="button" id="dinein-my-list-btn" class="hero-icon-btn" style="display:none;" onclick="orderOpenDineInMyList_()" aria-label="本桌清單">
+  <!-- 視覺由右→左：商家｜查詢｜本桌清單｜會員說明｜會員｜預約；焦點順序與表述一致：預約→會員→…→查詢→商家 -->
+  <button id="reservation-corner-btn" class="hero-icon-btn" style="display:none;" onclick="openReservationDrawer()" aria-label="線上預約">
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-      <rect x="9" y="3" width="6" height="4" rx="1"/>
-      <path d="M9 12h6M9 16h6"/>
-    </svg>
-  </button>
-
-  <button id="order-lookup-btn" class="hero-icon-btn" onclick="openOrderLookup()" aria-label="查詢訂單">
-    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="11" cy="11" r="7"/>
-      <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+      <rect x="3" y="4" width="18" height="18" rx="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+      <path d="M8 14h2"/>
+      <path d="M14 14h2"/>
+      <path d="M8 18h2"/>
+      <path d="M14 18h2"/>
     </svg>
   </button>
 
@@ -2065,26 +2136,26 @@
     </svg>
   </button>
 
-  <!-- 商家資訊按鈕（右上角） -->
+  <button type="button" id="dinein-my-list-btn" class="hero-icon-btn" style="display:none;" onclick="orderOpenDineInMyList_()" aria-label="本桌清單">
+    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+      <rect x="9" y="3" width="6" height="4" rx="1"/>
+      <path d="M9 12h6M9 16h6"/>
+    </svg>
+  </button>
+
+  <button id="order-lookup-btn" class="hero-icon-btn" onclick="openOrderLookup()" aria-label="查詢訂單">
+    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="7"/>
+      <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+    </svg>
+  </button>
+
   <button id="store-info-btn" class="hero-icon-btn" onclick="openStoreInfo()" aria-label="商家資訊">
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/>
       <line x1="12" y1="8" x2="12" y2="8" stroke-width="3"/>
       <line x1="12" y1="12" x2="12" y2="16"/>
-    </svg>
-  </button>
-
-  <!-- 預約圖示（僅在後台開放預約時顯示） -->
-  <button id="reservation-corner-btn" class="hero-icon-btn" style="display:none;" onclick="openReservationDrawer()" aria-label="線上預約">
-    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2"/>
-      <line x1="16" y1="2" x2="16" y2="6"/>
-      <line x1="8" y1="2" x2="8" y2="6"/>
-      <line x1="3" y1="10" x2="21" y2="10"/>
-      <path d="M8 14h2"/>
-      <path d="M14 14h2"/>
-      <path d="M8 18h2"/>
-      <path d="M14 18h2"/>
     </svg>
   </button>
 
@@ -2866,12 +2937,39 @@ function orderApplyMemberPhoneLockToForm_() {
   }
 }
 
+function orderHeroIconIsVisible_(el) {
+  if (!el) return false;
+  try {
+    var st = window.getComputedStyle(el);
+    if (st.display === 'none' || st.visibility === 'hidden') return false;
+  } catch (e) { return false; }
+  return true;
+}
+/** 預約鈕在「會員／會員說明」顯示與否時補位，避免沿用舊版 px 或預留空槽 */
+function orderSyncReservationHeroPosition_() {
+  var btn = document.getElementById('reservation-corner-btn');
+  if (!btn) return;
+  if (document.body.classList.contains('member-disabled')) {
+    btn.style.removeProperty('right');
+    return;
+  }
+  if (!orderHeroIconIsVisible_(btn)) {
+    btn.style.removeProperty('right');
+    return;
+  }
+  var memberBtn = document.getElementById('member-corner-btn');
+  var guideBtn = document.getElementById('member-guide-btn');
+  var slots = 2 + (orderHeroIconIsVisible_(memberBtn) ? 1 : 0) + (orderHeroIconIsVisible_(guideBtn) ? 1 : 0);
+  btn.style.setProperty('right', 'calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * ' + slots + ')');
+}
+
 function orderRefreshMemberCornerVisibility_() {
   var btn = document.getElementById('member-corner-btn');
   if (!btn) return;
   var show = !!window.__ORDER_MEMBER_SYSTEM_ENABLED__ && !!window.__ORDER_MEMBER_ACTIVITIES_ON__ && !!orderGetStoredMemberPhone10_();
   btn.style.display = show ? 'flex' : 'none';
   orderRefreshMemberGuideBtnVisibility_();
+  orderSyncReservationHeroPosition_();
 }
 
 function orderRefreshMemberGuideBtnVisibility_() {
@@ -2879,6 +2977,7 @@ function orderRefreshMemberGuideBtnVisibility_() {
   if (!g) return;
   var show = !!window.__ORDER_MEMBER_SYSTEM_ENABLED__ && !window.__ORDER_TABLE_MODE_ACTIVE__;
   g.style.display = show ? 'flex' : 'none';
+  orderSyncReservationHeroPosition_();
 }
 
 function orderApplyMemberSystemDisabledUi_() {
@@ -7734,7 +7833,7 @@ window.addEventListener('load', function ordergitBootstrapOnLoad_() {
 <aside id="resv-drawer" aria-hidden="true">
   <div class="resv-d-grip" id="resv-drawer-grip"><span class="resv-d-grip-bar"></span></div>
   <div class="resv-d-header">
-    <div class="resv-d-title"><i class="far fa-calendar-check" style="color:#2563eb;margin-right:10px;"></i>線上預約</div>
+    <div class="resv-d-title"><svg class="resv-d-title-icon" viewBox="0 0 24 24" width="1rem" height="1rem" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h2M14 14h2"/></svg>線上預約</div>
     <button type="button" class="resv-d-close" onclick="closeReservationDrawer()" aria-label="關閉">×</button>
   </div>
   <div class="resv-d-body" id="resv-drawer-scroll">
@@ -7758,11 +7857,11 @@ window.addEventListener('load', function ordergitBootstrapOnLoad_() {
       <span>選擇預約時段</span>
       <span id="resv-drawer-cap-info"></span>
     </div>
-    <div id="resv-drawer-overcap" style="display:none;margin-top:16px;font-size: 2.01144rem;font-weight:900;color:#b91c1c;background:#fee2e2;border:2px solid #fca5a5;border-radius:14px;padding:18px 20px;line-height:1.35;"></div>
-    <div id="resv-drawer-time-grid" class="resv-time-grid" style="margin-top:12px;"></div>
-    <div style="margin-top:16px;font-size: 2.01144rem;font-weight:800;color:#64748b;line-height:1.5;">綠色＝可預約・黃色＝即將額滿・灰色＝客滿（不可選）</div>
+    <div id="resv-drawer-overcap" class="resv-overcap-box" style="display:none;"></div>
+    <div id="resv-drawer-time-grid" class="resv-time-grid" style="margin-top:0.5rem;"></div>
+    <div class="resv-hint-line">綠色＝可預約・黃色＝即將額滿・灰色＝客滿（不可選）</div>
     <button id="resv-drawer-submit" type="button">送出預約</button>
-    <p style="margin-top:18px;font-size: 2.01144rem;font-weight:800;color:#94a3b8;text-align:center;line-height:1.45;">送出後，店家會在預約時段為您保留座位。</p>
+    <p class="resv-foot-note">送出後，店家會在預約時段為您保留座位。</p>
   </div>
 </aside>
 <script>
@@ -7800,15 +7899,12 @@ window.addEventListener('load', function ordergitBootstrapOnLoad_() {
       var open = !!(ret && ret.result === 'success' && ret.open);
       var btn = document.getElementById('reservation-corner-btn');
       if (btn) {
-        btn.style.display = open ? '' : 'none';
-        /* 動態排版：放在「會員按鈕」旁邊；會員若隱藏則自動補位至 288，避免畫面留白 */
-        var memberBtn = document.getElementById('member-corner-btn');
-        var memberVisible = memberBtn && memberBtn.style.display && memberBtn.style.display !== 'none';
-        btn.style.right = memberVisible ? '424px' : '288px';
+        btn.style.display = open ? 'flex' : 'none';
       }
       var resvLookup = document.getElementById('ol-resv-block');
       if (resvLookup) resvLookup.style.display = open ? 'block' : 'none';
       if (open) window.__resvDrawerSettings = ret;
+      orderSyncReservationHeroPosition_();
     } catch (e) { /* 略 */ }
   }
   /** 預設明天的日期（本地） */
