@@ -138,6 +138,10 @@
     box-sizing: border-box;
   }
 
+  /* ═══════════════════════════════════════════════════════════
+     GitHub：進場動畫結束後的首頁骨架（Hero → 分類 Tab → 商品網格）
+     全寬、overflow-x 由 body 控制；與 #menu-loading 分層
+     ═══════════════════════════════════════════════════════════ */
   /* ════ Hero Banner ════ */
   #hero-banner {
     height: clamp(14.2857rem, 40vh, 42.8571rem);
@@ -386,6 +390,22 @@
     padding-bottom: 3.4286rem;
   }
 
+  /* GitHub：載入結束後才顯示的主內容層（與 #menu-loading 分離，避免倍率問題） */
+  #menu-content {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: translateY(0.6rem);
+    transition: opacity 0.45s ease, transform 0.45s ease;
+    will-change: opacity, transform;
+  }
+  #menu-content.menu-content--visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
   /* ════ Bottom Sheet（商品抽屜）════ */
   #sheet-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100; opacity:0; pointer-events:none; transition:opacity .3s; }
   #sheet-overlay.show { opacity:1; pointer-events:all; }
@@ -584,46 +604,57 @@
     padding: max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px));
   }
 
-  /* ════ 進頁等待：全螢幕底（會員比對 + 菜單載入）；水豚動畫選擇器限 #menu-loading；z-index 低於 .swal2-container ════ */
+  /* ═══════════════════════════════════════════════════════════
+     GitHub 版面：進頁載入層 (#menu-loading) — 貨車／Synth、流動寬度
+     z-index 低於 .swal2-container；與 GAS 預覽倍率脱鉤
+     ═══════════════════════════════════════════════════════════ */
   #menu-loading {
     position: fixed;
     inset: 0;
     z-index: 1040;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     background: transparent;
   }
   #menu-loading .order-wait-title {
-    font-size: clamp(1.82856rem, 5.5vw, 2.56rem);    font-weight: 900;
+    font-size: clamp(1.82856rem, 5.5vw, 2.56rem);
+    font-weight: 900;
     color: rgba(55, 40, 28, 0.92);
     letter-spacing: 0.06em;
+    line-height: 1.2;
   }
   #menu-loading .order-wait-hint {
-    font-size: clamp(1.28rem, 3.8vw, 1.82856rem);    font-weight: 700;
+    font-size: clamp(1.28rem, 3.8vw, 1.82856rem);
+    font-weight: 700;
     color: rgba(55, 40, 28, 0.58);
     text-align: center;
     max-width: min(40rem, 92vw);
     line-height: 1.45;
-    margin-top: -8px;
+    margin-top: -0.5714rem;
   }
+  /* Synth 全黑底 */
   #order-wait-panel-synth {
     position: absolute;
     inset: 0;
     box-sizing: border-box;
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 1.4286rem;
-    padding: calc(1.7143rem + env(safe-area-inset-top, 0px)) 1.7143rem calc(1.7143rem + env(safe-area-inset-bottom, 0px));
+    padding: calc(1.7143rem + env(safe-area-inset-top, 0)) 5% calc(1.7143rem + env(safe-area-inset-bottom, 0));
     overflow: hidden;
     z-index: 2;
-    display: none;
     background: #000000;
+    overscroll-behavior: contain;
   }
   #order-wait-panel-synth.order-wait-synth--on {
     display: flex;
   }
+  /* 貨車淺灰底 */
   #order-wait-panel-truck {
     position: absolute;
     inset: 0;
@@ -633,19 +664,30 @@
     align-items: center;
     justify-content: center;
     gap: 1.25rem;
-    padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 5% calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    padding: calc(1.5rem + env(safe-area-inset-top, 0)) 5% calc(1.5rem + env(safe-area-inset-bottom, 0));
     overflow-x: hidden;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     z-index: 3;
     background: #f6f7fb;
+    overscroll-behavior: contain;
   }
   #order-wait-panel-truck.order-wait-truck--on {
     display: flex;
   }
-  /* 貨車載入：外層置中；貨車視覺寬 50vw、上限 200px（規格） */
+  #order-wait-panel-truck > .order-wait-title,
+  #order-wait-panel-truck > .order-wait-hint {
+    width: 90%;
+    max-width: 25.7143rem;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    box-sizing: border-box;
+  }
+  /* 貨車圖像區：50vw、capped（與進度條同寬） */
   #order-wait-panel-truck .loading-container {
     width: 90%;
-    max-width: 360px;
+    max-width: 25.7143rem;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
@@ -656,7 +698,7 @@
   }
   #order-wait-panel-truck .loader {
     width: 50vw;
-    max-width: 200px;
+    max-width: 14.2857rem;
     margin-left: auto;
     margin-right: auto;
     display: flex;
@@ -690,9 +732,9 @@
     display: block;
   }
   @keyframes orderTruckMotion {
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(3px); }
-    100% { transform: translateY(0px); }
+    0% { transform: translateY(0); }
+    50% { transform: translateY(0.2143rem); }
+    100% { transform: translateY(0); }
   }
   #order-wait-panel-truck .truckTires {
     width: 100%;
@@ -717,22 +759,22 @@
   #order-wait-panel-truck .road {
     width: 100%;
     height: 0.1rem;
-    min-height: 1.5px;
+    min-height: 0.1071rem;
     background-color: #282828;
     position: relative;
     align-self: stretch;
-    border-radius: 3px;
+    border-radius: 0.2143rem;
     margin-top: 0.15rem;
   }
   #order-wait-panel-truck .road::before {
     content: "";
     position: absolute;
     width: 12.5%;
-    min-width: 12px;
+    min-width: 0.8571rem;
     height: 100%;
     background-color: #282828;
     right: -50%;
-    border-radius: 3px;
+    border-radius: 0.2143rem;
     animation: orderTruckRoadAnimation 1.4s linear infinite;
     border-left: 0.4rem solid white;
   }
@@ -740,11 +782,11 @@
     content: "";
     position: absolute;
     width: 6.25%;
-    min-width: 8px;
+    min-width: 0.5714rem;
     height: 100%;
     background-color: #282828;
     right: -65%;
-    border-radius: 3px;
+    border-radius: 0.2143rem;
     animation: orderTruckRoadAnimation 1.4s linear infinite;
     border-left: 0.2rem solid white;
   }
@@ -758,12 +800,12 @@
     animation: orderTruckRoadAnimation 1.4s linear infinite;
   }
   @keyframes orderTruckRoadAnimation {
-    0% { transform: translateX(0px); }
-    100% { transform: translateX(-350px); }
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-25rem); }
   }
   #order-wait-panel-truck .order-truck-progress {
     width: 50vw;
-    max-width: 200px;
+    max-width: 14.2857rem;
     margin-left: auto;
     margin-right: auto;
     display: flex;
@@ -773,7 +815,8 @@
     box-sizing: border-box;
   }
   #order-wait-panel-truck .order-truck-progress-label {
-    font-size: clamp(1.28rem, 3.7vw, 1.73712rem);    font-weight: 800;
+    font-size: clamp(1.28rem, 3.7vw, 1.73712rem);
+    font-weight: 800;
     color: #333;
   }
   #order-wait-panel-truck .order-truck-progress-bar {
@@ -790,11 +833,6 @@
     background: linear-gradient(90deg, #fb7185 0%, #ef4444 45%, #f97316 100%);
     transition: width .25s ease;
   }
-
-#order-wait-panel-synth .order-synth-stack > .order-wait-title,
-#order-wait-panel-synth .order-wait-hint--synth {
-  transform: translateY(-46.4286rem);   /*請稍等.會員登入中*/
-}
 
   /* ════ 表單輸入框 ════ */
   .form-input { width:100%; border:2px solid #e0e0e0; border-radius:12px; padding:16px; font-size: 2.37712rem; font-family:inherit; outline:none; transition:border-color .2s; background:#fafafa; }  .form-input:focus { border-color:var(--panda); background:#fff; }
@@ -1231,39 +1269,48 @@
 #order-wait-panel-synth {
   box-sizing: border-box;
 }
-/* 流動縮放：取代固定 scale 3.5，避免窄螢幕／GitHub 預覽畫面過大 */
+/* GitHub：Synth 車尾 — 與主頁相同 90% / max 25.7143rem，vw 縮放避免 iframe 爆版 */
 #order-wait-panel-synth .order-synth-wave {
   position: relative;
-  width: 300px;
-  height: 250px;
+  width: 21.4286rem;
+  height: 17.8571rem;
+  max-width: min(90vw, 21.4286rem);
   background-color: #2e0d3f;
   scale: 0.55;
-  transform-origin: center bottom;
+  transform-origin: center center;
   flex-shrink: 0;
   overflow: hidden;
   border-radius: 1.4286rem;
   z-index: 1;
 }
-@media (min-width: 400px) {
+@media (min-width: 28.5714rem) {
   #order-wait-panel-synth .order-synth-wave { scale: 0.72; }
 }
-@media (min-width: 520px) {
+@media (min-width: 37.1429rem) {
   #order-wait-panel-synth .order-synth-wave { scale: 0.95; }
 }
-@media (min-width: 720px) {
+@media (min-width: 51.4286rem) {
   #order-wait-panel-synth .order-synth-wave { scale: 1.35; }
 }
 #order-wait-panel-synth .order-synth-stack {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  width: 100%;
-  max-width: 360px;
+  justify-content: center;
+  gap: 0.8571rem;
+  width: 90%;
+  max-width: 25.7143rem;
   box-sizing: border-box;
-  min-height: 100%;
-  padding-bottom: 24px;
+  min-height: min(85vh, 45rem);
+  margin: 0 auto;
+  padding: 1rem 0 1.7143rem;
+}
+#order-wait-panel-synth .order-synth-stack > .order-wait-title,
+#order-wait-panel-synth .order-synth-stack > .order-wait-hint--synth {
+  transform: none;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
 }
 #order-wait-panel-synth .order-synth-sunReflection {
   background-color: yellow;
@@ -1919,10 +1966,11 @@
 }
 #order-wait-panel-synth .order-wait-hint--synth {
   color: rgba(255, 220, 255, 0.75);
-  font-size: 2.05712rem;  font-weight: 600;
+  font-size: 2.05712rem;
+  font-weight: 600;
   text-align: center;
   line-height: 1.35;
-  max-width: 280px;
+  max-width: min(20rem, 92vw);
   margin: 0;
   order: 1;
   position: relative;
@@ -4969,7 +5017,15 @@ function orderFinishMenuLoadingUi_() {
     _ml.setAttribute('aria-busy', 'false');
   }
   orderWaitShowCapybara_();
-  if (_mc) _mc.style.display = '';
+  if (_mc) {
+    _mc.style.display = '';
+    _mc.classList.remove('menu-content--visible');
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        _mc.classList.add('menu-content--visible');
+      });
+    });
+  }
   try { orderResumePromoAdAfterHomepageVisible_(); } catch (ePromo) { /* 略 */ }
 }
 
@@ -7249,6 +7305,7 @@ function orderShowBootstrapMaintenance_(messageOverride) {
   }
   orderTruckStopProgress_(true);
   if (_mc) {
+    _mc.classList.remove('menu-content--visible');
     _mc.style.display = 'none';
     _mc.innerHTML = '';
   }
