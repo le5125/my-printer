@@ -42,7 +42,7 @@
 
   * { box-sizing: border-box; }
 
-  /* GitHub 流動式：base rem 加大（原 14px）+ 全頁字重加粗；橫向溢出改由 .ordergit-main-scroll 裁切 */
+  /* GitHub 流動式：base rem 加大（原 14px）+ 全頁字重加粗；勿對 body 設 overflow-x:hidden，以免 sticky 失效 */
   html, body {
     font-size: 18px;
     margin: 0;
@@ -50,12 +50,6 @@
     width: 100%;
     max-width: 100%;
     overflow-x: visible;
-  }
-  /* 僅主內容欄裁切；分類列改 fixed 後仍由此區塊捲動 */
-  .ordergit-main-scroll {
-    overflow-x: clip;
-    overflow-x: hidden;
-    max-width: 100%;
   }
   html {
     scroll-behavior: smooth;
@@ -202,8 +196,8 @@
     gap:0.7143rem;
   }
   .shop-logo-container {
-    width:7.5rem;
-    height:7.5rem;
+    width: 5.85rem;
+    height: 5.85rem;
     border-radius:0.5714rem;
     overflow:hidden;
     border:2px solid rgba(255,255,255,.3);
@@ -218,10 +212,11 @@
   }
 
   /*營業中 */
-  .open-badge { display:inline-flex; align-items:center; gap:0.2857rem; background:rgba(255,255,255,.15); color:white; font-size:1.2857rem; padding:0.3rem 0.65rem; border-radius:666px; }
-  .dot { width:0.75rem; height:0.75rem; border-radius:50%; background:#4ade80; display:inline-block; flex-shrink:0; }
+  .open-badge { display:inline-flex; align-items:center; gap:0.22rem; background:rgba(255,255,255,.15); color:white; font-size:1rem; padding:0.22rem 0.5rem; border-radius:666px; }
+  .dot { width:0.58rem; height:0.58rem; border-radius:50%; background:#4ade80; display:inline-block; flex-shrink:0; }
+  /* 封面字級／logo／營業標：依 14px-root 視覺等比例縮放（抵消 html 18px） */
   #hero-shop-name {
-    font-size: clamp(2.05rem, 7.2vw, 2.8rem);
+    font-size: clamp(1.58rem, 5.04vw, 2.18rem);
     font-weight: 900;
     color: #fff;
     line-height: 1.2;
@@ -231,23 +226,14 @@
   }
   .dot.closed { background:#ef4444; }
 
-  /* ════ 分類列：position fixed（較 sticky 更穩）；top 由 JS 依 Hero 可見高度同步，避免蓋住封面 ════ */
-  #sticky-nav-placeholder {
-    flex-shrink: 0;
-    width: 100%;
-    /* 實際高度補齊見 _syncStickyNavLayout_；此為 render 前保守值 */
-    min-height: 3.1rem;
-    pointer-events: none;
-  }
+  /* ════ Sticky Nav（與 GAS order.html 同款：sticky top:0）════ */
   #sticky-nav {
-    position: fixed;
-    left: 0;
-    right: 0;
+    position: -webkit-sticky;
+    position: sticky;
     top: 0;
-    z-index: 96;
+    z-index: 50;
     background: #fff;
     box-shadow: 0 2px 12px rgba(0,0,0,.08);
-    transition: top 0.2s ease;
   }
   /* 只用 max-height 做滑出動畫，不用 opacity，避免半透明鬼影 */
   /* ════ Cat Tabs ════ */
@@ -273,7 +259,7 @@
     box-shadow: inset 0 0 0 0 transparent;
   }
   .cat-tab.active {
-    color:var(--panda); font-weight:900;
+    color:var(--panda); font-weight:700;
     box-shadow: inset 0 -0.2143rem 0 0 var(--panda);
   }
   .cat-tab:active { transform:scale(.95); }
@@ -786,7 +772,7 @@
   #cart-bar .cart-inner-row { display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; flex:1; min-width:0; }
   #cart-bar-dinein-pill { font-size:0.82rem !important; font-weight:800; padding:0.2rem 0.5rem !important; }
   /* ════ Toast ════ */
-  #toast { position:fixed; top:80px; left:50%; transform:translateX(-50%) translateY(-20px); background:#1a1a1a; color:white; padding:12px 24px; border-radius:50px; font-size: 2.01144rem; font-weight:700; opacity:0; pointer-events:none; transition:all .3s; z-index:200; white-space:nowrap; }  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast { position:fixed; top:64px; left:50%; transform:translateX(-50%) translateY(-12px); background:#1a1a1a; color:white; padding:0.45rem 1rem; border-radius:999px; font-size:0.95rem; font-weight:700; opacity:0; pointer-events:none; transition:all .3s; z-index:200; white-space:nowrap; max-width:min(92vw, 22rem); overflow:hidden; text-overflow:ellipsis; }  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
   /* 金鑰比對失敗等：蓋住整頁，只顯示「系統維修中」 */
   #order-public-maintenance-layer {
@@ -801,36 +787,30 @@
     padding: max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px));
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     GitHub 版面：進頁載入層 (#menu-loading) — 貨車／Synth、流動寬度
-     z-index 低於 .swal2-container；與 GAS 預覽倍率脱鉤
-     ═══════════════════════════════════════════════════════════ */
+  /* ════ 進頁載入（版型與 GAS order.html 一致：全螢幕、overflow:hidden、卡車 scale）═══ */
   #menu-loading {
     position: fixed;
     inset: 0;
     z-index: 1040;
     box-sizing: border-box;
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    overflow: hidden;
     background: transparent;
   }
   #menu-loading .order-wait-title {
-    font-size: clamp(1.82856rem, 5.5vw, 2.56rem);
+    font-size: clamp(40px, 5.5vw, 56px);
     font-weight: 900;
     color: rgba(55, 40, 28, 0.92);
     letter-spacing: 0.06em;
     line-height: 1.2;
   }
   #menu-loading .order-wait-hint {
-    font-size: clamp(1.28rem, 3.8vw, 1.82856rem);
+    font-size: clamp(28px, 3.8vw, 40px);
     font-weight: 700;
     color: rgba(55, 40, 28, 0.58);
     text-align: center;
-    max-width: min(40rem, 92vw);
+    max-width: min(560px, 92vw);
     line-height: 1.45;
-    margin-top: -0.5714rem;
+    margin-top: -8px;
   }
   /* Synth 全黑底 */
   #order-wait-panel-synth {
@@ -841,17 +821,16 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1.4286rem;
-    padding: calc(1.7143rem + env(safe-area-inset-top, 0)) 5% calc(1.7143rem + env(safe-area-inset-bottom, 0));
+    gap: 20px;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
     overflow: hidden;
     z-index: 2;
     background: #000000;
-    overscroll-behavior: contain;
   }
   #order-wait-panel-synth.order-wait-synth--on {
     display: flex;
   }
-  /* 貨車淺灰底 */
+  /* 貨車淺灰底（與 order.html 同款尺寸／動畫） */
   #order-wait-panel-truck {
     position: absolute;
     inset: 0;
@@ -860,169 +839,117 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1.25rem;
-    padding: calc(1.5rem + env(safe-area-inset-top, 0)) 5% calc(1.5rem + env(safe-area-inset-bottom, 0));
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    gap: 100px;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
     z-index: 3;
     background: #f6f7fb;
-    overscroll-behavior: contain;
+    --order-truck-scale: 3;
+    --order-truck-base-width: 200px;
   }
   #order-wait-panel-truck.order-wait-truck--on {
     display: flex;
   }
-  #order-wait-panel-truck > .order-wait-title,
-  #order-wait-panel-truck > .order-wait-hint {
-    width: 90%;
-    max-width: 25.7143rem;
-    margin-left: auto;
-    margin-right: auto;
-    text-align: center;
-    box-sizing: border-box;
-  }
-  /* 貨車圖像區：50vw、capped（與進度條同寬） */
-  #order-wait-panel-truck .loading-container {
-    width: 90%;
-    max-width: 25.7143rem;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.85rem;
-    box-sizing: border-box;
-  }
   #order-wait-panel-truck .loader {
-    width: 50vw;
-    max-width: 14.2857rem;
-    margin-left: auto;
-    margin-right: auto;
+    width: fit-content;
+    height: fit-content;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
-    flex-shrink: 0;
+    transform: scale(var(--order-truck-scale));
+    transform-origin: center center;
   }
   #order-wait-panel-truck .truckWrapper {
-    width: 100%;
-    position: relative;
+    width: 200px;
+    height: 100px;
     display: flex;
     flex-direction: column;
+    position: relative;
     align-items: center;
     justify-content: flex-end;
-    overflow: hidden;
-    min-height: 5rem;
+    overflow-x: hidden;
   }
-  /* 車體 SVG：車頭燈 path 須畫在最後一層，否則會被貨斗矩形蓋住 */
   #order-wait-panel-truck .truckBody {
-    width: 100%;
-    max-width: 100%;
+    width: 130px;
     height: fit-content;
-    margin-bottom: 0.375rem;
-    position: relative;
-    z-index: 4;
+    margin-bottom: 6px;
     animation: orderTruckMotion 1s linear infinite;
   }
-  #order-wait-panel-truck .truckBody .trucksvg {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
   @keyframes orderTruckMotion {
-    0% { transform: translateY(0); }
-    50% { transform: translateY(0.2143rem); }
-    100% { transform: translateY(0); }
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(3px); }
+    100% { transform: translateY(0px); }
   }
   #order-wait-panel-truck .truckTires {
-    width: 100%;
-    max-width: 100%;
+    width: 130px;
     height: fit-content;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 4% 0 6%;
-    box-sizing: border-box;
+    padding: 0 10px 0 15px;
     position: absolute;
-    left: 50%;
-    bottom: 0.1rem;
-    transform: translateX(-50%);
-    z-index: 2;
+    bottom: 0;
   }
   #order-wait-panel-truck .truckTires svg {
-    width: 18%;
-    max-width: 1.25rem;
-    height: auto;
+    width: 24px;
   }
   #order-wait-panel-truck .road {
     width: 100%;
-    height: 0.1rem;
-    min-height: 0.1071rem;
+    height: 1.5px;
     background-color: #282828;
     position: relative;
-    z-index: 1;
-    align-self: stretch;
-    border-radius: 0.2143rem;
-    margin-top: 0.15rem;
+    bottom: 0;
+    align-self: flex-end;
+    border-radius: 3px;
   }
   #order-wait-panel-truck .road::before {
     content: "";
     position: absolute;
-    width: 12.5%;
-    min-width: 0.8571rem;
+    width: 20px;
     height: 100%;
     background-color: #282828;
     right: -50%;
-    border-radius: 0.2143rem;
+    border-radius: 3px;
     animation: orderTruckRoadAnimation 1.4s linear infinite;
-    border-left: 0.4rem solid white;
+    border-left: 10px solid white;
   }
   #order-wait-panel-truck .road::after {
     content: "";
     position: absolute;
-    width: 6.25%;
-    min-width: 0.5714rem;
+    width: 10px;
     height: 100%;
     background-color: #282828;
     right: -65%;
-    border-radius: 0.2143rem;
+    border-radius: 3px;
     animation: orderTruckRoadAnimation 1.4s linear infinite;
-    border-left: 0.2rem solid white;
+    border-left: 4px solid white;
   }
   #order-wait-panel-truck .lampPost {
     position: absolute;
     bottom: 0;
-    right: -55%;
-    height: min(5.5rem, 90%);
-    width: auto;
-    max-width: 35%;
-    z-index: 1;
-    pointer-events: none;
+    right: -90%;
+    height: 90px;
     animation: orderTruckRoadAnimation 1.4s linear infinite;
   }
   @keyframes orderTruckRoadAnimation {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-25rem); }
+    0% { transform: translateX(0px); }
+    100% { transform: translateX(-350px); }
   }
   #order-wait-panel-truck .order-truck-progress {
-    width: 50vw;
-    max-width: 14.2857rem;
-    margin-left: auto;
-    margin-right: auto;
+    width: min(calc(var(--order-truck-base-width) * var(--order-truck-scale)), 86vw);
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 8px;
     align-items: center;
-    box-sizing: border-box;
   }
   #order-wait-panel-truck .order-truck-progress-label {
-    font-size: clamp(1.28rem, 3.7vw, 1.73712rem);
+    font-size: clamp(28px, 3.7vw, 38px);
     font-weight: 800;
     color: #333;
   }
   #order-wait-panel-truck .order-truck-progress-bar {
     width: 100%;
-    height: 1rem;
+    height: 16px;
     border-radius: 999px;
     background: #e5e7eb;
     overflow: hidden;
@@ -2267,10 +2194,7 @@
   ╠══════════════════════════════════════════════════════════════════════════╣
   ║ HERO／封面          → #hero-banner（右上角：預約、會員、查詢、商家資訊）   ║
   ║ 各種底部抽屜／遮罩   → #store-info-*、#order-lookup-*、會員／預約／活動廣告  ║
-  ║ 主捲動欄            → .ordergit-main-scroll                               ║
-  ║   ├ 分類標籤 fixed   → #sticky-nav（#sticky-nav-placeholder 保留高度）        ║
-  ║   ├ 進頁載入層      → #menu-loading（貨車 #order-wait-panel-truck）       ║
-  ║   └ 菜單內容        → #menu-content（.menu-section / .menu-card）        ║
+  ║ HERO 下為：分類 sticky → menu-loading（全螢幕）→ menu-content（與 order.html 相同層級） ║
   ║ 商品介紹            → #bottom-sheet + #sheet-img-area                      ║
   ║ 購物車抽屜          → #cart-drawer                                         ║
   ║ 底部浮條            → #cart-bar（開啟購物車）                              ║
@@ -2484,10 +2408,7 @@
   </div>
 </div>
 
-<!-- ═══ 主捲動區：分類列 fixed + #sticky-nav-placeholder 保留排版高度 ═══ -->
-<div class="ordergit-main-scroll">
-<!-- ═══ FIXED NAV（占位 + 實際 fixed 列；top 由 _syncStickyNavLayout_ 對齊 Hero）═══ -->
-<div id="sticky-nav-placeholder" aria-hidden="true"></div>
+<!-- ═══ STICKY NAV（與 order.html 同款層級）═══ -->
 <div id="sticky-nav">
   <div id="cat-tabs"></div>
 </div>
@@ -2497,19 +2418,17 @@
   <div id="order-wait-panel-truck" hidden aria-hidden="true">
     <div class="order-wait-title">請稍等</div>
     <div class="order-wait-hint" id="order-wait-hint-truck">資料載入中…</div>
-    <div class="loading-container">
     <div class="loader">
       <div class="truckWrapper">
         <div class="truckBody">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 198 93" class="trucksvg">
-            <!-- 繪製順序：由後往前；車頭燈（黃 rect）必須最後畫才不會被車斗／車體蓋住 -->
-            <rect stroke-width="3" stroke="#282828" fill="#DFDFDF" rx="2.5" height="90" width="121" y="1.5" x="6.5"></rect>
-            <rect stroke-width="2" stroke="#282828" fill="#DFDFDF" rx="2" height="4" width="6" y="84" x="1"></rect>
             <path stroke-width="3" stroke="#282828" fill="#F83D3D" d="M135 22.5H177.264C178.295 22.5 179.22 23.133 179.594 24.0939L192.33 56.8443C192.442 57.1332 192.5 57.4404 192.5 57.7504V89C192.5 90.3807 191.381 91.5 190 91.5H135C133.619 91.5 132.5 90.3807 132.5 89V25C132.5 23.6193 133.619 22.5 135 22.5Z"></path>
             <path stroke-width="3" stroke="#282828" fill="#7D7C7C" d="M146 33.5H181.741C182.779 33.5 183.709 34.1415 184.078 35.112L190.538 52.112C191.16 53.748 189.951 55.5 188.201 55.5H146C144.619 55.5 143.5 54.3807 143.5 53V36C143.5 34.6193 144.619 33.5 146 33.5Z"></path>
             <path stroke-width="2" stroke="#282828" fill="#282828" d="M150 65C150 65.39 149.763 65.8656 149.127 66.2893C148.499 66.7083 147.573 67 146.5 67C145.427 67 144.501 66.7083 143.873 66.2893C143.237 65.8656 143 65.39 143 65C143 64.61 143.237 64.1344 143.873 63.7107C144.501 63.2917 145.427 63 146.5 63C147.573 63 148.499 63.2917 149.127 63.7107C149.763 64.1344 150 64.61 150 65Z"></path>
-            <rect stroke-width="2" stroke="#282828" fill="#282828" rx="1" height="11" width="4" y="81" x="193"></rect>
             <rect stroke-width="2" stroke="#282828" fill="#FFFCAB" rx="1" height="7" width="5" y="63" x="187"></rect>
+            <rect stroke-width="2" stroke="#282828" fill="#282828" rx="1" height="11" width="4" y="81" x="193"></rect>
+            <rect stroke-width="3" stroke="#282828" fill="#DFDFDF" rx="2.5" height="90" width="121" y="1.5" x="6.5"></rect>
+            <rect stroke-width="2" stroke="#282828" fill="#DFDFDF" rx="2" height="4" width="6" y="84" x="1"></rect>
           </svg>
         </div>
         <div class="truckTires">
@@ -2531,7 +2450,6 @@
     <div class="order-truck-progress">
       <div class="order-truck-progress-label" id="order-truck-progress-label">0%</div>
       <div class="order-truck-progress-bar"><div class="order-truck-progress-fill" id="order-truck-progress-fill"></div></div>
-    </div>
     </div>
   </div>
   <div id="order-wait-panel-synth" hidden aria-hidden="true">
@@ -2631,7 +2549,6 @@
 
 <!-- ═══ MENU CONTENT：菜單區塊由 renderMenu() 填入 ═══ -->
 <div id="menu-content" class="pb-safe" style="display:none;"></div>
-</div><!-- /.ordergit-main-scroll -->
 
 <!-- ═══ BOTTOM SHEET OVERLAY ═══ -->
 <div id="sheet-overlay" onclick="closeSheet()"></div>
@@ -2727,7 +2644,7 @@
 
       <!-- 電話（必填）；店內模式由 CSS .cart-order-phone-block 隱藏，改由後端合成電話 -->
       <div class="cart-order-phone-block" style="margin-bottom:16px;">
-        <label style="font-size: 1.8rem;font-weight:700;color:#555;display:block;margin-bottom:8px;">
+        <label style="font-size: 1.2rem;font-weight:700;color:#555;display:block;margin-bottom:8px;">
           聯絡電話 <span style="color:var(--panda);">*必填</span>
         </label>
         <input id="order-phone" type="tel" placeholder="輸入電話號碼" class="form-input"
@@ -2736,7 +2653,7 @@
 
       <!-- 整筆備註 -->
       <div style="margin-bottom:20px;">
-        <label style="font-size: 1.8rem;font-weight:700;color:#555;display:block;margin-bottom:8px;">整筆訂單備註（選填）</label>
+        <label style="font-size: 1.2rem;font-weight:700;color:#555;display:block;margin-bottom:8px;">整筆訂單備註（選填）</label>
         <input id="order-notes" type="text" placeholder="特殊要求..." class="form-input">
       </div>
     </div>
@@ -4810,32 +4727,6 @@ function _cacheScrollRefs() {
   _scrollSections   = Array.from(document.querySelectorAll('[data-section]'));
   _scrollCatTabs    = Array.from(document.querySelectorAll('.cat-tab'));
   _lastActiveCat    = 0;
-  _syncStickyNavLayout_();
-}
-
-/** 分類列 fixed：同步 top（緊貼 Hero 底或捲出後為 0）並補齊占位高度，避免版面塌陷 */
-function _syncStickyNavLayout_() {
-  var nav = document.getElementById('sticky-nav');
-  var ph = document.getElementById('sticky-nav-placeholder');
-  if (!nav || !ph) return;
-  var h = nav.offsetHeight;
-  if (h) ph.style.height = h + 'px';
-  var hero = document.getElementById('hero-banner');
-  if (hero) {
-    var br = hero.getBoundingClientRect();
-    var below = Math.max(0, br.bottom);
-    nav.style.top = below + 'px';
-  } else {
-    nav.style.top = '0px';
-  }
-}
-
-window.addEventListener('resize', function () { _syncStickyNavLayout_(); }, { passive: true });
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', function () { _syncStickyNavLayout_(); }, { once: true });
-} else {
-  try { _syncStickyNavLayout_(); } catch (eNav) {}
 }
 
 window.addEventListener('scroll', () => {
@@ -4859,13 +4750,11 @@ window.addEventListener('scroll', () => {
         _scrollHeroBanner.classList.remove('collapsed');
       }
     }
-    _syncStickyNavLayout_();
 
     // ScrollSpy：用 offsetTop（不觸發 reflow）比對捲動位置
     if (_scrollSections.length > 0 && _scrollCatTabsEl) {
-      var navEl = document.getElementById('sticky-nav');
-      var navBottom = navEl ? navEl.getBoundingClientRect().bottom : (_scrollCatTabsEl.offsetHeight || 48);
-      var threshold = scrollY + navBottom + 16;
+      const catH = _scrollCatTabsEl.offsetHeight;
+      const threshold = scrollY + catH + 16;
       let current = 0;
       _scrollSections.forEach((sec, i) => { if (sec.offsetTop < threshold) current = i; });
       if (current !== _lastActiveCat) {
@@ -5521,8 +5410,8 @@ function scrollToSection(idx) {
     const sec = document.querySelector(`[data-section="${idx}"]`);
   if (sec) {
     const stickyNav = document.getElementById('sticky-nav');
-    const navBottom = stickyNav ? stickyNav.getBoundingClientRect().bottom : 48;
-    const rawOffset = sec.getBoundingClientRect().top + window.scrollY - navBottom - 6;
+    const stickyH = stickyNav ? stickyNav.offsetHeight : 48;
+    const rawOffset = sec.getBoundingClientRect().top + window.scrollY - stickyH - 6;
     // 不捲到頁面絕對底部（留 100px 緩衝，避免 iOS 彈性捲動讓底部元素彈出）
     const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
     const safeOffset = Math.min(Math.max(0, rawOffset), maxScroll - 100);
