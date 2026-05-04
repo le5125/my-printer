@@ -2108,11 +2108,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <div class="order-board-title"><i class="fas fa-search mr-2 text-indigo-600"></i>訂單查詢</div>
           <div class="bg-white border border-gray-200 rounded-lg p-3 mb-3 flex flex-wrap items-end gap-3">
             <div>
-              <label class="block text-xs text-gray-600 mb-1">日期篩選</label>
+              <label class="block text-xs font-semibold mb-1">日期篩選</label>
               <input type="date" id="orders-filter-date" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
             </div>
             <div>
-              <label class="block text-xs text-gray-600 mb-1">搜尋電話</label>
+              <label class="block text-xs font-semibold mb-1">搜尋電話</label>
               <input type="text" id="orders-filter-phone" placeholder="輸入電話" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-[min(100%,220px)]">
             </div>
             <button type="button" id="orders-filter-reset" class="border border-gray-300 bg-white hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-semibold">清除篩選</button>
@@ -2151,11 +2151,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <div id="reservation-board-list-pane" class="flex-grow flex flex-col min-h-0">
             <div class="bg-white border border-gray-200 rounded-lg p-3 mb-3 flex flex-wrap items-end gap-3">
               <div>
-                <label class="block text-xs text-gray-600 mb-1">日期篩選</label>
+                <label class="block text-xs font-semibold mb-1">日期篩選</label>
                 <input type="date" id="reservation-filter-date" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
               </div>
               <div>
-                <label class="block text-xs text-gray-600 mb-1">搜尋電話</label>
+                <label class="block text-xs font-semibold mb-1">搜尋電話</label>
                 <input type="text" id="reservation-filter-phone" placeholder="輸入電話" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
               </div>
               <button type="button" id="reservation-filter-reset" class="border border-gray-300 bg-white hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-semibold">清除篩選</button>
@@ -2191,12 +2191,12 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
             <div class="order-board-title mb-0"><i class="fas fa-qrcode mr-2 text-violet-600"></i>店內用餐</div>
             <div class="flex flex-wrap items-center gap-2 text-sm">
-              <span class="text-gray-600">結帳模式</span>
-              <label class="inline-flex items-center gap-1 bg-white border border-gray-300 rounded-md px-2 py-1.5 cursor-pointer">
+              <span class="font-semibold">結帳模式</span>
+              <label class="inline-flex items-center gap-1 bg-white border font-semibold rounded-md px-2 py-1.5 cursor-pointer">
                 <input type="radio" name="dinein-settle" value="prepay" id="dinein-settle-prepay">
                 <span>先結帳</span>
               </label>
-              <label class="inline-flex items-center gap-1 bg-white border border-gray-300 rounded-md px-2 py-1.5 cursor-pointer">
+              <label class="inline-flex items-center gap-1 bg-white border font-semibold rounded-md px-2 py-1.5 cursor-pointer">
                 <input type="radio" name="dinein-settle" value="postpay" id="dinein-settle-postpay">
                 <span>後結帳</span>
               </label>
@@ -2463,7 +2463,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
         <div class="flex gap-2">
           <button type="button" id="btn-show-points" class="px-4 py-1.5 rounded-md border border-blue-500 text-blue-600 bg-blue-50 font-bold hover:bg-blue-100 transition text-sm">點數設定 💰</button>
-          <button type="button" id="btn-show-redeem" class="px-4 py-1.5 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 transition text-sm font-medium">兌換商品 🎁</button>
+          <button type="button" id="btn-show-redeem" class="px-4 py-1.5 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 transition text-sm font-semibold">兌換商品 🎁</button>
         </div>
       </div>
 
@@ -2568,10 +2568,10 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <input type="checkbox" id="merchant-promo-enable-toggle" class="w-5 h-5 rounded border-gray-300" title="有活動 / 沒活動">
         </div>
         <div class="flex flex-wrap items-center gap-2 text-sm">
-          <label class="flex items-center gap-1 text-gray-600 whitespace-nowrap">開始
+          <label class="flex items-center gap-1 font-semibold whitespace-nowrap">開始
             <input type="date" id="merchant-promo-activity-start" class="rounded border border-gray-300 px-1 py-0.5 text-gray-800">
           </label>
-          <label class="flex items-center gap-1 text-gray-600 whitespace-nowrap">結束
+          <label class="flex items-center gap-1 font-semibold whitespace-nowrap">結束
             <input type="date" id="merchant-promo-activity-end" class="rounded border border-gray-300 px-1 py-0.5 text-gray-800">
           </label>
           <button type="button" id="merchant-promo-activity-image-btn" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-violet-300 text-violet-900 bg-violet-50 text-sm font-bold hover:bg-violet-100 shadow-sm" title="上傳後線上點餐首頁可顯示活動宣傳（僅有圖時顯示視窗）">
