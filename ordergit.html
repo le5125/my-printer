@@ -37,14 +37,13 @@
 
   * { box-sizing: border-box; }
 
+  /* GitHub 流動式：html 14px；字級較 GAS 原版再縮 20%（rem ×0.8）避免預覽倍率異常 */
   html, body {
     font-size: 14px;
     margin: 0;
     padding: 0;
     width: 100%;
     overflow-x: hidden;
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
   }
   html {
     scroll-behavior: smooth;
@@ -56,59 +55,92 @@
     overscroll-behavior-y: none;
   }
 
-  /* 會員輸入／提示：須高於 #menu-loading 全螢幕等待層（1040） */
+  /* 通用容器：寬 90%、上限 360px（內文區置中；全螢幕底層抽屜另於內層約束） */
+  .ordergit-ui-panel-inner {
+    width: 90%;
+    max-width: 360px;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+
   .swal2-container {
     z-index: 12000 !important;
   }
 
-  /* 會員登入（SweetAlert）：限制寬度與 px，避免 GitHub 上看起來過寬（專案無 .modal 類名） */
-  .order-member-swal-popup {
+  /* 所有標示為 .modal-content 的 SweetAlert：與手機彈窗同寬、左右留白 */
+  .swal2-popup.modal-content {
     width: 90% !important;
-    max-width: 320px !important;
+    max-width: 360px !important;
     min-width: unset !important;
-    padding: 20px 16px 22px !important;
+    margin: 20px auto !important;
     box-sizing: border-box !important;
-  }
-  .order-member-swal-popup .swal2-title {
-    font-size: clamp(22px, 5vw, 26px) !important;
-    line-height: 1.35 !important;
-  }
-  .order-member-swal-popup .swal2-html-container {
-    font-size: 22px !important;
-    line-height: 1.45 !important;
-  }
-  .order-member-swal-popup .swal2-input {
-    font-size: 28px !important;
-    line-height: 1.35 !important;
-    padding: 14px 14px !important;
-    min-height: 56px !important;
-    box-sizing: border-box !important;
-    width: 100% !important;
-    margin: 12px auto 0 !important;
-  }
-  .order-member-swal-popup .swal2-actions {
-    margin-top: 16px !important;
-  }
-  .order-member-swal-popup .swal2-styled {
-    font-size: 24px !important;
-    padding: 12px 16px !important;
-    min-height: 48px !important;
   }
 
-  /* 主要按鈕字級 -3px（相對原 52px 設計） */
-  .add-btn,
-  .qty-btn,
-  .add-to-cart-btn,
-  #submit-btn,
-  .submit-price,
-  #resv-drawer button,
-  #resv-drawer .resv-slot-btn {
-    font-size: 49px !important;
+  /* 會員彈窗：SweetAlert 用 .order-member-swal-popup + .modal-content */
+  .order-member-swal-popup.modal-content,
+  .modal-content.order-member-swal-popup,
+  .order-member-swal-popup {
+    width: 90% !important;
+    max-width: 360px !important;
+    min-width: unset !important;
+    margin: 20px auto !important;
+    padding: 1.25rem 1rem 1.5rem !important;
+    box-sizing: border-box !important;
+  }
+  .order-member-swal-popup .swal2-title,
+  .modal-content .swal2-title {
+    font-size: clamp(0.88rem, 4vw, 1.08rem) !important;
+    line-height: 1.35 !important;
+  }
+  .order-member-swal-popup .swal2-html-container,
+  .modal-content .swal2-html-container {
+    font-size: 0.8rem !important;
+    line-height: 1.45 !important;
+  }
+  .order-member-swal-popup .swal2-input,
+  .modal-content .swal2-input {
+    font-size: 0.8rem !important;
+    line-height: 1.35 !important;
+    padding: 0.65rem 0.75rem !important;
+    min-height: 2.75rem !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    margin: 0.65rem auto 0 !important;
+  }
+  .order-member-swal-popup .swal2-actions,
+  .modal-content .swal2-actions {
+    margin-top: 1rem !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    justify-content: center !important;
+  }
+  .order-member-swal-popup .swal2-styled,
+  .modal-content .swal2-styled {
+    font-size: 0.76rem !important;
+    padding: 0.55rem 0.85rem !important;
+    min-height: 2.4rem !important;
+    margin: 0 !important;
+    flex: 1 1 auto !important;
+  }
+
+  /* 購物車／預約抽屜內容區置中並不超過 360px */
+  #cart-drawer .cart-header,
+  #cart-drawer .cart-content-pad,
+  #cart-drawer .sheet-footer,
+  #resv-drawer .resv-d-header,
+  #resv-drawer .resv-d-body {
+    width: 90%;
+    max-width: 360px;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
   }
 
   /* ════ Hero Banner ════ */
   #hero-banner {
-    height: 600px;
+    height: clamp(14.2857rem, 40vh, 42.8571rem);
     background: linear-gradient(135deg, #1a0a10 0%, #3d0622 40%, #D70464 100%);
     position: relative; overflow: hidden;
     transition: height 0.35s cubic-bezier(.4,0,.2,1);
@@ -132,18 +164,18 @@
     background: linear-gradient(to top, rgba(0,0,0,.45) 0%, rgba(0,0,0,.12) 45%, transparent 75%);
   }
   .hero-overlay { position:absolute; inset:0; z-index:2; background:linear-gradient(to top,rgba(0,0,0,.72) 0%,rgba(0,0,0,.1) 60%); }
-  .hero-info { position:absolute; bottom:0; left:0; right:0; z-index:3; padding:20px 24px; transition:opacity .3s; }
+  .hero-info { position:absolute; bottom:0; left:0; right:0; z-index:3; padding:1.4286rem 1.7143rem; transition:opacity .3s; }
   #hero-banner.collapsed .hero-info { opacity:0; pointer-events:none; }
 
   .hero-content-wrapper {
     display:flex;
     align-items:center;
-    gap:20px;
+    gap:1.4286rem;
   }
   .shop-logo-container {
-    width:160px;
-    height:160px;
-    border-radius:16px;
+    width:11.4286rem;
+    height:11.4286rem;
+    border-radius:1.1429rem;
     overflow:hidden;
     border:2px solid rgba(255,255,255,.3);
     flex-shrink:0;
@@ -157,8 +189,7 @@
   }
 
   /*營業中*/
-  .open-badge { display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,.15); color:white; font-size:42px; padding:4px 10px; border-radius:20px; }
-  .dot        { width:30px; height:30px; border-radius:50%; background:#4ade80; display:inline-block; }
+  .open-badge { display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,.15); color:white; font-size: 1.92rem; padding:4px 10px; border-radius:20px; }  .dot        { width:30px; height:30px; border-radius:50%; background:#4ade80; display:inline-block; }
   .dot.closed { background:#ef4444; }
 
   /* ════ Sticky Nav ════ */
@@ -178,8 +209,7 @@
   .cat-tab {
     flex-shrink:0;
     padding:20px 28px;
-    font-size:52px; font-weight:500; color:#666;
-    white-space:nowrap; cursor:pointer;
+    font-size: 2.37712rem; font-weight:500; color:#666;    white-space:nowrap; cursor:pointer;
     transition:color .2s, box-shadow .2s;
     /* 用 inset box-shadow 取代 border-bottom + position:relative/bottom
        完全不影響版面位置，不會造成上下飄移 */
@@ -192,27 +222,19 @@
   .cat-tab:active { transform:scale(.95); }
 
   /* ════ Menu Section ════ */
-  .menu-section { padding:0 16px; }
-  .section-title { font-size:52px; font-weight:900; color:#1a1a1a; padding:28px 0 16px; border-bottom:2px solid #f0f0f0; margin-bottom:20px; }
-  .menu-grid { display:grid; grid-template-columns:1fr; gap:16px; padding-bottom:16px; }
+  .menu-section { padding:0 1.1429rem; }
+  .section-title { font-size: 2.37712rem; font-weight:900; color:#1a1a1a; padding:28px 0 16px; border-bottom:2px solid #f0f0f0; margin-bottom:20px; }  .menu-grid { display:grid; grid-template-columns:1fr; gap:16px; padding-bottom:16px; }
   @media (min-width: 768px) {
     .menu-grid { grid-template-columns:repeat(2,1fr); gap:14px; }
   }
   .menu-card { background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.07); cursor:pointer; transition:transform .2s,box-shadow .2s; position:relative; }
   .menu-card:active { transform:scale(.97); box-shadow:0 1px 4px rgba(0,0,0,.1); }
   .menu-card.sold-out { opacity:.55; pointer-events:none; }
-  .menu-card-img { width:100%; height:400px; object-fit:cover; background:linear-gradient(135deg,#f0f0f0,#e0e0e0); display:block; }
-  @media (min-width: 768px) { .menu-card-img { height:350px; } }
-  .menu-card-no-img { width:100%; height:400px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:52px; text-align:center; padding:8px; word-break:break-word; }
-  .menu-card-body { padding:18px; }
-  .menu-card-name { font-size:52px; font-weight:bold; color:#1a1a1a; line-height:1.2; }
-  .menu-card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:14px; }
-  .menu-card-price { font-size:52px; font-weight:bold; color:var(--panda); display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; }
-  .menu-card-price .mc-price-orig { font-size:44px; font-weight:700; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; }
-  .menu-card-price .mc-price-sale { font-size:52px; font-weight:800; color:#7c3aed; }
-  .sold-out-badge { font-size:52px; font-weight:700; color:#fff; background:#aaa; border-radius:8px; padding:6px 14px; }
-  .add-btn { width:80px; height:80px; border-radius:50%; background:var(--panda); color:white; display:flex; align-items:center; justify-content:center; font-size:52px; font-weight:300; line-height:1; box-shadow:0 3px 10px rgba(215,4,100,.4); transition:transform .15s,box-shadow .15s; flex-shrink:0; }
-  .add-btn:active { transform:scale(.88); box-shadow:0 1px 4px rgba(215,4,100,.3); }
+  .menu-card-img { width:100%; height:min(56vh, 28.5714rem); object-fit:cover; background:linear-gradient(135deg,#f0f0f0,#e0e0e0); display:block; }
+  @media (min-width: 768px) { .menu-card-img { height:min(48vh, 25rem); } }
+  .menu-card-no-img { width:100%; height:min(56vh, 28.5714rem); display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size: 2.37712rem; text-align:center; padding:8px; word-break:break-word; }  .menu-card-body { padding:18px; }
+  .menu-card-name { font-size: 2.37712rem; font-weight:bold; color:#1a1a1a; line-height:1.2; }  .menu-card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:14px; }
+  .menu-card-price { font-size: 2.37712rem; font-weight:bold; color:var(--panda); display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; }  .menu-card-price .mc-price-orig { font-size: 2.01144rem; font-weight:700; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; }  .menu-card-price .mc-price-sale { font-size: 2.37712rem; font-weight:800; color:#7c3aed; }  .sold-out-badge { font-size: 2.37712rem; font-weight:700; color:#fff; background:#aaa; border-radius:8px; padding:6px 14px; }  .add-btn { width:80px; height:80px; border-radius:50%; background:var(--panda); color:white; display:flex; align-items:center; justify-content:center; font-size: 2.37712rem; font-weight:300; line-height:1; box-shadow:0 3px 10px rgba(215,4,100,.4); transition:transform .15s,box-shadow .15s; flex-shrink:0; }  .add-btn:active { transform:scale(.88); box-shadow:0 1px 4px rgba(215,4,100,.3); }
 
   /* ════ Bottom Sheet（商品抽屜）════ */
   #sheet-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100; opacity:0; pointer-events:none; transition:opacity .3s; }
@@ -220,8 +242,8 @@
 
   /* 抽屜本體：幾乎滿版（foodpanda 風格），下滑可關閉 */
   #bottom-sheet {
-    position:fixed; top:44px; bottom:0; left:0; right:0; background:#fff;
-    border-radius:24px 24px 0 0; z-index:101;
+    position:fixed; top:3.1429rem; bottom:0; left:0; right:0; background:#fff;
+    border-radius:1.7143rem 1.7143rem 0 0; z-index:101;
     transform:translateY(100%);
     transition:transform .38s cubic-bezier(.4,0,.2,1);
     display:flex; flex-direction:column;
@@ -243,8 +265,7 @@
   #sheet-img-area .sheet-no-img {
     width:100%; height:100%;
     display:flex; align-items:center; justify-content:center;
-    color:white; font-weight:700; font-size:52px; text-align:center; padding:12px;
-    word-break:break-word;
+    color:white; font-weight:700; font-size: 2.37712rem; text-align:center; padding:12px;    word-break:break-word;
   }
 
   /* 叉叉固定在 #bottom-sheet 左上角（不隨捲動消失） */
@@ -254,8 +275,7 @@
     background:rgba(255,255,255,.88);
     -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
     display:flex; align-items:center; justify-content:center;
-    cursor:pointer; font-size:40px; color:#333; font-weight:400;
-    box-shadow:0 2px 8px rgba(0,0,0,.18);
+    cursor:pointer; font-size: 1.82856rem; color:#333; font-weight:400;    box-shadow:0 2px 8px rgba(0,0,0,.18);
     transition:background .15s; user-select:none; pointer-events:auto;
   }
   .sheet-img-close:active { background:rgba(255,255,255,1); }
@@ -265,7 +285,14 @@
   .sheet-scroll::-webkit-scrollbar { display:none; }
 
   /* 圖片以下內容的 padding 包裝 */
-  .sheet-content-pad { padding:0 20px 20px; }
+  .sheet-content-pad {
+    width: 90%;
+    max-width: 360px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 0 1.4286rem;
+    box-sizing: border-box;
+  }
 
   /* 商品資訊區（名稱 / 描述 / 價格） */
   .sheet-info-block { padding:20px 0 16px; border-bottom:2px solid #f0f0f0; }
@@ -278,36 +305,21 @@
     cursor:pointer; transition:opacity .15s;
   }
   .sheet-cart-hint:active { opacity:.75; }
-  .sheet-cart-hint-left  { font-size:44px; font-weight:700; color:var(--panda); }
-  .sheet-cart-hint-right { font-size:40px; font-weight:700; color:var(--panda); display:flex; align-items:center; gap:4px; white-space:nowrap; }
-  .sheet-item-name  { font-size:52px; font-weight:900; color:#1a1a1a; line-height:1.3; }
-  .sheet-item-desc  { font-size:40px; color:#888; margin-top:10px; line-height:1.5; }
-  .sheet-item-price { font-size:52px; font-weight:900; color:var(--panda); margin-top:12px; display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 12px; }
-  .sheet-item-price .sh-price-orig { font-size:44px; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; font-weight:800; }
-  .sheet-item-price .sh-price-sale { font-size:52px; color:#7c3aed; font-weight:900; }
-
+  .sheet-cart-hint-left  { font-size: 2.01144rem; font-weight:700; color:var(--panda); }  .sheet-cart-hint-right { font-size: 1.82856rem; font-weight:700; color:var(--panda); display:flex; align-items:center; gap:4px; white-space:nowrap; }  .sheet-item-name  { font-size: 2.37712rem; font-weight:900; color:#1a1a1a; line-height:1.3; }  .sheet-item-desc  { font-size: 1.82856rem; color:#888; margin-top:10px; line-height:1.5; }  .sheet-item-price { font-size: 2.37712rem; font-weight:900; color:var(--panda); margin-top:12px; display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 12px; }  .sheet-item-price .sh-price-orig { font-size: 2.01144rem; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; font-weight:800; }  .sheet-item-price .sh-price-sale { font-size: 2.37712rem; color:#7c3aed; font-weight:900; }
   /* 附加選項 */
   .option-group { margin:24px 0; }
-  .option-group-title { font-size:52px; font-weight:700; color:#1a1a1a; display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-  .option-sub { font-size:44px; color:#aaa; margin-bottom:16px; }
-  .option-item { display:flex; align-items:center; justify-content:space-between; padding:24px 0; border-bottom:1px solid #f5f5f5; cursor:pointer; }
+  .option-group-title { font-size: 2.37712rem; font-weight:700; color:#1a1a1a; display:flex; align-items:center; gap:8px; margin-bottom:6px; }  .option-sub { font-size: 2.01144rem; color:#aaa; margin-bottom:16px; }  .option-item { display:flex; align-items:center; justify-content:space-between; padding:24px 0; border-bottom:1px solid #f5f5f5; cursor:pointer; }
   .option-item:active { background:#fafafa; }
-  .option-label { font-size:52px; color:#2a2a2a; }
-  .option-price-tag { font-size:44px; color:#888; margin-right:12px; }
-  .option-checkbox { width:52px; height:52px; border-radius:12px; border:3px solid #ddd; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
+  .option-label { font-size: 2.37712rem; color:#2a2a2a; }  .option-price-tag { font-size: 2.01144rem; color:#888; margin-right:12px; }  .option-checkbox { width:52px; height:52px; border-radius:12px; border:3px solid #ddd; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
   .option-checkbox.checked { border-color:var(--panda); background:var(--panda); }
-  .option-checkbox.checked::after { content:'✓'; color:white; font-size:36px; font-weight:700; }
-
+  .option-checkbox.checked::after { content:'✓'; color:white; font-size: 1.64568rem; font-weight:700; }
   /* 數量控制（商品抽屜） */
   .qty-control { display:flex; align-items:center; border:3px solid var(--panda); border-radius:50px; overflow:hidden; }
-  .qty-btn { width:80px; height:80px; display:flex; align-items:center; justify-content:center; font-size:52px; font-weight:300; color:var(--panda); background:transparent; cursor:pointer; transition:background .15s; }
-  .qty-btn:active { background:var(--panda-light); }
-  .qty-val { font-size:52px; font-weight:700; width:80px; text-align:center; color:#1a1a1a; }
-
+  .qty-btn { width:80px; height:80px; display:flex; align-items:center; justify-content:center; font-size: 2.37712rem; font-weight:300; color:var(--panda); background:transparent; cursor:pointer; transition:background .15s; }  .qty-btn:active { background:var(--panda-light); }
+  .qty-val { font-size: 2.37712rem; font-weight:700; width:80px; text-align:center; color:#1a1a1a; }
   /* 抽屜底部按鈕 */
   .sheet-footer { padding:20px 24px 36px; border-top:1px solid #f0f0f0; background:#fff; flex-shrink:0; }
-  .add-to-cart-btn { width:100%; padding:24px 28px; background:var(--panda); color:white; font-size:52px; font-weight:700; border-radius:50px; cursor:pointer; box-shadow:0 6px 20px rgba(215,4,100,.35); transition:transform .15s,box-shadow .15s; display:flex; align-items:center; justify-content:space-between; }
-  .add-to-cart-btn:active { transform:scale(.97); box-shadow:0 3px 10px rgba(215,4,100,.25); }
+  .add-to-cart-btn { width:100%; padding:24px 28px; background:var(--panda); color:white; font-size: 2.37712rem; font-weight:700; border-radius:50px; cursor:pointer; box-shadow:0 6px 20px rgba(215,4,100,.35); transition:transform .15s,box-shadow .15s; display:flex; align-items:center; justify-content:space-between; }  .add-to-cart-btn:active { transform:scale(.97); box-shadow:0 3px 10px rgba(215,4,100,.25); }
 
   /* ════ 抽屜頂部列（handle + 左上角關閉 X）════ */
   .sheet-topbar {
@@ -320,8 +332,7 @@
     width:68px; height:68px; border-radius:50%;
     background:rgba(0,0,0,.07);
     display:flex; align-items:center; justify-content:center;
-    cursor:pointer; font-size:44px; color:#555; font-weight:300;
-    transition:background .15s; user-select:none; line-height:1;
+    cursor:pointer; font-size: 2.01144rem; color:#555; font-weight:300;    transition:background .15s; user-select:none; line-height:1;
   }
   .drawer-close-btn:active { background:rgba(0,0,0,.14); }
 
@@ -329,7 +340,7 @@
   #cart-drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:110; opacity:0; pointer-events:none; transition:opacity .3s; }
   #cart-drawer-overlay.show { opacity:1; pointer-events:all; }
   #cart-drawer {
-    position:fixed; top:44px; bottom:0; left:0; right:0;
+    position:fixed; top:3.1429rem; bottom:0; left:0; right:0;
     background:#fff; border-radius:24px 24px 0 0; z-index:111;
     transform:translateY(100%);
     transition:transform .38s cubic-bezier(.4,0,.2,1);
@@ -345,8 +356,7 @@
     padding:20px 20px 16px; border-bottom:2px solid #f0f0f0;
     flex-shrink:0;
   }
-  .cart-drawer-title { font-size:52px; font-weight:900; color:#1a1a1a; }
-
+  .cart-drawer-title { font-size: 2.37712rem; font-weight:900; color:#1a1a1a; }
   /* 購物車單一捲動區 */
   .cart-scroll { overflow-y:auto; flex:1; padding:0; -webkit-overflow-scrolling:touch; }
   .cart-scroll::-webkit-scrollbar { display:none; }
@@ -355,42 +365,28 @@
   /* 購物車品項列（名稱+垃圾桶 一排 / 數量+價錢 一排）*/
   .cart-item-row { padding:20px 0; border-bottom:1px solid #f0f0f0; }
   .cart-item-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .cart-item-name  { font-size:52px; font-weight:700; color:#1a1a1a; flex:1; }
-  .cart-item-opts  { font-size:44px; color:#888; margin-top:6px; line-height:1.5; }
-  .cart-item-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:14px; }
-  .cart-item-price { font-size:52px; font-weight:700; color:var(--panda); display:flex; align-items:baseline; flex-wrap:wrap; justify-content:flex-end; gap:6px 12px; text-align:right; }
-  .cart-item-price .cart-price-orig { font-size:40px; font-weight:700; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; }
-  .cart-item-price .cart-price-sale { color:#7c3aed; }
+  .cart-item-name  { font-size: 2.37712rem; font-weight:700; color:#1a1a1a; flex:1; }  .cart-item-opts  { font-size: 2.01144rem; color:#888; margin-top:6px; line-height:1.5; }  .cart-item-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:14px; }
+  .cart-item-price { font-size: 2.37712rem; font-weight:700; color:var(--panda); display:flex; align-items:baseline; flex-wrap:wrap; justify-content:flex-end; gap:6px 12px; text-align:right; }  .cart-item-price .cart-price-orig { font-size: 1.82856rem; font-weight:700; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; }  .cart-item-price .cart-price-sale { color:#7c3aed; }
   .cart-promo-gift-row { padding:20px 0; border-bottom:1px solid #ede9fe; background:linear-gradient(90deg, rgba(245,243,255,.6) 0%, transparent 100%); }
   .cart-promo-gift-inner { display:flex; align-items:flex-start; gap:14px; padding:12px 16px; border-radius:16px; border:2px solid #ddd6fe; }
-  .cart-promo-gift-icon { flex-shrink:0; width:56px; text-align:center; font-size:44px; color:#7c3aed; }
-  .cart-promo-gift-title { font-size:44px; font-weight:800; color:#4c1d95; flex:1; min-width:0; }
-  .cart-promo-gift-qty { font-size:40px; font-weight:800; color:#5b21b6; flex-shrink:0; }
-  .cart-promo-gift-note { font-size:32px; color:#7c3aed; margin-top:6px; font-weight:600; }
-  .cart-promo-footer { text-align:center; font-size:36px; font-weight:800; color:#5b21b6; margin-top:20px; padding-top:16px; border-top:2px solid #ede9fe; }
-
+  .cart-promo-gift-icon { flex-shrink:0; width:56px; text-align:center; font-size: 2.01144rem; color:#7c3aed; }  .cart-promo-gift-title { font-size: 2.01144rem; font-weight:800; color:#4c1d95; flex:1; min-width:0; }  .cart-promo-gift-qty { font-size: 1.82856rem; font-weight:800; color:#5b21b6; flex-shrink:0; }  .cart-promo-gift-note { font-size: 1.46288rem; color:#7c3aed; margin-top:6px; font-weight:600; }  .cart-promo-footer { text-align:center; font-size: 1.64568rem; font-weight:800; color:#5b21b6; margin-top:20px; padding-top:16px; border-top:2px solid #ede9fe; }
   .cart-point-discount-block {
     margin-top: 16px; padding: 18px 16px;
     background: #fff9fb; border: 2px solid #fce4ef; border-radius: 16px;
   }
-  .cart-point-discount-block .cpd-label { font-size: 40px; font-weight: 700; color: #555; display: block; margin-bottom: 10px; }
-  #cart-point-discount-input {
-    width: 100%; font-size: 44px; font-weight: 700; padding: 14px 16px;
-    border: 2px solid #ddd; border-radius: 12px; box-sizing: border-box;
+  .cart-point-discount-block .cpd-label { font-size: 1.82856rem; font-weight: 700; color: #555; display: block; margin-bottom: 10px; }  #cart-point-discount-input {
+    width: 100%; font-size: 2.01144rem; font-weight: 700; padding: 14px 16px;    border: 2px solid #ddd; border-radius: 12px; box-sizing: border-box;
   }
-  .cart-point-discount-hint { font-size: 32px; color: #666; margin-top: 10px; line-height: 1.45; }
-
+  .cart-point-discount-hint { font-size: 1.46288rem; color: #666; margin-top: 10px; line-height: 1.45; }
   /* 購物車內數量控制器 */
   .cart-qty-ctrl { display:flex; align-items:center; gap:0; border:3px solid var(--panda); border-radius:50px; overflow:hidden; }
   .cart-qty-btn {
     width:72px; height:72px;
     display:flex; align-items:center; justify-content:center;
-    font-size:52px; font-weight:300; color:var(--panda);
-    background:transparent; cursor:pointer; transition:background .15s;
+    font-size: 2.37712rem; font-weight:300; color:var(--panda);    background:transparent; cursor:pointer; transition:background .15s;
   }
   .cart-qty-btn:active { background:var(--panda-light); }
-  .cart-qty-num { font-size:44px; font-weight:700; width:64px; text-align:center; color:#1a1a1a; }
-
+  .cart-qty-num { font-size: 2.01144rem; font-weight:700; width:64px; text-align:center; color:#1a1a1a; }
   /* 垃圾桶刪除按鈕 */
   .cart-item-trash {
     width:72px; height:72px; border-radius:50%;
@@ -407,30 +403,23 @@
     padding:24px 20px; margin-bottom:16px;
     display:flex; align-items:center; justify-content:space-between;
   }
-  .pickup-time-label { font-size:44px; font-weight:700; color:#1a1a1a; }
-  .pickup-time-selects { display:flex; align-items:center; gap:8px; }
+  .pickup-time-label { font-size: 2.01144rem; font-weight:700; color:#1a1a1a; }  .pickup-time-selects { display:flex; align-items:center; gap:8px; }
   .time-select {
     appearance:none; -webkit-appearance:none;
     border:3px solid var(--panda); border-radius:12px;
-    padding:10px 16px; font-size:52px; font-weight:700;
-    color:#1a1a1a; background:#fff; font-family:inherit;
+    padding:10px 16px; font-size: 2.37712rem; font-weight:700;    color:#1a1a1a; background:#fff; font-family:inherit;
     cursor:pointer; text-align:center; outline:none;
     min-width:100px;
   }
-  .time-colon { font-size:52px; font-weight:900; color:var(--panda); padding:0 4px; }
-
+  .time-colon { font-size: 2.37712rem; font-weight:900; color:var(--panda); padding:0 4px; }
   /* ════ 懸浮購物車條 ════ */
-  #cart-bar { position:fixed; bottom:20px; left:16px; right:16px; background:var(--panda); border-radius:18px; padding:20px 24px; min-height:100px; z-index:90; display:flex; align-items:center; justify-content:space-between; box-shadow:0 8px 32px rgba(215,4,100,.42); cursor:pointer; transform:translateY(120px); opacity:0; transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s; }
+  #cart-bar { position:fixed; bottom:1.4286rem; left:1.1429rem; right:1.1429rem; background:var(--panda); border-radius:1.2857rem; padding:1.4286rem 1.7143rem; min-height:7.1429rem; z-index:90; display:flex; align-items:center; justify-content:space-between; box-shadow:0 8px 32px rgba(215,4,100,.42); cursor:pointer; transform:translateY(120px); opacity:0; transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s; }
   #cart-bar.show   { transform:translateY(0); opacity:1; }
   #cart-bar.bounce { animation:cartBounce .4s cubic-bezier(.34,1.56,.64,1); }
   @keyframes cartBounce { 0%{transform:scale(1)} 40%{transform:scale(1.05)} 70%{transform:scale(.97)} 100%{transform:scale(1)} }
-  .cart-badge { background:rgba(255,255,255,.25); color:white; font-size:52px; font-weight:700; width:72px; height:72px; border-radius:12px; display:flex; align-items:center; justify-content:center; }
-  .cart-total-text { font-size:52px; font-weight:900; color:white; }
-  .cart-action { font-size:52px; font-weight:700; color:rgba(255,255,255,.92); display:flex; align-items:center; gap:4px; }
-
+  .cart-badge { background:rgba(255,255,255,.25); color:white; font-size: 2.37712rem; font-weight:700; width:72px; height:72px; border-radius:12px; display:flex; align-items:center; justify-content:center; }  .cart-total-text { font-size: 2.37712rem; font-weight:900; color:white; }  .cart-action { font-size: 2.37712rem; font-weight:700; color:rgba(255,255,255,.92); display:flex; align-items:center; gap:4px; }
   /* ════ Toast ════ */
-  #toast { position:fixed; top:80px; left:50%; transform:translateX(-50%) translateY(-20px); background:#1a1a1a; color:white; padding:12px 24px; border-radius:50px; font-size:44px; font-weight:500; opacity:0; pointer-events:none; transition:all .3s; z-index:200; white-space:nowrap; }
-  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast { position:fixed; top:80px; left:50%; transform:translateX(-50%) translateY(-20px); background:#1a1a1a; color:white; padding:12px 24px; border-radius:50px; font-size: 2.01144rem; font-weight:500; opacity:0; pointer-events:none; transition:all .3s; z-index:200; white-space:nowrap; }  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
   /* 金鑰比對失敗等：蓋住整頁，只顯示「系統維修中」 */
   #order-public-maintenance-layer {
@@ -455,17 +444,15 @@
     background: transparent;
   }
   #menu-loading .order-wait-title {
-    font-size: clamp(40px, 5.5vw, 56px);
-    font-weight: 900;
+    font-size: clamp(1.82856rem, 5.5vw, 2.56rem);    font-weight: 900;
     color: rgba(55, 40, 28, 0.92);
     letter-spacing: 0.06em;
   }
   #menu-loading .order-wait-hint {
-    font-size: clamp(28px, 3.8vw, 40px);
-    font-weight: 700;
+    font-size: clamp(1.28rem, 3.8vw, 1.82856rem);    font-weight: 700;
     color: rgba(55, 40, 28, 0.58);
     text-align: center;
-    max-width: min(560px, 92vw);
+    max-width: min(40rem, 92vw);
     line-height: 1.45;
     margin-top: -8px;
   }
@@ -477,8 +464,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 20px;
-    padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
+    gap: 1.4286rem;
+    padding: calc(1.7143rem + env(safe-area-inset-top, 0px)) 1.7143rem calc(1.7143rem + env(safe-area-inset-bottom, 0px));
     overflow: hidden;
     z-index: 2;
     display: none;
@@ -495,41 +482,62 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 100px;  /*卡車和進度條距離.越大越遠*/
-    padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
-    overflow: hidden;
+    gap: 1.25rem;
+    padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 5% calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    overflow-x: hidden;
+    overflow-y: auto;
     z-index: 3;
     background: #f6f7fb;
-    --order-truck-scale: 1.5;  /* 原 3；GitHub 版視覺縮約 50% 以對齊 GAS（.loading-container 不存在，此為載入貨車區） */
-    --order-truck-base-width: 200px;
   }
   #order-wait-panel-truck.order-wait-truck--on {
     display: flex;
   }
+  /* 貨車載入：外層置中；貨車視覺寬 50vw、上限 200px（規格） */
+  #order-wait-panel-truck .loading-container {
+    width: 90%;
+    max-width: 360px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    box-sizing: border-box;
+  }
   #order-wait-panel-truck .loader {
-    width: fit-content;
-    height: fit-content;
+    width: 50vw;
+    max-width: 200px;
+    margin-left: auto;
+    margin-right: auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    transform: scale(var(--order-truck-scale));
-    transform-origin: center center;
+    overflow: hidden;
+    flex-shrink: 0;
   }
   #order-wait-panel-truck .truckWrapper {
-    width: 200px;
-    height: 100px;
+    width: 100%;
+    position: relative;
     display: flex;
     flex-direction: column;
-    position: relative;
     align-items: center;
     justify-content: flex-end;
-    overflow-x: hidden;
+    overflow: hidden;
+    min-height: 5rem;
   }
   #order-wait-panel-truck .truckBody {
-    width: 130px;
+    width: 100%;
+    max-width: 100%;
     height: fit-content;
-    margin-bottom: 6px;
+    margin-bottom: 0.375rem;
+    position: relative;
+    z-index: 1;
     animation: orderTruckMotion 1s linear infinite;
+  }
+  #order-wait-panel-truck .truckBody .trucksvg {
+    width: 100%;
+    height: auto;
+    display: block;
   }
   @keyframes orderTruckMotion {
     0% { transform: translateY(0px); }
@@ -537,54 +545,66 @@
     100% { transform: translateY(0px); }
   }
   #order-wait-panel-truck .truckTires {
-    width: 130px;
+    width: 100%;
+    max-width: 100%;
     height: fit-content;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 10px 0 15px;
+    padding: 0 4% 0 6%;
+    box-sizing: border-box;
     position: absolute;
-    bottom: 0;
+    left: 50%;
+    bottom: 0.1rem;
+    transform: translateX(-50%);
+    z-index: 2;
   }
   #order-wait-panel-truck .truckTires svg {
-    width: 24px;
+    width: 18%;
+    max-width: 1.25rem;
+    height: auto;
   }
   #order-wait-panel-truck .road {
     width: 100%;
-    height: 1.5px;
+    height: 0.1rem;
+    min-height: 1.5px;
     background-color: #282828;
     position: relative;
-    bottom: 0;
-    align-self: flex-end;
+    align-self: stretch;
     border-radius: 3px;
+    margin-top: 0.15rem;
   }
   #order-wait-panel-truck .road::before {
     content: "";
     position: absolute;
-    width: 20px;
+    width: 12.5%;
+    min-width: 12px;
     height: 100%;
     background-color: #282828;
     right: -50%;
     border-radius: 3px;
     animation: orderTruckRoadAnimation 1.4s linear infinite;
-    border-left: 10px solid white;
+    border-left: 0.4rem solid white;
   }
   #order-wait-panel-truck .road::after {
     content: "";
     position: absolute;
-    width: 10px;
+    width: 6.25%;
+    min-width: 8px;
     height: 100%;
     background-color: #282828;
     right: -65%;
     border-radius: 3px;
     animation: orderTruckRoadAnimation 1.4s linear infinite;
-    border-left: 4px solid white;
+    border-left: 0.2rem solid white;
   }
   #order-wait-panel-truck .lampPost {
     position: absolute;
     bottom: 0;
-    right: -90%;
-    height: 90px;
+    right: -55%;
+    height: min(5.5rem, 90%);
+    width: auto;
+    max-width: 35%;
     animation: orderTruckRoadAnimation 1.4s linear infinite;
   }
   @keyframes orderTruckRoadAnimation {
@@ -592,20 +612,23 @@
     100% { transform: translateX(-350px); }
   }
   #order-wait-panel-truck .order-truck-progress {
-    width: min(calc(var(--order-truck-base-width) * var(--order-truck-scale)), 86vw);
+    width: 50vw;
+    max-width: 200px;
+    margin-left: auto;
+    margin-right: auto;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.5rem;
     align-items: center;
+    box-sizing: border-box;
   }
   #order-wait-panel-truck .order-truck-progress-label {
-    font-size: clamp(28px, 3.7vw, 38px);
-    font-weight: 800;
+    font-size: clamp(1.28rem, 3.7vw, 1.73712rem);    font-weight: 800;
     color: #333;
   }
   #order-wait-panel-truck .order-truck-progress-bar {
     width: 100%;
-    height: 16px;
+    height: 1rem;
     border-radius: 999px;
     background: #e5e7eb;
     overflow: hidden;
@@ -620,12 +643,11 @@
 
 #order-wait-panel-synth .order-synth-stack > .order-wait-title,
 #order-wait-panel-synth .order-wait-hint--synth {
-  transform: translateY(-650px);   /*請稍等.會員登入中*/
+  transform: translateY(-46.4286rem);   /*請稍等.會員登入中*/
 }
 
   /* ════ 表單輸入框 ════ */
-  .form-input { width:100%; border:2px solid #e0e0e0; border-radius:12px; padding:16px; font-size:52px; font-family:inherit; outline:none; transition:border-color .2s; background:#fafafa; }
-  .form-input:focus { border-color:var(--panda); background:#fff; }
+  .form-input { width:100%; border:2px solid #e0e0e0; border-radius:12px; padding:16px; font-size: 2.37712rem; font-family:inherit; outline:none; transition:border-color .2s; background:#fafafa; }  .form-input:focus { border-color:var(--panda); background:#fff; }
   .form-input.error { border-color:#ef4444; background:#fff5f5; }
   #order-phone.order-phone-locked {
     background:#ecfdf5;
@@ -634,23 +656,18 @@
   }
 
   /* ════ 送出訂單按鈕 ════ */
-  #submit-btn { width:100%; padding:24px 28px; border-radius:50px; font-size:52px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:12px; transition:all .2s; background:var(--panda); color:white; box-shadow:0 6px 20px rgba(215,4,100,.35); }
-  #submit-btn:active  { transform:scale(.97); }
+  #submit-btn { width:100%; padding:24px 28px; border-radius:50px; font-size: 2.37712rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:12px; transition:all .2s; background:var(--panda); color:white; box-shadow:0 6px 20px rgba(215,4,100,.35); }  #submit-btn:active  { transform:scale(.97); }
   #submit-btn.loading { background:#aaa; pointer-events:none; }
   #submit-btn.success { background:#22c55e; pointer-events:none; }
   .submit-right { display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
-  .submit-qty  { font-size:36px; font-weight:500; opacity:.85; }
-  .submit-price { font-size:52px; font-weight:900; }
-
-  .order-dinein-prepay-swal .swal2-title { font-size:52px !important; font-weight:900 !important; color:#1a1a1a !important; }
-  .order-dinein-prepay-swal .swal2-confirm.order-dinein-prepay-swal-btn { font-size:44px !important; font-weight:800 !important; padding:18px 40px !important; border-radius:16px !important; }
-
+  .submit-qty  { font-size: 1.64568rem; font-weight:500; opacity:.85; }  .submit-price { font-size: 2.37712rem; font-weight:900; }
+  .order-dinein-prepay-swal .swal2-title { font-size: 2.37712rem !important; font-weight:900 !important; color:#1a1a1a !important; }  .order-dinein-prepay-swal .swal2-confirm.order-dinein-prepay-swal-btn { font-size: 2.01144rem !important; font-weight:800 !important; padding:18px 40px !important; border-radius:16px !important; }
   /* ════ 公休遮罩 ════ */
   #closed-overlay { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.88); display:none; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px; }
   #closed-overlay.show { display:flex; }
 
   /* pb-safe 要夠大，確保最後一個分類的商品捲到頂後下方仍有空間，避免 iOS 彈性超卷 */
-  .pb-safe { padding-bottom:600px; }
+  .pb-safe { padding-bottom:42.8571rem; }
 
   /* ════ 封面右上角圖示按鈕（共用樣式） ════ */
   .hero-icon-btn {
@@ -678,13 +695,11 @@
   body.order-dine-in-mode .pickup-time-area,
   body.order-dine-in-mode .cart-order-phone-block { display:none !important; }
   #cart-dinein-table-pill {
-    font-size: 40px; font-weight: 900; color: var(--panda); white-space: nowrap;
-    padding: 8px 20px; border-radius: 999px; background: var(--panda-light);
+    font-size: 1.82856rem; font-weight: 900; color: var(--panda); white-space: nowrap;    padding: 8px 20px; border-radius: 999px; background: var(--panda-light);
     border: 2px solid rgba(215, 4, 100, 0.28); flex-shrink: 0;
   }
   #cart-bar-dinein-pill {
-    font-size: 30px; font-weight: 900; color: var(--panda); white-space: nowrap;
-    padding: 4px 14px; border-radius: 999px; background: rgba(252, 228, 239, 0.95);
+    font-size: 1.37144rem; font-weight: 900; color: var(--panda); white-space: nowrap;    padding: 4px 14px; border-radius: 999px; background: rgba(252, 228, 239, 0.95);
     border: 2px solid rgba(215, 4, 100, 0.25); display: none;
   }
   body.order-dine-in-mode #cart-bar .cart-inner-row #cart-bar-dinein-pill { display: inline-block !important; }
@@ -701,7 +716,7 @@
   }
   #member-guide-overlay.show { opacity:1; pointer-events:all; }
   #member-guide-sheet {
-    position:fixed; top:44px; bottom:0; left:0; right:0;
+    position:fixed; top:3.1429rem; bottom:0; left:0; right:0;
     background:#fff; border-radius:24px 24px 0 0; z-index:128;
     transform:translateY(100%);
     transition:transform .38s cubic-bezier(.4,0,.2,1);
@@ -710,9 +725,7 @@
     overflow:hidden; will-change:transform;
   }
   #member-guide-sheet.show { transform:translateY(0); }
-  .order-guide-line { font-size:34px; color:#334155; line-height:1.55; margin:0 0 14px; padding-left:1.1em; text-indent:-1.1em; }
-  .order-guide-h2 { font-size:40px; font-weight:900; color:#0f172a; margin:28px 0 12px; }
-  #merchant-promo-ad-overlay {
+  .order-guide-line { font-size: 1.55432rem; color:#334155; line-height:1.55; margin:0 0 14px; padding-left:1.1em; text-indent:-1.1em; }  .order-guide-h2 { font-size: 1.82856rem; font-weight:900; color:#0f172a; margin:28px 0 12px; }  #merchant-promo-ad-overlay {
     position:fixed; inset:0; background:rgba(0,0,0,.42); z-index:1055;
     opacity:0; pointer-events:none; transition:opacity .3s;
     backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
@@ -731,8 +744,7 @@
   #merchant-promo-ad-sheet.show { transform:translateY(0); }
   #merchant-promo-ad-sheet.order-promo-ad-loading { background: rgba(255,255,255,.96); }
   .order-promo-ad-loading-hint {
-    font-size: 40px; font-weight: 800; color: #64748b; text-align: center;
-    padding: 48px 24px 36px; margin: 0;
+    font-size: 1.82856rem; font-weight: 800; color: #64748b; text-align: center;    padding: 48px 24px 36px; margin: 0;
   }
   .order-promo-ad-loading .order-promo-ad-loading-spinner {
     width: 64px; height: 64px; margin: 0 auto 32px;
@@ -745,8 +757,7 @@
   .merchant-promo-ad-close {
     position:absolute; top:12px; right:12px; z-index:10;
     width:72px; height:72px; border-radius:50%; border:none;
-    background:rgba(255,255,255,.92); color:#1e293b; font-size:40px; font-weight:800;
-    box-shadow:0 2px 12px rgba(0,0,0,.12); cursor:pointer; line-height:1;
+    background:rgba(255,255,255,.92); color:#1e293b; font-size: 1.82856rem; font-weight:800;    box-shadow:0 2px 12px rgba(0,0,0,.12); cursor:pointer; line-height:1;
   }
   /* 預約抽屜：由下往上滑、整版寬度、字體與購物車一致（消費者使用體感優先） */
   #resv-drawer {
@@ -773,10 +784,8 @@
     display:flex; align-items:center; justify-content:space-between;
     padding:6px 22px 14px; border-bottom:1px solid #e5e7eb;
   }
-  #resv-drawer .resv-d-title { font-size:52px; font-weight:900; color:#0f172a; }
-  #resv-drawer .resv-d-close {
-    font-size:52px; background:none; border:none; color:#6b7280; cursor:pointer; line-height:1; padding:6px 14px;
-  }
+  #resv-drawer .resv-d-title { font-size: 2.37712rem; font-weight:900; color:#0f172a; }  #resv-drawer .resv-d-close {
+    font-size: 2.37712rem; background:none; border:none; color:#6b7280; cursor:pointer; line-height:1; padding:6px 14px;  }
   /* 主要 scroll 區域：整個 body 可垂直滑動，且支援頂端往下拖曳關閉 */
   #resv-drawer .resv-d-body {
     flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
@@ -785,11 +794,9 @@
   /* 每個欄位卡 full width；日期與人數改上下排列，不靠雙欄黏在一起 */
   #resv-drawer .resv-field { margin-top:26px; }
   #resv-drawer .resv-field:first-of-type { margin-top:0; }
-  #resv-drawer label { font-size:52px; font-weight:900; color:#1f2937; display:block; margin-bottom:12px; }
-  #resv-drawer input, #resv-drawer textarea {
+  #resv-drawer label { font-size: 2.37712rem; font-weight:900; color:#1f2937; display:block; margin-bottom:12px; }  #resv-drawer input, #resv-drawer textarea {
     width:100%; padding:22px 20px; border:2px solid #cbd5e1; border-radius:16px;
-    font-size:52px; font-weight:800; color:#0f172a; background:#fff; line-height:1.25;
-    min-height:1.35em;
+    font-size: 2.37712rem; font-weight:800; color:#0f172a; background:#fff; line-height:1.25;    min-height:1.35em;
   }
   #resv-drawer input:focus, #resv-drawer textarea:focus {
     outline:none; border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.2);
@@ -810,9 +817,7 @@
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
     min-height:120px;
   }
-  #resv-drawer .resv-slot-btn .resv-slot-time { font-size:52px; font-weight:900; line-height:1.1; }
-  #resv-drawer .resv-slot-btn .resv-slot-tag { font-size:36px; font-weight:800; line-height:1.1; }
-  #resv-drawer .resv-slot-ok { background:#dcfce7; color:#065f46; border-color:#86efac; }
+  #resv-drawer .resv-slot-btn .resv-slot-time { font-size: 2.37712rem; font-weight:900; line-height:1.1; }  #resv-drawer .resv-slot-btn .resv-slot-tag { font-size: 1.64568rem; font-weight:800; line-height:1.1; }  #resv-drawer .resv-slot-ok { background:#dcfce7; color:#065f46; border-color:#86efac; }
   #resv-drawer .resv-slot-warn { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
   #resv-drawer .resv-slot-full { background:#e5e7eb; color:#94a3b8; border-color:#d1d5db; cursor:not-allowed; opacity:.9; }
   #resv-drawer .resv-slot-selected {
@@ -822,13 +827,11 @@
   }
   #resv-drawer .resv-cap-strip {
     margin-top:26px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px 18px;
-    font-size:52px; font-weight:900; color:#334155;
-  }
+    font-size: 2.37712rem; font-weight:900; color:#334155;  }
   #resv-drawer .resv-cap-strip .resv-cap-warn { color:#b91c1c; }
   #resv-drawer-submit {
     margin-top:26px; width:100%; padding:22px 24px; background:#2563eb; color:#fff;
-    border:none; border-radius:20px; font-size:52px; font-weight:900; cursor:pointer;
-    box-shadow:0 10px 22px rgba(37,99,235,.34); letter-spacing:.5px;
+    border:none; border-radius:20px; font-size: 2.37712rem; font-weight:900; cursor:pointer;    box-shadow:0 10px 22px rgba(37,99,235,.34); letter-spacing:.5px;
   }
   #resv-drawer-submit:disabled { opacity:.6; cursor:not-allowed; }
   #resv-drawer-submit.loading { background:#94a3b8; box-shadow:none; pointer-events:none; }
@@ -842,7 +845,7 @@
   #member-corner-overlay.show { opacity:1; pointer-events:all; }
 
   #member-corner-sheet {
-    position:fixed; top:44px; bottom:0; left:0; right:0;
+    position:fixed; top:3.1429rem; bottom:0; left:0; right:0;
     background:#fff; border-radius:24px 24px 0 0; z-index:126;
     transform:translateY(100%);
     transition:transform .38s cubic-bezier(.4,0,.2,1);
@@ -856,39 +859,29 @@
   .member-corner-pad { padding:8px 24px 48px; }
 
   .member-block { margin-bottom:32px; }
-  .member-block-title { font-size:40px; font-weight:800; color:#1a1a1a; margin:0 0 16px; }
-  .member-points-row { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; }
-  .member-points-val { font-size:72px; font-weight:900; color:var(--panda); }
-  .member-points-label { font-size:36px; color:#888; }
-  .member-meta { font-size:36px; color:#555; line-height:1.5; }
-  .member-redeem-card {
+  .member-block-title { font-size: 1.82856rem; font-weight:800; color:#1a1a1a; margin:0 0 16px; }  .member-points-row { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; }
+  .member-points-val { font-size: 3.29144rem; font-weight:900; color:var(--panda); }  .member-points-label { font-size: 1.64568rem; color:#888; }  .member-meta { font-size: 1.64568rem; color:#555; line-height:1.5; }  .member-redeem-card {
     background:#fafafa; border:2px solid #f0f0f0; border-radius:16px;
     padding:20px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;
   }
-  .member-redeem-name { font-size:40px; font-weight:700; color:#1a1a1a; word-break:break-word; }
-  .member-redeem-pts { font-size:36px; font-weight:800; color:#d97706; white-space:nowrap; }
-  .member-hist-row {
-    padding:16px 0; border-bottom:1px solid #f0f0f0; font-size:34px; color:#333;
-  }
-  .member-hist-time { font-size:30px; color:#999; margin-bottom:6px; }
-  .member-hist-delta { font-weight:800; color:var(--panda); }
+  .member-redeem-name { font-size: 1.82856rem; font-weight:700; color:#1a1a1a; word-break:break-word; }  .member-redeem-pts { font-size: 1.64568rem; font-weight:800; color:#d97706; white-space:nowrap; }  .member-hist-row {
+    padding:16px 0; border-bottom:1px solid #f0f0f0; font-size: 1.55432rem; color:#333;  }
+  .member-hist-time { font-size: 1.37144rem; color:#999; margin-bottom:6px; }  .member-hist-delta { font-weight:800; color:var(--panda); }
 
   .member-nav-row {
     width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px;
     padding:28px 24px; margin-bottom:16px; border:2px solid #eee; border-radius:20px;
-    background:#fff; font-size:40px; font-weight:700; color:#1a1a1a; cursor:pointer;
-    text-align:left; -webkit-tap-highlight-color:transparent;
+    background:#fff; font-size: 1.82856rem; font-weight:700; color:#1a1a1a; cursor:pointer;    text-align:left; -webkit-tap-highlight-color:transparent;
   }
   .member-nav-row:active { background:#f7f7f7; }
-  .member-nav-row span { font-size:44px; color:#bbb; font-weight:400; }
-
+  .member-nav-row span { font-size: 2.01144rem; color:#bbb; font-weight:400; }
   .member-sub-overlay {
     position:fixed; inset:0; z-index:135; background:rgba(0,0,0,.45);
     opacity:0; pointer-events:none; transition:opacity .25s;
   }
   .member-sub-overlay.show { opacity:1; pointer-events:all; }
   .member-sub-sheet {
-    position:fixed; top:44px; bottom:0; left:0; right:0; z-index:136;
+    position:fixed; top:3.1429rem; bottom:0; left:0; right:0; z-index:136;
     background:#fff; border-radius:24px 24px 0 0;
     transform:translateY(100%);
     transition:transform .35s cubic-bezier(.4,0,.2,1);
@@ -902,11 +895,9 @@
     border-bottom:2px solid #f0f0f0; margin-bottom:16px;
   }
   .member-hist-toolbar input[type="date"] {
-    font-size:32px; padding:10px 14px; border:2px solid #ddd; border-radius:12px; background:#fafafa;
-  }
+    font-size: 1.46288rem; padding:10px 14px; border:2px solid #ddd; border-radius:12px; background:#fafafa;  }
   .member-hist-chip {
-    font-size:30px; font-weight:700; padding:12px 20px; border-radius:999px; border:2px solid var(--panda);
-    background:#fff; color:var(--panda); cursor:pointer;
+    font-size: 1.37144rem; font-weight:700; padding:12px 20px; border-radius:999px; border:2px solid var(--panda);    background:#fff; color:var(--panda); cursor:pointer;
   }
   .member-hist-chip:active { background:#fff0f5; }
 
@@ -918,7 +909,7 @@
   #store-info-overlay.show { opacity:1; pointer-events:all; }
 
   #store-info-sheet {
-    position:fixed; top:44px; bottom:0; left:0; right:0;
+    position:fixed; top:3.1429rem; bottom:0; left:0; right:0;
     background:#fff; border-radius:24px 24px 0 0; z-index:111;
     transform:translateY(100%);
     transition:transform .38s cubic-bezier(.4,0,.2,1);
@@ -935,8 +926,7 @@
     width:100%; margin:12px 0 24px; padding:28px 24px; border-radius:18px; cursor:pointer;
     border:2px solid rgba(215,4,100,.35);
     background:linear-gradient(135deg,#fff5f9 0%,#ffe8f0 100%);
-    color:var(--panda); font-size:48px; font-weight:900; text-align:center;
-    box-shadow:0 4px 16px rgba(215,4,100,.12);
+    color:var(--panda); font-size: 2.19432rem; font-weight:900; text-align:center;    box-shadow:0 4px 16px rgba(215,4,100,.12);
   }
   .si-store-promo-btn:active { opacity:.92; }
 
@@ -946,11 +936,8 @@
     padding:24px 0; border-bottom:1px solid #f2f2f2;
   }
   .si-row:last-child { border-bottom:none; }
-  .si-icon { font-size:48px; flex-shrink:0; width:56px; text-align:center; padding-top:2px; }
-  .si-body { flex:1; min-width:0; }
-  .si-label { font-size:36px; color:#aaa; margin-bottom:6px; font-weight:500; }
-  .si-value { font-size:44px; color:#1a1a1a; line-height:1.55; font-weight:500; word-break:break-all; }
-  .si-value a { color:var(--panda); text-decoration:none; }
+  .si-icon { font-size: 2.19432rem; flex-shrink:0; width:56px; text-align:center; padding-top:2px; }  .si-body { flex:1; min-width:0; }
+  .si-label { font-size: 1.64568rem; color:#aaa; margin-bottom:6px; font-weight:500; }  .si-value { font-size: 2.01144rem; color:#1a1a1a; line-height:1.55; font-weight:500; word-break:break-all; }  .si-value a { color:var(--panda); text-decoration:none; }
 
   /* ── 全寬地址區塊（Foodpanda 風格）── */
   .si-addr-block {
@@ -963,16 +950,14 @@
   }
   .si-addr-pin { flex-shrink:0; color:#1a1a1a; margin-top:4px; }
   .si-addr-text {
-    flex:1; font-size:52px; font-weight:900;
-    color:#1a1a1a; line-height:1.45; word-break:break-all;
+    flex:1; font-size: 2.37712rem; font-weight:900;    color:#1a1a1a; line-height:1.45; word-break:break-all;
   }
 
   /* 導航按鈕 */
   .si-nav-btn {
     display:inline-flex; align-items:center; gap:8px;
     background:var(--panda); color:white;
-    font-size:40px; font-weight:700;
-    padding:14px 32px; border-radius:50px;
+    font-size: 1.82856rem; font-weight:700;    padding:14px 32px; border-radius:50px;
     margin:0 24px 24px; cursor:pointer;
     box-shadow:0 4px 14px rgba(215,4,100,.3);
     transition:transform .15s; user-select:none;
@@ -987,7 +972,7 @@
   #order-lookup-overlay.show { opacity:1; pointer-events:all; }
 
   #order-lookup-sheet {
-    position:fixed; top:44px; bottom:0; left:0; right:0;
+    position:fixed; top:3.1429rem; bottom:0; left:0; right:0;
     background:#f7f7f7; border-radius:24px 24px 0 0; z-index:121;
     transform:translateY(100%);
     transition:transform .38s cubic-bezier(.4,0,.2,1);
@@ -1011,8 +996,7 @@
     padding:16px; box-shadow:0 2px 10px rgba(0,0,0,.06);
   }
   .ol-input {
-    flex:1; font-size:52px; font-weight:600;
-    max-width: 700px;     /* 限制最大寬度，確保在各種手機上都不會太長 */
+    flex:1; font-size: 2.37712rem; font-weight:600;    max-width: 700px;     /* 限制最大寬度，確保在各種手機上都不會太長 */
     margin: 10px auto;    /* 置中對齊 */
     padding:16px 18px; border:2px solid #e8e8e8;
     border-radius:12px; outline:none; color:#1a1a1a;
@@ -1022,8 +1006,7 @@
   .ol-input:focus { border-color:var(--panda); background:#fff; }
   .ol-search-btn {
     background:var(--panda); color:#fff;
-    font-size:44px; font-weight:800;
-    padding:16px 28px; border:none; border-radius:12px;
+    font-size: 2.01144rem; font-weight:800;    padding:16px 28px; border:none; border-radius:12px;
     cursor:pointer; white-space:nowrap; flex-shrink:0;
     transition:opacity .15s; box-shadow:0 4px 14px rgba(215,4,100,.3);
   }
@@ -1044,40 +1027,28 @@
     padding-bottom:18px; margin-bottom:4px;
     border-bottom:1.5px solid #f2f2f2;
   }
-  .ol-card-date { font-size:44px; font-weight:800; color:#1a1a1a; line-height:1.3; }
-  .ol-card-time {
-    font-size:44px; font-weight:700; color:var(--panda);
-    margin-top:6px; display:flex; align-items:center; gap:6px;
+  .ol-card-date { font-size: 2.01144rem; font-weight:800; color:#1a1a1a; line-height:1.3; }  .ol-card-time {
+    font-size: 2.01144rem; font-weight:700; color:var(--panda);    margin-top:6px; display:flex; align-items:center; gap:6px;
   }
-  .ol-card-id { font-size:36px; color:#bbb; }
-
+  .ol-card-id { font-size: 1.64568rem; color:#bbb; }
   .ol-item-row {
     display:flex; justify-content:space-between; align-items:flex-start;
     padding:14px 0; border-bottom:1px solid #fafafa;
   }
-  .ol-item-name { flex:1; font-size:44px; color:#1a1a1a; line-height:1.45; }
-  .ol-item-addon { font-size:36px; color:#aaa; display:block; margin-top:4px; }
-  .ol-item-note  { font-size:36px; color:#aaa; display:block; }
-  .ol-item-price { font-size:44px; font-weight:700; color:#333; padding-left:12px; flex-shrink:0; }
-
+  .ol-item-name { flex:1; font-size: 2.01144rem; color:#1a1a1a; line-height:1.45; }  .ol-item-addon { font-size: 1.64568rem; color:#aaa; display:block; margin-top:4px; }  .ol-item-note  { font-size: 1.64568rem; color:#aaa; display:block; }  .ol-item-price { font-size: 2.01144rem; font-weight:700; color:#333; padding-left:12px; flex-shrink:0; }
   .ol-order-notes {
-    font-size:36px; color:#888; padding:10px 0 0;
-    margin-top:10px; border-top:1px solid #f5f5f5;
+    font-size: 1.64568rem; color:#888; padding:10px 0 0;    margin-top:10px; border-top:1px solid #f5f5f5;
   }
   .ol-total {
     display:flex; justify-content:space-between; align-items:center;
     margin-top:18px; padding-top:18px; border-top:2px solid #f0f0f0;
   }
-  .ol-total-label  { font-size:44px; color:#888; font-weight:600; }
-  .ol-total-amount { font-size:60px; font-weight:900; color:var(--panda); }
-
+  .ol-total-label  { font-size: 2.01144rem; color:#888; font-weight:600; }  .ol-total-amount { font-size: 2.74288rem; font-weight:900; color:var(--panda); }
   .ol-empty {
     text-align:center; padding:60px 20px;
-    font-size:52px; font-weight:800; color:#ef4444;
-  }
+    font-size: 2.37712rem; font-weight:800; color:#ef4444;  }
   .ol-count {
-    font-size:36px; color:#aaa; margin-bottom:16px;
-  }
+    font-size: 1.64568rem; color:#aaa; margin-bottom:16px;  }
 
   /* 查詢預約區（店家開放線上預約時才顯示） */
   .ol-resv-block {
@@ -1085,21 +1056,18 @@
     border-top:2px solid #e5e7eb;
   }
   .ol-resv-heading {
-    font-size:48px; font-weight:900; color:#1a1a1a;
-    margin-bottom:18px;
+    font-size: 2.19432rem; font-weight:900; color:#1a1a1a;    margin-bottom:18px;
     letter-spacing:.02em;
   }
   .ol-resv-hint {
-    font-size:36px; color:#94a3b8; margin:-8px 0 18px;
-    line-height:1.45;
+    font-size: 1.64568rem; color:#94a3b8; margin:-8px 0 18px;    line-height:1.45;
   }
   .ol-resv-meta-row {
     display:flex; flex-wrap:wrap; align-items:center; gap:12px 16px;
     margin-bottom:14px;
   }
   .ol-resv-chip {
-    font-size:36px; font-weight:800; padding:8px 16px;
-    border-radius:10px;
+    font-size: 1.64568rem; font-weight:800; padding:8px 16px;    border-radius:10px;
   }
   .ol-resv-chip--ok { background:#dcfce7; color:#166534; }
   .ol-resv-chip--done { background:#e5e7eb; color:#374151; }
@@ -1113,18 +1081,27 @@
 #order-wait-panel-synth {
   box-sizing: border-box;
 }
-/* 大小調整 3.5 */
+/* 流動縮放：取代固定 scale 3.5，避免窄螢幕／GitHub 預覽畫面過大 */
 #order-wait-panel-synth .order-synth-wave {
   position: relative;
   width: 300px;
   height: 250px;
   background-color: #2e0d3f;
-  scale: 3.5;
+  scale: 0.55;
   transform-origin: center bottom;
   flex-shrink: 0;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 1.4286rem;
   z-index: 1;
+}
+@media (min-width: 400px) {
+  #order-wait-panel-synth .order-synth-wave { scale: 0.72; }
+}
+@media (min-width: 520px) {
+  #order-wait-panel-synth .order-synth-wave { scale: 0.95; }
+}
+@media (min-width: 720px) {
+  #order-wait-panel-synth .order-synth-wave { scale: 1.35; }
 }
 #order-wait-panel-synth .order-synth-stack {
   display: flex;
@@ -1410,8 +1387,7 @@
   color: rgba(255, 255, 255, 0.7);
   font-family: Verdana, Geneva, Tahoma, sans-serif;
   font-weight: bold;
-  font-size: 8px;
-  letter-spacing: 2px;
+  font-size: 0.36568rem;  letter-spacing: 2px;
   padding-left: 10px;
   clip-path: polygon(2% 100%, 98% 100%, 100% 0%, 0% 0%);
   box-sizing: border-box;
@@ -1615,7 +1591,7 @@
 }
 @keyframes orderSynthStripe2mov {
   0% { top: 31px; height: 4px; }
-  99% { top: 44px; height: 4px; }
+  99% { top: 3.1429rem; height: 4px; }
   100% { top: 31px; height: 4px; }
 }
 #order-wait-panel-synth .order-synth-stripe3 {
@@ -1623,15 +1599,15 @@
   width: 100%;
   height: 4px;
   background-color: #2e0d3f;
-  top: 44px;
+  top: 3.1429rem;
   left: 50%;
   transform: translate(-50%);
   animation: orderSynthStripe3mov infinite 1s linear;
 }
 @keyframes orderSynthStripe3mov {
-  0% { top: 44px; height: 4px; }
+  0% { top: 3.1429rem; height: 4px; }
   99% { top: 58px; height: 5px; }
-  100% { top: 44px; height: 4px; }
+  100% { top: 3.1429rem; height: 4px; }
 }
 #order-wait-panel-synth .order-synth-stripe4 {
   position: absolute;
@@ -1793,8 +1769,7 @@
 }
 #order-wait-panel-synth .order-wait-hint--synth {
   color: rgba(255, 220, 255, 0.75);
-  font-size: 45px;
-  font-weight: 600;
+  font-size: 2.05712rem;  font-weight: 600;
   text-align: center;
   line-height: 1.35;
   max-width: 280px;
@@ -1805,8 +1780,7 @@
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.65);
 }
 #order-wait-panel-synth .order-synth-stack > .order-wait-title {
-  font-size: 60px;
-  font-weight: 800;
+  font-size: 2.74288rem;  font-weight: 800;
   letter-spacing: 0.08em;
   color: #ffb8ff;
   text-shadow: 0 0 10px rgba(255, 0, 200, 0.35);
@@ -1827,9 +1801,9 @@
 
 <!-- ═══ CLOSED OVERLAY ═══ -->
 <div id="closed-overlay">
-  <div style="font-size:72px;">🚫</div>
-  <div id="closed-title" style="font-size:52px;font-weight:900;color:white;margin-top:16px;">今日公休</div>
-  <div id="closed-sub" style="font-size:44px;color:rgba(255,255,255,.65);margin-top:10px;max-width:280px;line-height:1.6;"></div>
+  <div style="font-size: 3.29144rem;">🚫</div>
+  <div id="closed-title" style="font-size: 2.37712rem;font-weight:900;color:white;margin-top:1.1429rem;">今日公休</div>
+  <div id="closed-sub" style="font-size: 2.01144rem;color:rgba(255,255,255,.65);margin-top:0.7143rem;max-width:20rem;line-height:1.6;"></div>
 </div>
 
 <!-- ═══ HERO BANNER ═══ -->
@@ -1901,7 +1875,7 @@
       <div class="shop-logo-container" id="hero-logo-wrap" style="display:none;" aria-hidden="true">
         <img id="hero-shop-logo" src="" alt="">
       </div>
-      <h1 id="hero-shop-name" style="font-size:80px;font-weight:900;color:white;line-height:1.2;margin:0;flex:1;min-width:0;">載入中...</h1>
+      <h1 id="hero-shop-name" style="font-size: 3.65712rem;font-weight:900;color:white;line-height:1.2;margin:0;flex:1;min-width:0;">載入中...</h1>
     </div>
   </div>
 </div>
@@ -1963,11 +1937,11 @@
     <div class="drawer-close-btn" onclick="orderCloseDineInMyList_()" style="position:static;transform:none;flex-shrink:0;">✕</div>
     <div style="display:flex;align-items:center;gap:20px;flex:1;flex-wrap:wrap;min-width:0;">
       <div class="cart-drawer-title" style="margin:0;">本桌清單</div>
-      <span id="dinein-my-list-table-badge" style="font-size:44px;font-weight:900;color:var(--panda);">—</span>
+      <span id="dinein-my-list-table-badge" style="font-size: 2.01144rem;font-weight:900;color:var(--panda);">—</span>
     </div>
   </div>
   <div class="cart-scroll" style="flex:1;min-height:0;">
-    <div class="cart-content-pad" id="dinein-my-list-body" style="font-size:40px;line-height:1.5;color:#333;"></div>
+    <div class="cart-content-pad" id="dinein-my-list-body" style="font-size: 1.82856rem;line-height:1.5;color:#333;"></div>
   </div>
 </div>
 
@@ -2006,7 +1980,7 @@
     <div class="member-corner-pad">
       <div class="member-hist-toolbar">
         <input type="date" id="member-hist-date-from" aria-label="起始日">
-        <span style="font-size:32px;color:#888;">～</span>
+        <span style="font-size: 1.46288rem;color:#888;">～</span>
         <input type="date" id="member-hist-date-to" aria-label="結束日">
         <button type="button" class="member-hist-chip" onclick="memberHistApplyRange_()">查詢</button>
       </div>
@@ -2049,6 +2023,7 @@
   <div id="order-wait-panel-truck" hidden aria-hidden="true">
     <div class="order-wait-title">請稍等</div>
     <div class="order-wait-hint" id="order-wait-hint-truck">資料載入中…</div>
+    <div class="loading-container">
     <div class="loader">
       <div class="truckWrapper">
         <div class="truckBody">
@@ -2081,6 +2056,7 @@
     <div class="order-truck-progress">
       <div class="order-truck-progress-label" id="order-truck-progress-label">0%</div>
       <div class="order-truck-progress-bar"><div class="order-truck-progress-fill" id="order-truck-progress-fill"></div></div>
+    </div>
     </div>
   </div>
   <div id="order-wait-panel-synth" hidden aria-hidden="true">
@@ -2210,13 +2186,13 @@
 
       <!-- 品項備註 -->
       <div style="padding:16px 0 8px;border-top:1px solid #f5f5f5;margin-top:8px;">
-        <label style="font-size:44px;font-weight:700;color:#1a1a1a;display:block;margin-bottom:8px;">品項備註</label>
+        <label style="font-size: 2.01144rem;font-weight:700;color:#1a1a1a;display:block;margin-bottom:8px;">品項備註</label>
         <input id="sheet-note" type="text" placeholder="例：不要香菜、少辣..." class="form-input">
       </div>
 
       <!-- 數量 -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 0;border-top:1px solid #f5f5f5;margin-top:8px;">
-        <span style="font-size:52px;font-weight:700;color:#1a1a1a;">數量</span>
+        <span style="font-size: 2.37712rem;font-weight:700;color:#1a1a1a;">數量</span>
         <div class="qty-control">
           <div class="qty-btn" onclick="changeQty(-1)">−</div>
           <div class="qty-val" id="sheet-qty">1</div>
@@ -2275,7 +2251,7 @@
 
       <!-- 電話（必填）；店內模式由 CSS .cart-order-phone-block 隱藏，改由後端合成電話 -->
       <div class="cart-order-phone-block" style="margin-bottom:16px;">
-        <label style="font-size:44px;font-weight:700;color:#555;display:block;margin-bottom:8px;">
+        <label style="font-size: 2.01144rem;font-weight:700;color:#555;display:block;margin-bottom:8px;">
           聯絡電話 <span style="color:var(--panda);">*必填</span>
         </label>
         <input id="order-phone" type="tel" placeholder="輸入電話號碼" class="form-input"
@@ -2284,7 +2260,7 @@
 
       <!-- 整筆備註 -->
       <div style="margin-bottom:20px;">
-        <label style="font-size:44px;font-weight:700;color:#555;display:block;margin-bottom:8px;">整筆訂單備註（選填）</label>
+        <label style="font-size: 2.01144rem;font-weight:700;color:#555;display:block;margin-bottom:8px;">整筆訂單備註（選填）</label>
         <input id="order-notes" type="text" placeholder="特殊要求..." class="form-input">
       </div>
     </div>
@@ -2786,7 +2762,7 @@ async function orderPromptMemberAccess_(defaultPhone) {
       confirmButtonText: '登入會員',
       denyButtonText: '註冊會員',
       cancelButtonText: '一般消費',
-      customClass: { popup: 'order-member-swal-popup' },
+      customClass: { popup: 'order-member-swal-popup modal-content' },
       width: 'min(96vw, 1040px)',
       preConfirm: function (v) {
         var p = orderNormalizePhone10_(v);
@@ -3086,7 +3062,7 @@ async function orderRunMemberGate_() {
         confirmButtonText: '加入會員',
         cancelButtonText: '一般消費',
         reverseButtons: true,
-        customClass: { popup: 'order-member-swal-popup' },
+        customClass: { popup: 'order-member-swal-popup modal-content' },
         width: 'min(96vw, 1040px)'
       });
       if (missing.isConfirmed) {
@@ -3098,7 +3074,7 @@ async function orderRunMemberGate_() {
           showCancelButton: true,
           confirmButtonText: '確定',
           cancelButtonText: '返回',
-          customClass: { popup: 'order-member-swal-popup' },
+          customClass: { popup: 'order-member-swal-popup modal-content' },
           width: 'min(96vw, 1040px)',
           inputValidator: function (v) {
             if (!orderNormalizePhone10_(v)) return '請輸入 10 碼數字';
@@ -3184,7 +3160,7 @@ async function orderRunMemberGate_() {
       timer: 1200,
       showConfirmButton: false,
       allowOutsideClick: false,
-      customClass: { popup: 'order-member-swal-popup' },
+      customClass: { popup: 'order-member-swal-popup modal-content' },
       width: 'min(96vw, 1040px)'
     });
   }
@@ -5061,7 +5037,7 @@ function openSheet(productId) {
   const cfg = orderGetMerchantPromoCfg_();
   const pp = orderMerchantPromoUnitPriceForMenuCard_(item.id, item.price, cfg);
   const sheetPriceHtml = pp.hasDiscount
-    ? '<div class="sheet-item-price"><span class="sh-price-orig">' + formatPrice(pp.orig) + '</span><span class="sh-price-sale">' + formatPrice(pp.sale) + '</span><span style="font-size:36px;font-weight:600;color:#888;margin-left:10px;">（單價，不含加購）</span></div>'
+    ? '<div class="sheet-item-price"><span class="sh-price-orig">' + formatPrice(pp.orig) + '</span><span class="sh-price-sale">' + formatPrice(pp.sale) + '</span><span style="font-size: 1.64568rem;font-weight:600;color:#888;margin-left:10px;">（單價，不含加購）</span></div>'
     : `<div class="sheet-item-price">${formatPrice(item.price)}</div>`;
 
   // ── 商品資訊：名稱 / 描述 / 費用 ──
@@ -5090,7 +5066,7 @@ function openSheet(productId) {
   if (item.options.length > 0) {
     html = `<div class="option-group">
       <div class="option-group-title">加購選項
-        <span style="font-size:40px;font-weight:400;color:#aaa;margin-left:4px;">（可多選）</span>
+        <span style="font-size: 1.82856rem;font-weight:400;color:#aaa;margin-left:4px;">（可多選）</span>
       </div>`;
     item.options.forEach((opt, ei) => {
       html += `<div class="option-item" onclick="toggleExtra(${ei})">
@@ -5482,7 +5458,7 @@ function renderCartItems() {
   const container = document.getElementById('cart-items-list');
   if (cartItems.length === 0) {
     orderCartPointDiscountNtd = 0;
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa;font-size:44px;">購物車是空的</div>';
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa;font-size: 2.01144rem;">購物車是空的</div>';
     orderSyncCartPointDiscountBlock_();
     return;
   }
@@ -5814,7 +5790,7 @@ function submitOrder() {
         title: '請先結帳',
         width: 'min(96vw, 820px)',
         padding: '32px 28px',
-        html: '<div style="font-size:52px;line-height:1.55;text-align:left;font-weight:700;color:#1a1a1a;">請至櫃台完成付款<br><br>單號：<b>' + String(orderData.orderId) + '</b><br>金額：<b>$' + total + '</b></div>',
+        html: '<div style="font-size: 2.37712rem;line-height:1.55;text-align:left;font-weight:700;color:#1a1a1a;">請至櫃台完成付款<br><br>單號：<b>' + String(orderData.orderId) + '</b><br>金額：<b>$' + total + '</b></div>',
         icon: 'info',
         confirmButtonText: '確定',
         customClass: { popup: 'order-dinein-prepay-swal', confirmButton: 'order-dinein-prepay-swal-btn' }
@@ -6610,7 +6586,7 @@ function renderStoreInfo() {
       var display = hdates.slice(0, 5);
       var extra   = hdates.length - display.length;
       var hdStr   = display.join('、');
-      if (extra > 0) { hdStr += '&nbsp;<span style="color:#aaa;font-size:36px;">+ 另 ' + extra + ' 天</span>'; }
+      if (extra > 0) { hdStr += '&nbsp;<span style="color:#aaa;font-size: 1.64568rem;">+ 另 ' + extra + ' 天</span>'; }
       html += siRow('📅', '休假日', hdStr);
     }
   }
@@ -6647,7 +6623,7 @@ function renderStoreInfo() {
   }
 
   var el = document.getElementById('store-info-content');
-  el.innerHTML = html || '<div style="padding:40px;text-align:center;color:#aaa;font-size:52px;">暫無資料</div>';
+  el.innerHTML = html || '<div style="padding:40px;text-align:center;color:#aaa;font-size: 2.37712rem;">暫無資料</div>';
 }
 
 // 下滑關閉商家資訊（同 bottom-sheet 邏輯）
@@ -6784,11 +6760,11 @@ function doOrderSearch() {
 
   btn.textContent = '查詢中…';
   btn.disabled    = true;
-  resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#aaa;font-size:52px;">⏳ 查詢中，請稍候…</div>';
+  resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#aaa;font-size: 2.37712rem;">⏳ 查詢中，請稍候…</div>';
 
   var uS = orderWebAppGetActionUrl_('searchOrder', 'phone=' + encodeURIComponent(phone) + '&_=' + Date.now());
   if (!uS) {
-    resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#ef4444;font-size:42px;">❌ 查詢失敗，請稍後再試</div>';
+    resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#ef4444;font-size: 1.92rem;">❌ 查詢失敗，請稍後再試</div>';
     btn.textContent = '查詢';
     btn.disabled    = false;
     return;
@@ -6806,7 +6782,7 @@ function doOrderSearch() {
       }, 120);
     })
     .catch(function(err) {
-      resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#ef4444;font-size:42px;">❌ 查詢失敗，請稍後再試</div>';
+      resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#ef4444;font-size: 1.92rem;">❌ 查詢失敗，請稍後再試</div>';
       console.error('searchOrder error:', err);
     })
     .finally(function() {
@@ -6819,7 +6795,7 @@ function renderOrderResults(orders) {
   var el = document.getElementById('ol-results');
 
   if (!orders || orders.length === 0) {
-    el.innerHTML = '<div class="ol-empty">查無訂單<br><span style="font-size:42px;font-weight:400;color:#aaa;">找不到該電話號碼的訂單記錄</span></div>';
+    el.innerHTML = '<div class="ol-empty">查無訂單<br><span style="font-size: 1.92rem;font-weight:400;color:#aaa;">找不到該電話號碼的訂單記錄</span></div>';
     return;
   }
 
@@ -6905,11 +6881,11 @@ function doReservationSearch() {
 
   btn.textContent = '查詢中…';
   btn.disabled = true;
-  resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#aaa;font-size:52px;">⏳ 查詢中，請稍候…</div>';
+  resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#aaa;font-size: 2.37712rem;">⏳ 查詢中，請稍候…</div>';
 
   var uR = orderWebAppGetActionUrl_('searchReservation', 'phone=' + encodeURIComponent(phone) + '&_=' + Date.now());
   if (!uR) {
-    resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#ef4444;font-size:42px;">❌ 查詢失敗</div>';
+    resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#ef4444;font-size: 1.92rem;">❌ 查詢失敗</div>';
     btn.textContent = '查詢';
     btn.disabled = false;
     return;
@@ -6926,7 +6902,7 @@ function doReservationSearch() {
       }, 120);
     })
     .catch(function (err) {
-      resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#ef4444;font-size:42px;">❌ ' + escHtml(err.message || '查詢失敗，請稍後再試') + '</div>';
+      resultsEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#ef4444;font-size: 1.92rem;">❌ ' + escHtml(err.message || '查詢失敗，請稍後再試') + '</div>';
       console.error('searchReservation error:', err);
     })
     .finally(function () {
@@ -6947,7 +6923,7 @@ function renderReservationResults_(rows) {
   var el = document.getElementById('ol-resv-results');
   if (!el) return;
   if (!rows || rows.length === 0) {
-    el.innerHTML = '<div class="ol-empty">查無預約<br><span style="font-size:42px;font-weight:400;color:#aaa;">此電話目前沒有預約紀錄</span></div>';
+    el.innerHTML = '<div class="ol-empty">查無預約<br><span style="font-size: 1.92rem;font-weight:400;color:#aaa;">此電話目前沒有預約紀錄</span></div>';
     return;
   }
   var html = '<div class="ol-count">共找到 ' + rows.length + ' 筆預約</div>';
@@ -6959,7 +6935,7 @@ function renderReservationResults_(rows) {
       + '<div>'
       + '<div class="ol-resv-meta-row">'
       + '<span class="' + _resvStatusChipClass_(r.status) + '">' + escHtml(r.status || '正常') + '</span>'
-      + (r.people ? '<span style="font-size:40px;font-weight:700;color:#475569;">' + escHtml(r.people) + ' 人</span>' : '')
+      + (r.people ? '<span style="font-size: 1.82856rem;font-weight:700;color:#475569;">' + escHtml(r.people) + ' 人</span>' : '')
       + '</div>'
       + '<div class="ol-card-date">' + escHtml(r.reservationDate || '') + '</div>'
       + (r.reservationTime
@@ -7136,7 +7112,7 @@ function orderShowBootstrapMaintenance_(messageOverride) {
   layer.id = lid;
   layer.setAttribute('role', 'alert');
   var _msg = String(messageOverride || '').trim() ? String(messageOverride).trim() : ORDER_PUBLIC_MAINTENANCE_MESSAGE_;
-  layer.innerHTML = '<div style="text-align:center;color:#b91c1c;font-size:clamp(32px,8vw,48px);font-weight:900;line-height:1.45;max-width:min(92vw,560px);">' + _msg + '</div>';
+  layer.innerHTML = '<div style="text-align:center;color:#b91c1c;font-size:clamp(1.46288rem, 8vw, 2.19432rem);font-weight:900;line-height:1.45;max-width:min(92vw,560px);">' + _msg + '</div>';
   document.body.appendChild(layer);
 }
 
@@ -7242,7 +7218,7 @@ function orderShowDineInGateFail_(msg) {
   layer.setAttribute('role', 'alert');
   layer.style.cssText = 'position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;background:#fff;padding:28px;text-align:center;';
   var esc = (typeof orderEscHtml_ === 'function') ? orderEscHtml_(msg || '') : String(msg || '');
-  layer.innerHTML = '<div style="max-width:560px;font-size:clamp(32px,6vw,44px);font-weight:800;color:#b91c1c;line-height:1.5;">' + esc + '</div>';
+  layer.innerHTML = '<div style="max-width:560px;font-size:clamp(1.46288rem, 6vw, 2.01144rem);font-weight:800;color:#b91c1c;line-height:1.5;">' + esc + '</div>';
   document.body.appendChild(layer);
 }
 function orderRefreshDineInCartChrome_() {
@@ -7348,28 +7324,28 @@ function orderRenderDineInMyListPayload_(d, el) {
       var items = Array.isArray(x.itemLines) ? x.itemLines : [];
       var detailHtml;
       if (board) {
-        detailHtml = '<div style="margin-top:12px;font-size:30px;line-height:1.45;color:#334155;white-space:pre-wrap;">' +
+        detailHtml = '<div style="margin-top:12px;font-size: 1.37144rem;line-height:1.45;color:#334155;white-space:pre-wrap;">' +
           esc(board) + '</div>';
       } else if (items.length) {
-        detailHtml = '<ul style="margin:10px 0 0;padding-left:1.15em;font-size:32px;line-height:1.4;color:#334155;">' +
+        detailHtml = '<ul style="margin:10px 0 0;padding-left:1.15em;font-size: 1.46288rem;line-height:1.4;color:#334155;">' +
           items.map(function (ln) { return '<li style="margin:6px 0;">' + esc(String(ln)) + '</li>'; }).join('') + '</ul>';
       } else {
-        detailHtml = '<div style="font-size:30px;color:#94a3b8;margin-top:8px;">（明細載入中或無法顯示）</div>';
+        detailHtml = '<div style="font-size: 1.37144rem;color:#94a3b8;margin-top:8px;">（明細載入中或無法顯示）</div>';
       }
       var cntRow = '';
       if (x.lineItemCount != null && String(x.lineItemCount).trim() !== '') {
-        cntRow = '<div style="font-size:30px;font-weight:800;color:#475569;margin-top:12px;">品項：共 ' + esc(String(x.lineItemCount)) + ' 項</div>';
+        cntRow = '<div style="font-size: 1.37144rem;font-weight:800;color:#475569;margin-top:12px;">品項：共 ' + esc(String(x.lineItemCount)) + ' 項</div>';
       }
       var totRow = '';
       if (x.orderTotal != null && x.orderTotal !== '' && !isNaN(Number(x.orderTotal))) {
-        totRow = '<div style="font-size:34px;font-weight:900;color:#0f172a;margin-top:8px;">總計：$' + esc(String(Math.round(Number(x.orderTotal)))) + '</div>';
+        totRow = '<div style="font-size: 1.55432rem;font-weight:900;color:#0f172a;margin-top:8px;">總計：$' + esc(String(Math.round(Number(x.orderTotal)))) + '</div>';
       }
       return '<div style="border-bottom:1px solid #eee;padding:16px 0;">' +
-        '<div style="border-radius:12px;padding:12px 14px;background:' + barBg + ';border:2px solid ' + barBr + ';color:' + barFg + ';font-weight:900;font-size:36px;">' +
+        '<div style="border-radius:12px;padding:12px 14px;background:' + barBg + ';border:2px solid ' + barBr + ';color:' + barFg + ';font-weight:900;font-size: 1.64568rem;">' +
         (oms ? ('出餐狀態：' + esc(oms)) : ('狀態：' + esc(String(x.status || '')))) +
         '</div>' +
-        '<div style="font-weight:800;font-size:34px;margin-top:12px;">取餐號：' + esc(String(x.shortId || '-')) + '</div>' +
-        '<div style="font-size:30px;color:#64748b;margin-top:6px;word-break:break-all;">單號：' + esc(String(x.orderId || '')) + '</div>' +
+        '<div style="font-weight:800;font-size: 1.55432rem;margin-top:12px;">取餐號：' + esc(String(x.shortId || '-')) + '</div>' +
+        '<div style="font-size: 1.37144rem;color:#64748b;margin-top:6px;word-break:break-all;">單號：' + esc(String(x.orderId || '')) + '</div>' +
         detailHtml + cntRow + totRow + '</div>';
     }).join('');
   }
@@ -7551,11 +7527,11 @@ window.addEventListener('load', function ordergitBootstrapOnLoad_() {
       <span>選擇預約時段</span>
       <span id="resv-drawer-cap-info"></span>
     </div>
-    <div id="resv-drawer-overcap" style="display:none;margin-top:16px;font-size:44px;font-weight:900;color:#b91c1c;background:#fee2e2;border:2px solid #fca5a5;border-radius:14px;padding:18px 20px;line-height:1.35;"></div>
+    <div id="resv-drawer-overcap" style="display:none;margin-top:16px;font-size: 2.01144rem;font-weight:900;color:#b91c1c;background:#fee2e2;border:2px solid #fca5a5;border-radius:14px;padding:18px 20px;line-height:1.35;"></div>
     <div id="resv-drawer-time-grid" class="resv-time-grid" style="margin-top:12px;"></div>
-    <div style="margin-top:16px;font-size:44px;font-weight:800;color:#64748b;line-height:1.5;">綠色＝可預約・黃色＝即將額滿・灰色＝客滿（不可選）</div>
+    <div style="margin-top:16px;font-size: 2.01144rem;font-weight:800;color:#64748b;line-height:1.5;">綠色＝可預約・黃色＝即將額滿・灰色＝客滿（不可選）</div>
     <button id="resv-drawer-submit" type="button">送出預約</button>
-    <p style="margin-top:18px;font-size:44px;font-weight:800;color:#94a3b8;text-align:center;line-height:1.45;">送出後，店家會在預約時段為您保留座位。</p>
+    <p style="margin-top:18px;font-size: 2.01144rem;font-weight:800;color:#94a3b8;text-align:center;line-height:1.45;">送出後，店家會在預約時段為您保留座位。</p>
   </div>
 </aside>
 <script>
@@ -7812,7 +7788,7 @@ window.addEventListener('load', function ordergitBootstrapOnLoad_() {
         '</button>'
       );
     }
-    if (!anyAvail) html.push('<div style="grid-column:1/-1;text-align:center;color:#b91c1c;font-weight:800;padding:14px;font-size:18px;">目前該日期所有時段都客滿</div>');
+    if (!anyAvail) html.push('<div style="grid-column:1/-1;text-align:center;color:#b91c1c;font-weight:800;padding:14px;font-size: 0.82288rem;">目前該日期所有時段都客滿</div>');
     grid.innerHTML = html.join('');
     grid.querySelectorAll('button.resv-slot-btn').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -7835,7 +7811,7 @@ window.addEventListener('load', function ordergitBootstrapOnLoad_() {
     if (settings && capCache[date]) {
       _resvDrawerRenderGridImpl_(settings, capCache[date]);
     } else {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#94a3b8;padding:24px;font-size:18px;font-weight:800;">載入時段中...</div>';
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#94a3b8;padding:24px;font-size: 0.82288rem;font-weight:800;">載入時段中...</div>';
     }
     /* 2) 背景刷新最新設定（POS／GitHub 改完設定後消費者端會跟到） */
     if (!settings) {
