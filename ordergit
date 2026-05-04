@@ -2288,8 +2288,9 @@
 <script>
 // ════════════════════════════════════════════════════
 // ordergit.html（GitHub Pages 獨立版）
-// 啟動：window load 後bootstrap；網址必帶 ?mid=部署ID（或相容 ?id=）
-// 全程 fetch(Web App)，不使用 google.script.run
+// 啟動：window load 後 bootstrap；網址必帶 ?id= 或 ?mid=（GAS 網址 …/macros/s/【部署ID】/exec 中間那段），原始碼不寫死 ID
+// 例：https://le5125.github.io/my-printer/ordergit.html?id=您的部署ID
+// 全程對 /exec 送 GET action=* 與 POST 送單（與 GAS 上 ?page=order 消費者頁抓同一份試算表資料）
 // ════════════════════════════════════════════════════
 var __ORDERGIT_STANDALONE__ = true;
 let currentWebAppUrl = '';
@@ -7077,9 +7078,10 @@ async function init() {
 }
 
 /**
- * 消費者端：無後端網址、拿不到內建金鑰、或金鑰比對（checkClientKey）未通過 — 不彈授權／金鑰視窗，全頁只顯示「系統維修中」。
+ * 消費者端：無後端網址、拿不到內建金鑰、或金鑰比對（checkClientKey）未通過 — 不彈授權／金鑰視窗，全頁只顯示維護提示。
+ * @param {string} [messageOverride] 若傳入非空字串，優先顯示（例如 GitHub 版未帶 ?id= 的說明）
  */
-function orderShowBootstrapMaintenance_() {
+function orderShowBootstrapMaintenance_(messageOverride) {
   try {
     if (typeof Swal !== 'undefined') Swal.close();
   } catch (eS) {}
@@ -7103,7 +7105,8 @@ function orderShowBootstrapMaintenance_() {
   var layer = document.createElement('div');
   layer.id = lid;
   layer.setAttribute('role', 'alert');
-  layer.innerHTML = '<div style="text-align:center;color:#b91c1c;font-size:clamp(32px,8vw,48px);font-weight:900;line-height:1.45;max-width:min(92vw,560px);">' + ORDER_PUBLIC_MAINTENANCE_MESSAGE_ + '</div>';
+  var _msg = String(messageOverride || '').trim() ? String(messageOverride).trim() : ORDER_PUBLIC_MAINTENANCE_MESSAGE_;
+  layer.innerHTML = '<div style="text-align:center;color:#b91c1c;font-size:clamp(32px,8vw,48px);font-weight:900;line-height:1.45;max-width:min(92vw,560px);">' + _msg + '</div>';
   document.body.appendChild(layer);
 }
 
@@ -7410,10 +7413,12 @@ async function bootstrapOrder() {
   }
   orderWaitShowTruck_('資料載入中…');
   var _orderUrlQ = new URLSearchParams(window.location.search);
-  /* GitHub：優先 ?mid=_macros部署ID；相容舊版 ?id= */
+  /* GitHub 獨立版：僅認網址 ?mid=／?id=（不寫死部署 ID、也不用 localStorage 以免誤連他店）。嵌入 GAS 時仍可用快取／試算表 B2。 */
   var _orderBossId = (_orderUrlQ.get('mid') || _orderUrlQ.get('Mid') || _orderUrlQ.get('id') || _orderUrlQ.get('Id') || '').trim();
   if (_orderBossId) {
     currentWebAppUrl = 'https://script.google.com/macros/s/' + _orderBossId + '/exec';
+  } else if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) {
+    currentWebAppUrl = '';
   } else {
     currentWebAppUrl = orderGetCachedWebAppUrl_();
   }
@@ -7425,8 +7430,12 @@ async function bootstrapOrder() {
     currentWebAppUrl = await freshUrlPromise;
   }
   if (!currentWebAppUrl) {
-    console.error('[ordergit] 無後端網址（請用 ?mid=部署ID）');
-    orderShowBootstrapMaintenance_();
+    console.error('[ordergit] 無後端網址（GitHub 版請在網址加上 ?id= 或 ?mid=GAS部署ID）');
+    if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) {
+      orderShowBootstrapMaintenance_('請使用含部署 ID 的專屬連結：在網址加上 ?id= 或 ?mid=（貼上 GAS 網址 …/macros/s/【這一段】/exec 中間那段）。例：le5125.github.io/my-printer/ordergit.html?id=您的部署ID');
+    } else {
+      orderShowBootstrapMaintenance_();
+    }
     return;
   }
   var isOrderGas = false;
