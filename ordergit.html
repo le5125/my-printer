@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-TW" class="ordergit-standalone">
+<html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<!-- GitHub Pages：請用 ordergit.html?id= 或 ?mid= GAS 部署 ID 開啟 -->
+<!-- GitHub Pages：請用 ordergit.html?id= 或 ?mid= GAS 部署 ID 開啟（版型 CSS 與 order.html 相同，差異僅後端連線方式） -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -31,23 +31,6 @@
     --panda:       #D70464;
     --panda-dark:  #b50353;
     --panda-light: #fce4ef;
-  }
-
-  /*
-   * 僅 GitHub Pages：外部網域／LIFF 常有「整頁像被放大」；數值可依實機再微調。
-   */
-  html.ordergit-standalone {
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-  }
-  @media (max-width: 599px) {
-    html.ordergit-standalone { zoom: 0.3; }
-  }
-  @media (min-width: 600px) and (max-width: 1023px) {
-    html.ordergit-standalone { zoom: 0.5; }
-  }
-  @media (min-width: 1024px) {
-    html.ordergit-standalone { zoom: 0.82; }
   }
 
   * { box-sizing: border-box; }
@@ -90,40 +73,6 @@
     font-size: 1.8rem !important;
     padding: 1rem 2rem !important;
     min-height: 4.8rem !important;
-  }
-  /* ordergit：彈窗另縮小（部分 WebView 對 html zoom 與 Swal fixed 層合成異常） */
-  html.ordergit-standalone .order-member-swal-popup {
-    min-width: unset !important;
-    width: min(92vw, 420px) !important;
-    max-width: min(92vw, 420px) !important;
-    padding: 1.15rem 1rem 1.35rem !important;
-  }
-  html.ordergit-standalone .order-member-swal-popup .swal2-title {
-    font-size: 1.28rem !important;
-    line-height: 1.35 !important;
-  }
-  html.ordergit-standalone .order-member-swal-popup .swal2-html-container {
-    font-size: 1rem !important;
-    line-height: 1.45 !important;
-  }
-  html.ordergit-standalone .order-member-swal-popup .swal2-input {
-    font-size: 1.05rem !important;
-    line-height: 1.35 !important;
-    padding: 0.75rem 0.85rem !important;
-    min-height: 3rem !important;
-    margin: 0.65rem auto 0 !important;
-  }
-  html.ordergit-standalone .order-member-swal-popup .swal2-actions {
-    margin-top: 1rem !important;
-    gap: 0.4rem !important;
-    flex-wrap: wrap !important;
-    justify-content: center !important;
-  }
-  html.ordergit-standalone .order-member-swal-popup .swal2-styled {
-    font-size: 0.95rem !important;
-    padding: 0.55rem 0.75rem !important;
-    min-height: 2.5rem !important;
-    margin: 0.2rem !important;
   }
   html { overscroll-behavior-y: none; }
 
@@ -218,31 +167,6 @@
   .menu-grid { display:grid; grid-template-columns:1fr; gap:16px; padding-bottom:16px; }
   @media (min-width: 768px) {
     .menu-grid { grid-template-columns:repeat(2,1fr); gap:14px; }
-  }
-  @media (max-width: 767px) {
-    html.ordergit-standalone .menu-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-    html.ordergit-standalone .menu-card-img,
-    html.ordergit-standalone .menu-card-no-img {
-      height: 200px;
-    }
-    html.ordergit-standalone .menu-card-body { min-width: 0; padding: 12px; }
-    html.ordergit-standalone .menu-card-name {
-      font-size: 40px;
-      min-width: 0;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-    }
-    html.ordergit-standalone .menu-card-price {
-      font-size: 40px;
-      min-width: 0;
-      flex: 1;
-      overflow-wrap: anywhere;
-    }
-    html.ordergit-standalone .menu-card-footer { gap: 8px; align-items: flex-start; }
-    html.ordergit-standalone .add-btn { width: 64px; height: 64px; font-size: 40px; }
   }
   .menu-card { background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.07); cursor:pointer; transition:transform .2s,box-shadow .2s; position:relative; }
   .menu-card:active { transform:scale(.97); box-shadow:0 1px 4px rgba(0,0,0,.1); }
