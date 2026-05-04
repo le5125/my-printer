@@ -34,9 +34,16 @@
   }
 
   /*
-   * GitHub 獨立版：菜單／抽屜等多為固定 px（與 order.html 相同）。
-   * 寬螢幕全頁瀏覽時體感會比 GAS／手機視窗「放很大」；窄視窗不縮放以保持與 order.html 一致。
+   * GitHub／LINE WebView：避免系統自動放大字級（常讓整頁體感變成約 2 倍）。
+   * 手機直向（較窄寬度）另用 zoom 壓回與 GAS order.html 相近的視覺比例。
    */
+  html.ordergit-standalone {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  @media (max-width: 599px) {
+    html.ordergit-standalone { zoom: 0.5; }
+  }
   @media (min-width: 600px) {
     html.ordergit-standalone { zoom: 0.88; }
   }
