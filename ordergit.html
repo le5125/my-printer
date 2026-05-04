@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-TW" class="ordergit-standalone">
+<html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<!-- ordergit.html：GitHub Pages 用；請以 https://你的網域/ordergit.html?mid=GAS部署ID 開啟（mid 為 /macros/s/這段/ 的 ID；相容舊參數 ?id=） -->
+<!-- GitHub Pages：請用 ordergit.html?id= 或 ?mid= GAS 部署 ID 開啟 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>線上點餐 · GitHub</title>
+<title>線上點餐</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
@@ -31,26 +31,6 @@
     --panda:       #D70464;
     --panda-dark:  #b50353;
     --panda-light: #fce4ef;
-  }
-
-  /*
-   * GitHub／LINE WebView：避免系統自動放大字級；手機直向另用 zoom 整頁縮放（可再依裝置調整數值）。
-   */
-  html.ordergit-standalone {
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-  }
-  @media (max-width: 599px) {
-    html.ordergit-standalone { zoom: 0.25; }
-  }
-  @media (min-width: 600px) {
-    html.ordergit-standalone { zoom: 0.88; }
-  }
-  @media (min-width: 900px) {
-    html.ordergit-standalone { zoom: 0.78; }
-  }
-  @media (min-width: 1200px) {
-    html.ordergit-standalone { zoom: 0.72; }
   }
 
   * { box-sizing: border-box; }
@@ -187,17 +167,6 @@
   .menu-grid { display:grid; grid-template-columns:1fr; gap:16px; padding-bottom:16px; }
   @media (min-width: 768px) {
     .menu-grid { grid-template-columns:repeat(2,1fr); gap:14px; }
-  }
-  /* ordergit：手機亦兩欄（原版需 ≥768px 才兩欄，在 GitHub／LINE 上常只觸發單欄） */
-  @media (max-width: 767px) {
-    html.ordergit-standalone .menu-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-    html.ordergit-standalone .menu-card-img,
-    html.ordergit-standalone .menu-card-no-img {
-      height: 200px;
-    }
   }
   .menu-card { background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.07); cursor:pointer; transition:transform .2s,box-shadow .2s; position:relative; }
   .menu-card:active { transform:scale(.97); box-shadow:0 1px 4px rgba(0,0,0,.1); }
