@@ -142,9 +142,9 @@
      GitHub：進場動畫結束後的首頁骨架（Hero → 分類 Tab → 商品網格）
      全寬、overflow-x 由 body 控制；與 #menu-loading 分層
      ═══════════════════════════════════════════════════════════ */
-  /* ════ Hero Banner（對齊 GAS：約 35vh、較小 logo／字級）════ */
+  /* ════ Hero Banner（高度再縮約 1/5；logo／店名／營業狀態放大 1.5×）════ */
   #hero-banner {
-    height: clamp(11rem, 35vh, 28rem);
+    height: clamp(8.8rem, 28vh, 22.5rem);
     background: linear-gradient(135deg, #1a0a10 0%, #3d0622 40%, #D70464 100%);
     position: relative; overflow: hidden;
     transition: height 0.35s cubic-bezier(.4,0,.2,1);
@@ -182,8 +182,8 @@
     gap:0.7143rem;
   }
   .shop-logo-container {
-    width:5rem;
-    height:5rem;
+    width:7.5rem;
+    height:7.5rem;
     border-radius:0.5714rem;
     overflow:hidden;
     border:2px solid rgba(255,255,255,.3);
@@ -197,11 +197,11 @@
     display:block;
   }
 
-  /*營業中（對齊 GAS 小字＋小圓點）*/
-  .open-badge { display:inline-flex; align-items:center; gap:0.2857rem; background:rgba(255,255,255,.15); color:white; font-size:0.8571rem; padding:0.2143rem 0.5rem; border-radius:666px; }
-  .dot { width:0.5rem; height:0.5rem; border-radius:50%; background:#4ade80; display:inline-block; flex-shrink:0; }
+  /*營業中 */
+  .open-badge { display:inline-flex; align-items:center; gap:0.2857rem; background:rgba(255,255,255,.15); color:white; font-size:1.2857rem; padding:0.3rem 0.65rem; border-radius:666px; }
+  .dot { width:0.75rem; height:0.75rem; border-radius:50%; background:#4ade80; display:inline-block; flex-shrink:0; }
   #hero-shop-name {
-    font-size: clamp(1.375rem, 4.8vw, 1.8571rem);
+    font-size: clamp(2.05rem, 7.2vw, 2.8rem);
     font-weight: 900;
     color: #fff;
     line-height: 1.2;
@@ -211,8 +211,15 @@
   }
   .dot.closed { background:#ef4444; }
 
-  /* ════ Sticky Nav ════ */
-  #sticky-nav { position:sticky; top:0; z-index:50; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+  /* ════ Sticky Nav（捲動時固定於視窗頂，方便隨時切分類）════ */
+  #sticky-nav {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 0;
+    z-index: 96;
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  }
   /* 只用 max-height 做滑出動畫，不用 opacity，避免半透明鬼影 */
   /* ════ Cat Tabs ════ */
   #cat-tabs {
@@ -447,7 +454,7 @@
 
   /* 全寬圖片（滿版 cover，允許裁切） */
   #sheet-img-area {
-    width:100%; height:33vh;
+    width:100%; height:min(22vh, 11rem);
     flex-shrink:0; position:relative; overflow:hidden;
     background:linear-gradient(135deg,#f0f0f0,#e0e0e0);
   }
@@ -455,17 +462,19 @@
   #sheet-img-area .sheet-no-img {
     width:100%; height:100%;
     display:flex; align-items:center; justify-content:center;
-    color:white; font-weight:700; font-size: 2.37712rem; text-align:center; padding:12px;    word-break:break-word;
+    color:white; font-weight:700; font-size: 1.15rem; text-align:center; padding:0.65rem;
+    word-break:break-word;
   }
 
   /* 叉叉固定在 #bottom-sheet 左上角（不隨捲動消失） */
   .sheet-img-close {
-    position:absolute; top:16px; left:16px; z-index:300;
-    width:72px; height:72px; border-radius:50%;
+    position:absolute; top:0.65rem; left:0.65rem; z-index:300;
+    width:2.5rem; height:2.5rem; border-radius:50%;
     background:rgba(255,255,255,.88);
     -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
     display:flex; align-items:center; justify-content:center;
-    cursor:pointer; font-size: 1.82856rem; color:#333; font-weight:400;    box-shadow:0 2px 8px rgba(0,0,0,.18);
+    cursor:pointer; font-size: 1.15rem; color:#333; font-weight:400;
+    box-shadow:0 2px 8px rgba(0,0,0,.18);
     transition:background .15s; user-select:none; pointer-events:auto;
   }
   .sheet-img-close:active { background:rgba(255,255,255,1); }
@@ -480,36 +489,56 @@
     max-width: 360px;
     margin-left: auto;
     margin-right: auto;
-    padding: 0 0 1.4286rem;
+    padding: 0 0 1rem;
     box-sizing: border-box;
   }
 
   /* 商品資訊區（名稱 / 描述 / 價格） */
-  .sheet-info-block { padding:20px 0 16px; border-bottom:2px solid #f0f0f0; }
+  .sheet-info-block { padding:0.85rem 0 0.65rem; border-bottom:1px solid #f0f0f0; }
 
   /* 購物車品項提示橫條 */
   .sheet-cart-hint {
     display:flex; align-items:center; justify-content:space-between;
-    background:#fce4ef; border-radius:16px;
-    padding:18px 20px; margin:14px 0 4px;
+    background:#fce4ef; border-radius:0.65rem;
+    padding:0.65rem 0.75rem; margin:0.65rem 0 0.25rem;
     cursor:pointer; transition:opacity .15s;
   }
   .sheet-cart-hint:active { opacity:.75; }
-  .sheet-cart-hint-left  { font-size: 2.01144rem; font-weight:700; color:var(--panda); }  .sheet-cart-hint-right { font-size: 1.82856rem; font-weight:700; color:var(--panda); display:flex; align-items:center; gap:4px; white-space:nowrap; }  .sheet-item-name  { font-size: 2.37712rem; font-weight:900; color:#1a1a1a; line-height:1.3; }  .sheet-item-desc  { font-size: 1.82856rem; color:#888; margin-top:10px; line-height:1.5; }  .sheet-item-price { font-size: 2.37712rem; font-weight:900; color:var(--panda); margin-top:12px; display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 12px; }  .sheet-item-price .sh-price-orig { font-size: 2.01144rem; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; font-weight:800; }  .sheet-item-price .sh-price-sale { font-size: 2.37712rem; color:#7c3aed; font-weight:900; }
+  .sheet-cart-hint-left  { font-size: 0.92rem; font-weight:700; color:var(--panda); }
+  .sheet-cart-hint-right { font-size: 0.85rem; font-weight:700; color:var(--panda); display:flex; align-items:center; gap:0.25rem; white-space:nowrap; }
+  .sheet-item-name  { font-size: 1.15rem; font-weight:900; color:#1a1a1a; line-height:1.35; }
+  .sheet-item-desc  { font-size: 0.88rem; color:#888; margin-top:0.45rem; line-height:1.45; }
+  .sheet-item-price { font-size: 1.1rem; font-weight:900; color:var(--panda); margin-top:0.5rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:0.25rem 0.65rem; }
+  .sheet-item-price .sh-price-orig { font-size: 0.95rem; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; font-weight:800; }
+  .sheet-item-price .sh-price-sale { font-size: 1.1rem; color:#7c3aed; font-weight:900; }
+  .sheet-price-note { font-size: 0.82rem; font-weight:600; color:#888; margin-left:0.35rem; }
   /* 附加選項 */
-  .option-group { margin:24px 0; }
-  .option-group-title { font-size: 2.37712rem; font-weight:700; color:#1a1a1a; display:flex; align-items:center; gap:8px; margin-bottom:6px; }  .option-sub { font-size: 2.01144rem; color:#aaa; margin-bottom:16px; }  .option-item { display:flex; align-items:center; justify-content:space-between; padding:24px 0; border-bottom:1px solid #f5f5f5; cursor:pointer; }
+  .option-group { margin:1rem 0; }
+  .option-group-title { font-size: 1rem; font-weight:700; color:#1a1a1a; display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem; flex-wrap:wrap; }
+  .option-group-note { font-size: 0.82rem; font-weight:400; color:#aaa; margin-left:0.15rem; }
+  .option-sub { font-size: 0.85rem; color:#aaa; margin-bottom:0.65rem; }
+  .option-item { display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0; border-bottom:1px solid #f5f5f5; cursor:pointer; }
   .option-item:active { background:#fafafa; }
-  .option-label { font-size: 2.37712rem; color:#2a2a2a; }  .option-price-tag { font-size: 2.01144rem; color:#888; margin-right:12px; }  .option-checkbox { width:52px; height:52px; border-radius:12px; border:3px solid #ddd; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
+  .option-label { font-size: 0.95rem; color:#2a2a2a; }
+  .option-price-tag { font-size: 0.82rem; color:#888; margin-right:0.5rem; }
+  .option-checkbox { width:1.65rem; height:1.65rem; border-radius:0.35rem; border:2px solid #ddd; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
   .option-checkbox.checked { border-color:var(--panda); background:var(--panda); }
-  .option-checkbox.checked::after { content:'✓'; color:white; font-size: 1.64568rem; font-weight:700; }
+  .option-checkbox.checked::after { content:'✓'; color:white; font-size: 0.85rem; font-weight:700; }
   /* 數量控制（商品抽屜） */
-  .qty-control { display:flex; align-items:center; border:3px solid var(--panda); border-radius:50px; overflow:hidden; }
-  .qty-btn { width:80px; height:80px; display:flex; align-items:center; justify-content:center; font-size: 2.37712rem; font-weight:300; color:var(--panda); background:transparent; cursor:pointer; transition:background .15s; }  .qty-btn:active { background:var(--panda-light); }
-  .qty-val { font-size: 2.37712rem; font-weight:700; width:80px; text-align:center; color:#1a1a1a; }
+  .qty-control { display:flex; align-items:center; border:2px solid var(--panda); border-radius:999px; overflow:hidden; }
+  .qty-btn { width:2.5rem; height:2.5rem; display:flex; align-items:center; justify-content:center; font-size: 1.15rem; font-weight:300; color:var(--panda); background:transparent; cursor:pointer; transition:background .15s; }
+  .qty-btn:active { background:var(--panda-light); }
+  .qty-val { font-size: 1rem; font-weight:700; width:2.25rem; text-align:center; color:#1a1a1a; }
   /* 抽屜底部按鈕 */
-  .sheet-footer { padding:20px 24px 36px; border-top:1px solid #f0f0f0; background:#fff; flex-shrink:0; }
-  .add-to-cart-btn { width:100%; padding:24px 28px; background:var(--panda); color:white; font-size: 2.37712rem; font-weight:700; border-radius:50px; cursor:pointer; box-shadow:0 6px 20px rgba(215,4,100,.35); transition:transform .15s,box-shadow .15s; display:flex; align-items:center; justify-content:space-between; }  .add-to-cart-btn:active { transform:scale(.97); box-shadow:0 3px 10px rgba(215,4,100,.25); }
+  .sheet-footer { padding:0.85rem 1rem 1.25rem; border-top:1px solid #f0f0f0; background:#fff; flex-shrink:0; }
+  .add-to-cart-btn { width:100%; padding:0.75rem 1rem; background:var(--panda); color:white; font-size: 1rem; font-weight:700; border-radius:999px; cursor:pointer; box-shadow:0 4px 14px rgba(215,4,100,.3); transition:transform .15s,box-shadow .15s; display:flex; align-items:center; justify-content:space-between; }
+  .add-to-cart-btn:active { transform:scale(.97); box-shadow:0 3px 10px rgba(215,4,100,.25); }
+
+  .sheet-note-block { padding:0.65rem 0 0.4rem; border-top:1px solid #f5f5f5; margin-top:0.4rem; }
+  .sheet-note-label { font-size: 0.92rem; font-weight:700; color:#1a1a1a; display:block; margin-bottom:0.35rem; }
+  .sheet-note-input.form-input { font-size: 1rem !important; padding: 0.55rem 0.65rem !important; border-width: 1px !important; border-radius: 0.5rem !important; min-height: 2.5rem !important; }
+  .sheet-qty-row { display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0; border-top:1px solid #f5f5f5; margin-top:0.35rem; }
+  .sheet-qty-label { font-size: 1rem; font-weight:700; color:#1a1a1a; }
 
   /* ════ 抽屜頂部列（handle + 左上角關閉 X）════ */
   .sheet-topbar {
@@ -539,6 +568,84 @@
     overflow:hidden; will-change:transform;
   }
   #cart-drawer.show { transform:translateY(0); }
+
+  /* 購物車抽屜：按鈕與表單收斂（與首頁比例一致） */
+  #cart-drawer .cart-header {
+    padding: 0.85rem 1rem 0.65rem;
+    gap: 0.75rem;
+    border-bottom-width: 1px;
+  }
+  #cart-drawer .drawer-close-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.1rem;
+  }
+  #cart-drawer .cart-drawer-title { font-size: 1.15rem; }
+  #cart-drawer .cart-content-pad { padding: 0 1rem 0.75rem; }
+  #cart-drawer .form-input {
+    border-width: 1px !important;
+    border-radius: 0.5rem !important;
+    padding: 0.55rem 0.65rem !important;
+    font-size: 1rem !important;
+    min-height: 2.5rem !important;
+  }
+  #cart-drawer .pickup-time-area { margin-top: 0.85rem !important; }
+  #cart-drawer .pickup-time-label { font-size: 0.95rem !important; font-weight: 700 !important; }
+  #cart-drawer .time-select {
+    font-size: 1rem !important;
+    padding: 0.45rem 0.6rem !important;
+    border-width: 2px !important;
+    border-radius: 0.5rem !important;
+    min-width: 0 !important;
+  }
+  #cart-drawer .time-colon { font-size: 1rem !important; }
+  #cart-drawer #submit-btn {
+    padding: 0.75rem 1rem !important;
+    border-radius: 999px !important;
+    font-size: 1rem !important;
+    gap: 0.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    box-shadow: 0 4px 14px rgba(215,4,100,.28) !important;
+  }
+  #cart-drawer .submit-qty { font-size: 0.85rem !important; }
+  #cart-drawer .submit-price { font-size: 1.05rem !important; }
+  #cart-drawer .sheet-footer {
+    padding: 0.65rem 1rem calc(0.85rem + env(safe-area-inset-bottom, 0px)) !important;
+    border-top-width: 1px !important;
+  }
+  #cart-drawer .cart-item-row { padding: 0.85rem 0; }
+  #cart-drawer .cart-item-name { font-size: 1rem !important; }
+  #cart-drawer .cart-item-opts { font-size: 0.82rem !important; margin-top: 0.25rem !important; }
+  #cart-drawer .cart-item-bottom { margin-top: 0.5rem !important; }
+  #cart-drawer .cart-item-price { font-size: 1rem !important; }
+  #cart-drawer .cart-qty-ctrl { border-width: 2px !important; border-radius: 999px !important; }
+  #cart-drawer .cart-qty-btn {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    font-size: 1.05rem !important;
+  }
+  #cart-drawer .cart-qty-num { font-size: 0.95rem !important; width: 2rem !important; }
+  #cart-drawer .cart-item-trash {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+  }
+  #cart-drawer .cart-item-trash svg { width: 1.15rem !important; height: 1.15rem !important; }
+  #cart-drawer .cart-point-discount-block {
+    margin-top: 0.85rem !important;
+    padding: 0.75rem 0.65rem !important;
+    border-width: 1px !important;
+    border-radius: 0.65rem !important;
+  }
+  #cart-drawer .cart-point-discount-block .cpd-label { font-size: 0.9rem !important; margin-bottom: 0.45rem !important; }
+  #cart-drawer #cart-point-discount-input {
+    font-size: 1rem !important;
+    padding: 0.5rem 0.6rem !important;
+    border-width: 1px !important;
+    border-radius: 0.5rem !important;
+  }
+  #cart-drawer .cart-point-discount-hint { font-size: 0.82rem !important; }
 
   /* 購物車 header（叉叉 + 標題同排） */
   .cart-header {
@@ -904,8 +1011,8 @@
   #closed-overlay { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.88); display:none; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px; }
   #closed-overlay.show { display:flex; }
 
-  /* pb-safe 要夠大，確保最後一個分類的商品捲到頂後下方仍有空間，避免 iOS 彈性超卷 */
-  .pb-safe { padding-bottom:42.8571rem; }
+  /* 底部留白：足夠避開懸浮購物車條即可（勿過大） */
+  .pb-safe { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
 
   /* ════ 封面右上角圖示按鈕（共用樣式，對齊 GAS 小圓鈕） ════ */
   .hero-icon-btn {
@@ -946,11 +1053,12 @@
   }
   body.order-dine-in-mode #cart-bar .cart-inner-row #cart-bar-dinein-pill { display: inline-block !important; }
   #member-corner-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 2); display:none; }
-  #member-guide-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 3); display:none; }
-  #reservation-corner-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 4); }
+  #member-guide-btn { display: none !important; }
+  #reservation-corner-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 3); }
   body.member-disabled #reservation-corner-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 2); }
-  body.order-dine-in-mode #member-guide-btn { display:none !important; }
-  body.order-dine-in-mode #reservation-corner-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 3); }
+  body.order-dine-in-mode #reservation-corner-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 2); }
+
+  #member-guide-sheet .member-corner-pad { padding-top: 0.35rem; }
 
   #member-guide-overlay {
     position:fixed; inset:0; background:rgba(0,0,0,.5);
@@ -967,7 +1075,9 @@
     overflow:hidden; will-change:transform;
   }
   #member-guide-sheet.show { transform:translateY(0); }
-  .order-guide-line { font-size: 1.55432rem; color:#334155; line-height:1.55; margin:0 0 14px; padding-left:1.1em; text-indent:-1.1em; }  .order-guide-h2 { font-size: 1.82856rem; font-weight:900; color:#0f172a; margin:28px 0 12px; }  #merchant-promo-ad-overlay {
+  .order-guide-line { font-size: 0.88rem; color:#334155; line-height:1.5; margin:0 0 0.65rem; padding-left:1.05em; text-indent:-1.05em; }
+  .order-guide-h2 { font-size: 1rem; font-weight:900; color:#0f172a; margin:1rem 0 0.5rem; }
+  #merchant-promo-ad-overlay {
     position:fixed; inset:0; background:rgba(0,0,0,.42); z-index:1055;
     opacity:0; pointer-events:none; transition:opacity .3s;
     backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
@@ -986,21 +1096,27 @@
   #merchant-promo-ad-sheet.show { transform:translateY(0); }
   #merchant-promo-ad-sheet.order-promo-ad-loading { background: rgba(255,255,255,.96); }
   .order-promo-ad-loading-hint {
-    font-size: 1.82856rem; font-weight: 800; color: #64748b; text-align: center;    padding: 48px 24px 36px; margin: 0;
+    font-size: 0.95rem; font-weight: 700; color: #64748b; text-align: center;
+    padding: 1.5rem 1rem 1rem; margin: 0;
   }
   .order-promo-ad-loading .order-promo-ad-loading-spinner {
-    width: 64px; height: 64px; margin: 0 auto 32px;
-    border: 5px solid #e2e8f0; border-top-color: var(--panda); border-radius: 50%;
+    width: 2.5rem; height: 2.5rem; margin: 0 auto 1rem;
+    border: 3px solid #e2e8f0; border-top-color: var(--panda); border-radius: 50%;
     animation: order-promo-spin 0.85s linear infinite;
   }
   @keyframes order-promo-spin { to { transform: rotate(360deg); } }
   #merchant-promo-ad-img-wrap { width:100%; flex-shrink:0; }
   #merchant-promo-ad-img { width:100%; height:auto; display:block; background:transparent; }
   .merchant-promo-ad-close {
-    position:absolute; top:12px; right:12px; z-index:10;
-    width:72px; height:72px; border-radius:50%; border:none;
-    background:rgba(255,255,255,.92); color:#1e293b; font-size: 1.82856rem; font-weight:800;    box-shadow:0 2px 12px rgba(0,0,0,.12); cursor:pointer; line-height:1;
+    position:absolute; top:0.65rem; right:0.65rem; z-index:10;
+    width:2.25rem; height:2.25rem; border-radius:50%; border:none;
+    background:rgba(255,255,255,.92); color:#1e293b; font-size: 1.1rem; font-weight:800;
+    box-shadow:0 2px 8px rgba(0,0,0,.12); cursor:pointer; line-height:1;
   }
+  #merchant-promo-ad-text .order-promo-ad-title,
+  #merchant-promo-ad-text .order-guide-h2 { font-size: 1.05rem; margin: 0.35rem 0 0.5rem; }
+  #merchant-promo-ad-text .order-promo-ad-title { margin-top: 0.25rem; }
+  #merchant-promo-ad-text .order-guide-line { font-size: 0.88rem; margin-bottom:0.45rem; }
   /* 預約抽屜：由下往上滑、字級與首頁一致（精簡版） */
   #resv-drawer {
     position:fixed; left:0; right:0; bottom:0; top:auto;
@@ -1041,9 +1157,15 @@
     font-size: 0.92rem; font-weight:800; color:#1f2937; display:block; margin-bottom:0.4rem;
   }
   #resv-drawer input, #resv-drawer textarea {
-    width:100%; padding:0.65rem 0.75rem; border:1px solid #cbd5e1; border-radius:0.65rem;
+    width:100%; max-width:100%; padding:0.65rem 0.75rem; border:1px solid #cbd5e1; border-radius:0.65rem;
     font-size: 1rem; font-weight:600; color:#0f172a; background:#fff; line-height:1.25;
     min-height:1.35em; box-sizing:border-box;
+  }
+  #resv-drawer input[type="date"] {
+    min-width: 0;
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
   }
   #resv-drawer input:focus, #resv-drawer textarea:focus {
     outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.18);
@@ -1051,9 +1173,11 @@
   #resv-drawer #resv-drawer-date,
   #resv-drawer #resv-drawer-people {
     box-sizing: border-box;
-    width: min(24rem, 100%);
     max-width: 100%;
+    min-width: 0;
   }
+  #resv-drawer #resv-drawer-date { width: 100%; }
+  #resv-drawer #resv-drawer-people { width: min(20rem, 100%); }
   #resv-drawer .resv-time-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0.5rem; }
   @media (min-width: 40rem) { #resv-drawer .resv-time-grid { grid-template-columns:repeat(4,1fr); } }
   #resv-drawer .resv-slot-btn {
@@ -1262,32 +1386,37 @@
     overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
   }
-  .ol-pad { padding:0.85rem 0.85rem 3rem; }
+  .ol-pad { padding:0.85rem 0.85rem 3rem; max-width:100%; box-sizing:border-box; overflow-x:hidden; }
+  .ol-block { margin-bottom:1.15rem; }
+  .ol-block-title { font-size:1.05rem; font-weight:900; color:#1a1a1a; margin:0 0 0.5rem; letter-spacing:.02em; }
 
   /* 搜尋欄 */
   .ol-search-row {
-    display:flex; gap:0.5rem; margin-bottom:1rem;
+    display:flex; flex-wrap:wrap; align-items:stretch;
+    gap:0.5rem; margin-bottom:0.65rem;
     background:#fff; border-radius:0.75rem;
     padding:0.65rem; box-shadow:0 1px 6px rgba(0,0,0,.06);
+    width:100%; max-width:100%; box-sizing:border-box;
   }
   .ol-input {
-    flex:1; font-size: 1rem; font-weight:600; max-width:700px;
+    flex:1 1 12rem; min-width:0; font-size: 1rem; font-weight:600;
     margin:0; padding:0.55rem 0.65rem; border:1px solid #e8e8e8;
     border-radius:0.5rem; outline:none; color:#1a1a1a;
     -webkit-appearance:none; appearance:none; background:#fafafa;
     transition:border-color .2s;
+    max-width:100%;
   }
   .ol-input:focus { border-color:var(--panda); background:#fff; }
   .ol-search-btn {
     background:var(--panda); color:#fff;
-    font-size: 0.92rem; font-weight:800; padding:0.55rem 0.85rem; border:none; border-radius:0.5rem;
-    cursor:pointer; white-space:nowrap; flex-shrink:0;
+    font-size: 0.92rem; font-weight:800; padding:0.55rem 0.75rem; border:none; border-radius:0.5rem;
+    cursor:pointer; white-space:nowrap;
+    flex:0 1 auto; min-width:min(5.25rem, 22vw); max-width:100%;
     transition:opacity .15s; box-shadow:0 3px 10px rgba(215,4,100,.25);
   }
   .ol-search-btn:active { opacity:.85; }
   .ol-search-btn:disabled { background:#ccc; box-shadow:none; }
-  /* 兩列查詢（訂單／預約）按鈕同寬，避免一高一低 */
-  .ol-search-row .ol-search-btn { flex:0 0 min(7rem, 28vw); text-align:center; justify-content:center; display:inline-flex; align-items:center; }
+  .ol-search-row .ol-search-btn { text-align:center; justify-content:center; display:inline-flex; align-items:center; }
 
   /* 訂單卡片 */
   .ol-card {
@@ -1334,13 +1463,8 @@
 
   /* 查詢預約區（店家開放線上預約時才顯示） */
   .ol-resv-block {
-    margin-top:1.25rem; padding-top:1rem;
+    margin-top:0.5rem; padding-top:1rem;
     border-top:1px solid #e5e7eb;
-  }
-  .ol-resv-heading {
-    font-size: 1.05rem; font-weight:900; color:#1a1a1a;
-    margin-bottom:0.65rem;
-    letter-spacing:.02em;
   }
   .ol-resv-hint {
     font-size: 0.82rem; color:#94a3b8; margin:-0.2rem 0 0.65rem;
@@ -2107,7 +2231,7 @@
   <div id="hero-color-layer" class="hero-color-layer" aria-hidden="true"></div>
   <div class="hero-overlay"></div>
 
-  <!-- 視覺由右→左：商家｜查詢｜本桌清單｜會員說明｜會員｜預約；焦點順序與表述一致：預約→會員→…→查詢→商家 -->
+  <!-- 視覺由右→左：商家｜查詢｜本桌｜會員｜預約（會員說明僅自會員專區內開啟） -->
   <button id="reservation-corner-btn" class="hero-icon-btn" style="display:none;" onclick="openReservationDrawer()" aria-label="線上預約">
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -2128,14 +2252,6 @@
     </svg>
   </button>
 
-  <button type="button" id="member-guide-btn" class="hero-icon-btn" style="display:none;" onclick="orderOpenMemberGuideSheet_()" aria-label="會員說明">
-    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-      <path d="M8 7h8M8 11h6"/>
-    </svg>
-  </button>
-
   <button type="button" id="dinein-my-list-btn" class="hero-icon-btn" style="display:none;" onclick="orderOpenDineInMyList_()" aria-label="本桌清單">
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
@@ -2144,7 +2260,7 @@
     </svg>
   </button>
 
-  <button id="order-lookup-btn" class="hero-icon-btn" onclick="openOrderLookup()" aria-label="查詢訂單">
+  <button id="order-lookup-btn" class="hero-icon-btn" onclick="openOrderLookup()" aria-label="查詢">
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="11" cy="11" r="7"/>
       <line x1="16.5" y1="16.5" x2="22" y2="22"/>
@@ -2196,20 +2312,23 @@
 <div id="order-lookup-sheet">
   <div class="cart-header">
     <div class="drawer-close-btn" onclick="closeOrderLookup()" style="position:static;transform:none;flex-shrink:0;">✕</div>
-    <div class="cart-drawer-title">查詢訂單</div>
+    <div class="cart-drawer-title">查詢</div>
   </div>
   <div class="ol-scroll" id="ol-scroll">
     <div class="ol-pad">
-      <div class="ol-search-row">
-        <input id="ol-phone" type="tel" inputmode="numeric" autocomplete="tel"
-               placeholder="請輸入手機號碼" class="ol-input"
-               onkeydown="if(event.key==='Enter')doOrderSearch()">
-        <button id="ol-search-btn" class="ol-search-btn" onclick="doOrderSearch()">查詢</button>
+      <div class="ol-block">
+        <div class="ol-block-title">查詢訂單</div>
+        <div class="ol-search-row">
+          <input id="ol-phone" type="tel" inputmode="numeric" autocomplete="tel"
+                 placeholder="請輸入手機號碼" class="ol-input"
+                 onkeydown="if(event.key==='Enter')doOrderSearch()">
+          <button id="ol-search-btn" class="ol-search-btn" onclick="doOrderSearch()">查詢</button>
+        </div>
+        <div id="ol-results"></div>
       </div>
-      <div id="ol-results"></div>
 
-      <div id="ol-resv-block" class="ol-resv-block" style="display:none;">
-        <div class="ol-resv-heading">查詢預約</div>
+      <div id="ol-resv-block" class="ol-block ol-resv-block" style="display:none;">
+        <div class="ol-block-title">查詢預約</div>
         <div class="ol-resv-hint">請輸入與送出預約時相同的電話號碼</div>
         <div class="ol-search-row">
           <input id="ol-resv-phone" type="tel" inputmode="numeric" autocomplete="tel"
@@ -2478,14 +2597,14 @@
       <div id="sheet-options"></div>
 
       <!-- 品項備註 -->
-      <div style="padding:16px 0 8px;border-top:1px solid #f5f5f5;margin-top:8px;">
-        <label style="font-size: 2.01144rem;font-weight:700;color:#1a1a1a;display:block;margin-bottom:8px;">品項備註</label>
-        <input id="sheet-note" type="text" placeholder="例：不要香菜、少辣..." class="form-input">
+      <div class="sheet-note-block">
+        <label class="sheet-note-label">品項備註</label>
+        <input id="sheet-note" type="text" placeholder="例：不要香菜、少辣..." class="form-input sheet-note-input">
       </div>
 
       <!-- 數量 -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 0;border-top:1px solid #f5f5f5;margin-top:8px;">
-        <span style="font-size: 2.37712rem;font-weight:700;color:#1a1a1a;">數量</span>
+      <div class="sheet-qty-row">
+        <span class="sheet-qty-label">數量</span>
         <div class="qty-control">
           <div class="qty-btn" onclick="changeQty(-1)">−</div>
           <div class="qty-val" id="sheet-qty">1</div>
@@ -2958,8 +3077,7 @@ function orderSyncReservationHeroPosition_() {
     return;
   }
   var memberBtn = document.getElementById('member-corner-btn');
-  var guideBtn = document.getElementById('member-guide-btn');
-  var slots = 2 + (orderHeroIconIsVisible_(memberBtn) ? 1 : 0) + (orderHeroIconIsVisible_(guideBtn) ? 1 : 0);
+  var slots = 2 + (orderHeroIconIsVisible_(memberBtn) ? 1 : 0);
   btn.style.setProperty('right', 'calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * ' + slots + ')');
 }
 
@@ -4178,9 +4296,6 @@ function orderAfterStorePromotionsFetched_() {
 function orderPromoAdShowLoadingShell_() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
   if (!orderInitialReadyState_.memberGateDone || !orderInitialReadyState_.loadingClosed) return;
-  try {
-    if (sessionStorage.getItem(ORDER_PROMO_AD_SESSION_KEY) === '1') return;
-  } catch (e0) { /* 略 */ }
   var ov = document.getElementById('merchant-promo-ad-overlay');
   var sh = document.getElementById('merchant-promo-ad-sheet');
   var wrap = document.getElementById('merchant-promo-ad-img-wrap');
@@ -4241,22 +4356,13 @@ function orderPromoAdUiAfterPromotionsPayload_() {
     }
     return;
   }
-  try {
-    if (!wasLoading && sessionStorage.getItem(ORDER_PROMO_AD_SESSION_KEY) === '1') return;
-  } catch (eS) { /* 略 */ }
-  orderFillAndShowMerchantPromoAdDrawer_({ requireImage: false, rememberOnOverlayClose: true });
+  orderFillAndShowMerchantPromoAdDrawer_({ requireImage: false, rememberOnOverlayClose: false });
 }
 
 /** 首屏載入結束後：必要時顯示活動抽屜（先比對／閘門→首頁→再滑出廣告） */
 function orderResumePromoAdAfterHomepageVisible_() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
   if (!orderInitialReadyState_.memberGateDone || !orderInitialReadyState_.loadingClosed) return;
-  try {
-    if (sessionStorage.getItem(ORDER_PROMO_AD_SESSION_KEY) === '1') {
-      void orderEnsureStorePromotionsFetchedAtLeastOnce_();
-      return;
-    }
-  } catch (e0) { /* 略 */ }
   try {
     if (window.__orderPromoFetchDoneOnce__) {
       orderPromoAdUiAfterPromotionsPayload_();
@@ -4270,13 +4376,6 @@ function orderResumePromoAdAfterHomepageVisible_() {
 function orderPromotionsEarlyStart_() {
   if (!currentWebAppUrl) return;
   if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
-  try {
-    if (sessionStorage.getItem(ORDER_PROMO_AD_SESSION_KEY) === '1') {
-      void orderEnsureStorePromotionsFetchedAtLeastOnce_();
-      return;
-    }
-  } catch (e0) { /* 略 */ }
-  /* 僅背景預抓促銷與圖（供菜單試算）；廣告 UI 延後至首頁露出後 */
   void orderGetStorePromotionsFetchOnce_();
 }
 
@@ -4357,7 +4456,7 @@ function orderStoreInfoPromoBtnVisible_() {
 function orderFillAndShowMerchantPromoAdDrawer_(opt) {
   opt = opt || {};
   var requireImage = !!opt.requireImage;
-  var remember = (opt.rememberOnOverlayClose !== false);
+  var remember = (opt.rememberOnOverlayClose === true);
   try { window.__orderPromoAdRememberClose__ = remember; } catch (e1) { /* 略 */ }
   var cfg = orderGetMerchantPromoCfg_();
   var img = String(cfg.activityImage || '').trim();
@@ -4386,7 +4485,7 @@ function orderFillAndShowMerchantPromoAdDrawer_(opt) {
       im.src = ORDER_PROMO_AD_IMG_BLANK_SRC_;
     }
   }
-  tx.innerHTML = '<p class="order-guide-h2" style="margin-top:4px;">活動說明</p>' +
+  tx.innerHTML = '<p class="order-guide-h2 order-promo-ad-title">活動說明</p>' +
     lines.map(function (ln) { return '<p class="order-guide-line">• ' + orderEscHtml_(ln) + '</p>'; }).join('');
   var scAd = document.getElementById('merchant-promo-ad-scroll');
   if (scAd) scAd.scrollTop = 0;
@@ -4404,10 +4503,7 @@ function orderFillAndShowMerchantPromoAdDrawer_(opt) {
 
 function orderTryShowMerchantPromoAdDrawer_() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
-  try {
-    if (sessionStorage.getItem(ORDER_PROMO_AD_SESSION_KEY) === '1') return;
-  } catch (e0) { /* 略 */ }
-  orderFillAndShowMerchantPromoAdDrawer_({ requireImage: false, rememberOnOverlayClose: true });
+  orderFillAndShowMerchantPromoAdDrawer_({ requireImage: false, rememberOnOverlayClose: false });
 }
 
 function orderOpenMerchantPromoAdFromStore_() {
@@ -4462,10 +4558,6 @@ function orderCloseMerchantPromoAdWithSessionPolicy_() {
 }
 
 function orderCloseMerchantPromoAdAfterSwipe_() {
-  var remember = !!window.__orderPromoAdRememberClose__;
-  try {
-    if (remember) sessionStorage.setItem(ORDER_PROMO_AD_SESSION_KEY, '1');
-  } catch (eR) { /* 略 */ }
   var ov = document.getElementById('merchant-promo-ad-overlay');
   var sh = document.getElementById('merchant-promo-ad-sheet');
   var wrap = document.getElementById('merchant-promo-ad-img-wrap');
@@ -4485,9 +4577,6 @@ function orderCloseMerchantPromoAdAfterSwipe_() {
 }
 
 function orderCloseMerchantPromoAd_(remember) {
-  try {
-    if (remember) sessionStorage.setItem(ORDER_PROMO_AD_SESSION_KEY, '1');
-  } catch (eR) { /* 略 */ }
   var ov = document.getElementById('merchant-promo-ad-overlay');
   var sh = document.getElementById('merchant-promo-ad-sheet');
   var wrap = document.getElementById('merchant-promo-ad-img-wrap');
@@ -5328,12 +5417,11 @@ function scrollToSection(idx) {
   clearTimeout(_programScrollTimer);
   _programScrollTimer = setTimeout(() => { _programScroll = false; }, 1600);
 
-  const sec = document.querySelector(`[data-section="${idx}"]`);
+    const sec = document.querySelector(`[data-section="${idx}"]`);
   if (sec) {
-    const catTabsEl = document.getElementById('cat-tabs');
-    const catH  = catTabsEl ? catTabsEl.offsetHeight : 100;
-    const stickyH = catH;
-    const rawOffset = sec.getBoundingClientRect().top + window.scrollY - stickyH - 4;
+    const stickyNav = document.getElementById('sticky-nav');
+    const stickyH = stickyNav ? stickyNav.offsetHeight : 48;
+    const rawOffset = sec.getBoundingClientRect().top + window.scrollY - stickyH - 6;
     // 不捲到頁面絕對底部（留 100px 緩衝，避免 iOS 彈性捲動讓底部元素彈出）
     const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
     const safeOffset = Math.min(Math.max(0, rawOffset), maxScroll - 100);
@@ -5366,7 +5454,7 @@ function openSheet(productId) {
   const cfg = orderGetMerchantPromoCfg_();
   const pp = orderMerchantPromoUnitPriceForMenuCard_(item.id, item.price, cfg);
   const sheetPriceHtml = pp.hasDiscount
-    ? '<div class="sheet-item-price"><span class="sh-price-orig">' + formatPrice(pp.orig) + '</span><span class="sh-price-sale">' + formatPrice(pp.sale) + '</span><span style="font-size: 1.64568rem;font-weight:600;color:#888;margin-left:10px;">（單價，不含加購）</span></div>'
+    ? '<div class="sheet-item-price"><span class="sh-price-orig">' + formatPrice(pp.orig) + '</span><span class="sh-price-sale">' + formatPrice(pp.sale) + '</span><span class="sheet-price-note">（單價，不含加購）</span></div>'
     : `<div class="sheet-item-price">${formatPrice(item.price)}</div>`;
 
   // ── 商品資訊：名稱 / 描述 / 費用 ──
@@ -5395,7 +5483,7 @@ function openSheet(productId) {
   if (item.options.length > 0) {
     html = `<div class="option-group">
       <div class="option-group-title">加購選項
-        <span style="font-size: 1.82856rem;font-weight:400;color:#aaa;margin-left:4px;">（可多選）</span>
+        <span class="option-group-note">（可多選）</span>
       </div>`;
     item.options.forEach((opt, ei) => {
       html += `<div class="option-item" onclick="toggleExtra(${ei})">
