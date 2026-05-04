@@ -33,9 +33,10 @@
 </script>
 <style>
   :root {
-    --panda:       #D70464;
-    --panda-dark:  #b50353;
-    --panda-light: #fce4ef;
+    /* LIFF／系統 WebView 易覆寫 CSS 變數，!important 固定品牌色備援；後台 menuColors 會再以 inline !important 更新 */
+    --panda: #D70464 !important;
+    --panda-dark: #b50353 !important;
+    --panda-light: rgba(215, 4, 100, 0.1) !important;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
@@ -265,9 +266,11 @@
     transition:color .2s, box-shadow .2s;
     box-shadow: inset 0 0 0 0 transparent;
   }
-  .cat-tab.active {
-    color:var(--panda); font-weight:700;
-    box-shadow: inset 0 -0.2143rem 0 0 var(--panda);
+  .cat-tab.active,
+  .category-item.active {
+    color: var(--panda) !important;
+    font-weight: 700;
+    box-shadow: inset 0 -0.2143rem 0 0 var(--panda) !important;
   }
   .cat-tab:active { transform:scale(.95); }
 
@@ -437,22 +440,25 @@
     min-width: 1.8rem;
     min-height: 1.8rem;
     border-radius: 50%;
-    background: var(--panda);
-    color: #fff;
+    border: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: var(--panda) !important;
+    color: #fff !important;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.5rem;
     font-weight: 300;
     line-height: 1;
-    box-shadow: 0 0.2143rem 0.7143rem rgba(215, 4, 100, 0.4);
+    box-shadow: 0 0.2143rem 0.7143rem rgba(215, 4, 100, 0.4) !important;
     transition: transform 0.15s, box-shadow 0.15s;
     flex-shrink: 0;
     box-sizing: border-box;
   }
   .menu-card .add-btn:active {
     transform: scale(0.88);
-    box-shadow: 0 0.0714rem 0.2857rem rgba(215, 4, 100, 0.3);
+    box-shadow: 0 0.0714rem 0.2857rem rgba(215, 4, 100, 0.3) !important;
   }
   .menu-section--redeem {
     padding-bottom: 3.4286rem;
@@ -564,7 +570,7 @@
   .option-label { font-size: 0.95rem; color:#2a2a2a; }
   .option-price-tag { font-size: 0.82rem; color:#888; margin-right:0.5rem; }
   .option-checkbox { width:1.65rem; height:1.65rem; border-radius:0.35rem; border:2px solid #ddd; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
-  .option-checkbox.checked { border-color:var(--panda); background:var(--panda); }
+  .option-checkbox.checked { border-color: var(--panda) !important; background: var(--panda) !important; }
   .option-checkbox.checked::after { content:'✓'; color:white; font-size: 0.85rem; font-weight:700; }
   /* 數量控制（商品抽屜） */
   .qty-control { display:flex; align-items:center; border:2px solid var(--panda); border-radius:999px; overflow:hidden; }
@@ -573,8 +579,28 @@
   .qty-val { font-size: 1rem; font-weight:700; width:2.25rem; text-align:center; color:#1a1a1a; }
   /* 抽屜底部按鈕 */
   .sheet-footer { padding:0.85rem 1rem 1.25rem; border-top:1px solid #f0f0f0; background:#fff; flex-shrink:0; }
-  .add-to-cart-btn { width:100%; padding:0.75rem 1rem; background:var(--panda); color:white; font-size: 1rem; font-weight:700; border-radius:999px; cursor:pointer; box-shadow:0 4px 14px rgba(215,4,100,.3); transition:transform .15s,box-shadow .15s; display:flex; align-items:center; justify-content:space-between; }
-  .add-to-cart-btn:active { transform:scale(.97); box-shadow:0 3px 10px rgba(215,4,100,.25); }
+  .add-to-cart-btn {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    border: none !important;
+    background: var(--panda) !important;
+    color: #fff !important;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(215, 4, 100, 0.3) !important;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .add-to-cart-btn:active {
+    transform: scale(0.97);
+    box-shadow: 0 3px 10px rgba(215, 4, 100, 0.25) !important;
+  }
 
   .sheet-note-block { padding:0.65rem 0 0.4rem; border-top:1px solid #f5f5f5; margin-top:0.4rem; }
   .sheet-note-label { font-size: 0.92rem; font-weight:700; color:#1a1a1a; display:block; margin-bottom:0.35rem; }
@@ -649,7 +675,10 @@
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    box-shadow: 0 4px 14px rgba(215,4,100,.28) !important;
+    background: var(--panda) !important;
+    color: #fff !important;
+    border: none !important;
+    box-shadow: 0 4px 14px rgba(215, 4, 100, 0.28) !important;
   }
   #cart-drawer .submit-qty { font-size: 0.85rem !important; }
   #cart-drawer .submit-price { font-size: 1.05rem !important; }
@@ -793,7 +822,7 @@
   .time-colon { font-size: 2.37712rem; font-weight:900; color:var(--panda); padding:0 4px; }
   /* ════ 懸浮購物車條 ════ */
   /* 底部「查看購物車」浮層：字與區塊縮小以免遮版 */
-  #cart-bar { position:fixed; bottom:env(safe-area-inset-bottom, 0px); left:0.75rem; right:0.75rem; background:var(--panda); border-radius:0.85rem; padding:0.55rem 0.85rem; min-height:0; z-index:90; display:flex; align-items:center; justify-content:space-between; gap:0.5rem; box-shadow:0 4px 18px rgba(215,4,100,.38); cursor:pointer; transform:translateY(120px); opacity:0; transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s; box-sizing:border-box; }
+  #cart-bar { position:fixed; bottom:env(safe-area-inset-bottom, 0px); left:0.75rem; right:0.75rem; background:var(--panda) !important; color:#fff !important; border-radius:0.85rem; padding:0.55rem 0.85rem; min-height:0; z-index:90; display:flex; align-items:center; justify-content:space-between; gap:0.5rem; box-shadow:0 4px 18px rgba(215,4,100,.38) !important; cursor:pointer; transform:translateY(120px); opacity:0; transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s; box-sizing:border-box; }
   #cart-bar.show   { transform:translateY(0); opacity:1; }
   #cart-bar.bounce { animation:cartBounce .4s cubic-bezier(.34,1.56,.64,1); }
   @keyframes cartBounce { 0%{transform:scale(1)} 40%{transform:scale(1.05)} 70%{transform:scale(.97)} 100%{transform:scale(1)} }
@@ -1019,9 +1048,36 @@
   }
 
   /* ════ 送出訂單按鈕 ════ */
-  #submit-btn { width:100%; padding:24px 28px; border-radius:1rem; font-size: 2.37712rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:12px; transition:all .2s; background:var(--panda); color:white; box-shadow:0 6px 20px rgba(215,4,100,.35); }  #submit-btn:active  { transform:scale(.97); }
-  #submit-btn.loading { background:#aaa; pointer-events:none; }
-  #submit-btn.success { background:#22c55e; pointer-events:none; }
+  #submit-btn {
+    width: 100%;
+    padding: 24px 28px;
+    border-radius: 1rem;
+    font-size: 2.37712rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    transition: all 0.2s;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    border: none !important;
+    background: var(--panda) !important;
+    color: #fff !important;
+    box-shadow: 0 6px 20px rgba(215, 4, 100, 0.35) !important;
+  }
+  #submit-btn:active { transform: scale(0.97); }
+  #submit-btn.loading {
+    background: #aaa !important;
+    box-shadow: none !important;
+    pointer-events: none;
+  }
+  #submit-btn.success {
+    background: #22c55e !important;
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.35) !important;
+    pointer-events: none;
+  }
   .submit-right { display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
   .submit-qty  { font-size: 1.64568rem; font-weight:700; opacity:.85; }  .submit-price { font-size: 2.37712rem; font-weight:900; }
   .order-dinein-prepay-swal .swal2-title { font-size: 2.37712rem !important; font-weight:900 !important; color:#1a1a1a !important; }  .order-dinein-prepay-swal .swal2-confirm.order-dinein-prepay-swal-btn { font-size: 2.01144rem !important; font-weight:800 !important; padding:18px 40px !important; border-radius:16px !important; }
@@ -1186,7 +1242,9 @@
     appearance: none;
   }
   #resv-drawer input:focus, #resv-drawer textarea:focus {
-    outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.18);
+    outline: none;
+    border-color: var(--panda) !important;
+    box-shadow: 0 0 0 3px rgba(215, 4, 100, 0.2) !important;
   }
   #resv-drawer #resv-drawer-date,
   #resv-drawer #resv-drawer-people {
@@ -1210,9 +1268,11 @@
   #resv-drawer .resv-slot-warn { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
   #resv-drawer .resv-slot-full { background:#e5e7eb; color:#94a3b8; border-color:#d1d5db; cursor:not-allowed; opacity:.9; }
   #resv-drawer .resv-slot-selected {
-    background:#2563eb !important; color:#fff !important;
-    border-color:#1d4ed8 !important; box-shadow:0 4px 12px rgba(37,99,235,.3);
-    transform:translateY(-1px);
+    background: var(--panda) !important;
+    color: #fff !important;
+    border-color: var(--panda-dark) !important;
+    box-shadow: 0 4px 12px rgba(215, 4, 100, 0.32) !important;
+    transform: translateY(-1px);
   }
   #resv-drawer .resv-cap-strip {
     margin-top:1rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.4rem 0.6rem;
@@ -1220,13 +1280,24 @@
   }
   #resv-drawer .resv-cap-strip .resv-cap-warn { color:#b91c1c; }
   #resv-drawer-submit {
-    margin-top:1rem; width:100%; padding:0.7rem 1rem; background:#2563eb; color:#fff;
-    border:none; border-radius:0.75rem; font-size: 1rem; font-weight:900; cursor:pointer;
-    box-shadow:0 6px 14px rgba(37,99,235,.28); letter-spacing:.02em;
+    margin-top: 1rem;
+    width: 100%;
+    padding: 0.7rem 1rem;
+    background: var(--panda) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 0.75rem;
+    font-size: 1rem;
+    font-weight: 900;
+    cursor: pointer;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    box-shadow: 0 6px 14px rgba(215, 4, 100, 0.28) !important;
+    letter-spacing: 0.02em;
   }
-  #resv-drawer-submit:disabled { opacity:.6; cursor:not-allowed; }
-  #resv-drawer-submit.loading { background:#94a3b8; box-shadow:none; pointer-events:none; }
-  #resv-drawer-submit.success { background:#22c55e; box-shadow:0 6px 14px rgba(34,197,94,.3); pointer-events:none; }
+  #resv-drawer-submit:disabled { opacity: .6; cursor: not-allowed; }
+  #resv-drawer-submit.loading { background: #94a3b8 !important; box-shadow: none !important; pointer-events: none; }
+  #resv-drawer-submit.success { background: #22c55e !important; box-shadow: 0 6px 14px rgba(34, 197, 94, 0.3) !important; pointer-events: none; }
   #resv-drawer .resv-hint-line {
     margin-top:0.75rem; font-size:0.85rem; font-weight:700; color:#64748b; line-height:1.45;
   }
@@ -5074,9 +5145,9 @@ function orderApplyBrandCssVarsFromNamesData_(namesData) {
   var light = rgbToHex(rgb.r + (255 - rgb.r) * 0.88, rgb.g + (255 - rgb.g) * 0.88, rgb.b + (255 - rgb.b) * 0.88);
   try {
     var root = document.documentElement;
-    root.style.setProperty('--panda', hex);
-    root.style.setProperty('--panda-dark', dark);
-    root.style.setProperty('--panda-light', light);
+    root.style.setProperty('--panda', hex, 'important');
+    root.style.setProperty('--panda-dark', dark, 'important');
+    root.style.setProperty('--panda-light', light, 'important');
   } catch (e) { /* 略 */ }
 }
 
@@ -7958,7 +8029,7 @@ window.addEventListener('load', function ordergitBootstrapOnLoad_() {
 <aside id="resv-drawer" aria-hidden="true">
   <div class="resv-d-grip" id="resv-drawer-grip"><span class="resv-d-grip-bar"></span></div>
   <div class="resv-d-header">
-    <div class="resv-d-title"><svg class="resv-d-title-icon" viewBox="0 0 24 24" width="1rem" height="1rem" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h2M14 14h2"/></svg>線上預約</div>
+    <div class="resv-d-title"><svg class="resv-d-title-icon" viewBox="0 0 24 24" width="1rem" height="1rem" fill="none" stroke="var(--panda)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h2M14 14h2"/></svg>線上預約</div>
     <button type="button" class="resv-d-close" onclick="closeReservationDrawer()" aria-label="關閉">×</button>
   </div>
   <div class="resv-d-body" id="resv-drawer-scroll">
