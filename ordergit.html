@@ -142,12 +142,17 @@
      GitHub：進場動畫結束後的首頁骨架（Hero → 分類 Tab → 商品網格）
      全寬、overflow-x 由 body 控制；與 #menu-loading 分層
      ═══════════════════════════════════════════════════════════ */
-  /* ════ Hero Banner ════ */
+  /* ════ Hero Banner（對齊 GAS：約 35vh、較小 logo／字級）════ */
   #hero-banner {
-    height: clamp(14.2857rem, 40vh, 42.8571rem);
+    height: clamp(11rem, 35vh, 28rem);
     background: linear-gradient(135deg, #1a0a10 0%, #3d0622 40%, #D70464 100%);
     position: relative; overflow: hidden;
     transition: height 0.35s cubic-bezier(.4,0,.2,1);
+    /* 右上角圖示：與 GAS 同級小圓鈕，供 calc(right) 共用 */
+    --hero-icon-size: 3rem;
+    --hero-icon-gap-x: 0.5rem;
+    --hero-icon-top: 0.5714rem;
+    --hero-icon-edge: 0.5714rem;
   }
   #hero-banner.collapsed { height: 0; }
   .hero-img { width:100%; height:100%; object-fit:cover; opacity:.55; position:absolute; inset:0; z-index:1; }
@@ -168,18 +173,18 @@
     background: linear-gradient(to top, rgba(0,0,0,.45) 0%, rgba(0,0,0,.12) 45%, transparent 75%);
   }
   .hero-overlay { position:absolute; inset:0; z-index:2; background:linear-gradient(to top,rgba(0,0,0,.72) 0%,rgba(0,0,0,.1) 60%); }
-  .hero-info { position:absolute; bottom:0; left:0; right:0; z-index:3; padding:1.4286rem 1.7143rem; transition:opacity .3s; }
+  .hero-info { position:absolute; bottom:0; left:0; right:0; z-index:3; padding:0.8571rem 0.8571rem 0.7143rem; transition:opacity .3s; }
   #hero-banner.collapsed .hero-info { opacity:0; pointer-events:none; }
 
   .hero-content-wrapper {
     display:flex;
     align-items:center;
-    gap:1.4286rem;
+    gap:0.7143rem;
   }
   .shop-logo-container {
-    width:11.4286rem;
-    height:11.4286rem;
-    border-radius:1.1429rem;
+    width:5rem;
+    height:5rem;
+    border-radius:0.5714rem;
     overflow:hidden;
     border:2px solid rgba(255,255,255,.3);
     flex-shrink:0;
@@ -192,8 +197,18 @@
     display:block;
   }
 
-  /*營業中*/
-  .open-badge { display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,.15); color:white; font-size: 1.92rem; padding:4px 10px; border-radius:20px; }  .dot        { width:30px; height:30px; border-radius:50%; background:#4ade80; display:inline-block; }
+  /*營業中（對齊 GAS 小字＋小圓點）*/
+  .open-badge { display:inline-flex; align-items:center; gap:0.2857rem; background:rgba(255,255,255,.15); color:white; font-size:0.8571rem; padding:0.2143rem 0.5rem; border-radius:666px; }
+  .dot { width:0.5rem; height:0.5rem; border-radius:50%; background:#4ade80; display:inline-block; flex-shrink:0; }
+  #hero-shop-name {
+    font-size: clamp(1.375rem, 4.8vw, 1.8571rem);
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.2;
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+  }
   .dot.closed { background:#ef4444; }
 
   /* ════ Sticky Nav ════ */
@@ -212,16 +227,18 @@
   #cat-tabs::-webkit-scrollbar { display:none; }
   .cat-tab {
     flex-shrink:0;
-    padding:20px 28px;
-    font-size: 2.37712rem; font-weight:500; color:#666;    white-space:nowrap; cursor:pointer;
+    padding:0.75rem 1rem;
+    font-size:1.1429rem;
+    font-weight:500;
+    color:#666;
+    white-space:nowrap;
+    cursor:pointer;
     transition:color .2s, box-shadow .2s;
-    /* 用 inset box-shadow 取代 border-bottom + position:relative/bottom
-       完全不影響版面位置，不會造成上下飄移 */
     box-shadow: inset 0 0 0 0 transparent;
   }
   .cat-tab.active {
     color:var(--panda); font-weight:700;
-    box-shadow: inset 0 -4px 0 0 var(--panda);
+    box-shadow: inset 0 -0.2143rem 0 0 var(--panda);
   }
   .cat-tab:active { transform:scale(.95); }
 
@@ -230,30 +247,33 @@
     width: 100%;
     max-width: 100%;
     margin: 0 auto;
-    padding: 0 5%;
+    padding: 0 0.7143rem;
     box-sizing: border-box;
   }
   .section-title {
-    font-size: 2.37712rem;
+    font-size: 1.2857rem;
     font-weight: 900;
     color: #1a1a1a;
-    padding: 2rem 0 1.1429rem;
-    margin: 0 0 1.4286rem;
-    border-bottom: 0.1429rem solid #f0f0f0;
+    padding: 1rem 0 0.5rem;
+    margin: 0 0 0.7143rem;
+    border-bottom: 0.0714rem solid #f0f0f0;
     box-sizing: border-box;
   }
+  /* 與 GAS 一致：手機即雙欄網格 */
   .menu-grid {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.1429rem;
-    padding-bottom: 1.1429rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7143rem;
+    padding-bottom: 1rem;
     width: 100%;
     box-sizing: border-box;
   }
   @media (min-width: 54.8571rem) {
     .menu-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1rem;
+    }
+    .menu-section {
+      padding: 0 1rem;
     }
   }
   .menu-card {
@@ -280,7 +300,7 @@
     width: 100%;
     aspect-ratio: 4 / 3;
     height: auto;
-    max-height: min(52vh, 25.7143rem);
+    max-height: min(28vh, 12rem);
     object-fit: cover;
     object-position: center;
     background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
@@ -288,51 +308,51 @@
   }
   @supports not (aspect-ratio: 4 / 3) {
     .menu-card-img {
-      height: min(52vh, 25.7143rem);
+      height: min(28vh, 12rem);
     }
   }
   .menu-card-no-img {
     width: 100%;
     aspect-ratio: 4 / 3;
-    min-height: 10rem;
-    max-height: min(52vh, 25.7143rem);
+    min-height: 5rem;
+    max-height: min(28vh, 12rem);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
     color: #fff;
-    font-size: 2.37712rem;
+    font-size: 1rem;
     text-align: center;
-    padding: 0.5714rem 0.8571rem;
+    padding: 0.4286rem 0.5rem;
     word-break: break-word;
     box-sizing: border-box;
   }
   @supports not (aspect-ratio: 4 / 3) {
     .menu-card-no-img {
-      height: min(52vh, 25.7143rem);
+      height: min(28vh, 12rem);
     }
   }
   .menu-card-body {
-    padding: 1.2857rem;
+    padding: 0.5714rem 0.5rem 0.6429rem;
     box-sizing: border-box;
   }
   .menu-card-name {
-    font-size: 2.37712rem;
+    font-size: 1.0714rem;
     font-weight: bold;
     color: #1a1a1a;
-    line-height: 1.25;
+    line-height: 1.3;
     word-break: break-word;
   }
   .menu-card-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5714rem;
-    margin-top: 1rem;
+    gap: 0.3571rem;
+    margin-top: 0.4286rem;
     flex-wrap: wrap;
   }
   .menu-card-price {
-    font-size: 2.37712rem;
+    font-size: 1.0714rem;
     font-weight: bold;
     color: var(--panda);
     display: flex;
@@ -342,19 +362,19 @@
     min-width: 0;
   }
   .menu-card-price .mc-price-orig {
-    font-size: 2.01144rem;
+    font-size: 0.9286rem;
     font-weight: 700;
     color: #9ca3af;
     text-decoration: line-through;
     text-decoration-color: #dc2626;
   }
   .menu-card-price .mc-price-sale {
-    font-size: 2.37712rem;
+    font-size: 1.0714rem;
     font-weight: 800;
     color: #7c3aed;
   }
   .sold-out-badge {
-    font-size: 2.01144rem;
+    font-size: 0.8571rem;
     font-weight: 700;
     color: #fff;
     background: #aaa;
@@ -364,17 +384,17 @@
     white-space: nowrap;
   }
   .menu-card .add-btn {
-    width: 5.7143rem;
-    height: 5.7143rem;
-    min-width: 5.7143rem;
-    min-height: 5.7143rem;
+    width: 2.8571rem;
+    height: 2.8571rem;
+    min-width: 2.8571rem;
+    min-height: 2.8571rem;
     border-radius: 50%;
     background: var(--panda);
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.37712rem;
+    font-size: 1.2857rem;
     font-weight: 300;
     line-height: 1;
     box-shadow: 0 0.2143rem 0.7143rem rgba(215, 4, 100, 0.4);
@@ -857,24 +877,28 @@
   /* pb-safe 要夠大，確保最後一個分類的商品捲到頂後下方仍有空間，避免 iOS 彈性超卷 */
   .pb-safe { padding-bottom:42.8571rem; }
 
-  /* ════ 封面右上角圖示按鈕（共用樣式） ════ */
+  /* ════ 封面右上角圖示按鈕（共用樣式，對齊 GAS 小圓鈕） ════ */
   .hero-icon-btn {
-    position:absolute; top:16px; z-index:10;
-    /* 原 80px，放大 0.5 倍（×1.5）→ 120px */
-    width:120px; height:120px; border-radius:50%;
+    position:absolute;
+    top: var(--hero-icon-top);
+    z-index:10;
+    width: var(--hero-icon-size);
+    height: var(--hero-icon-size);
+    border-radius:50%;
     background:rgba(0,0,0,.42); border:none;
     display:flex; align-items:center; justify-content:center;
     cursor:pointer; transition:background .15s;
     -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
     flex-shrink:0;
+    box-sizing: border-box;
+    padding: 0;
   }
   .hero-icon-btn:active { background:rgba(0,0,0,.65); }
-  .hero-icon-btn svg { width:66px; height:66px; }
+  .hero-icon-btn svg { width:1.2857rem; height:1.2857rem; flex-shrink:0; }
 
-  #store-info-btn { right:16px; }
-  /* 16 + 120 + 16：與右側按鈕間距對齊 */
-  #order-lookup-btn { right:152px; }
-  #dinein-my-list-btn { right:152px; display:none; }
+  #store-info-btn { right: var(--hero-icon-edge); }
+  #order-lookup-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 1); }
+  #dinein-my-list-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 1); display:none; }
   body.order-dine-in-mode #order-lookup-btn { display:none !important; }
   body.order-dine-in-mode #member-corner-btn { display:none !important; }
   body.order-dine-in-mode #reservation-corner-btn { display:none !important; }
@@ -891,12 +915,12 @@
     border: 2px solid rgba(215, 4, 100, 0.25); display: none;
   }
   body.order-dine-in-mode #cart-bar .cart-inner-row #cart-bar-dinein-pill { display: inline-block !important; }
-  #member-corner-btn { right:288px; display:none; }
-  #member-guide-btn { right:424px; display:none; }
-  #reservation-corner-btn { right:560px; }
-  body.member-disabled #reservation-corner-btn { right:288px; }
+  #member-corner-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 2); display:none; }
+  #member-guide-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 3); display:none; }
+  #reservation-corner-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 4); }
+  body.member-disabled #reservation-corner-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 2); }
   body.order-dine-in-mode #member-guide-btn { display:none !important; }
-  body.order-dine-in-mode #reservation-corner-btn { right:424px; }
+  body.order-dine-in-mode #reservation-corner-btn { right: calc(var(--hero-icon-edge) + (var(--hero-icon-size) + var(--hero-icon-gap-x)) * 3); }
 
   #member-guide-overlay {
     position:fixed; inset:0; background:rgba(0,0,0,.5);
@@ -2073,7 +2097,7 @@
       <div class="shop-logo-container" id="hero-logo-wrap" style="display:none;" aria-hidden="true">
         <img id="hero-shop-logo" src="" alt="">
       </div>
-      <h1 id="hero-shop-name" style="font-size: 3.65712rem;font-weight:900;color:white;line-height:1.2;margin:0;flex:1;min-width:0;">載入中...</h1>
+      <h1 id="hero-shop-name" style="font-weight:900;color:white;line-height:1.2;margin:0;flex:1;min-width:0;">載入中...</h1>
     </div>
   </div>
 </div>
