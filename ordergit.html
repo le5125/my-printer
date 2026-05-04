@@ -7,6 +7,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>線上點餐</title>
+<!--
+  ordergit.html（GitHub Pages 單檔版）— 與 GAS 版 order.html 同源流程，差異在部署與部分樣式變數。
+  樣式區塊：:root／通用 → Hero → 分類與菜單網格 → 底部抽屜 bottom-sheet → 購物車 → 載入動畫
+  主程式：底端 <script> 內 bootstrapOrder → init → renderMenu；搜尋 scrollToSection、openSheet、購物車 API。
+-->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
@@ -38,12 +43,20 @@
   * { box-sizing: border-box; }
 
   /* GitHub 流動式：html 14px；字級較 GAS 原版再縮 20%（rem ×0.8）避免預覽倍率異常 */
+  /* body 勿設 overflow-x:hidden，否則子元素 position:sticky（#sticky-nav）在部分瀏覽器無法黏在視窗頂；改由 .ordergit-main-scroll 裁切橫向溢出 */
   html, body {
     font-size: 14px;
     margin: 0;
     padding: 0;
     width: 100%;
+    max-width: 100%;
+    overflow-x: visible;
+  }
+  /* 僅主內容欄裁切，不影響 body 上 sticky 的捲動參考 */
+  .ordergit-main-scroll {
+    overflow-x: clip;
     overflow-x: hidden;
+    max-width: 100%;
   }
   html {
     scroll-behavior: smooth;
@@ -453,8 +466,9 @@
   .sheet-handle { width:40px; height:4px; background:#e0e0e0; border-radius:2px; margin:12px auto 0; flex-shrink:0; }
 
   /* 全寬圖片（滿版 cover，允許裁切） */
+  /* 商品介紹頂圖：order.html 為 33vh；再高 1/3 → 約 44vh，並設上限避免超高 */
   #sheet-img-area {
-    width:100%; height:min(22vh, 11rem);
+    width:100%; height:min(44vh, 17rem);
     flex-shrink:0; position:relative; overflow:hidden;
     background:linear-gradient(135deg,#f0f0f0,#e0e0e0);
   }
@@ -694,9 +708,14 @@
   .cart-item-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
   .cart-item-name  { font-size: 2.37712rem; font-weight:700; color:#1a1a1a; flex:1; }  .cart-item-opts  { font-size: 2.01144rem; color:#888; margin-top:6px; line-height:1.5; }  .cart-item-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:14px; }
   .cart-item-price { font-size: 2.37712rem; font-weight:700; color:var(--panda); display:flex; align-items:baseline; flex-wrap:wrap; justify-content:flex-end; gap:6px 12px; text-align:right; }  .cart-item-price .cart-price-orig { font-size: 1.82856rem; font-weight:700; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; }  .cart-item-price .cart-price-sale { color:#7c3aed; }
-  .cart-promo-gift-row { padding:20px 0; border-bottom:1px solid #ede9fe; background:linear-gradient(90deg, rgba(245,243,255,.6) 0%, transparent 100%); }
-  .cart-promo-gift-inner { display:flex; align-items:flex-start; gap:14px; padding:12px 16px; border-radius:16px; border:2px solid #ddd6fe; }
-  .cart-promo-gift-icon { flex-shrink:0; width:56px; text-align:center; font-size: 2.01144rem; color:#7c3aed; }  .cart-promo-gift-title { font-size: 2.01144rem; font-weight:800; color:#4c1d95; flex:1; min-width:0; }  .cart-promo-gift-qty { font-size: 1.82856rem; font-weight:800; color:#5b21b6; flex-shrink:0; }  .cart-promo-gift-note { font-size: 1.46288rem; color:#7c3aed; margin-top:6px; font-weight:600; }  .cart-promo-footer { text-align:center; font-size: 1.64568rem; font-weight:800; color:#5b21b6; margin-top:20px; padding-top:16px; border-top:2px solid #ede9fe; }
+  /* 購物車內：滿額贈等促銷贈品列（字級縮小） */
+  .cart-promo-gift-row { padding:0.65rem 0; border-bottom:1px solid #ede9fe; background:linear-gradient(90deg, rgba(245,243,255,.6) 0%, transparent 100%); }
+  .cart-promo-gift-inner { display:flex; align-items:flex-start; gap:0.5rem; padding:0.5rem 0.65rem; border-radius:0.65rem; border:1px solid #ddd6fe; }
+  .cart-promo-gift-icon { flex-shrink:0; width:1.75rem; text-align:center; font-size: 1rem; color:#7c3aed; }
+  .cart-promo-gift-title { font-size: 0.88rem; font-weight:800; color:#4c1d95; flex:1; min-width:0; line-height:1.35; }
+  .cart-promo-gift-qty { font-size: 0.82rem; font-weight:800; color:#5b21b6; flex-shrink:0; }
+  .cart-promo-gift-note { font-size: 0.75rem; color:#7c3aed; margin-top:0.25rem; font-weight:600; line-height:1.35; }
+  .cart-promo-footer { text-align:center; font-size: 0.85rem; font-weight:800; color:#5b21b6; margin-top:0.65rem; padding-top:0.5rem; border-top:1px solid #ede9fe; }
   .cart-point-discount-block {
     margin-top: 16px; padding: 18px 16px;
     background: #fff9fb; border: 2px solid #fce4ef; border-radius: 16px;
@@ -740,11 +759,16 @@
   }
   .time-colon { font-size: 2.37712rem; font-weight:900; color:var(--panda); padding:0 4px; }
   /* ════ 懸浮購物車條 ════ */
-  #cart-bar { position:fixed; bottom:1.4286rem; left:1.1429rem; right:1.1429rem; background:var(--panda); border-radius:1.2857rem; padding:1.4286rem 1.7143rem; min-height:7.1429rem; z-index:90; display:flex; align-items:center; justify-content:space-between; box-shadow:0 8px 32px rgba(215,4,100,.42); cursor:pointer; transform:translateY(120px); opacity:0; transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s; }
+  /* 底部「查看購物車」浮層：字與區塊縮小以免遮版 */
+  #cart-bar { position:fixed; bottom:calc(0.85rem + env(safe-area-inset-bottom, 0px)); left:0.75rem; right:0.75rem; background:var(--panda); border-radius:0.85rem; padding:0.55rem 0.85rem; min-height:0; z-index:90; display:flex; align-items:center; justify-content:space-between; gap:0.5rem; box-shadow:0 4px 18px rgba(215,4,100,.38); cursor:pointer; transform:translateY(120px); opacity:0; transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s; box-sizing:border-box; }
   #cart-bar.show   { transform:translateY(0); opacity:1; }
   #cart-bar.bounce { animation:cartBounce .4s cubic-bezier(.34,1.56,.64,1); }
   @keyframes cartBounce { 0%{transform:scale(1)} 40%{transform:scale(1.05)} 70%{transform:scale(.97)} 100%{transform:scale(1)} }
-  .cart-badge { background:rgba(255,255,255,.25); color:white; font-size: 2.37712rem; font-weight:700; width:72px; height:72px; border-radius:12px; display:flex; align-items:center; justify-content:center; }  .cart-total-text { font-size: 2.37712rem; font-weight:900; color:white; }  .cart-action { font-size: 2.37712rem; font-weight:700; color:rgba(255,255,255,.92); display:flex; align-items:center; gap:4px; }
+  .cart-badge { background:rgba(255,255,255,.25); color:white; font-size: 1rem; font-weight:700; width:2rem; height:2rem; border-radius:0.35rem; display:flex; align-items:center; justify-content:center; }
+  .cart-total-text { font-size: 1rem; font-weight:900; color:white; }
+  .cart-action { font-size: 0.88rem; font-weight:700; color:rgba(255,255,255,.92); display:flex; align-items:center; gap:0.25rem; flex-shrink:0; }
+  #cart-bar .cart-inner-row { display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; flex:1; min-width:0; }
+  #cart-bar-dinein-pill { font-size:0.82rem !important; font-weight:800; padding:0.2rem 0.5rem !important; }
   /* ════ Toast ════ */
   #toast { position:fixed; top:80px; left:50%; transform:translateX(-50%) translateY(-20px); background:#1a1a1a; color:white; padding:12px 24px; border-radius:50px; font-size: 2.01144rem; font-weight:500; opacity:0; pointer-events:none; transition:all .3s; z-index:200; white-space:nowrap; }  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
@@ -874,13 +898,14 @@
     overflow: hidden;
     min-height: 5rem;
   }
+  /* 車體（含 SVG 車頭燈）疊在輪胎／路面之上，避免燈被擋 */
   #order-wait-panel-truck .truckBody {
     width: 100%;
     max-width: 100%;
     height: fit-content;
     margin-bottom: 0.375rem;
     position: relative;
-    z-index: 1;
+    z-index: 4;
     animation: orderTruckMotion 1s linear infinite;
   }
   #order-wait-panel-truck .truckBody .trucksvg {
@@ -919,6 +944,7 @@
     min-height: 0.1071rem;
     background-color: #282828;
     position: relative;
+    z-index: 1;
     align-self: stretch;
     border-radius: 0.2143rem;
     margin-top: 0.15rem;
@@ -954,6 +980,8 @@
     height: min(5.5rem, 90%);
     width: auto;
     max-width: 35%;
+    z-index: 1;
+    pointer-events: none;
     animation: orderTruckRoadAnimation 1.4s linear infinite;
   }
   @keyframes orderTruckRoadAnimation {
@@ -2217,6 +2245,21 @@
 <!-- synth-inline-end -->
 </head>
 <body>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════════╗
+  ║ ordergit.html 頁面結構（可自行搜尋錨點調整）                              ║
+  ╠══════════════════════════════════════════════════════════════════════════╣
+  ║ HERO／封面          → #hero-banner（右上角：預約、會員、查詢、商家資訊）   ║
+  ║ 各種底部抽屜／遮罩   → #store-info-*、#order-lookup-*、會員／預約／活動廣告  ║
+  ║ 主捲動欄            → .ordergit-main-scroll                               ║
+  ║   ├ 分類標籤 sticky → #sticky-nav > #cat-tabs（scrollToSection 捲至分類）  ║
+  ║   ├ 進頁載入層      → #menu-loading（貨車 #order-wait-panel-truck）       ║
+  ║   └ 菜單內容        → #menu-content（.menu-section / .menu-card）        ║
+  ║ 商品介紹            → #bottom-sheet + #sheet-img-area                      ║
+  ║ 購物車抽屜          → #cart-drawer                                         ║
+  ║ 底部浮條            → #cart-bar（開啟購物車）                              ║
+  ╚══════════════════════════════════════════════════════════════════════════╝
+-->
 
 <!-- ═══ CLOSED OVERLAY ═══ -->
 <div id="closed-overlay">
@@ -2425,6 +2468,8 @@
   </div>
 </div>
 
+<!-- ═══ 主捲動區：分類標籤 sticky 須在此包內 + body 不設 overflow-x:hidden ═══ -->
+<div class="ordergit-main-scroll">
 <!-- ═══ STICKY NAV ═══ -->
 <div id="sticky-nav">
   <div id="cat-tabs"></div>
@@ -2566,8 +2611,9 @@
   </div>
 </div>
 
-<!-- ═══ MENU CONTENT ═══ -->
+<!-- ═══ MENU CONTENT：菜單區塊由 renderMenu() 填入 ═══ -->
 <div id="menu-content" class="pb-safe" style="display:none;"></div>
+</div><!-- /.ordergit-main-scroll -->
 
 <!-- ═══ BOTTOM SHEET OVERLAY ═══ -->
 <div id="sheet-overlay" onclick="closeSheet()"></div>
@@ -2692,7 +2738,7 @@
 
 <!-- ═══ FLOATING CART BAR ═══ -->
 <div id="cart-bar">
-  <div class="cart-inner-row" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <div class="cart-inner-row">
     <div class="cart-badge" id="cart-count">0</div>
     <div id="cart-total" class="cart-total-text">NT$0</div>
     <span id="cart-bar-dinein-pill">桌 —</span>
@@ -2704,12 +2750,21 @@
 <div id="toast">✓ 已加入購物車</div>
 
 <script>
-// ════════════════════════════════════════════════════
-// ordergit.html（GitHub Pages 獨立版）
-// 啟動：window load 後 bootstrap；網址必帶 ?id= 或 ?mid=（GAS 網址 …/macros/s/【部署ID】/exec 中間那段），原始碼不寫死 ID
-// 例：https://le5125.github.io/my-printer/ordergit.html?id=您的部署ID
-// 全程對 /exec 送 GET action=* 與 POST 送單（與 GAS 上 ?page=order 消費者頁抓同一份試算表資料）
-// ════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// ordergit.html — GitHub Pages 獨立消費者點餐頁（單一 HTML）
+//
+// 啟動：window load → bootstrapOrder()；網址須帶 ?id= 或 ?mid=（GAS 部署 ID）
+//
+// 模組速查（搜尋函名即可跳到實作）：
+//   · WebApp / 金鑰：orderWebAppGetActionUrl_、orderFetchJsonFromAction_、bootstrapOrder
+//   · 菜單：loadMenuData_、renderMenu、scrollToSection、allProducts
+//   · 商品抽屜：openSheet、closeSheet、addToCart、bottom-sheet
+//   · 購物車：cartItems、openCartDrawer、submit_order、#cart-drawer
+//   · 會員闸道：orderRunMemberGate_、orderRefreshMemberCornerVisibility_
+//   · 促銷／廣告：orderGetStorePromotionsFetchOnce_、orderFillAndShowMerchantPromoAdDrawer_
+//   · 預約：openReservationDrawer、refreshReservationCornerVisibility_（檔末第二段 script）
+//   · 載入 UI：orderWaitShowTruck_、#menu-loading、#order-wait-panel-truck
+// ═══════════════════════════════════════════════════════════════════════════
 var __ORDERGIT_STANDALONE__ = true;
 let currentWebAppUrl = '';
 /** 本頁為消費者線上點餐：內建金鑰取得失敗、或後端金鑰比對（checkClientKey）未通過時，畫面僅顯示此句（細節只打 console） */
