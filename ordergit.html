@@ -12,6 +12,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<!-- Play CDN：須先載入 tailwind，再執行 tailwind.config（不可 defer，否則上一段內嵌腳本會早跑而報 tailwind is not defined） -->
+<script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
     theme: {
@@ -24,9 +26,8 @@
         fontFamily: { sans: ['Noto Sans TC', 'sans-serif'] }
       }
     }
-  }
+  };
 </script>
-<script defer src="https://cdn.tailwindcss.com"></script>
 <style>
   :root {
     --panda:       #D70464;
@@ -7359,7 +7360,8 @@ async function bootstrapOrder() {
   }
   orderWaitShowTruck_('資料載入中…');
   var _orderUrlQ = new URLSearchParams(window.location.search);
-  var _orderBossId = _orderUrlQ.get('id');
+  /* GitHub／外部網址常用 ?mid=部署ID；GAS 版也可能用 ?id= */
+  var _orderBossId = _orderUrlQ.get('id') || _orderUrlQ.get('mid');
   if (_orderBossId) {
     currentWebAppUrl = 'https://script.google.com/macros/s/' + _orderBossId + '/exec';
   } else {
@@ -7838,7 +7840,7 @@ async function bootstrapOrder() {
   /* 啟動後刷新預約圖示顯示；同時把預約設定 / 明天容量背景預抓好（按下預約圖示立刻可開窗、不轉圈） */
   document.addEventListener('DOMContentLoaded', function () {
     setTimeout(function () {
-      refreshReservationCornerVisibility_(); 
+      refreshReservationCornerVisibility_();
       _resvDrawerBgPrefetch_();
     }, 1500);
     /* 每 30 秒輪詢設定（同步老闆端的開關／座位／用餐時間變動） */
