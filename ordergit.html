@@ -829,7 +829,8 @@
   .time-colon { font-size: 2.37712rem; font-weight:900; color:var(--panda); padding:0 4px; }
   /* ════ 懸浮購物車條 ════ */
   /* 底部「查看購物車」浮層：字與區塊縮小以免遮版 */
-  #cart-bar { position:fixed; bottom:env(safe-area-inset-bottom, 0px); left:0.75rem; right:0.75rem; background:var(--panda) !important; color:#fff !important; border-radius:0.85rem; padding:0.55rem 0.85rem; min-height:0; z-index:90; display:flex; align-items:center; justify-content:space-between; gap:0.5rem; box-shadow:0 4px 18px rgba(215,4,100,.38) !important; cursor:pointer; transform:translateY(120px); opacity:0; transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s; box-sizing:border-box; }
+  /* bottom：在安全區之上再加一段距離，避免貼底被 Home 指示列／瀏覽器工具列遮住；可改 10px～20px */
+  #cart-bar { position:fixed; bottom:calc(14px + env(safe-area-inset-bottom, 0px)); left:0.75rem; right:0.75rem; background:var(--panda) !important; color:#fff !important; border-radius:0.85rem; padding:0.55rem 0.85rem; min-height:0; z-index:90; display:flex; align-items:center; justify-content:space-between; gap:0.5rem; box-shadow:0 4px 18px rgba(215,4,100,.38) !important; cursor:pointer; transform:translateY(120px); opacity:0; transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s; box-sizing:border-box; }
   #cart-bar.show   { transform:translateY(0); opacity:1; }
   #cart-bar.bounce { animation:cartBounce .4s cubic-bezier(.34,1.56,.64,1); }
   @keyframes cartBounce { 0%{transform:scale(1)} 40%{transform:scale(1.05)} 70%{transform:scale(.97)} 100%{transform:scale(1)} }
