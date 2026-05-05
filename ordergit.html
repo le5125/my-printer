@@ -1978,7 +1978,7 @@
 //   · 菜單：loadMenuData_、renderMenu、scrollToSection、allProducts
 //   · 商品抽屜：openSheet、closeSheet、addToCart、bottom-sheet
 //   · 購物車：cartItems、openCartDrawer、submit_order、#cart-drawer
-//   · 會員闸道：orderRunMemberGate_、orderRefreshMemberCornerVisibility_
+//   · 會員闸道：orderRunMemberGate_（首屏後背景）、orderKickMemberGateBackgroundOnce_
 //   · 促銷／廣告：orderGetStorePromotionsFetchOnce_、orderFillAndShowMerchantPromoAdDrawer_
 //   · 預約：openReservationDrawer、refreshReservationCornerVisibility_（檔末第二段 script）
 //   · 載入 UI：orderWaitShowTruck_、#menu-loading、#order-wait-panel-truck
@@ -3634,9 +3634,9 @@ function orderRefreshMenuPricingAfterPromotions_() {
 
 function orderAfterStorePromotionsFetched_() {
   orderRefreshMenuPricingAfterPromotions_();
-  /* 活動廣告僅在「會員閘門完成且首屏載入已關」後顯示，避免與登入／註冊視窗疊加 */
+  /* 活動廣告：首屏載入已關後再開抽屜（會員／LIFF 改為背景執行） */
   try {
-    if (orderInitialReadyState_.memberGateDone && orderInitialReadyState_.loadingClosed) {
+    if (orderInitialReadyState_.loadingClosed) {
       orderPromoAdUiAfterPromotionsPayload_();
     }
   } catch (eAd) { /* 略 */ }
@@ -3648,7 +3648,7 @@ function orderAfterStorePromotionsFetched_() {
 /** 進頁時預留：原「載入商家活動…」壳；關閉促銷後不應出現，且首屏改為背景抓取完成後再決定是否開抽屜 */
 function orderPromoAdShowLoadingShell_() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
-  if (!orderInitialReadyState_.memberGateDone || !orderInitialReadyState_.loadingClosed) return;
+  if (!orderInitialReadyState_.loadingClosed) return;
   try {
     if (window.__orderPromoFetchDoneOnce__) {
       var _cfgL = orderGetMerchantPromoCfg_();
@@ -3702,7 +3702,7 @@ function orderCloseMerchantPromoAdQuiet_() {
 }
 
 function orderPromoAdUiAfterPromotionsPayload_() {
-  if (!orderInitialReadyState_.memberGateDone || !orderInitialReadyState_.loadingClosed) return;
+  if (!orderInitialReadyState_.loadingClosed) return;
   var sh = document.getElementById('merchant-promo-ad-sheet');
   var wasLoading = sh && sh.classList.contains('order-promo-ad-loading');
   var cfg = orderGetMerchantPromoCfg_();
@@ -3721,7 +3721,7 @@ function orderPromoAdUiAfterPromotionsPayload_() {
 /** 首屏載入結束後：背景抓取促銷資料，僅在後端開啟且檔期內時才顯示活動抽屜（不顯示「載入商家活動」壳） */
 function orderResumePromoAdAfterHomepageVisible_() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
-  if (!orderInitialReadyState_.memberGateDone || !orderInitialReadyState_.loadingClosed) return;
+  if (!orderInitialReadyState_.loadingClosed) return;
   try {
     if (window.__orderPromoFetchDoneOnce__) {
       orderPromoAdUiAfterPromotionsPayload_();
@@ -4596,12 +4596,14 @@ function orderFinishMenuLoadingUi_() {
     });
   }
   try { orderResumePromoAdAfterHomepageVisible_(); } catch (ePromo) { /* 略 */ }
+  try { orderKickMemberGateBackgroundOnce_(); } catch (eKick) { /* 略 */ }
 }
 
 var orderInitialReadyState_ = {
   menuReady: false,
   storeNameReady: false,
   coverReady: false,
+  promoBootReady: false,
   memberGateDone: false,
   homeReady: false,
   loadingClosed: false
@@ -4609,12 +4611,33 @@ var orderInitialReadyState_ = {
 
 function orderTryCloseInitialLoading_() {
   if (orderInitialReadyState_.loadingClosed) return;
-  if (!orderInitialReadyState_.memberGateDone) return;
   if (!orderInitialReadyState_.homeReady) return;
-  /* 店內掃碼：先露出點餐版面（骨架），菜單 API 背景續載 */
+  /* 一般模式：首屏須同時完成菜單與商家活動 API，再關卡車 */
+  if (!orderInitialReadyState_.promoBootReady && !window.__ORDER_TABLE_MODE_ACTIVE__) return;
   if (!orderInitialReadyState_.menuReady && !window.__ORDER_TABLE_MODE_ACTIVE__) return;
   orderInitialReadyState_.loadingClosed = true;
   orderFinishMenuLoadingUi_();
+}
+
+/** 首屏（卡車已關、菜單已現）後背景跑會員／LIFF；右上角會員角標等將於完成後更新 */
+function orderKickMemberGateBackgroundOnce_() {
+  if (window.__ORDER_MEMBER_GATE_BG_STARTED__) return;
+  window.__ORDER_MEMBER_GATE_BG_STARTED__ = true;
+  void (async function () {
+    try {
+      var orderNavigating = await orderRunMemberGate_();
+      if (orderNavigating) return;
+    } catch (eG) {
+      console.error('[ordergit] 會員／LIFF 背景閘道', eG);
+    }
+    try {
+      orderInitialReadyState_.memberGateDone = true;
+      orderRefreshMemberCornerVisibility_();
+      orderApplyMemberPhoneLockToForm_();
+      void orderPrefetchMemberCornerData_().catch(function () {});
+      void orderPrefetchMemberPointsForDiscount_().catch(function () {});
+    } catch (e2) { /* 略 */ }
+  })();
 }
 
 function orderMarkMenuReady_() {
@@ -7324,6 +7347,7 @@ async function bootstrapOrder() {
     window.__ORDER_LIFF_ID_RESOLVED__ = '';
     window.__ORDER_LIFF_INIT_PROMISE__ = null;
     window.__ORDER_LINE_USER_ID__ = '';
+    window.__ORDER_MEMBER_GATE_BG_STARTED__ = false;
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
   var _orderUrlQ = new URLSearchParams(window.location.search);
@@ -7387,19 +7411,31 @@ async function bootstrapOrder() {
   }
   var _dineInOk = await orderDineInClaimFlow_();
   if (!_dineInOk) return;
-  void orderPromotionsEarlyStart_();
-  loadMerchantInfo().catch(function (e) { console.error(e); });
+  void loadMerchantInfo().catch(function (e) { console.error(e); });
   orderInitialReadyState_.memberGateDone = false;
   orderInitialReadyState_.homeReady = false;
+  orderInitialReadyState_.promoBootReady = false;
   if (!window.__ORDER_TABLE_MODE_ACTIVE__) {
     window.__ORDER_BOOT_PREFETCH__ = null;
   }
-  var orderNavigating = await orderRunMemberGate_();
-  if (orderNavigating) return;
-  orderInitialReadyState_.memberGateDone = true;
-  orderTryCloseInitialLoading_();
-  orderRefreshMemberCornerVisibility_();
-  orderApplyMemberPhoneLockToForm_();
+
+  orderRenderMenuSkeleton_();
+
+  if (window.__ORDER_TABLE_MODE_ACTIVE__) {
+    orderInitialReadyState_.promoBootReady = true;
+    orderEnsureBootPrefetch_();
+  } else {
+    void Promise.all([
+      loadMenuData_(),
+      orderGetStorePromotionsFetchOnce_()
+    ]).catch(function (err) {
+      console.error('[ordergit] 首屏菜單／商家活動並行載入', err);
+    }).finally(function () {
+      orderInitialReadyState_.promoBootReady = true;
+      orderTryCloseInitialLoading_();
+    });
+  }
+
   await init();
 }
 (function ordergitKickBootstrapOnDomReady_() {
