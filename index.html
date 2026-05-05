@@ -15,6 +15,8 @@
 
   <!-- 讓Android Chrome支援全螢幕（與首屏載入灰底一致，減少白屏） -->
   <meta name="theme-color" content="#e8e8e8">
+  <link rel="dns-prefetch" href="https://script.google.com">
+  <link rel="preconnect" href="https://script.google.com" crossorigin>
   <!-- 首屏優先：勿在 body 之前載入會阻塞解析的外連 JS，否則卡車載入層延後才能繪製 -->
   <style id="pos-critical-first-paint">
     html, body { margin: 0; height: 100%; background: #e8e8e8; }
@@ -3746,10 +3748,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             var addBtn = tabs && tabs.querySelector('#add-menu-btn');
             if (tabs && items && addBtn) {
               requestAnimationFrame(function () {
-                requestAnimationFrame(function () {
-                  hideInitialLoaderFade();
-                  resolve();
-                });
+                hideInitialLoaderFade();
+                resolve();
               });
               return;
             }
