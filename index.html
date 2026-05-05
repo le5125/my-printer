@@ -2029,9 +2029,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <button id="print-settings-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-print mr-2"></i>打印設定
             </button>
-            <button id="subscription-settings-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center border-b border-gray-100 last:border-b-0">
-              <i class="fas fa-sync-alt mr-2"></i>訂閱管理
-            </button>
             <button id="sort-mode-btn" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 hover:text-amber-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-sort mr-2"></i>商品排序
             </button>
@@ -2084,10 +2081,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
 <!-- ✅ 菜單區 -->
 <div id="menu-content" class="flex-grow overflow-hidden relative">
-  <div id="pos-subscription-billing-banner" class="hidden mx-4 mt-3 mb-1 px-4 py-3 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-sm font-semibold leading-relaxed shadow-sm z-[25] relative">
-    <i class="fas fa-exclamation-triangle mr-2 text-amber-600"></i>
-    自動扣款失敗（緩衝期）：請儘速更新信用卡或卡片額度；若未及時完成授權，<strong>隔日</strong>可能無法登入 POS。
-  </div>
   
   <!-- 商品容器 -->
   <div id="menu-items">
@@ -2760,43 +2753,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     #print-settings-content #print-template-preview { min-height: 220px; }
   }
 </style>
-
-<!-- 訂閱管理 Panel（功能選單 → 訂閱管理） -->
-<div id="subscription-settings-content" class="hidden flex-1 min-h-0 w-full flex flex-col p-3 md:p-4 overflow-y-auto">
-  <div class="bg-white rounded-lg shadow border border-gray-100 p-4 max-w-2xl">
-    <h3 class="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
-      <i class="fas fa-sync-alt text-emerald-600"></i>訂閱管理（綠界／授權）
-    </h3>
-    <p class="text-sm text-gray-500 mb-4">檢視本期授權與自動扣款；取消自動扣款後，仍可繼續使用至<strong>本期到期日</strong>結束。</p>
-    <div class="grid gap-3 text-sm mb-4">
-      <div class="flex flex-wrap gap-x-6 gap-y-2 border border-gray-100 rounded-lg p-3 bg-gray-50">
-        <div><span class="text-gray-500">開始日期</span><div id="pos-sub-start" class="font-bold text-gray-900">—</div></div>
-        <div><span class="text-gray-500">到期日期</span><div id="pos-sub-expiry" class="font-bold text-gray-900">—</div></div>
-      </div>
-      <div class="flex flex-wrap gap-x-6 gap-y-2 border border-gray-100 rounded-lg p-3 bg-gray-50">
-        <div><span class="text-gray-500">開通狀態</span><div id="pos-sub-status" class="font-bold text-emerald-700">—</div></div>
-        <div><span class="text-gray-500">權限狀態</span><div id="pos-sub-permission" class="font-bold text-gray-900">—</div></div>
-        <div><span class="text-gray-500">自動續訂</span><div id="pos-sub-autorenew" class="font-bold text-gray-900">—</div></div>
-      </div>
-    </div>
-    <div class="flex flex-col sm:flex-row flex-wrap gap-2 mb-4">
-      <button type="button" id="pos-sub-cancel-auto" class="px-4 py-2 rounded-md border border-red-300 text-red-700 bg-red-50 font-bold hover:bg-red-100 transition">
-        取消自動扣款（綠界 Action＝Cancel）
-      </button>
-    </div>
-    <div class="border-t border-gray-100 pt-4 mt-2">
-      <p class="text-sm font-bold text-gray-700 mb-2">立即續費</p>
-      <label class="flex items-start gap-2 cursor-pointer select-none mb-3">
-        <input type="checkbox" id="pos-sub-renew-auto" class="mt-1 w-4 h-4 rounded border-gray-300">
-        <span class="text-sm text-gray-600 leading-snug">本次改為<strong>每 30 天自動扣款</strong>（綠界信用卡定期定額）</span>
-      </label>
-      <button type="button" id="pos-sub-renew-now" class="bg-emerald-600 text-white px-5 py-2 rounded-md font-bold shadow hover:bg-emerald-700 transition">
-        前往綠界付款（NT$ 500）
-      </button>
-      <p class="text-xs text-gray-400 mt-3 leading-relaxed">未勾選時為單次續費（一般 AioCheckOut，不帶 Period 參數）。請確認付款與回傳網址皆為 https。</p>
-    </div>
-  </div>
-</div>
 
 <!-- 打印設定 Panel（功能選單 → 打印設定） -->
 <div id="print-settings-content" class="relative hidden flex-1 min-h-0 w-full flex flex-col p-2 md:p-4 overflow-hidden">
@@ -3912,12 +3868,9 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
   const reservationBoardContent = document.getElementById('reservation-board-content');
   const dineInContent = document.getElementById('dine-in-content');
   const printSettingsContentGlobal_ = document.getElementById('print-settings-content');
-  const subscriptionSettingsContentGlobal_ = document.getElementById('subscription-settings-content');
   function _hidePrintSettings_() { if (printSettingsContentGlobal_) printSettingsContentGlobal_.classList.add('hidden'); }
-  function _hideSubscriptionSettings_() { if (subscriptionSettingsContentGlobal_) subscriptionSettingsContentGlobal_.classList.add('hidden'); }
-  function _hidePrintSubscriptionPanels_() { _hidePrintSettings_(); _hideSubscriptionSettings_(); }
   function posSetTopLayer_(activeEl) {
-    var panes = [menuContent, ordersContent, statsContent, merchantContent, memberHubContent, merchantPromotionsContent, orderBoardContent, reservationBoardContent, dineInContent, printSettingsContentGlobal_, subscriptionSettingsContentGlobal_];
+    var panes = [menuContent, ordersContent, statsContent, merchantContent, memberHubContent, merchantPromotionsContent, orderBoardContent, reservationBoardContent, dineInContent, printSettingsContentGlobal_];
     panes.forEach(function (el) {
       if (!el) return;
       el.style.zIndex = (el === activeEl) ? '3' : '1';
@@ -3935,7 +3888,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
     if (dineInContent) dineInContent.classList.add('hidden');
     if (typeof stopReservationPolling_ === 'function') stopReservationPolling_();
-    _hidePrintSubscriptionPanels_();
+    _hidePrintSettings_();
     posSetTopLayer_(menuContent);
   }
         // 會員專區：分頁、點數規則連動、儲存設定、兌換列表與新增（與 pos後端 getMemberSettings / saveMemberSettings / getRedeemProducts / addRedeemProduct 對接）
@@ -6361,7 +6314,7 @@ function switchToMenu(menuId) {
   if (dineInContent) dineInContent.classList.add('hidden');
   if (typeof closeReservationModal_ === 'function') closeReservationModal_();
   if (typeof stopReservationPolling_ === 'function') stopReservationPolling_();
-  _hidePrintSubscriptionPanels_();
+  _hidePrintSettings_();
   if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
   if (typeof posSetTopLayer_ === 'function') posSetTopLayer_(menuContent);
   const obBtn = document.getElementById('order-board-menu-btn');
@@ -6730,126 +6683,6 @@ initializeHolidayDateInput();
 /** 與 getMerchantInfo 同步的 Logo／封面快取，供「商家圖片管理」開窗時立即顯示（不必等第二輪請求） */
 var cachedMerchantImagesSnapshot = null;
 
-function posFormatSubscriptionDate_(iso) {
-  if (!iso) return '—';
-  try {
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  } catch (e0) {
-    return '—';
-  }
-}
-
-async function posFetchSubscriptionInfoPayload_() {
-  if (!currentWebAppUrl || typeof posGetClientKey_ !== 'function') return null;
-  var ck = posGetClientKey_();
-  if (!ck) return null;
-  var u = String(currentWebAppUrl).replace(/\?+$/, '');
-  var sep = u.indexOf('?') >= 0 ? '&' : '?';
-  var res = await fetch(u + sep + 'action=getSubscriptionInfo&clientKey=' + encodeURIComponent(ck), {
-    cache: 'no-store',
-    credentials: 'omit'
-  });
-  var text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch (pe) {
-    return null;
-  }
-}
-
-async function posRefreshSubscriptionBanner_() {
-  try {
-    var data = await posFetchSubscriptionInfoPayload_();
-    var bar = document.getElementById('pos-subscription-billing-banner');
-    if (!bar) return;
-    if (data && data.result === 'success' && String(data.billingWarn || '').trim() === 'card_fail') {
-      bar.classList.remove('hidden');
-    } else {
-      bar.classList.add('hidden');
-    }
-  } catch (eBr) {}
-}
-
-async function posLoadSubscriptionPanelUi_() {
-  var data = await posFetchSubscriptionInfoPayload_();
-  var startEl = document.getElementById('pos-sub-start');
-  var expEl = document.getElementById('pos-sub-expiry');
-  var stEl = document.getElementById('pos-sub-status');
-  var permEl = document.getElementById('pos-sub-permission');
-  var arEl = document.getElementById('pos-sub-autorenew');
-  if (!startEl) return;
-  if (!data || data.result !== 'success') {
-    startEl.textContent = '—';
-    if (data && data.result !== 'success') {
-      posSwalAlert('無法載入訂閱資訊（' + (data.reason || data.result || '錯誤') + '）', 'warning');
-    }
-    return;
-  }
-  startEl.textContent = posFormatSubscriptionDate_(data.subscriptionStart);
-  if (expEl) expEl.textContent = posFormatSubscriptionDate_(data.expiryDate);
-  if (stEl) stEl.textContent = String(data.statusLabel || '—');
-  if (permEl) permEl.textContent = data.permissionOk ? '正常' : '異常／請確認授權';
-  if (arEl) arEl.textContent = data.autoRenew === 'Y' ? '開啟' : '關閉';
-}
-
-async function posOpenRenewPayUrl_() {
-  if (!currentWebAppUrl || typeof posGetClientKey_ !== 'function') return;
-  var ck = posGetClientKey_();
-  if (!ck) {
-    posSwalAlert('無金鑰資訊', 'warning');
-    return;
-  }
-  var autoEl = document.getElementById('pos-sub-renew-auto');
-  var wantAuto = !!(autoEl && autoEl.checked);
-  var u = String(currentWebAppUrl).replace(/\?+$/, '');
-  var sep = u.indexOf('?') >= 0 ? '&' : '?';
-  var urlReq =
-    u +
-    sep +
-    'action=getRenewPayUrl&clientKey=' +
-    encodeURIComponent(ck) +
-    '&auto_renew=' +
-    (wantAuto ? 'Y' : 'N');
-  try {
-    var res = await fetch(urlReq, { cache: 'no-store', credentials: 'omit' });
-    var data = await res.json();
-    if (!data || data.result !== 'success' || !data.url) {
-      posSwalAlert((data && (data.reason || data.message)) ? String(data.reason || data.message) : '無法取得付款連結', 'error');
-      return;
-    }
-    window.top.location.href = data.url;
-  } catch (e) {
-    posSwalAlert(e && e.message ? e.message : String(e), 'error');
-  }
-}
-
-async function posCancelAutoRenewClick_() {
-  var ok = await posSwalConfirm('確定向綠界送出「取消自動扣款」（Cancel）？取消後本期仍可繼續使用至到期日。', '取消自動扣款');
-  if (!ok || !ok.isConfirmed) return;
-  if (!currentWebAppUrl || typeof posGetClientKey_ !== 'function') return;
-  var ck = posGetClientKey_();
-  var u = String(currentWebAppUrl).replace(/\?+$/, '');
-  var sep = u.indexOf('?') >= 0 ? '&' : '?';
-  try {
-    var res = await fetch(u + sep + 'action=cancelAutoRenew&clientKey=' + encodeURIComponent(ck), {
-      cache: 'no-store',
-      credentials: 'omit'
-    });
-    var data = await res.json();
-    if (data && data.result === 'success') {
-      posSwalAlert(data.message || '已送出取消', 'success');
-      posLoadSubscriptionPanelUi_();
-      posRefreshSubscriptionBanner_();
-    } else {
-      posSwalAlert((data && data.detail) ? JSON.stringify(data.detail).slice(0, 320) : JSON.stringify(data || {}).slice(0, 280), 'error');
-    }
-  } catch (e2) {
-    posSwalAlert(e2 && e2.message ? e2.message : String(e2), 'error');
-  }
-}
-
 // ✅ 讀取商家資訊與休假日
 function loadMerchantInfo() {
   if (!currentWebAppUrl) {
@@ -6975,10 +6808,6 @@ function loadMerchantInfo() {
         fetch(`${currentWebAppUrl}?${autoUpdateQuery}`)
           .then(() => console.log('✅ 試算表營業狀態已自動更新為：', displayStatus))
           .catch(err => console.error('❌ 自動更新營業狀態失敗', err));
-
-        try {
-          if (typeof posRefreshSubscriptionBanner_ === 'function') posRefreshSubscriptionBanner_();
-        } catch (eSubBan) {}
       });
     })
     .catch(err => {
@@ -11206,6 +11035,7 @@ function submitOrder() {
             description: document.getElementById('merchant-description').value,
             status: document.getElementById('business-status-toggle').dataset.status || '營業中',
             fixedClosedDays: syncFixedClosedDaysFromCheckboxes()
+           
           }).toString();
 
           fetch(`${currentWebAppUrl}?${merchantQuery}`)
@@ -11233,7 +11063,6 @@ function submitOrder() {
             savingIndicator.classList.add('hidden');
           });
         });
-
 // 綁定儲存商品按鈕
 document.getElementById('save-edit-item').addEventListener('click', saveEditedItem);
 
@@ -15944,7 +15773,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (dineInContent) dineInContent.classList.add('hidden');
             try { if (typeof dineInStopBoardPoll_ === 'function') dineInStopBoardPoll_(); } catch (eDi) {}
             stopReservationPolling_();
-            _hidePrintSubscriptionPanels_();
+            _hidePrintSettings_();
             document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
@@ -15980,7 +15809,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             if (reservationBoardContent) reservationBoardContent.classList.remove('hidden');
             if (dineInContent) dineInContent.classList.add('hidden');
-            _hidePrintSubscriptionPanels_();
+            _hidePrintSettings_();
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
             document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
@@ -16433,7 +16262,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
             dineInContent.classList.remove('hidden');
             stopReservationPolling_();
-            _hidePrintSubscriptionPanels_();
+            _hidePrintSettings_();
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
             document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
@@ -16570,7 +16399,6 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
             if (dineInContent) dineInContent.classList.add('hidden');
             stopReservationPolling_();
-            if (typeof _hidePrintSubscriptionPanels_ === 'function') _hidePrintSubscriptionPanels_();
             printSettingsContent.classList.remove('hidden');
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
@@ -16580,40 +16408,6 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             });
             setFeatureDropdownLabel('打印設定');
             if (typeof window.__initPrintSettingsUi_ === 'function') window.__initPrintSettingsUi_();
-          });
-        }
-
-        const subscriptionSettingsTab = document.getElementById('subscription-settings-tab');
-        const subscriptionSettingsContent = document.getElementById('subscription-settings-content');
-        if (subscriptionSettingsTab && subscriptionSettingsContent) {
-          subscriptionSettingsTab.addEventListener('click', function () {
-            if (typeof closeReservationModal_ === 'function') closeReservationModal_();
-            document.getElementById('menu-content').classList.add('hidden');
-            document.getElementById('orders-content').classList.add('hidden');
-            document.getElementById('stats-content').classList.add('hidden');
-            document.getElementById('merchant-content').classList.add('hidden');
-            if (memberHubContent) memberHubContent.classList.add('hidden');
-            if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
-            if (orderBoardContent) orderBoardContent.classList.add('hidden');
-            if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
-            if (dineInContent) dineInContent.classList.add('hidden');
-            stopReservationPolling_();
-            _hidePrintSettings_();
-            subscriptionSettingsContent.classList.remove('hidden');
-            if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
-
-            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
-              tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
-              tab.classList.add('text-gray-500');
-            });
-            setFeatureDropdownLabel('訂閱管理');
-            posLoadSubscriptionPanelUi_();
-          });
-          document.getElementById('pos-sub-renew-now')?.addEventListener('click', function () {
-            posOpenRenewPayUrl_();
-          });
-          document.getElementById('pos-sub-cancel-auto')?.addEventListener('click', function () {
-            posCancelAutoRenewClick_();
           });
         }
 
@@ -16629,7 +16423,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
           if (dineInContent) dineInContent.classList.add('hidden');
           stopReservationPolling_();
-          _hidePrintSubscriptionPanels_();
+          _hidePrintSettings_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
           const statsBody = document.getElementById('stats-table-body');
@@ -16665,7 +16459,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
           if (dineInContent) dineInContent.classList.add('hidden');
           stopReservationPolling_();
-          _hidePrintSubscriptionPanels_();
+          _hidePrintSettings_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
           document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(tab => {
@@ -16703,7 +16497,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             document.getElementById('orders-content').classList.add('hidden');
             document.getElementById('stats-content').classList.add('hidden');
             document.getElementById('merchant-content').classList.add('hidden');
-            _hidePrintSubscriptionPanels_();
+            _hidePrintSettings_();
             if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
             if (memberHubContent) memberHubContent.classList.remove('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
@@ -16754,7 +16548,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
             if (dineInContent) dineInContent.classList.add('hidden');
             stopReservationPolling_();
-            _hidePrintSubscriptionPanels_();
+            _hidePrintSettings_();
             merchantPromotionsContent.classList.remove('hidden');
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
@@ -16784,7 +16578,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
           if (dineInContent) dineInContent.classList.add('hidden');
           stopReservationPolling_();
-          _hidePrintSubscriptionPanels_();
+          _hidePrintSettings_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
           document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(tab => {
@@ -16814,7 +16608,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
             if (dineInContent) dineInContent.classList.add('hidden');
             stopReservationPolling_();
-            _hidePrintSubscriptionPanels_();
+            _hidePrintSettings_();
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
             // 清除所有 tab 的 active 樣式
