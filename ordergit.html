@@ -7838,7 +7838,7 @@ async function bootstrapOrder() {
   /* 啟動後刷新預約圖示顯示；同時把預約設定 / 明天容量背景預抓好（按下預約圖示立刻可開窗、不轉圈） */
   document.addEventListener('DOMContentLoaded', function () {
     setTimeout(function () {
-      refreshReservationCornerVisibility_();
+      refreshReservationCornerVisibility_(); 
       _resvDrawerBgPrefetch_();
     }, 1500);
     /* 每 30 秒輪詢設定（同步老闆端的開關／座位／用餐時間變動） */
