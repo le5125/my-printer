@@ -2425,6 +2425,7 @@ function orderWaitShowCapybara_() {
 }
 
 function orderTruckSetProgress_(v) {
+  if (orderWaitGameIsEnabled_()) return;
   var safe = Math.max(0, Math.min(100, parseInt(v, 10) || 0));
   orderTruckProgressValue_ = safe;
   var fill = document.getElementById('order-truck-progress-fill');
@@ -2434,6 +2435,7 @@ function orderTruckSetProgress_(v) {
 }
 
 function orderTruckStartProgress_() {
+  if (orderWaitGameIsEnabled_()) return;
   if (orderTruckProgressTimer_) return;
   orderTruckStopProgress_(false);
   orderTruckSetProgress_(0);
@@ -2487,10 +2489,67 @@ function orderApplyWaitGameFromMerchant_(wg) {
   try {
     window.isGameEnabled = window.__ORDER_WAIT_GAME_ENABLED__;
   } catch (e1) {}
+  try {
+    var truck0 = document.getElementById('order-wait-panel-truck');
+    var wv0 = !!(truck0 && truck0.classList.contains('order-wait-truck--on') && !truck0.hidden);
+    orderWaitApplyProgressVsGameUi_(wv0);
+  } catch (eSync) {}
 }
 
 function orderWaitGameIsEnabled_() {
   return !!(window.__ORDER_WAIT_GAME_CFG__ && window.__ORDER_WAIT_GAME_CFG__.enabled);
+}
+
+/** 全螢幕載入層與卡車區皆顯示時才允許跑等待遊戲 RAF（與卡車同進同出） */
+function orderWaitLoadingLayerVisibleForGame_() {
+  var ml = document.getElementById('menu-loading');
+  if (!ml) return false;
+  try {
+    if (ml.style.display === 'none') return false;
+    var cs = window.getComputedStyle(ml);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+  } catch (e0) {
+    return false;
+  }
+  var truck = document.getElementById('order-wait-panel-truck');
+  return !!(truck && !truck.hidden && truck.classList.contains('order-wait-truck--on'));
+}
+
+/**
+ * 卡車面板開著時：數字進度條與等待遊戲互斥；卡車關著時停止遊戲並隱藏遊戲區。
+ * @param {boolean} wasTruckAlreadyVisible 呼叫前卡車是否已經是開啟狀態（供首次開啟時決定是否重開進度計時）
+ */
+function orderWaitApplyProgressVsGameUi_(wasTruckAlreadyVisible) {
+  var truck = document.getElementById('order-wait-panel-truck');
+  var truckOn = !!(truck && !truck.hidden && truck.classList.contains('order-wait-truck--on'));
+  var prog = truck ? truck.querySelector('.order-truck-progress') : null;
+  var gameroot = document.getElementById('order-wait-game-root');
+  if (!truckOn) {
+    orderWaitGameStop_();
+    if (gameroot) {
+      gameroot.classList.add('order-wait-game--hidden');
+      gameroot.setAttribute('aria-hidden', 'true');
+    }
+    return;
+  }
+  var useGame = orderWaitGameIsEnabled_();
+  if (useGame) {
+    orderTruckStopProgress_(false);
+    if (prog) prog.classList.add('order-wait-game--hidden');
+    if (gameroot) {
+      gameroot.classList.remove('order-wait-game--hidden');
+      gameroot.setAttribute('aria-hidden', 'false');
+    }
+    if (!wasTruckAlreadyVisible || !orderWaitGameRunning_) orderWaitGameStart_();
+  } else {
+    orderWaitGameStop_();
+    if (prog) prog.classList.remove('order-wait-game--hidden');
+    if (gameroot) {
+      gameroot.classList.add('order-wait-game--hidden');
+      gameroot.setAttribute('aria-hidden', 'true');
+    }
+    orderTruckStartProgress_();
+  }
 }
 
 function orderWaitGameApplyDomTheme_() {
@@ -2545,8 +2604,7 @@ function orderWaitGameResetRound_() {
 
 function orderWaitGameLoop_(now) {
   if (!orderWaitGameRunning_) return;
-  var ml = document.getElementById('menu-loading');
-  if (!ml || ml.style.display === 'none') {
+  if (!orderWaitLoadingLayerVisibleForGame_()) {
     orderWaitGameStop_();
     return;
   }
@@ -2572,8 +2630,7 @@ function orderWaitGameLoop_(now) {
 
 function orderWaitGameOnPointerDown_(ev) {
   if (!orderWaitGameRunning_ || orderWaitGameState_.tapLock) return;
-  var ml = document.getElementById('menu-loading');
-  if (!ml || ml.style.display === 'none') return;
+  if (!orderWaitLoadingLayerVisibleForGame_()) return;
   if (!orderWaitGameIsEnabled_()) return;
   var t = ev.target;
   if (t && t.closest && !t.closest('#menu-loading')) return;
@@ -2608,6 +2665,7 @@ function orderWaitGameOnPointerDown_(ev) {
 
 function orderWaitGameStart_() {
   orderWaitGameStop_();
+  if (!orderWaitLoadingLayerVisibleForGame_()) return;
   orderWaitGameApplyDomTheme_();
   orderWaitGameResetRound_();
   orderWaitGameRunning_ = true;
@@ -2630,27 +2688,7 @@ function orderWaitShowTruck_(hintText) {
     }
     var h = document.getElementById('order-wait-hint-truck');
     if (h && hintText) h.textContent = hintText;
-
-    var useGame = orderWaitGameIsEnabled_();
-    var prog = truck ? truck.querySelector('.order-truck-progress') : null;
-    var gameroot = document.getElementById('order-wait-game-root');
-    if (useGame) {
-      orderTruckStopProgress_(false);
-      if (prog) prog.classList.add('order-wait-game--hidden');
-      if (gameroot) {
-        gameroot.classList.remove('order-wait-game--hidden');
-        gameroot.setAttribute('aria-hidden', 'false');
-      }
-      if (!alreadyOn || !orderWaitGameRunning_) orderWaitGameStart_();
-    } else {
-      orderWaitGameStop_();
-      if (prog) prog.classList.remove('order-wait-game--hidden');
-      if (gameroot) {
-        gameroot.classList.add('order-wait-game--hidden');
-        gameroot.setAttribute('aria-hidden', 'true');
-      }
-      if (!alreadyOn) orderTruckStartProgress_();
-    }
+    orderWaitApplyProgressVsGameUi_(alreadyOn);
   } catch (e) {}
 }
 orderApplyWaitGameFromMerchant_(null);
@@ -4853,12 +4891,29 @@ function orderFinishMenuLoadingUi_() {
   try {
     orderWaitGameStop_();
   } catch (eWG) {}
+  orderTruckStopProgress_(false);
+  try {
+    orderTruckSetProgress_(0);
+  } catch (eZ) {}
+  var _tr = document.getElementById('order-wait-panel-truck');
+  if (_tr) {
+    _tr.hidden = true;
+    _tr.setAttribute('aria-hidden', 'true');
+    _tr.classList.remove('order-wait-truck--on');
+  }
+  try {
+    var _gr = document.getElementById('order-wait-game-root');
+    if (_gr) {
+      _gr.classList.add('order-wait-game--hidden');
+      _gr.setAttribute('aria-hidden', 'true');
+    }
+    var _prog = _tr ? _tr.querySelector('.order-truck-progress') : null;
+    if (_prog) _prog.classList.remove('order-wait-game--hidden');
+  } catch (eDom) {}
   if (_ml) {
-    orderTruckStopProgress_(true);
     _ml.style.display = 'none';
     _ml.setAttribute('aria-busy', 'false');
   }
-  orderWaitShowCapybara_();
   if (_mc) {
     _mc.style.display = '';
     _mc.classList.remove('menu-content--visible');
