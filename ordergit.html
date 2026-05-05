@@ -47,9 +47,9 @@
 
   * { box-sizing: border-box; }
 
-  /* GitHub 流動式：base rem 加大（原 14px）+ 全頁字重加粗；勿對 body 設 overflow-x:hidden，以免 sticky 失效 */
+  /* GitHub 流動式：根字級與 order.html（瀏覽器預設／Tailwind 基準）一致為 16px；勿對 body 設 overflow-x:hidden，以免 sticky 失效 */
   html, body {
-    font-size: 18px;
+    font-size: 16px;
     margin: 0;
     padding: 0;
     width: 100%;
@@ -64,17 +64,17 @@
     font-family: 'Noto Sans TC', sans-serif;
     background: #f7f7f7;
     overscroll-behavior-y: none;
-    font-weight: 700;
+    font-weight: 400;
   }
   html.ordergit-line-inapp body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang TC', 'Heiti TC', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
   }
   body button, body input, body textarea, body select {
-    font-weight: 700;
+    font-weight: 500;
   }
-  /* SweetAlert／表單插件常帶預設字重，一併加粗以符合全頁粗體 */
+  /* SweetAlert／表單插件：標題略粗即可，勿整頁等同 order.html 會員彈窗的極粗字 */
   .swal2-popup, .swal2-title, .swal2-html-container, .swal2-input, .swal2-textarea {
-    font-weight: 700 !important;
+    font-weight: 500 !important;
   }
 
   /* 通用容器：寬 90%、上限 360px（內文區置中；全螢幕底層抽屜另於內層約束） */
