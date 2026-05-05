@@ -2248,7 +2248,7 @@ try { window.__ORDER_MEMBER_SYSTEM_ENABLED__ = true; } catch (e) {}
 try { window.__ORDER_MEMBER_ACTIVITIES_ON__ = true; } catch (e) {}
 try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (e) {}
 var ORDER_MEMBER_ENABLED_SESSION_KEY = 'order_member_enabled_cache_v1';
-var ORDER_MEMBER_PROFILE_CACHE_TTL_MS = 20000;
+var ORDER_MEMBER_PROFILE_CACHE_TTL_MS = 90000;
 var ORDER_REDEEM_TAB_NAME = '兌換';
 var orderMemberProfileCache_ = Object.create(null);
 var orderMemberProfileByLineCache_ = Object.create(null);
@@ -5072,6 +5072,14 @@ function renderMenu() {
     </div>`;
   }).join('');
 
+  // 菜單含「兌換」區時預載會員點數，點卡片加入購物車可不阻塞等網路
+  try {
+    if (redeemList.length > 0 && window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
+      var phMenu = orderGetStoredMemberPhone10_();
+      if (phMenu && currentWebAppUrl) void orderFetchMemberProfile_(phMenu);
+    }
+  } catch (eRm) {}
+
   // 菜單渲染完畢後更新捲動緩存
   _cacheScrollRefs();
 }
@@ -5346,6 +5354,18 @@ async function orderResolveMemberBalanceForRedeem_(phone10) {
     window.__memberCornerProfileCachePhone = phone10;
   } catch (eSync) {}
   return { ok: true, balance: balance };
+}
+
+/** 同步讀取尚在 TTL 內的會員點數（orderFetchMemberProfile_ 的快取）；無可用資料回 null（須走網路） */
+function orderPeekMemberProfilePointsBalance_(phone10) {
+  if (!phone10 || !/^\d{10}$/.test(phone10)) return null;
+  var c = orderMemberProfileCache_[phone10];
+  if (!c || !c.data) return null;
+  if ((Date.now() - c.at) >= ORDER_MEMBER_PROFILE_CACHE_TTL_MS) return null;
+  var d = c.data;
+  if (!d || d.result !== 'success' || !d.exists) return null;
+  var pts = parseInt(d.points, 10);
+  return Number.isFinite(pts) ? Math.max(0, pts) : 0;
 }
 
 function orderCartPointOffsetUsable_() {
@@ -5626,13 +5646,34 @@ async function orderAdjustRedeemCartQtyMaybe_(idx, delta) {
   var curRp = parseInt(ci.redeemPoints, 10);
   if (!Number.isFinite(curRp) || curRp < 0) curRp = pc * Math.max(1, parseInt(ci.qty, 10) || 1);
   var futureTotal = orderGetCartReservedRedeemPoints_() - curRp + pc * (Math.max(1, parseInt(ci.qty, 10) || 1) + delta);
-  var resolved = await orderResolveMemberBalanceForRedeem_(phone);
-  if (!resolved.ok) {
-    showToast(resolved.toast || '❗ 無法驗證點數');
+  var peekBalAdj = orderPeekMemberProfilePointsBalance_(phone);
+  var resolvedAdj;
+  if (peekBalAdj !== null && peekBalAdj >= futureTotal) {
+    resolvedAdj = { ok: true, balance: peekBalAdj };
+    try {
+      window.__orderMemberPtsForDiscount = peekBalAdj;
+    } catch (ePk2) {}
+    void orderFetchMemberProfile_(phone).then(function (prof) {
+      if (prof && prof.result === 'success' && prof.exists) {
+        try {
+          window.__orderMemberPtsForDiscount = parseInt(prof.points, 10) || 0;
+          window.__memberCornerProfileCache = prof;
+          window.__memberCornerProfileCachePhone = phone;
+        } catch (eBg2) {}
+      }
+      try {
+        orderSyncCartPointDiscountBlock_();
+      } catch (eSyn2) {}
+    });
+  } else {
+    resolvedAdj = await orderResolveMemberBalanceForRedeem_(phone);
+  }
+  if (!resolvedAdj.ok) {
+    showToast(resolvedAdj.toast || '❗ 無法驗證點數');
     return;
   }
-  if (resolved.balance < futureTotal) {
-    showToast('❗ 會員點數不足（購物車兌換需 ' + futureTotal + ' 點，目前 ' + resolved.balance + ' 點）');
+  if (resolvedAdj.balance < futureTotal) {
+    showToast('❗ 會員點數不足（購物車兌換需 ' + futureTotal + ' 點，目前 ' + resolvedAdj.balance + ' 點）');
     return;
   }
   ci.qty += delta;
@@ -6350,6 +6391,12 @@ function openMemberRedeemDrawer_() {
   var sh = document.getElementById('member-redeem-sheet');
   if (!ov || !sh) return;
   renderMemberRedeemDrawerBody_();
+  try {
+    var phWarm = orderGetStoredMemberPhone10_();
+    if (phWarm && currentWebAppUrl && window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
+      void orderFetchMemberProfile_(phWarm);
+    }
+  } catch (eW) {}
   ov.classList.add('show');
   sh.classList.add('show');
   var sc = document.getElementById('member-redeem-scroll');
@@ -6395,7 +6442,28 @@ async function addRedeemProductToCart_(productId) {
   } else {
     futureTotal = orderGetCartReservedRedeemPoints_() + pts;
   }
-  var resolved = await orderResolveMemberBalanceForRedeem_(phone);
+  var peekBal = orderPeekMemberProfilePointsBalance_(phone);
+  var resolved;
+  if (peekBal !== null && peekBal >= futureTotal) {
+    resolved = { ok: true, balance: peekBal };
+    try {
+      window.__orderMemberPtsForDiscount = peekBal;
+    } catch (ePk) {}
+    void orderFetchMemberProfile_(phone).then(function (prof) {
+      if (prof && prof.result === 'success' && prof.exists) {
+        try {
+          window.__orderMemberPtsForDiscount = parseInt(prof.points, 10) || 0;
+          window.__memberCornerProfileCache = prof;
+          window.__memberCornerProfileCachePhone = phone;
+        } catch (eBg) {}
+      }
+      try {
+        orderSyncCartPointDiscountBlock_();
+      } catch (eSyn) {}
+    });
+  } else {
+    resolved = await orderResolveMemberBalanceForRedeem_(phone);
+  }
   if (!resolved.ok) {
     showToast(resolved.toast || '❗ 無法驗證點數');
     return;
