@@ -1858,6 +1858,36 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           </div>
         </div>
 
+        <div class="flex flex-wrap items-start gap-3 pt-2 border-t border-gray-100 mt-1">
+          <label for="pos-wait-game-enabled" class="inline-flex items-center gap-2 cursor-pointer select-none shrink-0 mt-1">
+            <input id="pos-wait-game-enabled" type="checkbox" class="sr-only peer">
+            <div class="relative h-7 w-12 rounded-full bg-gray-300 transition-all duration-300 peer-checked:bg-fuchsia-600 after:content-[''] after:absolute after:left-1 after:top-1 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all after:duration-300 peer-checked:after:translate-x-5"></div>
+            <span class="font-bold text-gray-700 whitespace-nowrap" style="font-size: 14px;">等待遊戲</span>
+          </label>
+          <div id="pos-wait-game-fields" class="flex flex-wrap gap-2 items-end flex-1 min-w-0">
+            <div class="flex flex-col">
+              <span class="text-gray-500" style="font-size:11px;">速度</span>
+              <input id="pos-wait-game-speed" type="number" step="0.1" min="0.2" max="8" value="1" class="w-16 border border-gray-300 rounded px-1 py-0.5 text-sm font-semibold">
+            </div>
+            <div class="flex flex-col">
+              <span class="text-gray-500" style="font-size:11px;">中獎區%</span>
+              <input id="pos-wait-game-target" type="number" step="1" min="5" max="45" value="18" class="w-14 border border-gray-300 rounded px-1 py-0.5 text-sm font-semibold">
+            </div>
+            <div class="flex flex-col">
+              <span class="text-gray-500" style="font-size:11px;">贈點</span>
+              <input id="pos-wait-game-bonus" type="number" step="1" min="0" value="10" class="w-16 border border-gray-300 rounded px-1 py-0.5 text-sm font-semibold">
+            </div>
+            <div class="flex flex-col flex-1 min-w-[140px]">
+              <span class="text-gray-500" style="font-size:11px;">標語</span>
+              <input id="pos-wait-game-slogan" type="text" class="w-full border border-gray-300 rounded px-2 py-0.5 text-sm" placeholder="準確點擊，領取點數！">
+            </div>
+            <div class="flex flex-col">
+              <span class="text-gray-500" style="font-size:11px;">主色</span>
+              <input id="pos-wait-game-theme" type="color" value="#ec4899" class="h-8 w-12 border border-gray-300 rounded cursor-pointer p-0">
+            </div>
+          </div>
+        </div>
+
         <div class="flex items-center justify-between gap-4">
           <div class="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
             <select id="pickup-hour" class="border border-gray-300 rounded-md px-2 py-1 text-base font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-14 md:w-[58px]" style="min-width: 56px;">
@@ -6683,6 +6713,61 @@ initializeHolidayDateInput();
 /** 與 getMerchantInfo 同步的 Logo／封面快取，供「商家圖片管理」開窗時立即顯示（不必等第二輪請求） */
 var cachedMerchantImagesSnapshot = null;
 
+function posNormalizeWaitGamePayload_(wg) {
+  var o = wg && typeof wg === 'object' ? wg : {};
+  var speed = parseFloat(o.speed);
+  if (!(speed > 0)) speed = 1;
+  speed = Math.min(8, Math.max(0.2, speed));
+  var ts = parseFloat(o.targetSize);
+  if (!(ts > 0)) ts = 18;
+  ts = Math.min(45, Math.max(5, ts));
+  var bp = parseInt(o.bonusPoints, 10);
+  if (!(bp >= 0)) bp = 10;
+  var slogan = (o.slogan != null && String(o.slogan).trim()) ? String(o.slogan).trim() : '準確點擊，領取點數！';
+  var themeColor = (o.themeColor != null && String(o.themeColor).trim()) ? String(o.themeColor).trim() : '#ec4899';
+  return {
+    enabled: !!o.enabled,
+    speed: speed,
+    targetSize: ts,
+    bonusPoints: bp,
+    slogan: slogan,
+    themeColor: themeColor
+  };
+}
+
+function posApplyWaitGameUiFromMerchant_(wg) {
+  var cfg = posNormalizeWaitGamePayload_(wg);
+  var en = document.getElementById('pos-wait-game-enabled');
+  var sp = document.getElementById('pos-wait-game-speed');
+  var tg = document.getElementById('pos-wait-game-target');
+  var bn = document.getElementById('pos-wait-game-bonus');
+  var sl = document.getElementById('pos-wait-game-slogan');
+  var th = document.getElementById('pos-wait-game-theme');
+  if (en) en.checked = cfg.enabled;
+  if (sp) sp.value = String(cfg.speed);
+  if (tg) tg.value = String(Math.round(cfg.targetSize));
+  if (bn) bn.value = String(cfg.bonusPoints);
+  if (sl) sl.value = cfg.slogan;
+  if (th) th.value = cfg.themeColor;
+}
+
+function posBuildWaitGameJsonForSave_() {
+  var en = document.getElementById('pos-wait-game-enabled');
+  var sp = document.getElementById('pos-wait-game-speed');
+  var tg = document.getElementById('pos-wait-game-target');
+  var bn = document.getElementById('pos-wait-game-bonus');
+  var sl = document.getElementById('pos-wait-game-slogan');
+  var th = document.getElementById('pos-wait-game-theme');
+  return JSON.stringify(posNormalizeWaitGamePayload_({
+    enabled: !!(en && en.checked),
+    speed: sp ? sp.value : 1,
+    targetSize: tg ? tg.value : 18,
+    bonusPoints: bn ? bn.value : 10,
+    slogan: sl ? sl.value : '',
+    themeColor: th ? th.value : '#ec4899'
+  }));
+}
+
 // ✅ 讀取商家資訊與休假日
 function loadMerchantInfo() {
   if (!currentWebAppUrl) {
@@ -6699,7 +6784,8 @@ function loadMerchantInfo() {
           document.getElementById('merchant-phone') &&
           document.getElementById('merchant-address') &&
           document.getElementById('merchant-description') &&
-          document.getElementById('merchant-open-hour')
+          document.getElementById('merchant-open-hour') &&
+          document.getElementById('pos-wait-game-enabled')
         );
       }, function () {
         const merchant = data.merchant;
@@ -6733,6 +6819,8 @@ function loadMerchantInfo() {
         document.getElementById('merchant-address').value = merchant.address || '';
         document.getElementById('merchant-description').value = merchant.description || '';
         setFixedClosedDaysValue(fixedClosedDays);
+
+        posApplyWaitGameUiFromMerchant_(merchant.waitGame);
 
         renderHolidayList();
 
@@ -11034,8 +11122,8 @@ function submitOrder() {
             address: document.getElementById('merchant-address').value,
             description: document.getElementById('merchant-description').value,
             status: document.getElementById('business-status-toggle').dataset.status || '營業中',
-            fixedClosedDays: syncFixedClosedDaysFromCheckboxes()
-           
+            fixedClosedDays: syncFixedClosedDaysFromCheckboxes(),
+            waitGameJson: posBuildWaitGameJsonForSave_()
           }).toString();
 
           fetch(`${currentWebAppUrl}?${merchantQuery}`)
