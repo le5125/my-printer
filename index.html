@@ -16530,7 +16530,13 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               return;
             }
             var sub = j.subscription;
-            if (st) st.textContent = sub.statusLabel || sub.status || '—';
+            if (st) {
+              var label = sub.statusLabel || sub.status || '—';
+              if (sub.showExpiryWarning && sub.daysUntilExpiry != null) {
+                label = label + '（剩 ' + sub.daysUntilExpiry + ' 天到期）';
+              }
+              st.textContent = label;
+            }
             if (s1) s1.textContent = posFormatSubscriptionDateDisplay(sub.subscriptionStartIso);
             if (s2) s2.textContent = posFormatSubscriptionDateDisplay(sub.expiryDateIso);
             if (hint && sub.renewAmountNtd != null) {
