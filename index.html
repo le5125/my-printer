@@ -361,7 +361,7 @@
       margin-top: 56px;
     }
     #initial-loader .initial-loader-progress-label {
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 800;
       color: #1f2937;
     }
@@ -383,7 +383,7 @@
       display: none;
       text-align: center;
       color: #b91c1c;
-      font-size: 1.25rem;
+      font-size: 1rem;
       font-weight: 700;
       padding: 0 28px;
       line-height: 1.55;
@@ -1184,9 +1184,9 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-ui);
-    font-size: 1.125rem;
-    font-weight: 700;
-    line-height: 1.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5rem;
     min-height: 100vh;
     padding: 18px 20px 20px;
   }
@@ -1208,7 +1208,7 @@
   }
   #printer-embed-panel .printer-icon svg { width: 26px; height: 26px; fill: #0b1220; }
 
-  #printer-embed-panel h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: 0.02em; color: var(--text); }
+  #printer-embed-panel h1 { font-size: 1rem; font-weight: 600; letter-spacing: 0.02em; color: var(--text); }
   #printer-embed-panel h1 span { color: var(--muted); font-size: 0.85rem; font-weight: 400; display: block; margin-top: 2px; }
 
   /* 自動 / 手動 切換 */
@@ -1449,7 +1449,7 @@
     flex-wrap: wrap;
   }
   #printer-embed-panel .hi-id {
-    font-size: 1.2rem;
+    font-size: 1rem;
     font-weight: 800;
     color: var(--text);
     letter-spacing: 0.02em;
@@ -1596,38 +1596,14 @@
   #printer-embed-panel .poll-status.ok { color: var(--success); }
   #printer-embed-panel .poll-status.err { color: var(--danger); }
 
-  /* ── 全域強制放大加粗（覆寫一般 class／inline／列印嵌入區非 important；優於既有 quantity／option 16px !important）── */
-  html body,
-  html body * {
-    font-size: 1.25rem !important;
-    font-weight: 700 !important;
-    line-height: 1.45 !important;
-  }
-  html body #order-items .quantity-input,
-  html body #option-modal input:not([type="checkbox"]):not([type="radio"]),
-  html body #option-modal textarea,
-  html body #option-modal select {
-    font-size: 1.25rem !important;
-    font-weight: 700 !important;
-  }
-  html body .fa-solid,
-  html body .fas,
-  html body .fab,
-  html body .fa-brands {
-    font-weight: 900 !important;
-  }
-  html body .fa-regular,
-  html body .far {
-    font-weight: 400 !important;
-  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js" crossorigin="anonymous"></script>
 
 </head>
 
-<body class="h-full overflow-hidden text-lg font-bold">
+<body class="h-full overflow-hidden text-base">
 <div id="no-boss-id-overlay" style="display:none;position:fixed;inset:0;z-index:2147483000;background:#0f172a;color:#fff;align-items:center;justify-content:center;flex-direction:column;font-family:system-ui,sans-serif;text-align:center;padding:24px;">
-  <p style="font-size:1.25rem;font-weight:700;max-width:24rem;">請使用專屬連結進入系統</p>
+  <p style="font-size:1rem;font-weight:700;max-width:24rem;">請使用專屬連結進入系統</p>
   <p style="margin-top:12px;font-size:0.95rem;opacity:0.85;">網址需包含 <code style="background:#334155;padding:2px 8px;border-radius:6px;">?id=</code> 您的 GAS 部署 ID（/macros/s/ 與 /exec 中間那段）</p>
 </div>
 
@@ -1849,7 +1825,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <div class="initial-loader-progress-fill" id="initial-loader-progress-fill"></div>
         </div>
       </div>
-      <div class="mt-4 text-2xl font-bold text-gray-800">商品載入中...</div>
+      <div class="mt-4 text-base font-bold text-gray-800">商品載入中...</div>
     </div>
     <div id="initial-loader-error" aria-live="assertive"></div>
   </div>
@@ -1928,13 +1904,13 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       <!-- Order Items List -->
       <div id="order-items" class="flex-grow overflow-y-auto scrollbar-hide mb-4">
         <div class="text-center text-gray-500 py-10">
-          <i class="fas fa-shopping-cart text-4xl mb-2"></i>
+          <i class="fas fa-shopping-cart text-base mb-2"></i>
           <p>請從右側選擇餐點</p>
         </div>
       </div>
 
       <!-- Submit Button -->
-      <button id="submit-order" class="bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-md font-bold text-lg w-full flex items-center justify-between">
+      <button id="submit-order" class="bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-md font-bold text-base w-full flex items-center justify-between">
         <span id="submit-action-text">送出訂單</span>
         <div class="flex gap-3 items-center">
           <span id="submit-count" style="background-color: rgba(0,0,0,0.1); padding: 6px 12px; border-radius: 4px; font-size: 0.9rem;">品項 0 份</span>
@@ -2115,7 +2091,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
   <div id="menu-items">
     <div id="add-new-item" class="menu-item-container add-new-item">
       <div class="text-center p-2">
-        <i class="fas fa-plus text-gray-400 text-2xl mb-1"></i>
+        <i class="fas fa-plus text-gray-400 text-base mb-1"></i>
         <p class="text-gray-500 text-sm">新增商品</p>
       </div>
     </div>
@@ -2123,7 +2099,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
   <!-- 🌟 遮罩層：營業狀態為休息中才顯示 -->
   <div id="menu-closed-mask"
-       class="absolute inset-0 bg-gray-200 bg-opacity-70 z-50 flex items-center justify-center text-2xl font-bold text-red-600 hidden">
+       class="absolute inset-0 bg-gray-200 bg-opacity-70 z-50 flex items-center justify-center text-base font-bold text-red-600 hidden">
     目前休息中，暫停點餐
   </div>
 
@@ -2259,7 +2235,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       <button id="stats-range-btn" class="px-4 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-100">區間</button>
     </div>
      <!--  ⬇️ 新增的統計金額顯示 -->
-      <div id="stats-total-amount" class="ml-auto text-lg font-bold text-green-600">總金額：0</div>
+      <div id="stats-total-amount" class="ml-auto text-base font-bold text-green-600">總金額：0</div>
 
       <!-- ⬇️ 新增的圖表按鈕 -->
     <button id="show-amount-chart" class="ml-2 px-4 py-1 border border-green-500 text-green-600 rounded-md hover:bg-green-100">
@@ -2271,7 +2247,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     <!-- 🔽 單日統計彈窗 -->
 <div id="date-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center hidden z-50">
   <div class="bg-white rounded-lg shadow-lg p-6 w-80 relative">
-    <h3 class="text-lg font-bold mb-4 text-center">單日統計</h3>
+    <h3 class="text-base font-bold mb-4 text-center">單日統計</h3>
 
     <label class="block text-sm text-gray-700 mb-1">選擇日期</label>
     <input type="text" id="single-date" class="w-full mb-4 px-3 py-2 border rounded-md flatpickr-input" placeholder="選擇日期" readonly>
@@ -2285,7 +2261,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
   <!-- 🔽 統計區間彈窗 -->
   <div id="range-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center hidden z-50">
     <div class="bg-white rounded-lg shadow-lg p-6 w-80 relative">
-      <h3 class="text-lg font-bold mb-4 text-center">區間統計</h3>
+      <h3 class="text-base font-bold mb-4 text-center">區間統計</h3>
 
       <label class="block text-sm text-gray-700 mb-1">起始日期</label>
       <input type="text" id="range-start" class="w-full mb-3 px-3 py-2 border rounded-md flatpickr-input" placeholder="選擇起始日期" readonly>
@@ -2305,13 +2281,13 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
  <div id="stats-results" class="bg-white p-2 md:p-4 rounded-lg shadow flex flex-col min-h-[450px] max-h-[90vh]">
   <div class="flex flex-wrap md:flex-nowrap justify-between items-center gap-2 mb-4">
     <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0 flex-1">
-      <h3 class="text-lg font-bold shrink-0 mb-0">統計結果</h3>
+      <h3 class="text-base font-bold shrink-0 mb-0">統計結果</h3>
       <p id="stats-range-display" 
    class="text-sm md:text-base font-medium text-blue-600 whitespace-nowrap overflow-hidden">
 </p>
     </div>
     <div class="flex items-center gap-2 shrink-0">
-      <button id="toggle-stats-view" class="text-lg font-bold text-blue-600 hover:text-blue-800">
+      <button id="toggle-stats-view" class="text-base font-bold text-blue-600 hover:text-blue-800">
         切換圖表顯示 📊
       </button>
     </div>
@@ -2477,7 +2453,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
   <div id="member-hub-loading" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center rounded-lg bg-white/90 backdrop-blur-[2px]" aria-live="polite" aria-busy="true">
     <div class="h-12 w-12 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin"></div>
-    <p class="mt-4 text-lg font-semibold text-gray-700">載入會員設定中…</p>
+    <p class="mt-4 text-base font-semibold text-gray-700">載入會員設定中…</p>
     <p class="mt-1 text-sm text-gray-500">請稍候</p>
   </div>
 
@@ -2485,7 +2461,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     <div class="flex w-full items-center justify-between">
       <div class="flex items-center gap-6">
         <div class="flex items-center gap-2 border-r pr-4 border-gray-200">
-            <h3 class="text-lg font-bold text-gray-700 whitespace-nowrap">會員系統</h3>
+            <h3 class="text-base font-bold text-gray-700 whitespace-nowrap">會員系統</h3>
             <input type="checkbox" id="member-enable-toggle" class="w-5 h-5 rounded border-gray-300">
         </div>
 
@@ -2502,7 +2478,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
   <div id="member-display-area" class="flex flex-col rounded-lg bg-white p-6 shadow-md border border-gray-100">
 
     <div id="container-points-settings" class="space-y-2">
-      <h3 class="text-lg font-bold text-gray-800 border-b pb-2">點數贈送規則</h3>
+      <h3 class="text-base font-bold text-gray-800 border-b pb-2">點數贈送規則</h3>
 
       <div class="flex items-center gap-2 py-1.5 px-2 hover:bg-gray-50 rounded-lg transition">
         <input type="checkbox" id="check-rule-base" class="w-5 h-5 border-gray-300">
@@ -2573,7 +2549,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
     <div id="container-redeem-settings" class="hidden flex flex-col">
       <div class="mb-3 shrink-0">
-        <h3 class="text-lg font-bold text-gray-800">兌換商品管理</h3>
+        <h3 class="text-base font-bold text-gray-800">兌換商品管理</h3>
       </div>
 
       <div class="w-full border rounded-md bg-gray-50">
@@ -2587,12 +2563,12 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
   <div id="merchant-promotions-content" class="relative hidden flex-1 min-h-0 w-full flex flex-col p-2 md:p-4">
     <div id="merchant-promotions-loading" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center rounded-lg bg-white/90 backdrop-blur-[2px]" aria-live="polite" aria-busy="true">
       <div class="h-12 w-12 rounded-full border-4 border-violet-100 border-t-violet-600 animate-spin"></div>
-      <p class="mt-4 text-lg font-semibold text-gray-700">載入商家活動設定中…</p>
+      <p class="mt-4 text-base font-semibold text-gray-700">載入商家活動設定中…</p>
     </div>
     <div id="merchant-promotions-settings-panel" class="flex min-h-[70px] shrink-0 flex-col gap-3 bg-white p-4 rounded-lg shadow mb-4 border border-gray-100 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex flex-wrap items-center gap-3 border-b border-gray-200 pb-3 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-4">
         <div class="flex items-center gap-2">
-          <h3 class="text-lg font-bold text-gray-700 whitespace-nowrap">商家活動</h3>
+          <h3 class="text-base font-bold text-gray-700 whitespace-nowrap">商家活動</h3>
           <input type="checkbox" id="merchant-promo-enable-toggle" class="w-5 h-5 rounded border-gray-300" title="有活動 / 沒活動">
         </div>
         <div class="flex flex-wrap items-center gap-2 text-sm">
@@ -2614,7 +2590,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
       <section>
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2 mb-3" data-mp-sec="buy">
-          <h3 class="text-lg font-bold text-gray-800">1. 買 A 送 B</h3>
+          <h3 class="text-base font-bold text-gray-800">1. 買 A 送 B</h3>
           <button type="button" class="merchant-promo-add-row px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700" data-merchant-section="buyAgetB">＋ 新增一組</button>
         </div>
         
@@ -2638,7 +2614,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
       <section>
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2 mb-3" data-mp-sec="item">
-          <h3 class="text-lg font-bold text-gray-800">2. 單項商品打折 / 減價</h3>
+          <h3 class="text-base font-bold text-gray-800">2. 單項商品打折 / 減價</h3>
           <button type="button" class="merchant-promo-add-row px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700" data-merchant-section="itemDiscounts">＋ 新增一組</button>
         </div>
         <div class="overflow-x-auto">
@@ -2662,7 +2638,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
       <section>
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2 mb-3" data-mp-sec="tg">
-          <h3 class="text-lg font-bold text-gray-800">3. 消費滿額送商品</h3>
+          <h3 class="text-base font-bold text-gray-800">3. 消費滿額送商品</h3>
           <button type="button" class="merchant-promo-add-row px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700" data-merchant-section="thresholdGifts">＋ 新增一組</button>
         </div>
         <div class="overflow-x-auto">
@@ -2689,7 +2665,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
       <section>
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2 mb-3" data-mp-sec="to">
-          <h3 class="text-lg font-bold text-gray-800">4. 消費滿額整單打折 / 折讓</h3>
+          <h3 class="text-base font-bold text-gray-800">4. 消費滿額整單打折 / 折讓</h3>
           <button type="button" class="merchant-promo-add-row px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700" data-merchant-section="thresholdOrder">＋ 新增一組</button>
         </div>
         <div class="overflow-x-auto">
@@ -2791,7 +2767,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
        class="shrink-0 flex flex-wrap items-center bg-white p-4 rounded-lg shadow mb-3 border border-gray-100 gap-3"
        style="min-height: var(--pset-topbar-h);">
     <div class="flex items-center gap-2 border-r pr-4 border-gray-200">
-      <h3 class="text-lg font-bold text-gray-700 whitespace-nowrap">打印類型</h3>
+      <h3 class="text-base font-bold text-gray-700 whitespace-nowrap">打印類型</h3>
     </div>
     <div class="flex gap-2 print-mode-radio-group">
       <label class="print-mode-label inline-flex items-center gap-2 px-4 py-1.5 rounded-md border font-medium text-sm cursor-pointer transition">
@@ -2961,7 +2937,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
       <div class="relative top-10 mx-auto p-5 border w-full max-w-[600px] max-h-[90vh] overflow-y-auto shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-medium text-gray-900">訂單詳情</h3>
+          <h3 class="text-base font-medium text-gray-900">訂單詳情</h3>
           <button id="close-order-detail" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
         </div>
 
@@ -2992,9 +2968,9 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
               <!-- Order items will be populated here -->
             </div>
 
-            <div class="flex justify-between font-bold text-2xl mt-4 pt-2 border-t border-gray-200">
+            <div class="flex justify-between font-bold text-base mt-4 pt-2 border-t border-gray-200">
               <span>總金額:</span>
-              <span id="detail-order-total" class="text-2xl font-bold text-right text-red-600">NT$ 0</span>
+              <span id="detail-order-total" class="text-base font-bold text-right text-red-600">NT$ 0</span>
 
             </div>
           </div>
@@ -3119,8 +3095,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     <div id="crop-image-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center" style="padding: max(10px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));">
       <div class="crop-modal-panel relative bg-white shadow-lg rounded-md border w-full flex flex-col max-h-[min(94vh,980px)] overflow-hidden">
         <div class="px-4 pt-4 pb-2 flex-shrink-0 border-b border-gray-100 flex justify-between items-center gap-2">
-          <h2 class="text-xl font-bold text-gray-800 m-0">裁切圖片</h2>
-          <button type="button" id="close-crop-modal" class="text-gray-500 hover:text-gray-800 text-2xl leading-none p-1 flex-shrink-0" aria-label="關閉">
+          <h2 class="text-base font-bold text-gray-800 m-0">裁切圖片</h2>
+          <button type="button" id="close-crop-modal" class="text-gray-500 hover:text-gray-800 text-base leading-none p-1 flex-shrink-0" aria-label="關閉">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -3162,10 +3138,10 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       <div class="relative bg-white shadow-lg rounded-md border w-full flex flex-col" style="width: 95%; max-width: 680px; max-height: min(88vh, 880px); overflow: hidden;">
         <div class="px-4 pt-4 pb-2 flex-shrink-0 border-b border-gray-100 flex justify-between items-start gap-2">
           <div>
-            <h2 class="text-xl font-bold text-gray-800 m-0">商家圖片管理</h2>
+            <h2 class="text-base font-bold text-gray-800 m-0">商家圖片管理</h2>
             
           </div>
-          <button type="button" id="merchant-images-close-x" class="text-gray-500 hover:text-gray-800 text-2xl leading-none p-1 flex-shrink-0" aria-label="關閉">&times;</button>
+          <button type="button" id="merchant-images-close-x" class="text-gray-500 hover:text-gray-800 text-base leading-none p-1 flex-shrink-0" aria-label="關閉">&times;</button>
         </div>
         <div class="overflow-y-auto flex-1 min-h-0 px-4 py-3" style="max-height: calc(min(88vh, 880px) - 140px);">
           <!-- 上：Logo -->
@@ -3219,10 +3195,10 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       <div class="relative bg-white shadow-lg rounded-md border w-full flex flex-col" style="width: 95%; max-width: 520px; max-height: min(88vh, 720px); overflow: hidden;">
         <div class="px-4 pt-4 pb-2 flex-shrink-0 border-b border-gray-100 flex justify-between items-start gap-2">
           <div>
-            <h2 class="text-xl font-bold text-gray-800 m-0">商家活動圖片</h2>
+            <h2 class="text-base font-bold text-gray-800 m-0">商家活動圖片</h2>
             <p class="text-sm text-gray-600 m-0 mt-1">選圖後與「新增商品」相同可裁切、縮放；按裁切視窗「儲存」回到此處，再按「套用」寫入。無圖時線上點餐不顯示活動視窗。</p>
           </div>
-          <button type="button" id="merchant-promo-image-close-x" class="text-gray-500 hover:text-gray-800 text-2xl leading-none p-1 flex-shrink-0" aria-label="關閉">&times;</button>
+          <button type="button" id="merchant-promo-image-close-x" class="text-gray-500 hover:text-gray-800 text-base leading-none p-1 flex-shrink-0" aria-label="關閉">&times;</button>
         </div>
         <div class="overflow-y-auto flex-1 min-h-0 px-4 py-3">
           <label class="block font-medium text-gray-700 text-sm font-bold mb-1">選擇圖片（將開啟裁切，與商品圖相同）</label>
@@ -3246,7 +3222,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     <!-- 中央版 訂單送出等待視窗 -->
     <div id="submit-loading-box"
       class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[9999] hidden">
-      <div class="bg-white px-8 py-6 rounded-xl shadow-xl flex items-center gap-4 text-blue-600 text-2xl font-bold">
+      <div class="bg-white px-8 py-6 rounded-xl shadow-xl flex items-center gap-4 text-blue-600 text-base font-bold">
         <div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
         <span>訂單送出中...</span>
       </div>
@@ -3255,8 +3231,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     <div id="reservation-modal" class="hidden fixed inset-0 z-[10000] bg-black/45 items-center justify-center">
       <div class="bg-white rounded-xl shadow-2xl w-[92%] max-w-[520px] p-4 md:p-5">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="text-lg font-bold text-gray-800">預約設定</h3>
-          <button type="button" id="reservation-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
+          <h3 class="text-base font-bold text-gray-800">預約設定</h3>
+          <button type="button" id="reservation-close" class="text-gray-500 hover:text-gray-700 text-base leading-none">×</button>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -3325,8 +3301,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     <div id="resv-settings-modal" class="hidden fixed inset-0 z-[10005] bg-black/45 items-center justify-center">
       <div class="bg-white rounded-xl shadow-2xl w-[92%] max-w-[560px] p-4 md:p-5">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-chair mr-1 text-blue-600"></i>預約設定</h3>
-          <button type="button" id="resv-settings-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
+          <h3 class="text-base font-bold text-gray-800"><i class="fas fa-chair mr-1 text-blue-600"></i>預約設定</h3>
+          <button type="button" id="resv-settings-close" class="text-gray-500 hover:text-gray-700 text-base leading-none">×</button>
         </div>
         <div class="bg-blue-50 border border-blue-200 rounded-md px-3 py-2 mb-3 text-sm text-blue-800 leading-relaxed">
           <div class="font-semibold mb-1"><i class="fas fa-info-circle mr-1"></i>說明</div>
@@ -3363,7 +3339,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       <div class="bg-white rounded-xl shadow-2xl w-[92%] max-w-[520px] p-4">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-base font-bold text-gray-800">挑選商品</h3>
-          <button type="button" id="reservation-pick-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
+          <button type="button" id="reservation-pick-close" class="text-gray-500 hover:text-gray-700 text-base leading-none">×</button>
         </div>
         <div class="flex flex-row gap-3 mb-2">
           <div class="flex-1 min-w-0 flex flex-col gap-1">
@@ -3384,8 +3360,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     <div id="pending-order-edit-modal" class="hidden fixed inset-0 z-[10008] bg-black/45 items-center justify-center">
       <div class="bg-white rounded-xl shadow-2xl w-[92%] max-w-[520px] p-4 md:p-5 max-h-[92vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="text-lg font-bold text-gray-800">編輯待出餐（整單）</h3>
-          <button type="button" id="pending-order-edit-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
+          <h3 class="text-base font-bold text-gray-800">編輯待出餐（整單）</h3>
+          <button type="button" id="pending-order-edit-close" class="text-gray-500 hover:text-gray-700 text-base leading-none">×</button>
         </div>
         <div class="grid grid-cols-1 gap-3">
           <div>
@@ -3427,7 +3403,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     <!-- 密鑰輸入視窗 -->
     <div id="key-modal" class="hidden fixed inset-0 bg-white flex items-center justify-center z-[10050]">
       <div class="bg-white p-6 rounded-lg shadow-lg w-11/12 max-w-sm text-center space-y-4">
-        <h2 class="text-xl font-bold text-gray-800">請輸入金鑰</h2>
+        <h2 class="text-base font-bold text-gray-800">請輸入金鑰</h2>
         <input id="input-key" type="text" placeholder="請輸入授權金鑰"
           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
         <button id="save-key-btn" class="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600">
@@ -3442,8 +3418,8 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
     <!-- 標題列 -->
     <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 20px 12px; border-bottom:1px solid #f0f0f0; flex-shrink:0;">
-      <h3 id="option-item-name" style="font-size:1.35rem; font-weight:800; color:#1e293b; margin:0; flex:1; text-align:center; padding-right:32px;">商品名稱</h3>
-      <button id="option-close" style="position:absolute; top:14px; right:16px; background:none; border:none; cursor:pointer; font-size:1.4rem; color:#9ca3af; line-height:1;">
+      <h3 id="option-item-name" style="font-size:1rem; font-weight:800; color:#1e293b; margin:0; flex:1; text-align:center; padding-right:32px;">商品名稱</h3>
+      <button id="option-close" style="position:absolute; top:14px; right:16px; background:none; border:none; cursor:pointer; font-size:1rem; color:#9ca3af; line-height:1;">
         <i class="fas fa-times"></i>
       </button>
     </div>
@@ -3452,9 +3428,9 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     <div style="padding:16px 20px; flex:1; overflow-y:auto;">
 
       <!-- 主商品金額 -->
-      <div style="display:flex; justify-content:space-between; align-items:center; font-size:1.1rem; font-weight:600; margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:1rem; font-weight:600; margin-bottom:14px;">
         <span style="color:#374151;">主商品金額：</span>
-        <span id="option-item-price" style="color:#2563eb; font-size:1.25rem; font-weight:800;">NT$ 0</span>
+        <span id="option-item-price" style="color:#2563eb; font-size:1rem; font-weight:800;">NT$ 0</span>
       </div>
 
       <!-- 附加項目區 -->
@@ -3462,18 +3438,18 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
       <!-- 數量選擇 -->
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding-top:14px; border-top:1px solid #f0f0f0;">
-        <span style="font-size:1.1rem; font-weight:700; color:#374151;">數量：</span>
+        <span style="font-size:1rem; font-weight:700; color:#374151;">數量：</span>
         <div style="display:flex; align-items:center; gap:0;">
-          <button id="option-qty-decrease" style="width:44px; height:44px; background:#e5e7eb; border:none; font-size:1.4rem; font-weight:700; border-radius:8px 0 0 8px; cursor:pointer;">-</button>
-          <input id="option-qty-input" type="number" value="1" min="1" style="width:56px; height:44px; text-align:center; border-top:1px solid #d1d5db; border-bottom:1px solid #d1d5db; border-left:none; border-right:none; font-size:1.2rem; font-weight:700;">
-          <button id="option-qty-increase" style="width:44px; height:44px; background:#e5e7eb; border:none; font-size:1.4rem; font-weight:700; border-radius:0 8px 8px 0; cursor:pointer;">+</button>
+          <button id="option-qty-decrease" style="width:44px; height:44px; background:#e5e7eb; border:none; font-size:1rem; font-weight:700; border-radius:8px 0 0 8px; cursor:pointer;">-</button>
+          <input id="option-qty-input" type="number" value="1" min="1" style="width:56px; height:44px; text-align:center; border-top:1px solid #d1d5db; border-bottom:1px solid #d1d5db; border-left:none; border-right:none; font-size:1rem; font-weight:700;">
+          <button id="option-qty-increase" style="width:44px; height:44px; background:#e5e7eb; border:none; font-size:1rem; font-weight:700; border-radius:0 8px 8px 0; cursor:pointer;">+</button>
         </div>
       </div>
     </div>
 
     <!-- 確定按鈕 -->
     <div style="padding:12px 20px 18px; flex-shrink:0;">
-      <button id="option-confirm" style="width:100%; background:#3b82f6; color:#fff; font-size:1.1rem; font-weight:700; padding:14px; border:none; border-radius:10px; cursor:pointer;">
+      <button id="option-confirm" style="width:100%; background:#3b82f6; color:#fff; font-size:1rem; font-weight:700; padding:14px; border:none; border-radius:10px; cursor:pointer;">
         確定加入訂單
       </button>
     </div>
@@ -3794,11 +3770,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       /** iPad／平板：依視窗較短邊調整根字級，Tailwind rem 類別會同比縮放（約略對齊設計基準 900px） */
       function posApplyTabletViewportRatio_() {
         try {
-          var basePx = 18;
+          var basePx = 16;
           var refShort = 900;
           var m = Math.min(window.innerWidth || 0, window.innerHeight || 0);
           if (!(m >= 320)) return;
-          var ratio = Math.min(1.14, Math.max(0.94, m / refShort));
+          var ratio = Math.min(1.14, Math.max(0.76, m / refShort));
           document.documentElement.style.fontSize = (basePx * ratio) + 'px';
         } catch (eRat) {}
       }
@@ -12166,7 +12142,7 @@ document.getElementById('submit-order').addEventListener('click', () => {
             var emptyHintClass = (hasReservationHint || dineInBoundHint) ? 'text-violet-700 font-bold' : '';
             document.getElementById('order-items').innerHTML = `
               <div class="text-center text-gray-500 py-10">
-                <i class="fas fa-shopping-cart text-4xl mb-2"></i>
+                <i class="fas fa-shopping-cart text-base mb-2"></i>
                 <p class="${emptyHintClass}">${emptyHint}</p>
               </div>
             `;
@@ -12884,7 +12860,7 @@ function showOrderDetail(orderData) {
         // 主商品列
         let itemHTML = `
           <div class="py-2">
-            <div class="flex justify-between text-xl font-bold">
+            <div class="flex justify-between text-base font-bold">
               <span>${item.name} × ${item.quantity}</span>
               <span>$ ${item.price * item.quantity}</span>
             </div>`;
@@ -12894,7 +12870,7 @@ function showOrderDetail(orderData) {
         if (Array.isArray(options) && options.length > 0) {
   itemHTML += options
     .map(opt => `
-      <div class="font-bold text-xl text-gray-500 pl-4 flex justify-between">
+      <div class="font-bold text-base text-gray-500 pl-4 flex justify-between">
         <span>➜ ${opt.name}</span>
         <span>$${opt.price}</span>
       </div>
@@ -12905,7 +12881,7 @@ function showOrderDetail(orderData) {
 
         // 備註
         if (item.note && item.note.trim() !== '') {
-          itemHTML += `<div class="text-xl text-gray-500 pl-4">（${item.note.trim()}）</div>`;
+          itemHTML += `<div class="text-base text-gray-500 pl-4">（${item.note.trim()}）</div>`;
         }
 
         itemHTML += `</div>`;
@@ -16098,7 +16074,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (isIdle) {
               html += '<button type="button" class="dinein-hold-btn absolute top-1 right-1 z-10 text-[10px] px-1.5 py-0.5 rounded border border-amber-800 bg-amber-100 text-amber-950 font-bold hover:bg-amber-200 leading-tight shadow-sm" data-table="' + label + '" title="佔桌：顯示使用中，客人 QR 無法點餐">佔桌</button>';
             }
-            html += '<div class="text-lg font-black text-gray-900">' + label + '</div>';
+            html += '<div class="text-base font-black text-gray-900">' + label + '</div>';
             html += seatLine;
             html += '<div class="text-xs font-bold text-gray-800 leading-tight">' + stDisplay + '</div>';
             if (realSt && (realSt.indexOf('完成出餐') >= 0 || realSt.indexOf('待清桌') >= 0)) {
@@ -17535,37 +17511,37 @@ function renderFilteredStats(type) {
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
       <div class="rounded-xl bg-gray-100 p-3 text-center">
         <div class="text-sm font-bold text-gray-500">總金額</div>
-        <div id="checkout-total-amount" class="text-2xl font-extrabold text-gray-800">NT$ 0</div>
+        <div id="checkout-total-amount" class="text-base font-extrabold text-gray-800">NT$ 0</div>
       </div>
       <div class="rounded-xl bg-blue-50 p-3 text-center">
         <div class="text-sm font-bold text-blue-500">實收金額</div>
-        <div id="checkout-received-amount" class="text-2xl font-extrabold text-blue-700">NT$ 0</div>
+        <div id="checkout-received-amount" class="text-base font-extrabold text-blue-700">NT$ 0</div>
       </div>
       <div class="rounded-xl bg-green-50 p-3 text-center">
         <div class="text-sm font-bold text-green-600">找零金額</div>
-        <div id="checkout-change-amount" class="text-2xl font-extrabold text-green-700">NT$ 0</div>
+        <div id="checkout-change-amount" class="text-base font-extrabold text-green-700">NT$ 0</div>
       </div>
     </div>
 
     <div class="grid grid-cols-4 gap-3">
-      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-xl font-bold text-gray-800" data-key="1">1</button>
-      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-xl font-bold text-gray-800" data-key="2">2</button>
-      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-xl font-bold text-gray-800" data-key="3">3</button>
-      <button type="button" class="checkout-key h-14 rounded-xl bg-red-100 text-lg font-bold text-red-600" data-key="backspace">←</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-base font-bold text-gray-800" data-key="1">1</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-base font-bold text-gray-800" data-key="2">2</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-base font-bold text-gray-800" data-key="3">3</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-red-100 text-base font-bold text-red-600" data-key="backspace">←</button>
 
-      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-xl font-bold text-gray-800" data-key="4">4</button>
-      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-xl font-bold text-gray-800" data-key="5">5</button>
-      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-xl font-bold text-gray-800" data-key="6">6</button>
-      <button type="button" id="checkout-confirm-submit" class="row-span-2 h-full min-h-[116px] rounded-xl bg-green-500 text-lg font-bold text-white">確定送出</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-base font-bold text-gray-800" data-key="4">4</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-base font-bold text-gray-800" data-key="5">5</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-base font-bold text-gray-800" data-key="6">6</button>
+      <button type="button" id="checkout-confirm-submit" class="row-span-2 h-full min-h-[116px] rounded-xl bg-green-500 text-base font-bold text-white">確定送出</button>
 
-      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-xl font-bold text-gray-800" data-key="7">7</button>
-      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-xl font-bold text-gray-800" data-key="8">8</button>
-      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-xl font-bold text-gray-800" data-key="9">9</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-base font-bold text-gray-800" data-key="7">7</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-base font-bold text-gray-800" data-key="8">8</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-base font-bold text-gray-800" data-key="9">9</button>
 
-      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-xl font-bold text-gray-800" data-key="0">0</button>
-      <button type="button" class="checkout-key h-14 rounded-xl bg-amber-100 text-lg font-bold text-amber-700" data-key="500">500</button>
-      <button type="button" class="checkout-key h-14 rounded-xl bg-amber-100 text-lg font-bold text-amber-700" data-key="1000">1000</button>
-      <button type="button" id="checkout-cancel" class="h-14 rounded-xl bg-gray-200 text-lg font-bold text-gray-700">取消/關閉</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-gray-100 text-base font-bold text-gray-800" data-key="0">0</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-amber-100 text-base font-bold text-amber-700" data-key="500">500</button>
+      <button type="button" class="checkout-key h-14 rounded-xl bg-amber-100 text-base font-bold text-amber-700" data-key="1000">1000</button>
+      <button type="button" id="checkout-cancel" class="h-14 rounded-xl bg-gray-200 text-base font-bold text-gray-700">取消/關閉</button>
     </div>
   </div>
 </div>
