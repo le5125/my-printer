@@ -5154,31 +5154,27 @@ function mpRowThOrder(r) {
           }
         })();
 
-  // 🔽 功能下拉菜單控制
+  // 🔽 功能下拉菜單控制（GAS OAuth 或其它精簡載入時可能沒有這些節點，需防 null）
   const featuresDropdownBtn = document.getElementById('features-dropdown-btn');
   const featuresDropdownMenu = document.getElementById('features-dropdown-menu');
-  
-  // 切換下拉菜單
-  featuresDropdownBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    featuresDropdownMenu.classList.toggle('hidden');
-  });
-  
-  // 點擊菜單項目時隱藏菜單
-  document.querySelectorAll('#features-dropdown-menu button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      featuresDropdownMenu.classList.add('hidden');
+  if (featuresDropdownBtn && featuresDropdownMenu) {
+    featuresDropdownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      featuresDropdownMenu.classList.toggle('hidden');
     });
-  });
-  
-  // 點擊頁面其他地方時隱藏菜單
-  document.addEventListener('click', (e) => {
-    if (!featuresDropdownBtn.contains(e.target) && !featuresDropdownMenu.contains(e.target)) {
-      featuresDropdownMenu.classList.add('hidden');
-    }
-  });
+    document.querySelectorAll('#features-dropdown-menu button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        featuresDropdownMenu.classList.add('hidden');
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (!featuresDropdownBtn.contains(e.target) && !featuresDropdownMenu.contains(e.target)) {
+        featuresDropdownMenu.classList.add('hidden');
+      }
+    });
+  }
 
-  saveKeyBtn.addEventListener('click', () => {
+  if (saveKeyBtn && inputKey) saveKeyBtn.addEventListener('click', () => {
     const entered = inputKey.value.trim();
     if (!posKeyMatchesWebAppLicense_(entered)) {
       posSwalAlert('金鑰有誤，請聯繫管理員', 'error');
