@@ -2108,11 +2108,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <div class="order-board-title"><i class="fas fa-search mr-2 text-indigo-600"></i>訂單查詢</div>
           <div class="bg-white border border-gray-200 rounded-lg p-3 mb-3 flex flex-wrap items-end gap-3">
             <div>
-              <label class="block text-xs font-semibold mb-1">日期篩選</label>
+              <label class="block text-sm font-bold  mb-1">日期篩選</label>
               <input type="date" id="orders-filter-date" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
             </div>
             <div>
-              <label class="block text-xs font-semibold mb-1">搜尋電話</label>
+              <label class="block text-sm font-bold mb-1">搜尋電話</label>
               <input type="text" id="orders-filter-phone" placeholder="輸入電話" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-[min(100%,220px)]">
             </div>
             <button type="button" id="orders-filter-reset" class="border border-gray-300 bg-white hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-semibold">清除篩選</button>
@@ -2151,11 +2151,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <div id="reservation-board-list-pane" class="flex-grow flex flex-col min-h-0">
             <div class="bg-white border border-gray-200 rounded-lg p-3 mb-3 flex flex-wrap items-end gap-3">
               <div>
-                <label class="block text-xs font-semibold mb-1">日期篩選</label>
+                <label class="block text-sm font-bold mb-1">日期篩選</label>
                 <input type="date" id="reservation-filter-date" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
               </div>
               <div>
-                <label class="block text-xs font-semibold mb-1">搜尋電話</label>
+                <label class="block text-sm font-bold mb-1">搜尋電話</label>
                 <input type="text" id="reservation-filter-phone" placeholder="輸入電話" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
               </div>
               <button type="button" id="reservation-filter-reset" class="border border-gray-300 bg-white hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-semibold">清除篩選</button>
@@ -2171,15 +2171,15 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
                 <button type="button" id="resv-cal-next" class="px-3 py-1.5 text-sm bg-white hover:bg-gray-100"><i class="fas fa-chevron-right"></i></button>
               </div>
               <div>
-                <label class="block text-xs text-gray-600 mb-1">日期</label>
+                <label class="block text-sm font-bold text-gray-600 mb-1">日期</label>
                 <input type="date" id="resv-cal-date" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
               </div>
-              <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-700">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-bold text-gray-700">
                 <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="resv-cal-filter-idle" class="rounded border-gray-300" checked><span class="inline-block w-3 h-3 rounded-sm flex-shrink-0" style="background:#bbf7d0;border:1px solid #86efac;"></span>空閒</label>
                 <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="resv-cal-filter-pickup" class="rounded border-gray-300" checked><i class="fas fa-shopping-bag text-amber-600 text-xs"></i>取貨</label>
                 <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="resv-cal-filter-booking" class="rounded border-gray-300" checked><i class="fas fa-utensils text-red-800 text-xs"></i>訂位</label>
               </div>
-              <div class="text-xs text-gray-500 ml-auto" id="resv-cal-summary"></div>
+              <div class="text-sm font-bold text-gray-500 ml-auto" id="resv-cal-summary"></div>
             </div>
             <div id="reservation-calendar-wrap" class="flex-grow min-h-0 bg-white border border-gray-200 rounded-lg p-2 overflow-auto"></div>
           </div>
@@ -2848,7 +2848,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <span class="text-gray-700">粗體</span>
           </label>
         </div>
-        <div class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-3 flex flex-wrap gap-x-1 gap-y-1 items-center">
+        <div class="text-sm font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded p-3 flex flex-wrap gap-x-1 gap-y-1 items-center">
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{店名}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{訂單編號}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{時間}</code>
@@ -2896,7 +2896,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <select id="label-font-size" class="hidden" aria-hidden="true"><option value="normal" selected>標準</option></select>
         <input type="checkbox" id="label-font-bold" class="hidden" aria-hidden="true">
 
-        <div class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-3 flex flex-wrap gap-x-1 gap-y-1 items-center">
+        <div class="text-sm font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded p-3 flex flex-wrap gap-x-1 gap-y-1 items-center">
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{店名}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{品名}</code>
           <code class="px-1 font-mono bg-white border border-gray-200 rounded text-gray-800">{數量}</code>
@@ -3250,7 +3250,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <div>
             <div class="flex items-center justify-between mb-1">
               <label class="block text-sm font-semibold text-gray-700">人數</label>
-              <span id="reservation-remaining-hint" class="text-xs font-bold text-slate-500"></span>
+              <span id="reservation-remaining-hint" class="text-sm font-bold text-slate-500"></span>
             </div>
             <input type="number" id="reservation-people" min="1" step="1" placeholder="例如 4" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm">
           </div>
@@ -3259,7 +3259,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <input type="tel" id="reservation-phone" placeholder="09xxxxxxxx" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm">
           </div>
         </div>
-        <div id="reservation-overcap-msg" class="hidden mt-2 text-xs text-red-600 font-bold bg-red-50 border border-red-200 rounded px-2 py-1"></div>
+        <div id="reservation-overcap-msg" class="hidden mt-2 text-sm font-bold text-red-600  bg-red-50 border border-red-200 rounded px-2 py-1"></div>
         <div class="mt-3">
           <label class="block text-sm font-semibold text-gray-700 mb-1">備註</label>
           <textarea id="reservation-note" rows="2" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm" placeholder="可留空"></textarea>
@@ -3279,10 +3279,10 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <div id="reservation-items-wrap" class="mt-3 hidden">
           <div class="flex items-center justify-between">
             <label class="block text-sm font-semibold text-gray-700">商品明細</label>
-            <button type="button" id="reservation-items-add" class="border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-md px-2 py-1 text-xs font-bold">＋ 新增商品</button>
+            <button type="button" id="reservation-items-add" class="border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-md px-2 py-1 text-sm font-bold">＋ 新增商品</button>
           </div>
           <div id="reservation-items-list" class="mt-2 space-y-1 text-sm bg-slate-50 rounded-md border border-slate-200 p-2 max-h-40 overflow-y-auto"></div>
-          <div class="mt-1 text-right text-xs font-bold text-slate-600" id="reservation-items-total"></div>
+          <div class="mt-1 text-right text-sm font-bold text-slate-600" id="reservation-items-total"></div>
         </div>
         <div class="mt-4 flex justify-between gap-2">
           <button type="button" id="reservation-clear" class="border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-md px-3 py-2 text-sm font-bold">清除預約</button>
@@ -3309,7 +3309,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <div class="border-t border-slate-200 pt-3">
           <div class="flex items-center justify-between mb-2">
             <label class="text-sm font-bold text-gray-700">座位／桌型</label>
-            <button type="button" id="resv-tables-add" class="border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-md px-2 py-1 text-xs font-bold">＋ 新增桌型</button>
+            <button type="button" id="resv-tables-add" class="border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-md px-2 py-1 text-sm font-bold">＋ 新增桌型</button>
           </div>
           <div id="resv-tables-list" class="space-y-1 text-sm bg-slate-50 rounded-md border border-slate-200 p-2 max-h-64 overflow-y-auto"></div>
           <div class="mt-2 flex justify-between text-sm font-bold text-slate-700">
@@ -3339,11 +3339,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         </div>
         <div class="flex flex-row gap-3 mb-2">
           <div class="flex-1 min-w-0 flex flex-col gap-1">
-            <span class="text-xs font-bold text-gray-600">菜單</span>
+            <span class="text-sm font-bold text-gray-600">菜單</span>
             <select id="reservation-pick-menu" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm bg-white"></select>
           </div>
           <div class="flex-1 min-w-0 flex flex-col gap-1">
-            <span class="text-xs font-bold text-gray-600">商品</span>
+            <span class="text-sm font-bold text-gray-600">商品</span>
             <select id="reservation-pick-product" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm bg-white"></select>
           </div>
         </div>
@@ -3384,7 +3384,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <div class="mt-3">
           <div class="flex items-center justify-between">
             <label class="block text-sm font-semibold text-gray-700">品項明細</label>
-            <button type="button" id="pending-order-items-add" class="border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-md px-2 py-1 text-xs font-bold">＋ 新增商品</button>
+            <button type="button" id="pending-order-items-add" class="border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-md px-2 py-1 text-sm font-bold">＋ 新增商品</button>
           </div>
           <div id="pending-order-items-list" class="mt-2 space-y-1 text-sm bg-slate-50 rounded-md border border-slate-200 p-2 max-h-52 overflow-y-auto"></div>
           <p class="mt-1 text-right text-xs text-slate-500">儲存後將依品項重算訂單總額（滿額折扣／贈品快照若與試算表不同步請留意）</p>
