@@ -1858,36 +1858,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           </div>
         </div>
 
-        <div class="flex flex-wrap items-start gap-3 pt-2 border-t border-gray-100 mt-1">
-          <label for="pos-wait-game-enabled" class="inline-flex items-center gap-2 cursor-pointer select-none shrink-0 mt-1">
-            <input id="pos-wait-game-enabled" type="checkbox" class="sr-only peer">
-            <div class="relative h-7 w-12 rounded-full bg-gray-300 transition-all duration-300 peer-checked:bg-fuchsia-600 after:content-[''] after:absolute after:left-1 after:top-1 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all after:duration-300 peer-checked:after:translate-x-5"></div>
-            <span class="font-bold text-gray-700 whitespace-nowrap" style="font-size: 14px;">等待遊戲</span>
-          </label>
-          <div id="pos-wait-game-fields" class="flex flex-wrap gap-2 items-end flex-1 min-w-0">
-            <div class="flex flex-col">
-              <span class="text-gray-500" style="font-size:11px;">速度</span>
-              <input id="pos-wait-game-speed" type="number" step="0.1" min="0.2" max="8" value="1" class="w-16 border border-gray-300 rounded px-1 py-0.5 text-sm font-semibold">
-            </div>
-            <div class="flex flex-col">
-              <span class="text-gray-500" style="font-size:11px;">中獎區%</span>
-              <input id="pos-wait-game-target" type="number" step="1" min="5" max="45" value="18" class="w-14 border border-gray-300 rounded px-1 py-0.5 text-sm font-semibold">
-            </div>
-            <div class="flex flex-col">
-              <span class="text-gray-500" style="font-size:11px;">贈點</span>
-              <input id="pos-wait-game-bonus" type="number" step="1" min="0" value="10" class="w-16 border border-gray-300 rounded px-1 py-0.5 text-sm font-semibold">
-            </div>
-            <div class="flex flex-col flex-1 min-w-[140px]">
-              <span class="text-gray-500" style="font-size:11px;">標語</span>
-              <input id="pos-wait-game-slogan" type="text" class="w-full border border-gray-300 rounded px-2 py-0.5 text-sm" placeholder="準確點擊，領取點數！">
-            </div>
-            <div class="flex flex-col">
-              <span class="text-gray-500" style="font-size:11px;">主色</span>
-              <input id="pos-wait-game-theme" type="color" value="#ec4899" class="h-8 w-12 border border-gray-300 rounded cursor-pointer p-0">
-            </div>
-          </div>
-        </div>
-
         <div class="flex items-center justify-between gap-4">
           <div class="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
             <select id="pickup-hour" class="border border-gray-300 rounded-md px-2 py-1 text-base font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-14 md:w-[58px]" style="min-width: 56px;">
@@ -2058,6 +2028,9 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             </button>
             <button id="print-settings-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-print mr-2"></i>打印設定
+            </button>
+            <button id="wait-game-settings-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-fuchsia-50 hover:text-fuchsia-700 flex items-center border-b border-gray-100 last:border-b-0">
+              <i class="fas fa-bullseye mr-2"></i>等待遊戲
             </button>
             <button id="sort-mode-btn" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 hover:text-amber-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-sort mr-2"></i>商品排序
@@ -2783,6 +2756,50 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     #print-settings-content #print-template-preview { min-height: 220px; }
   }
 </style>
+
+<!-- 等待遊戲 Panel（功能選單 → 等待遊戲） -->
+<div id="wait-game-settings-content" class="hidden flex-1 min-h-0 w-full flex flex-col p-3 md:p-4 overflow-y-auto">
+  <div class="bg-white rounded-lg shadow border border-gray-100 p-4 max-w-2xl">
+    <h3 class="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
+      <i class="fas fa-bullseye text-fuchsia-600"></i>等待遊戲（點餐頁送出後等待層）
+    </h3>
+    <p class="text-sm text-gray-500 mb-4">開啟後，客人等待送單時可玩「極限點擊」；關閉則為原卡車動畫與數字進度條。</p>
+    <div class="flex flex-wrap items-start gap-3 mb-4">
+      <label for="pos-wait-game-enabled" class="inline-flex items-center gap-2 cursor-pointer select-none shrink-0 mt-1">
+        <input id="pos-wait-game-enabled" type="checkbox" class="sr-only peer">
+        <div class="relative h-7 w-12 rounded-full bg-gray-300 transition-all duration-300 peer-checked:bg-fuchsia-600 after:content-[''] after:absolute after:left-1 after:top-1 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all after:duration-300 peer-checked:after:translate-x-5"></div>
+        <span class="font-bold text-gray-700 whitespace-nowrap" style="font-size: 14px;">啟用等待遊戲</span>
+      </label>
+    </div>
+    <div id="pos-wait-game-fields" class="flex flex-wrap gap-3 items-end">
+      <div class="flex flex-col">
+        <span class="text-gray-500 text-xs">速度</span>
+        <input id="pos-wait-game-speed" type="number" step="0.1" min="0.2" max="8" value="1" class="w-20 border border-gray-300 rounded px-2 py-1 text-sm font-semibold">
+      </div>
+      <div class="flex flex-col">
+        <span class="text-gray-500 text-xs">中獎區 %</span>
+        <input id="pos-wait-game-target" type="number" step="1" min="5" max="45" value="18" class="w-16 border border-gray-300 rounded px-2 py-1 text-sm font-semibold">
+      </div>
+      <div class="flex flex-col">
+        <span class="text-gray-500 text-xs">贈點（示意）</span>
+        <input id="pos-wait-game-bonus" type="number" step="1" min="0" value="10" class="w-20 border border-gray-300 rounded px-2 py-1 text-sm font-semibold">
+      </div>
+      <div class="flex flex-col flex-1 min-w-[200px]">
+        <span class="text-gray-500 text-xs">標語</span>
+        <input id="pos-wait-game-slogan" type="text" class="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="準確點擊，領取點數！">
+      </div>
+      <div class="flex flex-col">
+        <span class="text-gray-500 text-xs">主色</span>
+        <input id="pos-wait-game-theme" type="color" value="#ec4899" class="h-9 w-14 border border-gray-300 rounded cursor-pointer p-0">
+      </div>
+    </div>
+    <div class="mt-6 flex flex-wrap gap-2">
+      <button type="button" id="wait-game-settings-save" class="bg-fuchsia-600 text-white px-5 py-2 rounded-md font-bold shadow hover:bg-fuchsia-700 transition">
+        儲存等待遊戲設定
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- 打印設定 Panel（功能選單 → 打印設定） -->
 <div id="print-settings-content" class="relative hidden flex-1 min-h-0 w-full flex flex-col p-2 md:p-4 overflow-hidden">
@@ -3898,9 +3915,12 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
   const reservationBoardContent = document.getElementById('reservation-board-content');
   const dineInContent = document.getElementById('dine-in-content');
   const printSettingsContentGlobal_ = document.getElementById('print-settings-content');
+  const waitGameSettingsContentGlobal_ = document.getElementById('wait-game-settings-content');
   function _hidePrintSettings_() { if (printSettingsContentGlobal_) printSettingsContentGlobal_.classList.add('hidden'); }
+  function _hideWaitGameSettings_() { if (waitGameSettingsContentGlobal_) waitGameSettingsContentGlobal_.classList.add('hidden'); }
+  function _hidePrintAndWaitGamePanels_() { _hidePrintSettings_(); _hideWaitGameSettings_(); }
   function posSetTopLayer_(activeEl) {
-    var panes = [menuContent, ordersContent, statsContent, merchantContent, memberHubContent, merchantPromotionsContent, orderBoardContent, reservationBoardContent, dineInContent, printSettingsContentGlobal_];
+    var panes = [menuContent, ordersContent, statsContent, merchantContent, memberHubContent, merchantPromotionsContent, orderBoardContent, reservationBoardContent, dineInContent, printSettingsContentGlobal_, waitGameSettingsContentGlobal_];
     panes.forEach(function (el) {
       if (!el) return;
       el.style.zIndex = (el === activeEl) ? '3' : '1';
@@ -3918,7 +3938,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
     if (dineInContent) dineInContent.classList.add('hidden');
     if (typeof stopReservationPolling_ === 'function') stopReservationPolling_();
-    _hidePrintSettings_();
+    _hidePrintAndWaitGamePanels_();
     posSetTopLayer_(menuContent);
   }
         // 會員專區：分頁、點數規則連動、儲存設定、兌換列表與新增（與 pos後端 getMemberSettings / saveMemberSettings / getRedeemProducts / addRedeemProduct 對接）
@@ -6344,7 +6364,7 @@ function switchToMenu(menuId) {
   if (dineInContent) dineInContent.classList.add('hidden');
   if (typeof closeReservationModal_ === 'function') closeReservationModal_();
   if (typeof stopReservationPolling_ === 'function') stopReservationPolling_();
-  _hidePrintSettings_();
+  _hidePrintAndWaitGamePanels_();
   if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
   if (typeof posSetTopLayer_ === 'function') posSetTopLayer_(menuContent);
   const obBtn = document.getElementById('order-board-menu-btn');
@@ -11122,8 +11142,7 @@ function submitOrder() {
             address: document.getElementById('merchant-address').value,
             description: document.getElementById('merchant-description').value,
             status: document.getElementById('business-status-toggle').dataset.status || '營業中',
-            fixedClosedDays: syncFixedClosedDaysFromCheckboxes(),
-            waitGameJson: posBuildWaitGameJsonForSave_()
+            fixedClosedDays: syncFixedClosedDaysFromCheckboxes()
           }).toString();
 
           fetch(`${currentWebAppUrl}?${merchantQuery}`)
@@ -11150,6 +11169,44 @@ function submitOrder() {
           .finally(() => {
             savingIndicator.classList.add('hidden');
           });
+        });
+
+        document.getElementById('wait-game-settings-save')?.addEventListener('click', function () {
+          if (!currentWebAppUrl) {
+            posSwalAlert('尚未設定後端網址', 'error');
+            return;
+          }
+          var savingIndicator = document.getElementById('saving-indicator');
+          if (savingIndicator) savingIndicator.classList.remove('hidden');
+          posSwalToastSuccess('等待遊戲設定已儲存', 2000);
+          var q = new URLSearchParams({
+            action: 'saveMerchantInfo',
+            waitGameJson: posBuildWaitGameJsonForSave_()
+          }).toString();
+          fetch(currentWebAppUrl + '?' + q)
+            .then(function (res) {
+              return res.text().then(function (text) {
+                return { ok: res.ok, text: text };
+              });
+            })
+            .then(function (o) {
+              var data = null;
+              try {
+                data = o.text ? JSON.parse(o.text) : null;
+              } catch (eJ) {
+                data = null;
+              }
+              if (!data || data.result !== 'success') {
+                posSwalAlert('背景同步失敗：' + (data && data.message ? data.message : (o.ok ? '回應異常' : '請檢查網路')), 'error');
+              }
+            })
+            .catch(function (err) {
+              console.error('等待遊戲設定儲存失敗:', err);
+              posSwalAlert('背景同步失敗，請再試一次', 'error');
+            })
+            .finally(function () {
+              if (savingIndicator) savingIndicator.classList.add('hidden');
+            });
         });
 // 綁定儲存商品按鈕
 document.getElementById('save-edit-item').addEventListener('click', saveEditedItem);
@@ -15861,7 +15918,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (dineInContent) dineInContent.classList.add('hidden');
             try { if (typeof dineInStopBoardPoll_ === 'function') dineInStopBoardPoll_(); } catch (eDi) {}
             stopReservationPolling_();
-            _hidePrintSettings_();
+            _hidePrintAndWaitGamePanels_();
             document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
               tab.classList.add('text-gray-500');
@@ -15897,7 +15954,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
             if (reservationBoardContent) reservationBoardContent.classList.remove('hidden');
             if (dineInContent) dineInContent.classList.add('hidden');
-            _hidePrintSettings_();
+            _hidePrintAndWaitGamePanels_();
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
             document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
@@ -16350,7 +16407,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
             dineInContent.classList.remove('hidden');
             stopReservationPolling_();
-            _hidePrintSettings_();
+            _hidePrintAndWaitGamePanels_();
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
             document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
               tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
@@ -16487,6 +16544,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
             if (dineInContent) dineInContent.classList.add('hidden');
             stopReservationPolling_();
+            if (typeof _hidePrintAndWaitGamePanels_ === 'function') _hidePrintAndWaitGamePanels_();
             printSettingsContent.classList.remove('hidden');
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
@@ -16496,6 +16554,33 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             });
             setFeatureDropdownLabel('打印設定');
             if (typeof window.__initPrintSettingsUi_ === 'function') window.__initPrintSettingsUi_();
+          });
+        }
+
+        const waitGameSettingsTab = document.getElementById('wait-game-settings-tab');
+        const waitGameSettingsContent = document.getElementById('wait-game-settings-content');
+        if (waitGameSettingsTab && waitGameSettingsContent) {
+          waitGameSettingsTab.addEventListener('click', function () {
+            if (typeof closeReservationModal_ === 'function') closeReservationModal_();
+            document.getElementById('menu-content').classList.add('hidden');
+            document.getElementById('orders-content').classList.add('hidden');
+            document.getElementById('stats-content').classList.add('hidden');
+            document.getElementById('merchant-content').classList.add('hidden');
+            if (memberHubContent) memberHubContent.classList.add('hidden');
+            if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
+            if (orderBoardContent) orderBoardContent.classList.add('hidden');
+            if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+            if (dineInContent) dineInContent.classList.add('hidden');
+            stopReservationPolling_();
+            if (typeof _hidePrintAndWaitGamePanels_ === 'function') _hidePrintAndWaitGamePanels_();
+            waitGameSettingsContent.classList.remove('hidden');
+            if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
+
+            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
+              tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
+              tab.classList.add('text-gray-500');
+            });
+            setFeatureDropdownLabel('等待遊戲');
           });
         }
 
@@ -16511,7 +16596,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
           if (dineInContent) dineInContent.classList.add('hidden');
           stopReservationPolling_();
-          _hidePrintSettings_();
+          _hidePrintAndWaitGamePanels_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
           const statsBody = document.getElementById('stats-table-body');
@@ -16547,7 +16632,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
           if (dineInContent) dineInContent.classList.add('hidden');
           stopReservationPolling_();
-          _hidePrintSettings_();
+          _hidePrintAndWaitGamePanels_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
           document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(tab => {
@@ -16585,7 +16670,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             document.getElementById('orders-content').classList.add('hidden');
             document.getElementById('stats-content').classList.add('hidden');
             document.getElementById('merchant-content').classList.add('hidden');
-            _hidePrintSettings_();
+            _hidePrintAndWaitGamePanels_();
             if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
             if (memberHubContent) memberHubContent.classList.remove('hidden');
             if (orderBoardContent) orderBoardContent.classList.add('hidden');
@@ -16636,7 +16721,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
             if (dineInContent) dineInContent.classList.add('hidden');
             stopReservationPolling_();
-            _hidePrintSettings_();
+            _hidePrintAndWaitGamePanels_();
             merchantPromotionsContent.classList.remove('hidden');
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
@@ -16666,7 +16751,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
           if (dineInContent) dineInContent.classList.add('hidden');
           stopReservationPolling_();
-          _hidePrintSettings_();
+          _hidePrintAndWaitGamePanels_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
           document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(tab => {
@@ -16696,7 +16781,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
             if (dineInContent) dineInContent.classList.add('hidden');
             stopReservationPolling_();
-            _hidePrintSettings_();
+            _hidePrintAndWaitGamePanels_();
             if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
 
             // 清除所有 tab 的 active 樣式
