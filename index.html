@@ -1184,8 +1184,9 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-ui);
-    font-size: 16px;
-    line-height: 1.5;
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.75rem;
     min-height: 100vh;
     padding: 18px 20px 20px;
   }
@@ -1594,12 +1595,37 @@
   }
   #printer-embed-panel .poll-status.ok { color: var(--success); }
   #printer-embed-panel .poll-status.err { color: var(--danger); }
+
+  /* ── 全域強制放大加粗（覆寫一般 class／inline／列印嵌入區非 important；優於既有 quantity／option 16px !important）── */
+  html body,
+  html body * {
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    line-height: 1.45 !important;
+  }
+  html body #order-items .quantity-input,
+  html body #option-modal input:not([type="checkbox"]):not([type="radio"]),
+  html body #option-modal textarea,
+  html body #option-modal select {
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+  }
+  html body .fa-solid,
+  html body .fas,
+  html body .fab,
+  html body .fa-brands {
+    font-weight: 900 !important;
+  }
+  html body .fa-regular,
+  html body .far {
+    font-weight: 400 !important;
+  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/codepage@1.15.0/dist/cpexcel.full.js" crossorigin="anonymous"></script>
 
 </head>
 
-<body class="h-full overflow-hidden">
+<body class="h-full overflow-hidden text-lg font-bold">
 <div id="no-boss-id-overlay" style="display:none;position:fixed;inset:0;z-index:2147483000;background:#0f172a;color:#fff;align-items:center;justify-content:center;flex-direction:column;font-family:system-ui,sans-serif;text-align:center;padding:24px;">
   <p style="font-size:1.25rem;font-weight:700;max-width:24rem;">請使用專屬連結進入系統</p>
   <p style="margin-top:12px;font-size:0.95rem;opacity:0.85;">網址需包含 <code style="background:#334155;padding:2px 8px;border-radius:6px;">?id=</code> 您的 GAS 部署 ID（/macros/s/ 與 /exec 中間那段）</p>
@@ -3768,11 +3794,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       /** iPad／平板：依視窗較短邊調整根字級，Tailwind rem 類別會同比縮放（約略對齊設計基準 900px） */
       function posApplyTabletViewportRatio_() {
         try {
-          var basePx = 16;
+          var basePx = 18;
           var refShort = 900;
           var m = Math.min(window.innerWidth || 0, window.innerHeight || 0);
           if (!(m >= 320)) return;
-          var ratio = Math.min(1.14, Math.max(0.76, m / refShort));
+          var ratio = Math.min(1.14, Math.max(0.94, m / refShort));
           document.documentElement.style.fontSize = (basePx * ratio) + 'px';
         } catch (eRat) {}
       }
