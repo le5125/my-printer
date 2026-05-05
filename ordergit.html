@@ -11,14 +11,15 @@
   ordergit.html（GitHub Pages 單檔版）— 與 GAS 版 order.html 同源流程，差異在部署與部分樣式變數。
   LIFF：LIFF ID 由後端讀取試算表「認證碼」I2（勿寫死）；空白則不啟用 LIFF。
   樣式區塊：:root／通用 → Hero → 分類與菜單網格 → 底部抽屜 bottom-sheet → 購物車 → 載入動畫
-  主程式：底端 <script> 內 bootstrapOrder → init → renderMenu；搜尋 scrollToSection、openSheet、購物車 API。
+  主程式：DOMContentLoaded → bootstrapOrder → init → renderMenu（defer 外連 JS 先於 DOMContentLoaded 執行）。
 -->
+<link rel="dns-prefetch" href="https://script.google.com">
+<link rel="preconnect" href="https://script.google.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script defer src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
     theme: {
@@ -33,6 +34,7 @@
     }
   }
 </script>
+<script defer src="https://cdn.tailwindcss.com"></script>
 <style>
   :root {
     /* LIFF／系統 WebView 易覆寫 CSS 變數，!important 固定品牌色備援；後台 menuColors 會再以 inline !important 更新 */
@@ -1966,7 +1968,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // ordergit.html — GitHub Pages 獨立消費者點餐頁（單一 HTML）
 //
-// 啟動：window load → bootstrapOrder()；網址須帶 ?id= 或 ?mid=（GAS 部署 ID）
+// 啟動：DOMContentLoaded → bootstrapOrder()；網址須帶 ?id= 或 ?mid=（GAS 部署 ID）
 //
 // 模組速查（搜尋函名即可跳到實作）：
 //   · WebApp / 金鑰：orderWebAppGetActionUrl_、orderFetchJsonFromAction_、bootstrapOrder
@@ -4668,23 +4670,8 @@ function orderMarkMenuReady_() {
 
 function orderMarkMerchantVisualReady_(coverSrc) {
   orderInitialReadyState_.storeNameReady = true;
-  var heroImgEl = document.getElementById('hero-img');
-  if (!coverSrc || !heroImgEl) {
-    orderInitialReadyState_.coverReady = true;
-    orderTryCloseInitialLoading_();
-    return;
-  }
-  if (heroImgEl.complete && heroImgEl.naturalWidth > 0) {
-    orderInitialReadyState_.coverReady = true;
-    orderTryCloseInitialLoading_();
-    return;
-  }
-  var onceDone = function () {
-    orderInitialReadyState_.coverReady = true;
-    orderTryCloseInitialLoading_();
-  };
-  heroImgEl.addEventListener('load', onceDone, { once: true });
-  heroImgEl.addEventListener('error', onceDone, { once: true });
+  orderInitialReadyState_.coverReady = true;
+  orderTryCloseInitialLoading_();
 }
 
 function orderRenderMenuSkeleton_() {
@@ -7437,9 +7424,18 @@ async function bootstrapOrder() {
   orderRefreshMemberCornerVisibility_();
   await init();
 }
-window.addEventListener('load', function ordergitBootstrapOnLoad_() {
-  void bootstrapOrder();
-});
+(function ordergitKickBootstrapOnDomReady_() {
+  function kick() {
+    if (window.__ORDERGIT_BOOT_KICKED__) return;
+    window.__ORDERGIT_BOOT_KICKED__ = true;
+    void bootstrapOrder();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', kick, { once: true });
+  } else {
+    kick();
+  }
+})();
 </script>
 
 <!-- ═══ 線上預約抽屜（由下往上滑、字體跟商品/購物車一致、可下滑關閉） ═══ -->
