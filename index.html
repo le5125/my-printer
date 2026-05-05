@@ -1872,11 +1872,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             </button>
           </div>
 
-          <div class="flex justify-end shrink-0">
-            <button id="clear-order" class="text-red-500 hover:text-red-700 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-md flex items-center whitespace-nowrap text-base font-bold px-3 py-1.5">
-              <i class="fas fa-trash-alt mr-2"></i>清空
-            </button>
-          </div>
+          
         </div>
       </div>
 
@@ -11083,10 +11079,7 @@ document.getElementById('cancel-edit-item').addEventListener('click', () => {
   document.getElementById('edit-item-modal').classList.add('hidden');
 });
 
-// 綁定「清空」按鈕的點擊事件
-document.getElementById('clear-order').addEventListener('click', () => {
-  clearOrder();
-});
+
 
 document.querySelectorAll('.checkout-key').forEach(btn => {
   btn.addEventListener('click', () => {
