@@ -2168,6 +2168,7 @@ var ORDER_WEBAPP_URL_CACHE_KEY = 'order_webapp_url_cache_v1';
 var ORDER_MEMBER_CORNER_REFRESH_MS = 10000;
 try { window.__ORDER_MEMBER_SYSTEM_ENABLED__ = true; } catch (e) {}
 try { window.__ORDER_MEMBER_ACTIVITIES_ON__ = true; } catch (e) {}
+try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (e) {}
 var ORDER_MEMBER_ENABLED_SESSION_KEY = 'order_member_enabled_cache_v1';
 var ORDER_MEMBER_PROFILE_CACHE_TTL_MS = 20000;
 var ORDER_REDEEM_TAB_NAME = '兌換';
@@ -2193,6 +2194,26 @@ function orderGetLineUserIdForMemberBind_() {
   } catch (e) {
     return '';
   }
+}
+
+function orderIsLineStubMemberPhone_(raw) {
+  var p = orderNormalizePhone10_(String(raw || ''));
+  return /^088887\d{4}$/.test(p);
+}
+
+/** 點數折抵：一般為輸入手機須與已登入會員手機一致；LIFF 暫存會員時允許首次填入真實手機 */
+function orderCartPointDiscountAllowedPhone_(phone10) {
+  var p10 = orderNormalizePhone10_(phone10 || '');
+  if (!p10) return false;
+  var stored = orderGetStoredMemberPhone10_();
+  if (!stored) return false;
+  if (p10 === stored) return true;
+  try {
+    if (window.__ORDER_LIFF_STUB_MEMBER__ && orderIsLineStubMemberPhone_(stored) && orderLineUserIdLooksValid_(orderGetLineUserIdForMemberBind_())) {
+      return !!p10 && !orderIsLineStubMemberPhone_(p10);
+    }
+  } catch (e) {}
+  return false;
 }
 
 function orderNormalizeLiffIdFromSheet_(raw) {
@@ -2391,6 +2412,15 @@ function orderGetStoredMemberPhone10_() {
 function orderApplyMemberPhoneLockToForm_() {
   var el = document.getElementById('order-phone');
   if (!el) return;
+  try {
+    if (window.__ORDER_LIFF_STUB_MEMBER__) {
+      el.value = '';
+      el.placeholder = '請填寫手機（首次下單將綁定）';
+      el.readOnly = false;
+      el.classList.remove('order-phone-locked');
+      return;
+    }
+  } catch (eStub) {}
   var p = orderGetStoredMemberPhone10_();
   if (p && window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
     el.value = p;
@@ -2471,6 +2501,7 @@ function orderNormalizePhone10_(raw) {
  */
 function orderEnsureCanonicalPhoneInUrl_(phone10) {
   if (!phone10 || !/^\d{10}$/.test(phone10)) return;
+  if (orderIsLineStubMemberPhone_(phone10)) return;
   try {
     var u = new URL(window.location.href);
     u.searchParams.delete('Phone');
@@ -2531,52 +2562,6 @@ function orderRedirectToMemberUrl_(phone10) {
       orderSwalAlert('導向失敗，請重新整理後再試', 'error');
       return false;
     }
-  }
-}
-
-async function orderPromptMemberAccess_(defaultPhone) {
-  if (typeof Swal === 'undefined') return null;
-  var initPhone = orderNormalizePhone10_(defaultPhone || '');
-  while (true) {
-    orderEnsureBootPrefetch_();
-    var r = await Swal.fire({
-      title: '會員登入 / 註冊',
-      text: '請輸入手機號碼，可直接登入會員或註冊會員。',
-      input: 'tel',
-      inputValue: initPhone,
-      inputPlaceholder: '10 碼數字，例如 0912345678',
-      showCancelButton: true,
-      showDenyButton: true,
-      confirmButtonText: '登入會員',
-      denyButtonText: '註冊會員',
-      cancelButtonText: '一般消費',
-      customClass: { popup: 'order-member-swal-popup modal-content' },
-      width: 'min(96vw, 1040px)',
-      preConfirm: function (v) {
-        var p = orderNormalizePhone10_(v);
-        if (!p) {
-          Swal.showValidationMessage('請輸入 10 碼數字');
-          return false;
-        }
-        orderWaitShowTruck_('登入會員…');
-        return p;
-      },
-      preDeny: function () {
-        var inp = Swal.getInput();
-        var p = orderNormalizePhone10_(inp ? inp.value : '');
-        if (!p) {
-          Swal.showValidationMessage('請輸入 10 碼數字');
-          return false;
-        }
-        orderWaitShowTruck_('註冊會員…');
-        return p;
-      }
-    });
-    if (r.isDismissed) {
-      return { mode: 'guest' };
-    }
-    if (r.isConfirmed && r.value) return { mode: 'login', phone: r.value };
-    if (r.isDenied && r.value) return { mode: 'register', phone: r.value };
   }
 }
 
@@ -2771,32 +2756,30 @@ async function orderFetchMemberProfileByLineId_(lineUserId) {
   }
 }
 
-async function orderEnsureMemberCreated_(phone10, lineIdOpt) {
-  var lineBind = lineIdOpt != null ? String(lineIdOpt || '').trim() : orderGetLineUserIdForMemberBind_();
-  if (!orderLineUserIdLooksValid_(lineBind)) lineBind = '';
-  if (!phone10 || !/^\d{10}$/.test(phone10)) return { result: 'error', message: 'invalid_phone' };
+async function orderEnsureMemberStubByLineFromWeb_(lineUserId) {
+  var lid = String(lineUserId || '').trim();
+  if (!orderLineUserIdLooksValid_(lid)) return { result: 'error', message: 'invalid_line' };
   if (orderCanUseScriptRun_()) {
     return new Promise(function (resolve) {
       google.script.run
         .withSuccessHandler(function (r) {
-          var out = (r && typeof r === 'object') ? r : { result: 'success' };
+          var out = (r && typeof r === 'object') ? r : { result: 'error' };
           if (out && out.result === 'success') {
-            try { delete orderMemberProfileCache_[phone10]; } catch (e1) {}
-            if (lineBind) try { delete orderMemberProfileByLineCache_[lineBind]; } catch (e2) {}
+            try { delete orderMemberProfileByLineCache_[lid]; } catch (e1) {}
+            var ph = orderNormalizePhone10_(out.phone || '');
+            if (ph) try { delete orderMemberProfileCache_[ph]; } catch (e2) {}
           }
           resolve(out);
         })
         .withFailureHandler(function (err) { resolve({ result: 'error', message: err && err.message ? err.message : String(err) }); })
-        .ensureMemberByPhoneDataFromOrderClient(phone10, lineBind);
+        .ensureMemberStubByLineIdDataFromOrderClient(lid);
     });
   }
   if (!currentWebAppUrl) return { result: 'error', message: 'no_url' };
   try {
-    var qs = 'phone=' + encodeURIComponent(phone10);
-    if (lineBind) qs += '&lineId=' + encodeURIComponent(lineBind);
-    var uE = orderWebAppGetActionUrl_('ensureMemberByPhone', qs + '&_=' + Date.now());
-    if (!uE) return { result: 'error', message: 'no_url' };
-    var res = await fetch(uE, { cache: 'no-store', credentials: 'omit' });
+    var uS = orderWebAppGetActionUrl_('ensureMemberStubByLineId', 'lineId=' + encodeURIComponent(lid) + '&_=' + Date.now());
+    if (!uS) return { result: 'error', message: 'no_url' };
+    var res = await fetch(uS, { cache: 'no-store', credentials: 'omit' });
     var text = await res.text();
     var j = null;
     try {
@@ -2804,11 +2787,13 @@ async function orderEnsureMemberCreated_(phone10, lineIdOpt) {
     } catch (eP) {
       j = null;
     }
-    if (j && j.result === 'success') {
-      try { delete orderMemberProfileCache_[phone10]; } catch (e1) {}
-      if (lineBind) try { delete orderMemberProfileByLineCache_[lineBind]; } catch (e2) {}
+    var out = j || { result: 'error' };
+    if (out && out.result === 'success') {
+      try { delete orderMemberProfileByLineCache_[lid]; } catch (e1) {}
+      var ph2 = orderNormalizePhone10_(out.phone || '');
+      if (ph2) try { delete orderMemberProfileCache_[ph2]; } catch (e2) {}
     }
-    return j;
+    return out;
   } catch (e) {
     return { result: 'error', message: String(e && e.message || e) };
   }
@@ -2816,13 +2801,10 @@ async function orderEnsureMemberCreated_(phone10, lineIdOpt) {
 
 /**
  * SaaS：Settings.Enable_Member_System 為 FALSE 時略過。
- * 進頁流程（會員開啟時）：
- * - LIFF 取得 userId 後，若試算表已有同 LINE_User_ID → 自動帶入手機並載入（等同已登入會員）。
- * - 若非 LIFF 或尚無綁定 → 與原先相同：localStorage／URL ?phone=／Swal 登入、註冊或一般消費。
- * - 一般消費不呼叫寫入會員 API，不寫 lineId。
- * - 會員關閉時：貨車 + 預載菜單（與商家資訊 fetch 並行，不阻塞關閉載入層）。
- * 商家封面／店名在背景載入，首屏以菜單就緒 + gate + init 為準。
- * ?phone= 須為 10 碼數字；無效則自網址移除並提示。合法則與 localStorage 同步並標準化網址。
+ * 會員開啟時：
+ * - LIFF：試算表已有同 LINE_User_ID 且為真實手機 → 自動載入；否則呼叫 ensureMemberStubByLineId 建暫存會員（088887xxxx），首單填真機後由後端升級。
+ * - 非 LIFF：localStorage／URL ?phone= 若試算表有該會員則載入；已移除「登入／註冊」Swal。
+ * - 會員關閉時：一般點餐畫面。
  * @return {Promise<boolean>} true 表示即將 location.replace，不應再執行 init
  */
 async function orderRunMemberGate_() {
@@ -2836,6 +2818,7 @@ async function orderRunMemberGate_() {
   var enabled = await orderFetchMemberSystemEnabled_(forceMemberEnabledCheck);
   orderMemberEnabledForcedOnce_ = true;
   if (!enabled) {
+    try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (eDis) {}
     orderApplyMemberSystemDisabledUi_();
     orderWaitShowTruck_('菜單載入中…');
     orderEnsureBootPrefetch_();
@@ -2860,40 +2843,72 @@ async function orderRunMemberGate_() {
     return await gateProfileCache[p];
   }
 
+  var bindLine = orderGetLineUserIdForMemberBind_();
+
   try {
-    var bindLineEarly = orderGetLineUserIdForMemberBind_();
-    if (bindLineEarly && (currentWebAppUrl || orderCanUseScriptRun_())) {
-      var lineProfEarly = await orderFetchMemberProfileByLineId_(bindLineEarly);
+    if (bindLine && (currentWebAppUrl || orderCanUseScriptRun_())) {
+      var lineProfEarly = await orderFetchMemberProfileByLineId_(bindLine);
       if (lineProfEarly && lineProfEarly.result === 'success' && lineProfEarly.exists && lineProfEarly.phone) {
         var phoneFromLine = orderNormalizePhone10_(lineProfEarly.phone);
-        if (phoneFromLine) {
+        if (phoneFromLine && !orderIsLineStubMemberPhone_(phoneFromLine)) {
+          try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (eRl) {}
           try { localStorage.setItem(ORDER_MEMBER_PHONE_STORAGE_KEY, phoneFromLine); } catch (eLineSt) {}
           orderEnsureCanonicalPhoneInUrl_(phoneFromLine);
+          orderEnsureBootPrefetch_();
+          orderWaitShowTruck_('載入中…');
+          return false;
         }
       }
     }
   } catch (eLineGate) {}
 
-  // localStorage 優先：記憶手機存在且會員有效，直接進主頁
-  var storedOk = '';
-  try { storedOk = orderNormalizePhone10_(localStorage.getItem(ORDER_MEMBER_PHONE_STORAGE_KEY) || ''); } catch (e) {}
-  if (storedOk) {
-    var storedProf = await fetchProfileOnceInGate_(storedOk);
-    if (storedProf && storedProf.result === 'success' && storedProf.exists) {
-      orderEnsureBootPrefetch_();
-      orderEnsureCanonicalPhoneInUrl_(storedOk);
-      orderWaitShowTruck_('載入中…');
-      return false;
+  try {
+    if (bindLine && (currentWebAppUrl || orderCanUseScriptRun_())) {
+      var stubRes = await orderEnsureMemberStubByLineFromWeb_(bindLine);
+      if (stubRes && stubRes.result === 'success' && stubRes.phone) {
+        var stubPhone = orderNormalizePhone10_(stubRes.phone);
+        if (stubPhone) {
+          try { window.__ORDER_LIFF_STUB_MEMBER__ = true; } catch (eStF) {}
+          try {
+            localStorage.setItem(ORDER_MEMBER_PHONE_STORAGE_KEY, stubPhone);
+            localStorage.removeItem(ORDER_GUEST_SKIP_MEMBER_KEY);
+          } catch (eLineStore) {}
+          try { delete orderMemberProfileCache_[stubPhone]; } catch (eCl) {}
+          try { delete orderMemberProfileByLineCache_[bindLine]; } catch (eCl2) {}
+          orderEnsureBootPrefetch_();
+          orderWaitShowTruck_('載入中…');
+          return false;
+        }
+      }
     }
-    try { localStorage.removeItem(ORDER_MEMBER_PHONE_STORAGE_KEY); } catch (e2) {}
-    gateProfileInvalidate_(storedOk);
+  } catch (eStubGate) {}
+
+  try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (eDisLiff) {}
+
+  var storedOk = '';
+  try { storedOk = orderNormalizePhone10_(localStorage.getItem(ORDER_MEMBER_PHONE_STORAGE_KEY) || ''); } catch (eStOk) {}
+  if (storedOk) {
+    if (orderIsLineStubMemberPhone_(storedOk) && !bindLine) {
+      try { localStorage.removeItem(ORDER_MEMBER_PHONE_STORAGE_KEY); } catch (eRm) {}
+      gateProfileInvalidate_(storedOk);
+    } else {
+      var storedProf = await fetchProfileOnceInGate_(storedOk);
+      if (storedProf && storedProf.result === 'success' && storedProf.exists) {
+        orderEnsureBootPrefetch_();
+        if (!orderIsLineStubMemberPhone_(storedOk)) orderEnsureCanonicalPhoneInUrl_(storedOk);
+        orderWaitShowTruck_('載入中…');
+        return false;
+      }
+      try { localStorage.removeItem(ORDER_MEMBER_PHONE_STORAGE_KEY); } catch (e2) {}
+      gateProfileInvalidate_(storedOk);
+    }
   }
 
   var rawFromUrl = '';
   try {
     var up = new URL(window.location.href);
     rawFromUrl = String(up.searchParams.get('phone') || up.searchParams.get('Phone') || '').trim();
-  } catch (e) {}
+  } catch (eUrl) {}
   var phoneParam = orderNormalizePhone10_(rawFromUrl);
   if (rawFromUrl && !phoneParam) {
     orderStripPhoneParamsFromUrl_();
@@ -2913,119 +2928,35 @@ async function orderRunMemberGate_() {
   var params = new URLSearchParams(window.location.search || '');
   phoneParam = orderNormalizePhone10_(params.get('phone') || params.get('Phone') || '');
   if (phoneParam) {
-    var prof = await fetchProfileOnceInGate_(phoneParam);
-    if (prof && prof.result === 'success' && prof.exists === false && typeof Swal !== 'undefined') {
-      var missing = await Swal.fire({
-        title: '尚未找到此會員',
-        text: '系統中尚無此手機號碼，是否立即加入會員？',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: '加入會員',
-        cancelButtonText: '一般消費',
-        reverseButtons: true,
-        customClass: { popup: 'order-member-swal-popup modal-content' },
-        width: 'min(96vw, 1040px)'
-      });
-      if (missing.isConfirmed) {
-        var phoneResByUrl = await Swal.fire({
-          title: '請輸入手機號碼',
-          input: 'tel',
-          inputValue: phoneParam,
-          inputPlaceholder: '10 碼數字，例如 0912345678',
-          showCancelButton: true,
-          confirmButtonText: '確定',
-          cancelButtonText: '返回',
-          customClass: { popup: 'order-member-swal-popup modal-content' },
-          width: 'min(96vw, 1040px)',
-          inputValidator: function (v) {
-            if (!orderNormalizePhone10_(v)) return '請輸入 10 碼數字';
-            return null;
-          },
-          preConfirm: function (v) { return orderNormalizePhone10_(v); }
+    var profUrl = await fetchProfileOnceInGate_(phoneParam);
+    if (profUrl && profUrl.result === 'success' && profUrl.exists === false) {
+      orderStripPhoneParamsFromUrl_();
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          toast: true,
+          icon: 'info',
+          title: '連結中的會員不存在，已移除',
+          showConfirmButton: false,
+          timer: 2600,
+          timerProgressBar: true,
+          position: 'top-end'
         });
-        if (!phoneResByUrl.isConfirmed || !phoneResByUrl.value) return await orderRunMemberGate_();
-        phoneParam = orderNormalizePhone10_(phoneResByUrl.value);
-        var createRes = await orderEnsureMemberCreated_(phoneParam, orderGetLineUserIdForMemberBind_());
-        if (!createRes || createRes.result !== 'success') {
-          orderSwalAlert('加入會員失敗，請稍後再試', 'error');
-          return false;
-        }
-        try {
-          localStorage.setItem(ORDER_MEMBER_PHONE_STORAGE_KEY, phoneParam);
-          localStorage.removeItem(ORDER_GUEST_SKIP_MEMBER_KEY);
-        } catch (e2) {}
-        orderEnsureBootPrefetch_();
-        orderEnsureCanonicalPhoneInUrl_(phoneParam);
-        orderWaitShowTruck_('加入會員成功…');
-        return false;
-      } else {
-        return false;
       }
-    }
-    try {
-      localStorage.setItem(ORDER_MEMBER_PHONE_STORAGE_KEY, phoneParam);
-      localStorage.removeItem(ORDER_GUEST_SKIP_MEMBER_KEY);
-    } catch (e) {}
-    orderEnsureBootPrefetch_();
-    orderEnsureCanonicalPhoneInUrl_(phoneParam);
-    orderWaitShowTruck_('載入中…');
-    return false;
-  }
-
-  var access = await orderPromptMemberAccess_('');
-  if (!access || access.mode === 'guest') return false;
-
-  if (access.mode === 'login') {
-    gateProfileInvalidate_(access.phone);
-    var loginProf = await orderFetchMemberProfile_(access.phone);
-    if (!loginProf || loginProf.result !== 'success') {
-      orderSwalAlert('會員資料查詢失敗，請稍後再試', 'error');
+      gateProfileInvalidate_(phoneParam);
+    } else if (profUrl && profUrl.result === 'success' && profUrl.exists) {
+      try {
+        localStorage.setItem(ORDER_MEMBER_PHONE_STORAGE_KEY, phoneParam);
+        localStorage.removeItem(ORDER_GUEST_SKIP_MEMBER_KEY);
+      } catch (eLp) {}
+      orderEnsureBootPrefetch_();
+      orderEnsureCanonicalPhoneInUrl_(phoneParam);
+      orderWaitShowTruck_('載入中…');
       return false;
     }
-    if (!loginProf.exists) {
-      await new Promise(function (r) { setTimeout(r, 500); });
-      gateProfileInvalidate_(access.phone);
-      loginProf = await orderFetchMemberProfile_(access.phone);
-    }
-    if (!loginProf.exists) {
-      orderSwalAlert('查無此會員，請改用「註冊會員」', 'warning');
-      gateProfileInvalidate_(access.phone);
-      return await orderRunMemberGate_();
-    }
-    try {
-      localStorage.setItem(ORDER_MEMBER_PHONE_STORAGE_KEY, access.phone);
-      localStorage.removeItem(ORDER_GUEST_SKIP_MEMBER_KEY);
-    } catch (e3) {}
-    await orderEnsureMemberCreated_(access.phone, orderGetLineUserIdForMemberBind_());
-    orderEnsureBootPrefetch_();
-    orderWaitShowTruck_('登入成功…');
-    orderEnsureCanonicalPhoneInUrl_(access.phone);
-    return false;
   }
 
-  var created = await orderEnsureMemberCreated_(access.phone);
-  if (!created || created.result !== 'success') {
-    orderSwalAlert('加入會員失敗，請稍後再試', 'error');
-    return false;
-  }
-  try {
-    localStorage.setItem(ORDER_MEMBER_PHONE_STORAGE_KEY, access.phone);
-    localStorage.removeItem(ORDER_GUEST_SKIP_MEMBER_KEY);
-  } catch (e4) {}
-  orderWaitShowTruck_('註冊成功…');
-  if (typeof Swal !== 'undefined') {
-    await Swal.fire({
-      icon: 'success',
-      title: '註冊成功',
-      text: '正在導向...',
-      timer: 1200,
-      showConfirmButton: false,
-      allowOutsideClick: false,
-      customClass: { popup: 'order-member-swal-popup modal-content' },
-      width: 'min(96vw, 1040px)'
-    });
-  }
-  orderEnsureCanonicalPhoneInUrl_(access.phone);
+  orderEnsureBootPrefetch_();
+  orderWaitShowTruck_('載入中…');
   return false;
 }
 
@@ -5569,7 +5500,7 @@ function submitOrder() {
       showToast('❗ 點數折抵目前無法使用');
       return;
     }
-    if (!phone10 || phone10 !== orderGetStoredMemberPhone10_()) {
+    if (!phone10 || !orderCartPointDiscountAllowedPhone_(phone10)) {
       showToast('❗ 點數折抵需使用已登入的會員手機');
       return;
     }
@@ -5685,6 +5616,9 @@ function submitOrder() {
     orderData.dineInSession = window.__ORDER_DINEIN_CTX__.token;
   }
 
+  var lineBindSubmit = orderGetLineUserIdForMemberBind_();
+  if (lineBindSubmit) orderData.lineUserId = lineBindSubmit;
+
   const dedupeSig = buildOrderSubmitSig_(orderData);
   const nowMs = Date.now();
   if (dedupeSig && _orderRecentSubmitSig === dedupeSig && (nowMs - _orderRecentSubmitAt) < 12000) {
@@ -5697,6 +5631,26 @@ function submitOrder() {
   }
   _orderRecentSubmitSig = dedupeSig;
   _orderRecentSubmitAt = nowMs;
+
+  if (!window.__ORDER_DINEIN_CTX__ && window.__ORDER_LIFF_STUB_MEMBER__ && phone10 && !orderIsLineStubMemberPhone_(phone10)) {
+    try {
+      var prevStubPhone = '';
+      try { prevStubPhone = localStorage.getItem(ORDER_MEMBER_PHONE_STORAGE_KEY) || ''; } catch (ePs0) {}
+      prevStubPhone = orderNormalizePhone10_(prevStubPhone);
+      window.__ORDER_LIFF_STUB_MEMBER__ = false;
+      if (prevStubPhone && orderIsLineStubMemberPhone_(prevStubPhone)) {
+        try { delete orderMemberProfileCache_[prevStubPhone]; } catch (eCa) {}
+      }
+      if (lineBindSubmit) try { delete orderMemberProfileByLineCache_[lineBindSubmit]; } catch (eLb) {}
+      try {
+        localStorage.setItem(ORDER_MEMBER_PHONE_STORAGE_KEY, phone10);
+        localStorage.removeItem(ORDER_GUEST_SKIP_MEMBER_KEY);
+      } catch (eLoc) {}
+      orderEnsureCanonicalPhoneInUrl_(phone10);
+      orderApplyMemberPhoneLockToForm_();
+      orderRefreshMemberCornerVisibility_();
+    } catch (eOpt) {}
+  }
 
   if (window.__ORDER_DINEIN_CTX__) {
     var smPre = window.__ORDER_DINEIN_CTX__.settlementMode || 'prepay';
@@ -7445,6 +7399,7 @@ async function bootstrapOrder() {
   orderInitialReadyState_.memberGateDone = true;
   orderTryCloseInitialLoading_();
   orderRefreshMemberCornerVisibility_();
+  orderApplyMemberPhoneLockToForm_();
   await init();
 }
 (function ordergitKickBootstrapOnDomReady_() {
