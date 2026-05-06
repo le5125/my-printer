@@ -10870,30 +10870,6 @@ function performOrderSubmission(orderData) {
     try {
       posOrderQueueEnqueue(snapshot);
       try {
-        var smPre = snapshot.posDineInSettlementMode || 'prepay';
-        if (snapshot.tableNo && snapshot.dineInSession && smPre === 'prepay' && typeof Swal !== 'undefined') {
-          var tot0 = parseInt(snapshot.total, 10) || 0;
-          Swal.fire({
-            title: '請先結帳',
-            width: 'min(96vw, 820px)',
-            padding: '32px 28px',
-            html: '<div style="font-size:52px;line-height:1.55;text-align:left;font-weight:700;color:#1a1a1a;">請至櫃台完成付款<br><br>單號：<b>' + String(snapshot.orderId || '') + '</b><br>金額：<b>$' + tot0 + '</b></div>',
-            icon: 'info',
-            confirmButtonText: '確定',
-            customClass: { popup: 'order-dinein-prepay-swal', confirmButton: 'order-dinein-prepay-swal-btn' }
-          });
-        }
-      } catch (eSwPre) { /* 略 */ }
-      /* 雙路列印：
-         1. 立即 postMessage 整筆訂單給「printer_window」分頁，列印頁直接列印（最快）
-         2. 同時送後端寫入「訂單」工作表，列印頁 1 秒輪詢備援（網路慢/分頁不在前台時補印）
-         穩定 URL + 同名 target → 不會每次新開分頁。 */
-      try {
-        if (typeof pingPrinterPageInstantTrigger_ === 'function') {
-          pingPrinterPageInstantTrigger_(snapshot);
-        }
-      } catch (ePr) { /* 略 */ }
-      try {
         posReservationDraft = null;
         window.__POS_DINEIN_CART_CTX__ = null;
         window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
@@ -10917,21 +10893,38 @@ function performOrderSubmission(orderData) {
       if (submitBtn) submitBtn.disabled = false;
 
       posInvalidateOrderRelatedCaches_();
+    } finally {
+      _posOrderSubmitInFlight = false;
+    }
+    /* 先關車再背景：先結提示／列印／桌位同步／佇列刷寫延後，避免主執行緒與試算表請求卡住出餐感 */
+    setTimeout(function () {
+      try {
+        var smPre = snapshot.posDineInSettlementMode || 'prepay';
+        if (snapshot.tableNo && snapshot.dineInSession && smPre === 'prepay' && typeof Swal !== 'undefined') {
+          var tot0 = parseInt(snapshot.total, 10) || 0;
+          Swal.fire({
+            title: '請先結帳',
+            width: 'min(96vw, 820px)',
+            padding: '32px 28px',
+            html: '<div style="font-size:52px;line-height:1.55;text-align:left;font-weight:700;color:#1a1a1a;">請至櫃台完成付款<br><br>單號：<b>' + String(snapshot.orderId || '') + '</b><br>金額：<b>$' + tot0 + '</b></div>',
+            icon: 'info',
+            confirmButtonText: '確定',
+            customClass: { popup: 'order-dinein-prepay-swal', confirmButton: 'order-dinein-prepay-swal-btn' }
+          });
+        }
+      } catch (eSwPre) { /* 略 */ }
+      try {
+        if (typeof pingPrinterPageInstantTrigger_ === 'function') {
+          pingPrinterPageInstantTrigger_(snapshot);
+        }
+      } catch (ePr) { /* 略 */ }
       try {
         if (typeof window.dineInLoadBoard_ === 'function') {
           setTimeout(function () {
-            try {
-              var d1 = document.getElementById('dine-in-content');
-              var v1 = d1 && !d1.classList.contains('hidden');
-              window.dineInLoadBoard_(v1 ? {} : { silent: true });
-            } catch (_e0) {}
+            try { window.dineInLoadBoard_({ silent: true }); } catch (_e0) {}
           }, 650);
           setTimeout(function () {
-            try {
-              var d2 = document.getElementById('dine-in-content');
-              var v2 = d2 && !d2.classList.contains('hidden');
-              window.dineInLoadBoard_(v2 ? {} : { silent: true });
-            } catch (_e1) {}
+            try { window.dineInLoadBoard_({ silent: true }); } catch (_e1) {}
           }, 2200);
         }
       } catch (_eDlb) { /* 略 */ }
@@ -10946,9 +10939,7 @@ function performOrderSubmission(orderData) {
       }, 0);
       var _toastDone = snapshot.tableNo ? '訂單已送出' : '結帳成功';
       posSwalToastSuccess(_toastDone, 2500);
-    } finally {
-      _posOrderSubmitInFlight = false;
-    }
+    }, 0);
   }
 
   if (typeof requestAnimationFrame === 'function') {
@@ -11127,6 +11118,8 @@ function submitOrder() {
   /* 與原版：店內桌號綁定進行中時先等完成再送單／開計算機 */
   var _diBindWait = window.__POS_DINEIN_BIND_IN_FLIGHT__;
   if (_diBindWait) {
+    /* 桌號綁定 API 尚未完成時，舊版會靜默 return，使用者以為送單／出餐卡住 */
+    try { posSwalToastSuccess('店內桌號同步中，完成後將自動送出訂單…', 2200); } catch (_eTb) {}
     _diBindWait.then(function () { submitOrder(); }).catch(function () {});
     return;
   }
@@ -12452,10 +12445,8 @@ function posInvalidateOrderRelatedCaches_() {
   window.__posKdsCache = null;
   try {
     if (typeof window.dineInLoadBoard_ === 'function') {
-      var dc = document.getElementById('dine-in-content');
-      var vis = dc && !dc.classList.contains('hidden');
-      /* 分頁在別處時仍背景抓桌位，切回「店內用餐」才是新狀態 */
-      window.dineInLoadBoard_(vis ? {} : { silent: true });
+      /* 送單／統計失效時一律靜默抓桌位，避免非店內分頁仍出現「讀取桌位」全畫面轉圈 */
+      window.dineInLoadBoard_({ silent: true });
     }
   } catch (_eDiInv) { /* 略 */ }
 }
@@ -16445,11 +16436,12 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           dineInLoadBoard_();
           try { dineInRefreshQrAutoStatus_(); } catch (eQrSt) { /* 略 */ }
           dineInStopBoardPoll_();
+          /* 僅背景靜默更新桌位（不覆蓋讀取中 UI）；間隔 5 秒 */
           dineInBoardPollTimer_ = setInterval(function () {
             var dc = document.getElementById('dine-in-content');
             if (!dc || dc.classList.contains('hidden')) return;
             try { dineInLoadBoard_({ silent: true }); } catch (_ePol) {}
-          }, 8000);
+          }, 5000);
         }
         try { window.posActivateDineInView_ = posActivateDineInView_; } catch (_eAct) { /* 略 */ }
 
@@ -16471,7 +16463,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             try {
               var dcv = document.getElementById('dine-in-content');
               if (dcv && !dcv.classList.contains('hidden') && typeof window.dineInLoadBoard_ === 'function') {
-                window.dineInLoadBoard_();
+                window.dineInLoadBoard_({ silent: true });
               }
             } catch (_eVis) { /* 略 */ }
           });
