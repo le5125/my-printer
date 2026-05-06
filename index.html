@@ -2197,7 +2197,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
       <div id="dine-in-content" class="hidden flex-grow flex flex-col min-h-0 px-3 pb-3">
         <div class="order-board-wrap flex-grow min-h-0 flex flex-col">
-          <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <div class="flex items-center justify-between mb-2 flex-wrap gap-2 shrink-0">
             <div class="order-board-title mb-0"><i class="fas fa-qrcode mr-2 text-violet-600"></i>店內用餐</div>
             <div class="flex flex-wrap items-center gap-2 text-sm">
               <span class="font-semibold">結帳模式</span>
@@ -2220,9 +2220,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
               </button>
             </div>
           </div>
-          <p id="dinein-qr-auto-status" class="text-xs text-gray-600 mb-2 leading-snug" role="status"></p>
-          <p class="text-xs text-gray-500 mb-2 leading-relaxed">先結：白空閒→黃使用中→紅待結帳→點「結帳」後藍待出餐→綠完成出餐，加點再循環；後結：藍待出餐→綠→逾10秒紅待結帳→「結帳」後待清桌。空閒桌右上角可「佔桌」（黃使用中、QR不可點餐）；綠／待清桌請客人用完按「清桌」。桌號 1 與 01 視為同一桌。</p>
-          <div id="dinein-board-grid" class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(128px,1fr));"></div>
+          <p id="dinein-qr-auto-status" class="text-xs text-gray-600 mb-2 leading-snug shrink-0" role="status"></p>
+          <p class="text-xs text-gray-500 mb-2 leading-relaxed shrink-0">先結：白空閒→黃使用中→紅待結帳→點「結帳」後藍待出餐→綠完成出餐，加點再循環；後結：藍待出餐→綠→逾10秒紅待結帳→「結帳」後待清桌。空閒桌右上角可「佔桌」（黃使用中、QR不可點餐）；綠／待清桌請客人用完按「清桌」。桌號 1 與 01 視為同一桌。</p>
+          <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-0.5 pb-1">
+            <div id="dinein-board-grid" class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(128px,1fr));"></div>
+          </div>
         </div>
       </div>
 
@@ -5943,7 +5945,7 @@ function renderRedeemMenuItems() {
   list.forEach(function (item) {
     var dispName = String(item.name != null ? item.name : '');
     var dispNameAttr = dispName.replace(/"/g, '&quot;');
-    var saleStatus = item.saleStatus === '否' ? '售完' : '販售中';
+    var saleStatus = item.saleStatus === '否' ? '換完' : '兌換中';
     var saleClass = item.saleStatus === '否'
       ? 'bg-red-500 hover:bg-red-600'
       : 'bg-green-500 hover:bg-green-600';
