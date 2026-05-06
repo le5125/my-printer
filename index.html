@@ -11003,28 +11003,15 @@ function submitReservationOnly_(orderData) {
 
 function confirmCheckoutAndSubmit() {
   if (!pendingCheckoutOrderData) return;
+  const total = parseInt(pendingCheckoutOrderData?.total || 0, 10);
   const received = checkoutReceivedAmount ? parseInt(checkoutReceivedAmount, 10) : 0;
-  if (!checkoutReceivedAmount) return;
-
-  function doSend() {
-    const orderData = buildCurrentOrderData();
-    const total = parseInt(String(orderData && orderData.total != null ? orderData.total : 0), 10) || 0;
-    if (received < total) return;
-    closeCheckoutCalculator();
-    /* 先讓關閉計算機畫面繪製，再送單／清車，避免長時間卡在計算機層 */
-    setTimeout(function () {
-      performOrderSubmission(orderData);
-    }, 0);
-  }
-
-  const bindP = window.__POS_DINEIN_BIND_IN_FLIGHT__;
-  if (bindP) {
-    bindP.then(doSend).catch(function (err) {
-      posSwalAlert((err && err.message) ? err.message : String(err || '店內桌號連線未完成，請稍候再確認'), 'error');
-    });
-    return;
-  }
-  doSend();
+  if (!checkoutReceivedAmount || received < total) return;
+  const orderData = pendingCheckoutOrderData;
+  closeCheckoutCalculator();
+  /* 關閉計算機後下一事件迴圈再入佇列送單（與原版資料來源一致 + 畫面能先重繪） */
+  setTimeout(function () {
+    performOrderSubmission(orderData);
+  }, 0);
 }
 
 function finalSendOrder(orderData) {
@@ -11109,32 +11096,21 @@ function initializeCheckoutCalculatorToggle() {
 }
 
 function submitOrderAfterDineInChoice_() {
-  var pre = buildCurrentOrderData();
+  const orderData = buildCurrentOrderData();
   if (posHasReservationDraft_()) {
-    submitReservationOnly_(pre);
+    submitReservationOnly_(orderData);
     return;
   }
-  var toggle = document.getElementById('checkout-calculator-toggle');
-  var isEnabled = toggle ? toggle.checked : false;
-  var totNum = parseInt(String(pre && pre.total != null ? pre.total : 0), 10) || 0;
-  var wantCalc = isEnabled && totNum > 0;
-  var bindP = window.__POS_DINEIN_BIND_IN_FLIGHT__;
+  const toggle = document.getElementById('checkout-calculator-toggle');
+  const isEnabled = toggle ? toggle.checked : false;
+  const totNum = parseInt(String(orderData && orderData.total != null ? orderData.total : 0), 10) || 0;
 
-  /* 結帳計算機只需購物車金額：不必等店內綁桌 API；無計算機且送單時仍須等連線完成才有 dineInSession */
-  if (wantCalc) {
-    openCheckoutCalculator(buildCurrentOrderData());
+  if (isEnabled && totNum > 0) {
+    openCheckoutCalculator(orderData);
     return;
   }
-  function sendPlain() {
-    finalSendOrder(buildCurrentOrderData());
-  }
-  if (bindP) {
-    bindP.then(sendPlain).catch(function (err) {
-      posSwalAlert((err && err.message) ? err.message : String(err || '店內桌號連線失敗'), 'error');
-    });
-    return;
-  }
-  sendPlain();
+
+  finalSendOrder(orderData);
 }
 
 // ✅ Submit order to Google Sheets
@@ -11148,7 +11124,13 @@ function submitOrder() {
     posSwalAlert('請先選擇餐點或填寫預約資料！', 'warning');
     return;
   }
-  /* 店內綁桌改由送出／結帳確認時處理，不再整段阻塞於此（結帳計算機可立刻開） */
+  /* 與原版：店內桌號綁定進行中時先等完成再送單／開計算機 */
+  var _diBindWait = window.__POS_DINEIN_BIND_IN_FLIGHT__;
+  if (_diBindWait) {
+    _diBindWait.then(function () { submitOrder(); }).catch(function () {});
+    return;
+  }
+
   submitOrderAfterDineInChoice_();
 }
 
@@ -16425,9 +16407,10 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
           if (orderBoardContent) orderBoardContent.classList.add('hidden');
           if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
-          _hidePrintSubscriptionPanels_();
+          /* 與 pos-GAS原版：先顯示店內區，再停預約輪詢、關列印／訂閱面板，最後停 KDS */
           dineInPane.classList.remove('hidden');
           stopReservationPolling_();
+          _hidePrintSubscriptionPanels_();
           if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
           document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
             tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
@@ -16449,8 +16432,8 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           dineInBoardPollTimer_ = setInterval(function () {
             var dc = document.getElementById('dine-in-content');
             if (!dc || dc.classList.contains('hidden')) return;
-            dineInLoadBoard_();
-          }, 3500);
+            try { dineInLoadBoard_({ silent: true }); } catch (_ePol) {}
+          }, 8000);
         }
         try { window.posActivateDineInView_ = posActivateDineInView_; } catch (_eAct) { /* 略 */ }
 
