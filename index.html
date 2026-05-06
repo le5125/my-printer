@@ -20903,24 +20903,25 @@ if (document.readyState === 'loading') {
 <style>
   /* 免費版 VIP 鎖徽章（金色＋鎖頭，類似原版鎖樣式） */
   .free-vip-badge {
-    display: inline-flex;
+    display: inline-flex !important;
     align-items: center;
-    gap: 3px;
-    margin-left: 8px;
+    gap: 4px;
+    margin-left: auto !important;   /* 推到按鈕最右邊 */
     padding: 2px 8px;
     font-size: 11px;
     line-height: 1.3;
     font-weight: 800;
-    color: #92400e;
-    background: linear-gradient(135deg, #fde68a, #fbbf24);
+    color: #92400e !important;
+    background: linear-gradient(135deg, #fde68a, #fbbf24) !important;
     border: 1px solid #d97706;
     border-radius: 9999px;
     vertical-align: middle;
     box-shadow: 0 1px 3px rgba(217, 119, 6, 0.35);
     letter-spacing: 0.3px;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
-  .free-vip-badge::before {
-    content: "🔒";
+  .free-vip-badge .fa-lock {
     font-size: 10px;
   }
   /* 出單機 / 連線打印機 / 桌號 等須直接禁點按鈕的鎖樣式（取代徽章式） */
@@ -21057,19 +21058,32 @@ if (document.readyState === 'loading') {
 
     // 訂閱按鈕的 free / vip 文案改由 posLoadSubscriptionPanelUi_ 依 planType 動態切換
 
-    // 4) 在功能下拉選單上加 VIP 徽章（提示哪些是 VIP 才能完整使用）
+    // 4) 在功能下拉選單上加 VIP 鎖徽章（提示哪些是 VIP 才能完整使用）
     var lockedDropdownIds = [
       'reservation-view-tab', 'dine-in-tab', 'member-hub-tab',
       'merchant-promotions-tab', 'merchant-images-btn', 'sort-mode-btn'
     ];
-    lockedDropdownIds.forEach(function (id) {
+    function ensureVipBadgeOn(id) {
       var b = document.getElementById(id);
-      if (!b || b.querySelector('.free-vip-badge')) return;
+      if (!b) return;
+      if (b.querySelector('.free-vip-badge')) return;
       var s = document.createElement('span');
       s.className = 'free-vip-badge';
-      s.textContent = 'VIP';
+      s.innerHTML = '<i class="fas fa-lock"></i><span>VIP</span>';
       b.appendChild(s);
-    });
+    }
+    lockedDropdownIds.forEach(ensureVipBadgeOn);
+    // MutationObserver：若下拉選單被重新渲染，自動補回鎖徽章
+    if (!window.__POS_VIP_BADGE_MO__) {
+      try {
+        var moTarget = document.body;
+        var mo = new MutationObserver(function () {
+          lockedDropdownIds.forEach(ensureVipBadgeOn);
+        });
+        mo.observe(moTarget, { childList: true, subtree: true });
+        window.__POS_VIP_BADGE_MO__ = mo;
+      } catch (eMo) { /* 略 */ }
+    }
 
     // 5) 在開啟對應面板時，注入「試用模式」橫幅
     var trialPanelMap = {
