@@ -1922,7 +1922,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     </div>
 
     <!-- Menu Section (Right 2/3) -->
-    <div class="w-full md:w-2/3 p-4 h-full flex flex-col">
+    <div class="w-full md:w-2/3 p-4 h-full min-h-0 flex flex-col">
       <!-- 頁籤列 -->
       <div id="pos-menu-tab-bar" style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 16px; align-items: center; gap: 6px; position: relative;">
   <!-- 營業中按鈕：固定在左側，不隨標籤捲動 -->
@@ -2195,7 +2195,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         </div>
       </div>
 
-      <div id="dine-in-content" class="hidden flex-grow flex flex-col min-h-0 px-3 pb-3">
+      <div id="dine-in-content" class="hidden flex-grow flex flex-col min-h-0 min-h-[min(50vh,420px)] px-3 pb-3">
         <div class="order-board-wrap flex-grow min-h-0 flex flex-col">
           <div class="flex items-center justify-between mb-2 flex-wrap gap-2 shrink-0">
             <div class="order-board-title mb-0"><i class="fas fa-qrcode mr-2 text-violet-600"></i>店內用餐</div>
@@ -10916,10 +10916,21 @@ function performOrderSubmission(orderData) {
 
   posInvalidateOrderRelatedCaches_();
   try {
-    var dc0 = document.getElementById('dine-in-content');
-    if (dc0 && !dc0.classList.contains('hidden') && typeof window.dineInLoadBoard_ === 'function') {
-      setTimeout(function () { try { window.dineInLoadBoard_(); } catch (_e0) {} }, 650);
-      setTimeout(function () { try { window.dineInLoadBoard_(); } catch (_e1) {} }, 2200);
+    if (typeof window.dineInLoadBoard_ === 'function') {
+      setTimeout(function () {
+        try {
+          var d1 = document.getElementById('dine-in-content');
+          var v1 = d1 && !d1.classList.contains('hidden');
+          window.dineInLoadBoard_(v1 ? {} : { silent: true });
+        } catch (_e0) {}
+      }, 650);
+      setTimeout(function () {
+        try {
+          var d2 = document.getElementById('dine-in-content');
+          var v2 = d2 && !d2.classList.contains('hidden');
+          window.dineInLoadBoard_(v2 ? {} : { silent: true });
+        } catch (_e1) {}
+      }, 2200);
     }
   } catch (_eDlb) { /* 略 */ }
   setTimeout(function () { loadOrders(true); }, 1500);
@@ -10986,7 +10997,10 @@ function confirmCheckoutAndSubmit() {
     const total = parseInt(String(orderData && orderData.total != null ? orderData.total : 0), 10) || 0;
     if (received < total) return;
     closeCheckoutCalculator();
-    performOrderSubmission(orderData);
+    /* 先讓關閉計算機畫面繪製，再送單／清車，避免長時間卡在計算機層 */
+    setTimeout(function () {
+      performOrderSubmission(orderData);
+    }, 0);
   }
 
   const bindP = window.__POS_DINEIN_BIND_IN_FLIGHT__;
@@ -12440,9 +12454,11 @@ function posInvalidateOrderRelatedCaches_() {
   window.__posStatsCacheByKey_ = null;
   window.__posKdsCache = null;
   try {
-    var dc = document.getElementById('dine-in-content');
-    if (dc && !dc.classList.contains('hidden') && typeof window.dineInLoadBoard_ === 'function') {
-      window.dineInLoadBoard_();
+    if (typeof window.dineInLoadBoard_ === 'function') {
+      var dc = document.getElementById('dine-in-content');
+      var vis = dc && !dc.classList.contains('hidden');
+      /* 分頁在別處時仍背景抓桌位，切回「店內用餐」才是新狀態 */
+      window.dineInLoadBoard_(vis ? {} : { silent: true });
     }
   } catch (_eDiInv) { /* 略 */ }
 }
@@ -14769,6 +14785,17 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                   posSwalAlert('更新失敗：' + (msg || ''), 'error');
                 }, function () {
                   refreshOrders();
+                  try {
+                    if (typeof window.dineInLoadBoard_ !== 'function') return;
+                    function diPull(opts) {
+                      try {
+                        window.dineInLoadBoard_(opts || { silent: true });
+                      } catch (_eDi) {}
+                    }
+                    diPull({ silent: true });
+                    setTimeout(function () { diPull({ silent: true }); }, 500);
+                    setTimeout(function () { diPull({ silent: true }); }, 1800);
+                  } catch (_eKdsDi) { /* 略 */ }
                 });
               });
             }
@@ -16291,7 +16318,14 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (prepay) prepay.checked = mode !== 'postpay';
           if (postpay) postpay.checked = mode === 'postpay';
         }
-        function dineInLoadBoard_() {
+        function dineInLoadBoard_(opts) {
+          opts = opts && typeof opts === 'object' ? opts : {};
+          var dinePane = document.getElementById('dine-in-content');
+          var paneShown = !!(dinePane && !dinePane.classList.contains('hidden'));
+          var gridLoading = document.getElementById('dinein-board-grid');
+          if (gridLoading && paneShown && !opts.silent) {
+            gridLoading.innerHTML = '<div class="text-center text-sm text-slate-500 py-10 px-2"><span class="inline-block animate-spin rounded-full h-7 w-7 border-2 border-violet-500 border-t-transparent mr-2" style="vertical-align:middle" aria-hidden="true"></span>正在讀取試算表「桌位」…<br><span class="text-xs text-slate-400 mt-2 block">（若久無資料請確認 Web App 網址與 A2 金鑰）</span></div>';
+          }
           var mySerial = (window.__dineInBoardLoadSerial__ = (window.__dineInBoardLoadSerial__ || 0) + 1);
           posRunSheetMutation_({
             gasMethod: 'dineInPosGetBoardFromPosClient',
@@ -16360,42 +16394,62 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             el.textContent = '每日自動 QR：無法讀取狀態';
           });
         }
-        var dineInTabEl = document.getElementById('dine-in-tab');
-        if (dineInTabEl && dineInContent) {
-          dineInTabEl.addEventListener('click', function () {
-            if (typeof closeReservationModal_ === 'function') closeReservationModal_();
-            document.getElementById('menu-content').classList.add('hidden');
-            document.getElementById('orders-content').classList.add('hidden');
-            document.getElementById('stats-content').classList.add('hidden');
-            document.getElementById('merchant-content').classList.add('hidden');
-            if (memberHubContent) memberHubContent.classList.add('hidden');
-            if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
-            if (orderBoardContent) orderBoardContent.classList.add('hidden');
-            if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
-            dineInContent.classList.remove('hidden');
-            stopReservationPolling_();
-            _hidePrintSubscriptionPanels_();
-            if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
-            document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
-              tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
-              tab.classList.add('text-gray-500');
-            });
-            this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
-            this.classList.remove('text-gray-500');
-            setFeatureDropdownLabel('店內用餐');
-            posBindBoardGridWheelScroll_();
-            if (_dineInBoardPrefetched && window.__dineInBoardCache__ && window.__dineInBoardCache__.result === 'success') {
-              try { dineInRenderBoard_(window.__dineInBoardCache__); } catch (eDi0) {}
-            }
-            dineInLoadBoard_();
-            try { dineInRefreshQrAutoStatus_(); } catch (eQrSt) { /* 略 */ }
-            dineInStopBoardPoll_();
-            dineInBoardPollTimer_ = setInterval(function () {
-              if (!dineInContent || dineInContent.classList.contains('hidden')) return;
-              dineInLoadBoard_();
-            }, 3500);
+        /** 切換到店內用餐並拉「桌位」看板（可被委派點擊或程式呼叫） */
+        function posActivateDineInView_() {
+          var dineInPane = document.getElementById('dine-in-content');
+          if (!dineInPane) {
+            console.warn('[POS] posActivateDineInView_: 找不到 #dine-in-content');
+            return;
+          }
+          if (typeof closeReservationModal_ === 'function') closeReservationModal_();
+          document.getElementById('menu-content').classList.add('hidden');
+          document.getElementById('orders-content').classList.add('hidden');
+          document.getElementById('stats-content').classList.add('hidden');
+          document.getElementById('merchant-content').classList.add('hidden');
+          if (memberHubContent) memberHubContent.classList.add('hidden');
+          if (merchantPromotionsContent) merchantPromotionsContent.classList.add('hidden');
+          if (orderBoardContent) orderBoardContent.classList.add('hidden');
+          if (reservationBoardContent) reservationBoardContent.classList.add('hidden');
+          _hidePrintSubscriptionPanels_();
+          dineInPane.classList.remove('hidden');
+          stopReservationPolling_();
+          if (window._kdsPollTimer) { clearInterval(window._kdsPollTimer); window._kdsPollTimer = null; }
+          document.querySelectorAll('.menu-tab, #orders-tab, #reservation-view-tab, #stats-tab, #merchant-tab, #member-hub-tab, #merchant-promotions-tab, #order-board-menu-btn, #dine-in-tab').forEach(function (tab) {
+            tab.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
+            tab.classList.add('text-gray-500');
           });
+          var dineInTabBtn = document.getElementById('dine-in-tab');
+          if (dineInTabBtn) {
+            dineInTabBtn.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
+            dineInTabBtn.classList.remove('text-gray-500');
+          }
+          setFeatureDropdownLabel('店內用餐');
+          posBindBoardGridWheelScroll_();
+          if (_dineInBoardPrefetched && window.__dineInBoardCache__ && window.__dineInBoardCache__.result === 'success') {
+            try { dineInRenderBoard_(window.__dineInBoardCache__); } catch (eDi0) {}
+          }
+          dineInLoadBoard_();
+          try { dineInRefreshQrAutoStatus_(); } catch (eQrSt) { /* 略 */ }
+          dineInStopBoardPoll_();
+          dineInBoardPollTimer_ = setInterval(function () {
+            var dc = document.getElementById('dine-in-content');
+            if (!dc || dc.classList.contains('hidden')) return;
+            dineInLoadBoard_();
+          }, 3500);
         }
+        try { window.posActivateDineInView_ = posActivateDineInView_; } catch (_eAct) { /* 略 */ }
+
+        /* 與「預約查看」相同：直接綁在按鈕上，避免僅依 document 委派時被其它點擊處理順序佔掉 */
+        (function bindDineInTabClick_() {
+          var el = document.getElementById('dine-in-tab');
+          if (!el || el.__posDineInActivateBound) return;
+          el.__posDineInActivateBound = true;
+          el.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            posActivateDineInView_();
+          }, false);
+        })();
+
         if (!window.__dineInVisibilityBound__) {
           window.__dineInVisibilityBound__ = true;
           document.addEventListener('visibilitychange', function () {
