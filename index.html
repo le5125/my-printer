@@ -10806,12 +10806,16 @@ function openCheckoutCalculator(orderData) {
   }
 
   updateCheckoutCalculatorDisplay();
-  modal.classList.remove('hidden');
-  modal.classList.add('flex', 'items-center', 'justify-center', 'pointer-events-auto');
-  modal.style.setProperty('display', 'flex', 'important');
-  modal.style.setProperty('visibility', 'visible', 'important');
-  modal.style.setProperty('z-index', '10000', 'important');
-  modal.style.setProperty('pointer-events', 'auto', 'important');
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex', 'items-center', 'justify-center', 'pointer-events-auto');
+      modal.style.setProperty('display', 'flex', 'important');
+      modal.style.setProperty('visibility', 'visible', 'important');
+      modal.style.setProperty('z-index', '10000', 'important');
+      modal.style.setProperty('pointer-events', 'auto', 'important');
+    });
+  });
 }
 
 function handleCheckoutCalculatorInput(value) {
@@ -10911,6 +10915,13 @@ function performOrderSubmission(orderData) {
   _posOrderSubmitInFlight = false;
 
   posInvalidateOrderRelatedCaches_();
+  try {
+    var dc0 = document.getElementById('dine-in-content');
+    if (dc0 && !dc0.classList.contains('hidden') && typeof window.dineInLoadBoard_ === 'function') {
+      setTimeout(function () { try { window.dineInLoadBoard_(); } catch (_e0) {} }, 650);
+      setTimeout(function () { try { window.dineInLoadBoard_(); } catch (_e1) {} }, 2200);
+    }
+  } catch (_eDlb) { /* 略 */ }
   setTimeout(function () { loadOrders(true); }, 1500);
   if (typeof window.posRefreshOrderBoardNow === 'function') {
     window.posRefreshOrderBoardNow();
@@ -10967,12 +10978,25 @@ function submitReservationOnly_(orderData) {
 
 function confirmCheckoutAndSubmit() {
   if (!pendingCheckoutOrderData) return;
-  const total = parseInt(pendingCheckoutOrderData?.total || 0, 10);
   const received = checkoutReceivedAmount ? parseInt(checkoutReceivedAmount, 10) : 0;
-  if (!checkoutReceivedAmount || received < total) return;
-  const orderData = pendingCheckoutOrderData;
-  closeCheckoutCalculator();
-  performOrderSubmission(orderData);
+  if (!checkoutReceivedAmount) return;
+
+  function doSend() {
+    const orderData = buildCurrentOrderData();
+    const total = parseInt(String(orderData && orderData.total != null ? orderData.total : 0), 10) || 0;
+    if (received < total) return;
+    closeCheckoutCalculator();
+    performOrderSubmission(orderData);
+  }
+
+  const bindP = window.__POS_DINEIN_BIND_IN_FLIGHT__;
+  if (bindP) {
+    bindP.then(doSend).catch(function (err) {
+      posSwalAlert((err && err.message) ? err.message : String(err || '店內桌號連線未完成，請稍候再確認'), 'error');
+    });
+    return;
+  }
+  doSend();
 }
 
 function finalSendOrder(orderData) {
@@ -11057,21 +11081,32 @@ function initializeCheckoutCalculatorToggle() {
 }
 
 function submitOrderAfterDineInChoice_() {
-  const orderData = buildCurrentOrderData();
+  var pre = buildCurrentOrderData();
   if (posHasReservationDraft_()) {
-    submitReservationOnly_(orderData);
+    submitReservationOnly_(pre);
     return;
   }
-  const toggle = document.getElementById('checkout-calculator-toggle');
-  const isEnabled = toggle ? toggle.checked : false;
-  const totNum = parseInt(String(orderData && orderData.total != null ? orderData.total : 0), 10) || 0;
+  var toggle = document.getElementById('checkout-calculator-toggle');
+  var isEnabled = toggle ? toggle.checked : false;
+  var totNum = parseInt(String(pre && pre.total != null ? pre.total : 0), 10) || 0;
+  var wantCalc = isEnabled && totNum > 0;
+  var bindP = window.__POS_DINEIN_BIND_IN_FLIGHT__;
 
-  if (isEnabled && totNum > 0) {
-    openCheckoutCalculator(orderData);
+  /* 結帳計算機只需購物車金額：不必等店內綁桌 API；無計算機且送單時仍須等連線完成才有 dineInSession */
+  if (wantCalc) {
+    openCheckoutCalculator(buildCurrentOrderData());
     return;
   }
-
-  finalSendOrder(orderData);
+  function sendPlain() {
+    finalSendOrder(buildCurrentOrderData());
+  }
+  if (bindP) {
+    bindP.then(sendPlain).catch(function (err) {
+      posSwalAlert((err && err.message) ? err.message : String(err || '店內桌號連線失敗'), 'error');
+    });
+    return;
+  }
+  sendPlain();
 }
 
 // ✅ Submit order to Google Sheets
@@ -11085,13 +11120,7 @@ function submitOrder() {
     posSwalAlert('請先選擇餐點或填寫預約資料！', 'warning');
     return;
   }
-  var _diBindWait = window.__POS_DINEIN_BIND_IN_FLIGHT__;
-  if (_diBindWait) {
-    _diBindWait.then(function () { submitOrder(); }).catch(function () {});
-    return;
-  }
-
-  /* 店內桌號請由工具列「選擇桌號」預先綁定；送單不再攔截詢問 */
+  /* 店內綁桌改由送出／結帳確認時處理，不再整段阻塞於此（結帳計算機可立刻開） */
   submitOrderAfterDineInChoice_();
 }
 
@@ -12410,6 +12439,12 @@ function posInvalidateOrderRelatedCaches_() {
   window.__posOrdersCache = null;
   window.__posStatsCacheByKey_ = null;
   window.__posKdsCache = null;
+  try {
+    var dc = document.getElementById('dine-in-content');
+    if (dc && !dc.classList.contains('hidden') && typeof window.dineInLoadBoard_ === 'function') {
+      window.dineInLoadBoard_();
+    }
+  } catch (_eDiInv) { /* 略 */ }
 }
 
 /** 開機後同時抓三組看板資料（與 pos.html 同行為） */
@@ -16287,6 +16322,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             dineInRenderBoard_({ result: 'error', message: m });
           });
         }
+        try { window.dineInLoadBoard_ = dineInLoadBoard_; } catch (_eWDi) { /* 略 */ }
         function dineInStopBoardPoll_() {
           if (dineInBoardPollTimer_) {
             clearInterval(dineInBoardPollTimer_);
@@ -16357,7 +16393,19 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             dineInBoardPollTimer_ = setInterval(function () {
               if (!dineInContent || dineInContent.classList.contains('hidden')) return;
               dineInLoadBoard_();
-            }, 8000);
+            }, 3500);
+          });
+        }
+        if (!window.__dineInVisibilityBound__) {
+          window.__dineInVisibilityBound__ = true;
+          document.addEventListener('visibilitychange', function () {
+            if (document.hidden) return;
+            try {
+              var dcv = document.getElementById('dine-in-content');
+              if (dcv && !dcv.classList.contains('hidden') && typeof window.dineInLoadBoard_ === 'function') {
+                window.dineInLoadBoard_();
+              }
+            } catch (_eVis) { /* 略 */ }
           });
         }
         ['dinein-settle-prepay', 'dinein-settle-postpay'].forEach(function (rid) {
