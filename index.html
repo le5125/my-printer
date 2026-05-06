@@ -16315,7 +16315,8 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (gridLoading && paneShown && !silent) {
             gridLoading.innerHTML = '<div class="text-center text-sm text-slate-500 py-10 px-2"><span class="inline-block animate-spin rounded-full h-7 w-7 border-2 border-violet-500 border-t-transparent mr-2" style="vertical-align:middle" aria-hidden="true"></span>正在讀取試算表「桌位」…<br><span class="text-xs text-slate-400 mt-2 block">（若久無資料請確認 Web App 網址與 A2 金鑰）</span></div>';
           }
-          /* 僅非靜默請求遞增 __dineInBoardLoadSerial__；靜默輪詢若也遞增，較慢的第一筆回傳會被判定過期→不繪製，畫面永遠停在讀取中 */
+          /* 僅非靜默請求遞增序號。靜默回傳若發現序號已變（例：新全量載入／佔桌結帳 bump）則丟棄，避免舊資料蓋樂觀更新。
+             非靜默回傳一律套用：若仍比對 mySerial，dineInBumpBoardLoadSerial_ 會在未遞增情況下推高序號→回呼被 return→畫面永遠停在「讀取桌位」。 */
           var mySerial;
           var baselineAtStart = window.__dineInBoardLoadSerial__ || 0;
           if (!silent) {
@@ -16330,8 +16331,6 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           }).then(function (r) {
             if (silent) {
               if (window.__dineInBoardLoadSerial__ !== baselineAtStart) return;
-            } else {
-              if (mySerial !== window.__dineInBoardLoadSerial__) return;
             }
             if (r && r.result === 'success') {
               var smSrv = r.settlementMode || 'prepay';
@@ -16353,8 +16352,6 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           }).catch(function (e) {
             if (silent) {
               if (window.__dineInBoardLoadSerial__ !== baselineAtStart) return;
-            } else {
-              if (mySerial !== window.__dineInBoardLoadSerial__) return;
             }
             var m = (e && e.message) ? String(e.message) : (typeof e === 'string' ? e : '網路或伺服器錯誤');
             dineInRenderBoard_({ result: 'error', message: m });
