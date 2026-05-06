@@ -16248,15 +16248,31 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (prepay) prepay.checked = mode !== 'postpay';
           if (postpay) postpay.checked = mode === 'postpay';
         }
+        /** F12：__posDineInBoardPollLog = true 顯示每筆更新時間／耗時；posDineInBoardSetPollIntervalMs_(8000) 改輪詢（≥2000ms） */
+        function dineInLogBoardFetch_(bgOnly, ok, ms, detail, discarded) {
+          if (!window.__posDineInBoardPollLog) return;
+          console.log('%c[店內桌位看板]', 'color:#7c3aed;font-weight:bold', {
+            時間ISO: new Date().toISOString(),
+            本地時間: new Date().toLocaleString('zh-TW', { hour12: false }),
+            模式: bgOnly ? '背景快取' : '前景繪製',
+            結果: discarded ? '捨棄過期請求' : (ok ? 'success' : 'error'),
+            耗時毫秒: ms,
+            細節: detail || ''
+          });
+        }
         function dineInLoadBoard_(opts) {
           var bgOnly = opts === true || (opts && opts.backgroundOnly === true);
           var mySerial = (window.__dineInBoardLoadSerial__ = (window.__dineInBoardLoadSerial__ || 0) + 1);
+          var _tBoardFetch0 = Date.now();
           posRunSheetMutation_({
             gasMethod: 'dineInPosGetBoardFromPosClient',
             gasArgs: [posGetClientKey_()],
             postBody: { action: 'dineInPosGetBoard', key: posGetClientKey_() }
           }).then(function (r) {
-            if (mySerial !== window.__dineInBoardLoadSerial__) return;
+            if (mySerial !== window.__dineInBoardLoadSerial__) {
+              dineInLogBoardFetch_(bgOnly, false, Date.now() - _tBoardFetch0, '', true);
+              return;
+            }
             if (r && r.result === 'success') {
               var smSrv = r.settlementMode || 'prepay';
               var tsAp = window.__dineInSettlementApplyTs || 0;
@@ -16278,13 +16294,20 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             try {
               if (r && r.result === 'success') dineInPrefetchOccupiedTableOrders_(r);
             } catch (ePf) { /* 略 */ }
+            var nTbl = r && Array.isArray(r.tables) ? r.tables.length : 0;
+            var det = 'tables=' + nTbl + (r && r.settlementMode ? ' settle=' + r.settlementMode : '');
+            dineInLogBoardFetch_(bgOnly, !!(r && r.result === 'success'), Date.now() - _tBoardFetch0, det, false);
           }).catch(function (e) {
-            if (mySerial !== window.__dineInBoardLoadSerial__) return;
+            if (mySerial !== window.__dineInBoardLoadSerial__) {
+              dineInLogBoardFetch_(bgOnly, false, Date.now() - _tBoardFetch0, '', true);
+              return;
+            }
             var m = (e && e.message) ? String(e.message) : (typeof e === 'string' ? e : '網路或伺服器錯誤');
             var dc2 = document.getElementById('dine-in-content');
             if (!bgOnly || (dc2 && !dc2.classList.contains('hidden'))) {
               dineInRenderBoard_({ result: 'error', message: m });
             }
+            dineInLogBoardFetch_(bgOnly, false, Date.now() - _tBoardFetch0, m, false);
           });
         }
         try { window.dineInLoadBoard_ = dineInLoadBoard_; } catch (_eWDi) { /* 略 */ }
@@ -16295,17 +16318,42 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (typeof posGetClientKey_ !== 'function' || !posGetClientKey_()) return;
           if (!currentWebAppUrl && !(typeof google !== 'undefined' && google.script && google.script.run)) return;
           window.__posDineInBoardBgPollStarted = true;
+          var iv = Math.max(2000, parseInt(window.__posDineInBoardPollIntervalMs, 10) || 5000);
+          window.__posDineInBoardPollEffectiveMs = iv;
+          if (window.__posDineInBoardPollLog) {
+            console.log('%c[店內桌位看板] 輪詢已啟動', 'color:#7c3aed;font-weight:bold', { 間隔毫秒: iv });
+          }
           setTimeout(function () {
             try { dineInLoadBoard_({ backgroundOnly: true }); } catch (_t0) {}
           }, 80);
           dineInBoardPollTimer_ = setInterval(function () {
             try {
               if (typeof posGetClientKey_ !== 'function' || !posGetClientKey_()) return;
+              if (window.__posDineInBoardPollLog) {
+                console.log('%c[店內桌位看板] ⏲ 計時觸發', 'color:#a78bfa', new Date().toLocaleString('zh-TW', { hour12: false }));
+              }
               dineInLoadBoard_({ backgroundOnly: true });
             } catch (_iv) {}
-          }, 5000);
+          }, iv);
         }
         try { window.dineInStartBackgroundBoardPoll_ = dineInStartBackgroundBoardPoll_; } catch (_eSb) { /* 略 */ }
+        try {
+          window.posDineInBoardSetPollIntervalMs_ = function (ms) {
+            var n = parseInt(ms, 10);
+            if (!n || n < 2000) {
+              console.warn('[店內桌位看板] 輪詢間隔至少 2000');
+              return;
+            }
+            window.__posDineInBoardPollIntervalMs = n;
+            if (dineInBoardPollTimer_) {
+              try { clearInterval(dineInBoardPollTimer_); } catch (_c1) {}
+              dineInBoardPollTimer_ = null;
+            }
+            window.__posDineInBoardBgPollStarted = false;
+            dineInStartBackgroundBoardPoll_();
+            console.info('[店內桌位看板] 已套用輪詢間隔 ' + n + 'ms');
+          };
+        } catch (_eSpi) {}
         function dineInRefreshQrAutoStatus_() {
           var el = document.getElementById('dinein-qr-auto-status');
           if (!el) return;
