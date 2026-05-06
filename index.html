@@ -3592,7 +3592,15 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             return { ok: false, reason: 'bad_response', raw: null };
           }
           if (data && data.result === 'success') {
-            try { window.__POS_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+            try {
+              window.__POS_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid');
+              /* 通知免費模式補丁：planType 已就緒，可立刻套用 VIP 鎖徽章與相關鎖樣式 */
+              try {
+                document.dispatchEvent(new CustomEvent('pos-plan-type-ready', {
+                  detail: { planType: window.__POS_PLAN_TYPE__ }
+                }));
+              } catch (eEv) { /* 略 */ }
+            } catch (eP) {}
             return { ok: true, planType: window.__POS_PLAN_TYPE__ };
           }
           console.error('[POS] checkClientKey 未通過', { url: url, status: res.status, response: data, sentClientKeyLen: (ck || '').length });
@@ -21023,20 +21031,9 @@ if (document.readyState === 'loading') {
   function setupFreeMode() {
     if (!isFreePlan()) return;
 
-    // 1) 桌號（dine-in table binding）禁止送出 + VIP 鎖樣式
-    var tblBtn = document.getElementById('open-pos-dinein-table-modal');
-    if (tblBtn && !tblBtn.__freePatched) {
-      tblBtn.__freePatched = true;
-      tblBtn.title = '免費試用版無法使用「桌號」綁定送出，升級 VIP 解鎖';
-      tblBtn.classList.add('free-vip-locked-btn');
-      tblBtn.addEventListener('click', function (ev) {
-        ev.stopImmediatePropagation();
-        ev.preventDefault();
-        showVipUpgradeAlert('桌號綁定送單');
-      }, true);
-    }
+    // 試用版：桌號仍可綁定與試用紀錄（試算表資料會於 3 分鐘閒置後依規則清除），與 VIP 差在永久保存
 
-    // 2) 出單機藍牙連線禁止 + VIP 鎖樣式（連線打印機按鈕）
+    // 1) 出單機藍牙連線禁止 + VIP 鎖樣式（連線打印機按鈕）
     var btnConn = document.getElementById('btn-connect');
     if (btnConn && !btnConn.__freePatched) {
       btnConn.__freePatched = true;
@@ -21104,22 +21101,36 @@ if (document.readyState === 'loading') {
     });
   }
 
-  // 等 clientKey 驗證完成（會設置 window.__POS_PLAN_TYPE__）
-  var setupTries = 0;
-  function tryFreeSetup() {
-    setupTries++;
-    if (typeof window.__POS_PLAN_TYPE__ !== 'undefined') {
-      setupFreeMode();
-      // 設置一次後仍重複嘗試以涵蓋後續動態渲染（最多 30 次 ≈ 30s）
-      if (setupTries < 30) setTimeout(tryFreeSetup, 1000);
-      return;
+  /**
+   * 事件驅動 + 長 polling 雙保險：
+   * - posVerifyClientKeyOrFail_ 拿到 planType 後會 dispatch 'pos-plan-type-ready'
+   * - 同時保留 polling，以防事件因時序錯過（例如腳本載入順序差異）
+   * 一旦 setupFreeMode 真的完成 6 個鎖徽章注入，就停止 polling。
+   */
+  var __setupFreeDone = false;
+  function runFreeSetupOnce() {
+    if (__setupFreeDone) return;
+    if (typeof window.__POS_PLAN_TYPE__ === 'undefined') return;
+    setupFreeMode();
+    /* 確認 6 個 ID 至少有一個已被注入鎖徽章後就視為完成 */
+    var firstId = 'reservation-view-tab';
+    var anchor = document.getElementById(firstId);
+    if (anchor && anchor.querySelector('.free-vip-badge')) {
+      __setupFreeDone = true;
     }
-    if (setupTries < 30) setTimeout(tryFreeSetup, 500);
+  }
+  document.addEventListener('pos-plan-type-ready', runFreeSetupOnce);
+  /* polling 兜底（每 500ms 直到完成；無上限避免授權驗證較慢時錯過） */
+  function pollFreeSetup() {
+    if (__setupFreeDone) return;
+    runFreeSetupOnce();
+    if (__setupFreeDone) return;
+    setTimeout(pollFreeSetup, 500);
   }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', tryFreeSetup);
+    document.addEventListener('DOMContentLoaded', pollFreeSetup);
   } else {
-    tryFreeSetup();
+    pollFreeSetup();
   }
 })();
 </script>
