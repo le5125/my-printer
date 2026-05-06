@@ -16264,6 +16264,24 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
             細節: detail || ''
           });
         }
+        /** 輪詢或並發請求若短暫失敗，保留上次成功畫面，避免整張看板被錯誤頁洗掉再恢復的閃爍 */
+        function dineInRenderBoardFromFetchResult_(r, bgOnly) {
+          var dc = document.getElementById('dine-in-content');
+          var vis = dc && !dc.classList.contains('hidden');
+          if (bgOnly && !vis) return;
+          var ok = r && r.result === 'success';
+          if (!ok) {
+            var cache = window.__dineInBoardCache__;
+            if (cache && cache.result === 'success') {
+              try { dineInRenderBoard_(cache); } catch (_eK) {}
+              if (window.__posDineInBoardPollLog) {
+                console.warn('[店內桌位看板] 本次拉取失敗，保留前次成功畫面', (r && r.message) ? r.message : '');
+              }
+              return;
+            }
+          }
+          try { dineInRenderBoard_(r); } catch (_eR) {}
+        }
         function dineInLoadBoard_(opts) {
           var bgOnly = opts === true || (opts && opts.backgroundOnly === true);
           var mySerial = (window.__dineInBoardLoadSerial__ = (window.__dineInBoardLoadSerial__ || 0) + 1);
@@ -16290,11 +16308,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               window.__dineInBoardCache__ = r;
               _dineInBoardPrefetched = true;
             }
-            var dc = document.getElementById('dine-in-content');
-            var vis = dc && !dc.classList.contains('hidden');
-            if (!bgOnly || vis) {
-              dineInRenderBoard_(r);
-            }
+            dineInRenderBoardFromFetchResult_(r, bgOnly);
             try {
               if (r && r.result === 'success') dineInPrefetchOccupiedTableOrders_(r);
             } catch (ePf) { /* 略 */ }
@@ -16307,10 +16321,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               return;
             }
             var m = (e && e.message) ? String(e.message) : (typeof e === 'string' ? e : '網路或伺服器錯誤');
-            var dc2 = document.getElementById('dine-in-content');
-            if (!bgOnly || (dc2 && !dc2.classList.contains('hidden'))) {
-              dineInRenderBoard_({ result: 'error', message: m });
-            }
+            dineInRenderBoardFromFetchResult_({ result: 'error', message: m }, bgOnly);
             dineInLogBoardFetch_(bgOnly, false, Date.now() - _tBoardFetch0, m, false);
           });
         }
