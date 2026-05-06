@@ -2008,7 +2008,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           </button>
           
           <!-- 下拉菜單 -->
-          <div id="features-dropdown-menu" class="absolute top-full right-0 z-40 mt-1 bg-white border border-gray-200 rounded-md shadow-lg hidden min-w-[min(calc(100vw-24px),10rem)] w-max max-w-[min(calc(100vw-24px),10rem)]">
+          <div id="features-dropdown-menu" class="absolute top-full right-0 z-40 mt-1 bg-white border border-gray-200 rounded-md shadow-lg hidden min-w-[min(calc(100vw-24px),10rem)] w-max max-w-[min(calc(100vw-24px),14rem)]">
             <button id="orders-tab" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-3 border-b border-gray-100 last:border-b-0">
               <i class="fas fa-search shrink-0 w-5 text-center"></i><span class="min-w-0 flex-1">訂單查詢</span>
             </button>
@@ -21031,11 +21031,11 @@ if (document.readyState === 'loading') {
     if (!btnConn || btnConn.__freeBlePatched) return;
     btnConn.__freeBlePatched = true;
     btnConn.classList.add('free-vip-locked-btn');
-    btnConn.title = '免費試用版無法連線藍牙打印機，升級 VIP 後解鎖';
+    btnConn.title = '試用版不開放藍牙列印連線（升級 VIP 後可用）';
     btnConn.addEventListener('click', function (ev) {
       ev.stopImmediatePropagation();
       ev.preventDefault();
-      showVipUpgradeAlert('藍牙連線打印機');
+      /* 不跳出「免費試用版限制」視窗：僅阻止連線 */
     }, true);
   }
 
