@@ -2195,7 +2195,10 @@ async function orderVerifyClientKeyOrFail_v2_() {
       console.error('[order] checkClientKey POST 非 JSON', { status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
       return { ok: false, reason: 'bad_response', raw: null };
     }
-    if (data && data.result === 'success') return { ok: true, planType: (data.planType === 'free') ? 'free' : 'paid' };
+    if (data && data.result === 'success') {
+      try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+      return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
+    }
     console.error('[order] checkClientKey 未通過', { status: res.status, response: data });
     return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
   } catch (err) {
@@ -2226,7 +2229,10 @@ async function orderVerifyClientKeyOrFail_() {
       console.error('[order] checkClientKey GET 非 JSON', { url: url, status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
       return { ok: false, reason: 'bad_response', raw: null };
     }
-    if (data && data.result === 'success') return { ok: true, planType: (data.planType === 'free') ? 'free' : 'paid' };
+    if (data && data.result === 'success') {
+      try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+      return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
+    }
     console.error('[order] checkClientKey GET 未通過', { url: url, status: res.status, response: data });
     return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
   } catch (err) {
@@ -5857,7 +5863,6 @@ function buildOrderSubmitSig_(orderData) {
 }
 
 function submitOrder() {
-  if (typeof orderFreePlanBlockSubmit_ === 'function' && orderFreePlanBlockSubmit_()) return;
   if (_orderSubmitInFlight) { showToast('⏳ 訂單送出中，請勿重複點擊'); return; }
   if (cartItems.length === 0) { showToast('❗ 請先選擇餐點'); return; }
   if (!currentWebAppUrl) {
@@ -7443,42 +7448,6 @@ function orderShowBootstrapMaintenance_(messageOverride) {
   document.body.appendChild(layer);
 }
 
-/** 試用版：線上點餐可瀏覽，但送出訂單會被擋下（顯示提示橫幅） */
-function orderShowFreePlanLocked_() {
-  try { window.__ORDER_FREE_PLAN__ = true; } catch (eFlag) {}
-  if (document.getElementById('order-free-plan-banner')) return;
-  var bar = document.createElement('div');
-  bar.id = 'order-free-plan-banner';
-  bar.style.cssText = 'position:sticky;top:0;left:0;right:0;z-index:50;background:linear-gradient(90deg,#fef3c7,#fde68a);border-bottom:1px solid #f59e0b;color:#78350f;font-size:13px;font-weight:700;text-align:center;padding:8px 12px;line-height:1.45;';
-  bar.innerHTML = '🔒 試用版瀏覽模式 — 此店家目前為免費試用版，可瀏覽菜單但<u>無法送出訂單</u>。如需正式下單，請洽店家。';
-  if (document.body.firstChild) {
-    document.body.insertBefore(bar, document.body.firstChild);
-  } else {
-    document.body.appendChild(bar);
-  }
-}
-
-/** 試用版：送出訂單前檢查（若為 free 則阻止送出 + 提示） */
-function orderFreePlanBlockSubmit_() {
-  if (!window.__ORDER_FREE_PLAN__) return false;
-  try {
-    if (typeof Swal !== 'undefined' && Swal.fire) {
-      Swal.fire({
-        icon: 'info',
-        title: '🔒 試用版瀏覽模式',
-        html: '此店家目前為<b>免費試用版</b>，無法在線上送出訂單。<br>如需正式下單，請洽店家詢問升級時程。',
-        confirmButtonText: '了解',
-        confirmButtonColor: '#f59e0b'
-      });
-    } else {
-      alert('🔒 此店家目前為免費試用版，無法線上送出訂單。');
-    }
-  } catch (eFb) {
-    alert('🔒 此店家目前為免費試用版，無法線上送出訂單。');
-  }
-  return true;
-}
-
 /** 店內座號 QR：session 與後端連線 */
 var ORDER_DINEIN_SESS_KEY = 'order_dinein_sess_v1';
 function orderParseDineInUrlParams_() {
@@ -7836,10 +7805,6 @@ async function bootstrapOrder() {
     console.error('[order] 授權／金鑰驗證未通過（消費者端僅顯示系統維修中）', _vr, orderClientKeyRes.raw);
     orderShowBootstrapMaintenance_();
     return;
-  }
-  // 試用版：可瀏覽菜單，但送出訂單會被攔截
-  if (orderClientKeyRes.planType === 'free') {
-    orderShowFreePlanLocked_();
   }
   try {
     currentWebAppUrl = String(currentWebAppUrl || '').trim().replace(/\?+$/, '');
@@ -8318,6 +8283,97 @@ async function bootstrapOrder() {
       } catch (eP) { /* 略 */ }
     }, 30000);
   });
+</script>
+
+<!-- ===== 免費試用版（free）前端補丁 ===== -->
+<style>
+  #order-free-trial-banner {
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: linear-gradient(90deg, #fff7ed, #fffbeb);
+    border-bottom: 2px dashed #fbbf24;
+    color: #92400e;
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  #order-free-trial-banner .free-tag {
+    flex: 0 0 auto;
+    background: #f59e0b;
+    color: #fff;
+    border-radius: 9999px;
+    padding: 2px 10px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+  body.order-free-mode .member-nav-row[data-free-hide],
+  body.order-free-mode #order-member-help-row,
+  body.order-free-mode .order-member-help-row {
+    display: none !important;
+  }
+</style>
+<script>
+(function () {
+  'use strict';
+
+  function isFreePlan() {
+    try { return window.__ORDER_PLAN_TYPE__ === 'free'; } catch (e) { return false; }
+  }
+
+  function ensureBanner() {
+    if (!isFreePlan()) return;
+    if (document.getElementById('order-free-trial-banner')) return;
+    var b = document.createElement('div');
+    b.id = 'order-free-trial-banner';
+    b.innerHTML = '<span class="free-tag">試用版</span>'
+      + '<span>老闆試用模式：可瀏覽全部功能，送出的訂單與資料 3 分鐘後自動清除，不會發送 Telegram 通知</span>';
+    document.body.insertBefore(b, document.body.firstChild);
+    document.body.classList.add('order-free-mode');
+  }
+
+  // 隱藏「會員說明」入口（在會員專區內動態渲染，需用 MutationObserver）
+  function hideMemberHelpRow() {
+    if (!isFreePlan()) return;
+    document.querySelectorAll('.member-nav-row').forEach(function (el) {
+      var t = (el.textContent || '').trim();
+      if (t.indexOf('會員說明') === 0 || t === '會員說明›') {
+        el.style.display = 'none';
+      }
+    });
+  }
+
+  function startFreeWatcher() {
+    if (!isFreePlan()) return;
+    ensureBanner();
+    hideMemberHelpRow();
+    try {
+      var mo = new MutationObserver(function () {
+        hideMemberHelpRow();
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    } catch (e) { /* ignore */ }
+  }
+
+  var tries = 0;
+  function tryInit() {
+    tries++;
+    if (typeof window.__ORDER_PLAN_TYPE__ !== 'undefined') {
+      startFreeWatcher();
+      return;
+    }
+    if (tries < 30) setTimeout(tryInit, 500);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryInit);
+  } else {
+    tryInit();
+  }
+})();
 </script>
 </body>
 </html>
