@@ -2195,7 +2195,7 @@ async function orderVerifyClientKeyOrFail_v2_() {
       console.error('[order] checkClientKey POST 非 JSON', { status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
       return { ok: false, reason: 'bad_response', raw: null };
     }
-    if (data && data.result === 'success') return { ok: true };
+    if (data && data.result === 'success') return { ok: true, planType: (data.planType === 'free') ? 'free' : 'paid' };
     console.error('[order] checkClientKey 未通過', { status: res.status, response: data });
     return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
   } catch (err) {
@@ -2226,7 +2226,7 @@ async function orderVerifyClientKeyOrFail_() {
       console.error('[order] checkClientKey GET 非 JSON', { url: url, status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
       return { ok: false, reason: 'bad_response', raw: null };
     }
-    if (data && data.result === 'success') return { ok: true };
+    if (data && data.result === 'success') return { ok: true, planType: (data.planType === 'free') ? 'free' : 'paid' };
     console.error('[order] checkClientKey GET 未通過', { url: url, status: res.status, response: data });
     return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
   } catch (err) {
@@ -7442,6 +7442,33 @@ function orderShowBootstrapMaintenance_(messageOverride) {
   document.body.appendChild(layer);
 }
 
+/** 免費版：線上點餐已鎖定，全頁顯示升級提示 */
+function orderShowFreePlanLocked_() {
+  try { if (typeof Swal !== 'undefined') Swal.close(); } catch (eS) {}
+  try { orderWaitGameStop_(); } catch (eWg0) {}
+  var _ml = document.getElementById('menu-loading');
+  var _mc = document.getElementById('menu-content');
+  if (_ml) { _ml.style.display = 'none'; _ml.setAttribute('aria-busy', 'false'); }
+  orderTruckStopProgress_(true);
+  if (_mc) { _mc.classList.remove('menu-content--visible'); _mc.style.display = 'none'; _mc.innerHTML = ''; }
+  try { document.body.style.overflow = 'hidden'; } catch (eB) {}
+  var lid = 'order-free-plan-lock-layer';
+  var prev = document.getElementById(lid);
+  if (prev) prev.remove();
+  var layer = document.createElement('div');
+  layer.id = lid;
+  layer.setAttribute('role', 'main');
+  layer.style.cssText = 'position:fixed;inset:0;z-index:9990;display:flex;align-items:center;justify-content:center;background:#f7f7f7;';
+  layer.innerHTML =
+    '<div style="text-align:center;padding:32px 24px;max-width:420px;">' +
+    '<div style="font-size:56px;margin-bottom:16px;">🔒</div>' +
+    '<div style="color:#1f2937;font-size:1.5rem;font-weight:900;line-height:1.4;margin-bottom:12px;">線上點餐目前未開放</div>' +
+    '<div style="color:#6b7280;font-size:1rem;line-height:1.65;">此店家目前使用免費版，<br>線上點餐功能尚未開啟。</div>' +
+    '<div style="margin-top:20px;color:#9ca3af;font-size:0.85rem;">如需線上點餐，請洽店家詢問。</div>' +
+    '</div>';
+  document.body.appendChild(layer);
+}
+
 /** 店內座號 QR：session 與後端連線 */
 var ORDER_DINEIN_SESS_KEY = 'order_dinein_sess_v1';
 function orderParseDineInUrlParams_() {
@@ -7798,6 +7825,11 @@ async function bootstrapOrder() {
     var _vr = orderClientKeyRes.reason || '';
     console.error('[order] 授權／金鑰驗證未通過（消費者端僅顯示系統維修中）', _vr, orderClientKeyRes.raw);
     orderShowBootstrapMaintenance_();
+    return;
+  }
+  // 免費版：線上點餐鎖定，顯示升級提示
+  if (orderClientKeyRes.planType === 'free') {
+    orderShowFreePlanLocked_();
     return;
   }
   try {
@@ -8280,5 +8312,3 @@ async function bootstrapOrder() {
 </script>
 </body>
 </html>
-
-
