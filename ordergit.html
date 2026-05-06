@@ -4030,8 +4030,8 @@ function orderPromoAdUiAfterPromotionsPayload_() {
 }
 
 /** 首屏載入結束後：背景抓取促銷資料，僅在後端開啟且檔期內時才顯示活動抽屜（不顯示「載入商家活動」壳） */
+/** 桌號 dine-in 模式也允許顯示活動廣告（要求：在卡車動畫關閉後出現） */
 function orderResumePromoAdAfterHomepageVisible_() {
-  if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
   if (!orderInitialReadyState_.loadingClosed) return;
   try {
     if (window.__orderPromoFetchDoneOnce__) {
@@ -4171,7 +4171,8 @@ function orderFillAndShowMerchantPromoAdDrawer_(opt) {
 }
 
 function orderTryShowMerchantPromoAdDrawer_() {
-  if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
+  // 桌號模式也允許彈出（在卡車動畫關閉後）；前提是 loading 已關閉
+  if (!orderInitialReadyState_.loadingClosed) return;
   orderFillAndShowMerchantPromoAdDrawer_({ requireImage: false, rememberOnOverlayClose: false });
 }
 
@@ -5863,6 +5864,22 @@ function buildOrderSubmitSig_(orderData) {
 }
 
 function submitOrder() {
+  // 免費試用版禁止送出線上訂單（保留瀏覽功能）
+  if (window.__ORDER_PLAN_TYPE__ === 'free') {
+    try {
+      if (window.Swal && typeof Swal.fire === 'function') {
+        Swal.fire({
+          icon: 'info',
+          title: '試用版無法送出訂單',
+          html: '此商家目前為試用版，線上點餐尚未開通。<br><br>升級 VIP 後即可正式接單並啟用 Telegram 通知。',
+          confirmButtonText: '我知道了'
+        });
+      } else {
+        alert('試用版無法送出線上訂單。商家升級 VIP 後可正式接單。');
+      }
+    } catch (eFb) { /* */ }
+    return;
+  }
   if (_orderSubmitInFlight) { showToast('⏳ 訂單送出中，請勿重複點擊'); return; }
   if (cartItems.length === 0) { showToast('❗ 請先選擇餐點'); return; }
   if (!currentWebAppUrl) {
@@ -7831,6 +7848,8 @@ async function bootstrapOrder() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) {
     orderInitialReadyState_.promoBootReady = true;
     orderEnsureBootPrefetch_();
+    /* 掃碼桌號模式：背景並行抓取商家活動，讓卡車動畫關閉後可即時彈出活動廣告 */
+    void orderGetStorePromotionsFetchOnce_().catch(function () {});
   } else {
     void Promise.all([
       loadMenuData_(),
@@ -8196,6 +8215,22 @@ async function bootstrapOrder() {
   }
   document.getElementById('resv-drawer-submit')?.addEventListener('click', function () {
     var submitBt = this;
+    // 免費試用版：禁止送出線上預約
+    if (window.__ORDER_PLAN_TYPE__ === 'free') {
+      try {
+        if (window.Swal && typeof Swal.fire === 'function') {
+          Swal.fire({
+            icon: 'info',
+            title: '試用版無法送出預約',
+            html: '此商家目前為試用版。<br><br>升級 VIP 後即可正式接受線上預約並啟用 Telegram 通知。',
+            confirmButtonText: '我知道了'
+          });
+        } else {
+          alert('試用版無法送出預約。商家升級 VIP 後可正式接單。');
+        }
+      } catch (eFb) { /* */ }
+      return;
+    }
     var date = (document.getElementById('resv-drawer-date') || {}).value || '';
     var time = window.__resvDrawerSelectedTime || '';
     var people = parseInt((document.getElementById('resv-drawer-people') || {}).value, 10) || 0;
@@ -8331,32 +8366,15 @@ async function bootstrapOrder() {
     var b = document.createElement('div');
     b.id = 'order-free-trial-banner';
     b.innerHTML = '<span class="free-tag">試用版</span>'
-      + '<span>老闆試用模式：可瀏覽全部功能，送出的訂單與資料 3 分鐘後自動清除，不會發送 Telegram 通知</span>';
+      + '<span>老闆試用模式：可完整瀏覽預約、會員、訂餐流程，但無法送出線上訂單／預約；資料 3 分鐘後自動清除、且不發送 Telegram 通知</span>';
     document.body.insertBefore(b, document.body.firstChild);
     document.body.classList.add('order-free-mode');
-  }
-
-  // 隱藏「會員說明」入口（在會員專區內動態渲染，需用 MutationObserver）
-  function hideMemberHelpRow() {
-    if (!isFreePlan()) return;
-    document.querySelectorAll('.member-nav-row').forEach(function (el) {
-      var t = (el.textContent || '').trim();
-      if (t.indexOf('會員說明') === 0 || t === '會員說明›') {
-        el.style.display = 'none';
-      }
-    });
   }
 
   function startFreeWatcher() {
     if (!isFreePlan()) return;
     ensureBanner();
-    hideMemberHelpRow();
-    try {
-      var mo = new MutationObserver(function () {
-        hideMemberHelpRow();
-      });
-      mo.observe(document.body, { childList: true, subtree: true });
-    } catch (e) { /* ignore */ }
+    // 會員專區內的「會員說明」按需保留（讓老闆試用會員功能時能看到完整介紹）
   }
 
   var tries = 0;
