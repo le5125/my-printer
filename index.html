@@ -16317,19 +16317,31 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         }
         function dineInLoadBoard_(opts) {
           opts = opts && typeof opts === 'object' ? opts : {};
+          var silent = !!opts.silent;
           var dinePane = document.getElementById('dine-in-content');
           var paneShown = !!(dinePane && !dinePane.classList.contains('hidden'));
           var gridLoading = document.getElementById('dinein-board-grid');
-          if (gridLoading && paneShown && !opts.silent) {
+          if (gridLoading && paneShown && !silent) {
             gridLoading.innerHTML = '<div class="text-center text-sm text-slate-500 py-10 px-2"><span class="inline-block animate-spin rounded-full h-7 w-7 border-2 border-violet-500 border-t-transparent mr-2" style="vertical-align:middle" aria-hidden="true"></span>正在讀取試算表「桌位」…<br><span class="text-xs text-slate-400 mt-2 block">（若久無資料請確認 Web App 網址與 A2 金鑰）</span></div>';
           }
-          var mySerial = (window.__dineInBoardLoadSerial__ = (window.__dineInBoardLoadSerial__ || 0) + 1);
+          /* 僅非靜默請求遞增 __dineInBoardLoadSerial__；靜默輪詢若也遞增，較慢的第一筆回傳會被判定過期→不繪製，畫面永遠停在讀取中 */
+          var mySerial;
+          var baselineAtStart = window.__dineInBoardLoadSerial__ || 0;
+          if (!silent) {
+            mySerial = (window.__dineInBoardLoadSerial__ = baselineAtStart + 1);
+          } else {
+            mySerial = null;
+          }
           posRunSheetMutation_({
             gasMethod: 'dineInPosGetBoardFromPosClient',
             gasArgs: [posGetClientKey_()],
             postBody: { action: 'dineInPosGetBoard', key: posGetClientKey_() }
           }).then(function (r) {
-            if (mySerial !== window.__dineInBoardLoadSerial__) return;
+            if (silent) {
+              if (window.__dineInBoardLoadSerial__ !== baselineAtStart) return;
+            } else {
+              if (mySerial !== window.__dineInBoardLoadSerial__) return;
+            }
             if (r && r.result === 'success') {
               var smSrv = r.settlementMode || 'prepay';
               var tsAp = window.__dineInSettlementApplyTs || 0;
@@ -16348,7 +16360,11 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               if (r && r.result === 'success') dineInPrefetchOccupiedTableOrders_(r);
             } catch (ePf) { /* 略 */ }
           }).catch(function (e) {
-            if (mySerial !== window.__dineInBoardLoadSerial__) return;
+            if (silent) {
+              if (window.__dineInBoardLoadSerial__ !== baselineAtStart) return;
+            } else {
+              if (mySerial !== window.__dineInBoardLoadSerial__) return;
+            }
             var m = (e && e.message) ? String(e.message) : (typeof e === 'string' ? e : '網路或伺服器錯誤');
             dineInRenderBoard_({ result: 'error', message: m });
           });
