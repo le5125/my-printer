@@ -10865,85 +10865,99 @@ function performOrderSubmission(orderData) {
     snapshot.posTelegramNotify = true;
   }
 
-  posOrderQueueEnqueue(snapshot);
-  try {
-    var smPre = snapshot.posDineInSettlementMode || 'prepay';
-    if (snapshot.tableNo && snapshot.dineInSession && smPre === 'prepay' && typeof Swal !== 'undefined') {
-      var tot0 = parseInt(snapshot.total, 10) || 0;
-      Swal.fire({
-        title: '請先結帳',
-        width: 'min(96vw, 820px)',
-        padding: '32px 28px',
-        html: '<div style="font-size:52px;line-height:1.55;text-align:left;font-weight:700;color:#1a1a1a;">請至櫃台完成付款<br><br>單號：<b>' + String(snapshot.orderId || '') + '</b><br>金額：<b>$' + tot0 + '</b></div>',
-        icon: 'info',
-        confirmButtonText: '確定',
-        customClass: { popup: 'order-dinein-prepay-swal', confirmButton: 'order-dinein-prepay-swal-btn' }
-      });
-    }
-  } catch (eSwPre) { /* 略 */ }
-  /* 雙路列印：
-     1. 立即 postMessage 整筆訂單給「printer_window」分頁，列印頁直接列印（最快）
-     2. 同時送後端寫入「訂單」工作表，列印頁 1 秒輪詢備援（網路慢/分頁不在前台時補印）
-     穩定 URL + 同名 target → 不會每次新開分頁。 */
-  try {
-    if (typeof pingPrinterPageInstantTrigger_ === 'function') {
-      pingPrinterPageInstantTrigger_(snapshot);
-    }
-  } catch (ePr) { /* 略 */ }
-  try {
-    posReservationDraft = null;
-    window.__POS_DINEIN_CART_CTX__ = null;
-    window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
-    if (typeof clearOrder === 'function') clearOrder();
-    posRefreshReservationButtonState_();
-    posRefreshSubmitActionText_();
-    if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
-  } catch (eCo) {
-    console.warn('[POS] clearOrder after enqueue', eCo);
-  }
-  try {
-    pendingCheckoutOrderData = null;
-    checkoutReceivedAmount = '';
-    if (typeof updateCheckoutCalculatorDisplay === 'function') updateCheckoutCalculatorDisplay();
-    if (typeof closeCheckoutCalculator === 'function') closeCheckoutCalculator();
-  } catch (eCalc) { /* 略 */ }
-
-  const loadingEl = document.getElementById('submit-loading-box');
-  if (loadingEl) loadingEl.classList.add('hidden');
-  const submitBtn = document.getElementById('submit-order');
-  if (submitBtn) submitBtn.disabled = false;
-  _posOrderSubmitInFlight = false;
-
-  posInvalidateOrderRelatedCaches_();
-  try {
-    if (typeof window.dineInLoadBoard_ === 'function') {
-      setTimeout(function () {
-        try {
-          var d1 = document.getElementById('dine-in-content');
-          var v1 = d1 && !d1.classList.contains('hidden');
-          window.dineInLoadBoard_(v1 ? {} : { silent: true });
-        } catch (_e0) {}
-      }, 650);
-      setTimeout(function () {
-        try {
-          var d2 = document.getElementById('dine-in-content');
-          var v2 = d2 && !d2.classList.contains('hidden');
-          window.dineInLoadBoard_(v2 ? {} : { silent: true });
-        } catch (_e1) {}
-      }, 2200);
-    }
-  } catch (_eDlb) { /* 略 */ }
-  setTimeout(function () { loadOrders(true); }, 1500);
-  if (typeof window.posRefreshOrderBoardNow === 'function') {
-    window.posRefreshOrderBoardNow();
-  }
-  setTimeout(function () {
+  /** 入佇列、清車、快取失效、列印觸發等皆延後執行，讓關閉計算機／按鈕狀態先繪製，避免主執行緒長時間卡住 */
+  function posRunOrderSubmitContinuation_() {
     try {
-      if (typeof posOrderQueueTryFlushAll === 'function') posOrderQueueTryFlushAll();
-    } catch (eFl) { /* 略 */ }
-  }, 0);
-  var _toastDone = snapshot.tableNo ? '訂單已送出' : '結帳成功';
-  posSwalToastSuccess(_toastDone, 2500);
+      posOrderQueueEnqueue(snapshot);
+      try {
+        var smPre = snapshot.posDineInSettlementMode || 'prepay';
+        if (snapshot.tableNo && snapshot.dineInSession && smPre === 'prepay' && typeof Swal !== 'undefined') {
+          var tot0 = parseInt(snapshot.total, 10) || 0;
+          Swal.fire({
+            title: '請先結帳',
+            width: 'min(96vw, 820px)',
+            padding: '32px 28px',
+            html: '<div style="font-size:52px;line-height:1.55;text-align:left;font-weight:700;color:#1a1a1a;">請至櫃台完成付款<br><br>單號：<b>' + String(snapshot.orderId || '') + '</b><br>金額：<b>$' + tot0 + '</b></div>',
+            icon: 'info',
+            confirmButtonText: '確定',
+            customClass: { popup: 'order-dinein-prepay-swal', confirmButton: 'order-dinein-prepay-swal-btn' }
+          });
+        }
+      } catch (eSwPre) { /* 略 */ }
+      /* 雙路列印：
+         1. 立即 postMessage 整筆訂單給「printer_window」分頁，列印頁直接列印（最快）
+         2. 同時送後端寫入「訂單」工作表，列印頁 1 秒輪詢備援（網路慢/分頁不在前台時補印）
+         穩定 URL + 同名 target → 不會每次新開分頁。 */
+      try {
+        if (typeof pingPrinterPageInstantTrigger_ === 'function') {
+          pingPrinterPageInstantTrigger_(snapshot);
+        }
+      } catch (ePr) { /* 略 */ }
+      try {
+        posReservationDraft = null;
+        window.__POS_DINEIN_CART_CTX__ = null;
+        window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
+        if (typeof clearOrder === 'function') clearOrder();
+        posRefreshReservationButtonState_();
+        posRefreshSubmitActionText_();
+        if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
+      } catch (eCo) {
+        console.warn('[POS] clearOrder after enqueue', eCo);
+      }
+      try {
+        pendingCheckoutOrderData = null;
+        checkoutReceivedAmount = '';
+        if (typeof updateCheckoutCalculatorDisplay === 'function') updateCheckoutCalculatorDisplay();
+        if (typeof closeCheckoutCalculator === 'function') closeCheckoutCalculator();
+      } catch (eCalc) { /* 略 */ }
+
+      var loadingEl = document.getElementById('submit-loading-box');
+      if (loadingEl) loadingEl.classList.add('hidden');
+      var submitBtn = document.getElementById('submit-order');
+      if (submitBtn) submitBtn.disabled = false;
+
+      posInvalidateOrderRelatedCaches_();
+      try {
+        if (typeof window.dineInLoadBoard_ === 'function') {
+          setTimeout(function () {
+            try {
+              var d1 = document.getElementById('dine-in-content');
+              var v1 = d1 && !d1.classList.contains('hidden');
+              window.dineInLoadBoard_(v1 ? {} : { silent: true });
+            } catch (_e0) {}
+          }, 650);
+          setTimeout(function () {
+            try {
+              var d2 = document.getElementById('dine-in-content');
+              var v2 = d2 && !d2.classList.contains('hidden');
+              window.dineInLoadBoard_(v2 ? {} : { silent: true });
+            } catch (_e1) {}
+          }, 2200);
+        }
+      } catch (_eDlb) { /* 略 */ }
+      setTimeout(function () { loadOrders(true); }, 1500);
+      if (typeof window.posRefreshOrderBoardNow === 'function') {
+        window.posRefreshOrderBoardNow();
+      }
+      setTimeout(function () {
+        try {
+          if (typeof posOrderQueueTryFlushAll === 'function') posOrderQueueTryFlushAll();
+        } catch (eFl) { /* 略 */ }
+      }, 0);
+      var _toastDone = snapshot.tableNo ? '訂單已送出' : '結帳成功';
+      posSwalToastSuccess(_toastDone, 2500);
+    } finally {
+      _posOrderSubmitInFlight = false;
+    }
+  }
+
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(function () {
+      setTimeout(posRunOrderSubmitContinuation_, 0);
+    });
+  } else {
+    setTimeout(posRunOrderSubmitContinuation_, 0);
+  }
 }
 
 function submitReservationOnly_(orderData) {
@@ -12451,7 +12465,8 @@ function posOrdersFilterAndSort_(ordersList) {
 
 function posInvalidateOrderRelatedCaches_() {
   window.__posOrdersCache = null;
-  window.__posStatsCacheByKey_ = null;
+  /* 勿設為 null：送單後若有統計預抓仍在 fetch 回呼裡寫入 cache 會拋錯（Cannot set properties of null） */
+  window.__posStatsCacheByKey_ = {};
   window.__posKdsCache = null;
   try {
     if (typeof window.dineInLoadBoard_ === 'function') {
@@ -12919,7 +12934,7 @@ function loadOrders(forceRefresh) {
               if (data.result === 'success') {
                 posSwalToastSuccess('已刪除訂單', 2000);
                 window.__posKdsCache = null;
-                window.__posStatsCacheByKey_ = null;
+                window.__posStatsCacheByKey_ = {};
               } else {
                 posSwalAlert('刪除失敗：' + (data.message || ''), 'error');
                 loadOrders(true);
@@ -14632,7 +14647,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                 refreshOrders();
                 return;
               }
-              try { window.__posStatsCacheByKey_ = null; } catch (_s) {}
+              try { window.__posStatsCacheByKey_ = {}; } catch (_s) {}
               refreshOrders();
             }).catch(function (e) {
               kdsUnsuppressOrder_(oid);
@@ -17370,6 +17385,7 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
           };
           var rangeTextVal = `${startKey} ~ ${endKey}`;
           var totalTextVal = `總金額：${totalAmount.toLocaleString()}`;
+          if (!window.__posStatsCacheByKey_) window.__posStatsCacheByKey_ = {};
           window.__posStatsCacheByKey_[statsCacheKey] = {
             rangeText: rangeTextVal,
             totalText: totalTextVal,
