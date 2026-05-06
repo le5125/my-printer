@@ -10875,6 +10875,9 @@ function performOrderSubmission(orderData) {
     if (typeof window.posRefreshOrderBoardNow === 'function') {
       window.posRefreshOrderBoardNow();
     }
+    if (typeof window.posRefreshDineInBoardNow_ === 'function') {
+      window.posRefreshDineInBoardNow_();
+    }
     setTimeout(function () {
       try {
         if (typeof posOrderQueueTryFlushAll === 'function') posOrderQueueTryFlushAll();
@@ -16311,6 +16314,13 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           });
         }
         try { window.dineInLoadBoard_ = dineInLoadBoard_; } catch (_eWDi) { /* 略 */ }
+        try {
+          window.posRefreshDineInBoardNow_ = function () {
+            try {
+              if (typeof window.dineInLoadBoard_ === 'function') window.dineInLoadBoard_();
+            } catch (_eRf) {}
+          };
+        } catch (_eRfn) {}
         /** 舊介面保留：店內輪詢改為全站背景執行，切換分頁不打斷 */
         function dineInStopBoardPoll_() { /* no-op */ }
         function dineInStartBackgroundBoardPoll_() {
@@ -16318,13 +16328,18 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (typeof posGetClientKey_ !== 'function' || !posGetClientKey_()) return;
           if (!currentWebAppUrl && !(typeof google !== 'undefined' && google.script && google.script.run)) return;
           window.__posDineInBoardBgPollStarted = true;
-          var iv = Math.max(2000, parseInt(window.__posDineInBoardPollIntervalMs, 10) || 5000);
+          /* 與訂單看板 KDS 輪詢預設一致（10s）；可用 __posDineInBoardPollIntervalMs 覆寫 */
+          var iv = Math.max(2000, parseInt(window.__posDineInBoardPollIntervalMs, 10) || 10000);
           window.__posDineInBoardPollEffectiveMs = iv;
           if (window.__posDineInBoardPollLog) {
             console.log('%c[店內桌位看板] 輪詢已啟動', 'color:#7c3aed;font-weight:bold', { 間隔毫秒: iv });
           }
           setTimeout(function () {
-            try { dineInLoadBoard_({ backgroundOnly: true }); } catch (_t0) {}
+            try {
+              var dc0 = document.getElementById('dine-in-content');
+              var vis0 = dc0 && !dc0.classList.contains('hidden');
+              dineInLoadBoard_(vis0 ? null : { backgroundOnly: true });
+            } catch (_t0) {}
           }, 80);
           dineInBoardPollTimer_ = setInterval(function () {
             try {
@@ -16332,7 +16347,10 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               if (window.__posDineInBoardPollLog) {
                 console.log('%c[店內桌位看板] ⏲ 計時觸發', 'color:#a78bfa', new Date().toLocaleString('zh-TW', { hour12: false }));
               }
-              dineInLoadBoard_({ backgroundOnly: true });
+              var dc = document.getElementById('dine-in-content');
+              var vis = dc && !dc.classList.contains('hidden');
+              /* 正在看店內分頁：與訂單看板相同，每次都重拉並繪製；離開分頁則僅更新快取 */
+              dineInLoadBoard_(vis ? null : { backgroundOnly: true });
             } catch (_iv) {}
           }, iv);
         }
