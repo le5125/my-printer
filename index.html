@@ -16420,6 +16420,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (_dineInBoardPrefetched && window.__dineInBoardCache__ && window.__dineInBoardCache__.result === 'success') {
             try { dineInRenderBoard_(window.__dineInBoardCache__); } catch (eDi0) {}
           }
+          try { dineInLoadBoard_(); } catch (_dlFirst) { /* 分頁已顯示：拉一次看板，避免僅背景更新時從未繪製 */}
           try { dineInStartBackgroundBoardPoll_(); } catch (_sb0) {}
           try { dineInRefreshQrAutoStatus_(); } catch (eQrSt) { /* 略 */ }
         }
