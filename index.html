@@ -15907,6 +15907,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
          * 先結：空閒白→掃碼使用中黃→送單待結帳紅→櫃台結帳後待出餐藍→KDS 全完成出餐綠（加點再送單重複 紅→藍→綠）。
          * 後結：送單待出餐藍→全完成出餐綠→逾 10 秒待結帳紅（加點再為藍→綠→10 秒紅）。
          * 後結櫃台結帳後為「待清桌」灰。清桌後空閒白，下一組客才可掃碼。
+         * 試算表 G 欄「POS看板統一黃」：僅店員點方塊「佔桌」時才強制黃色；POS／客人送單後會清空，方塊改依 B 欄狀態配色。
          */
         function dineInMapStatusStyle_(st) {
           var s = String(st || '').replace(/\s/g, '');
