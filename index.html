@@ -10323,9 +10323,10 @@ function posBuildDineInOrderEntryUrl_(tableNo, dineInKey) {
   return base + sep + 'page=order&table=' + encodeURIComponent(t) + '&key=' + encodeURIComponent(k);
 }
 
+/** 已選店內桌號（session 可於送單時由後端補齊） */
 function posDineInBoundForSubmit_() {
   var d = window.__POS_DINEIN_CART_CTX__;
-  return !!(d && d.tableNo && d.token && d.key);
+  return !!(d && d.tableNo);
 }
 
 function posOrderNotesConsumerOnly_(notes) {
@@ -10483,13 +10484,11 @@ function buildCurrentOrderData() {
   };
 
   var diCtx = window.__POS_DINEIN_CART_CTX__;
-  if (diCtx && diCtx.tableNo && diCtx.token && diCtx.key && !posHasReservationDraft_()) {
+  if (diCtx && diCtx.tableNo && !posHasReservationDraft_()) {
     var tnorm = posNormDineInTableDisplay_(diCtx.tableNo);
     var tag = '【店內桌號 ' + tnorm + '】';
     var notesComb = String(base.notes || '').trim();
     base.tableNo = tnorm;
-    base.dineInKey = diCtx.key;
-    base.dineInSession = diCtx.token;
     base.posDineInSettlementMode = diCtx.settlementMode || 'prepay';
     var tblNum = parseInt(tnorm, 10) || 0;
     base.phone = '09' + String(1000000 + tblNum).slice(-8);
@@ -10497,6 +10496,10 @@ function buildCurrentOrderData() {
     try {
       base.orderDetailTextForPrint = posBuildDineInOrderDetailTextForPrint_(base);
     } catch (eOdt) { /* 略 */ }
+    if (diCtx.token && diCtx.key) {
+      base.dineInKey = diCtx.key;
+      base.dineInSession = diCtx.token;
+    }
   }
 
   return base;
@@ -10571,63 +10574,28 @@ function openPosDineInTableModal_() {
   }
   function openDineInPickSwal_(boardPayload) {
     var ctx = window.__POS_DINEIN_CART_CTX__;
-    function posDineInStartBindMutation_(tbl) {
-      window.__POS_DINEIN_TABLE_UI_PENDING__ = tbl;
+    /** 僅記住桌號；實際 dineInSession／金鑰於按下「送出訂單」時與購物車一併向後端取得（不再選桌就先打 API） */
+    function posDineInSetTableSelectionOnly_(tbl) {
+      var tnorm = posNormDineInTableDisplay_(tbl);
+      var sm0 = 'prepay';
+      try {
+        var bc = window.__dineInBoardCache__;
+        if (bc && bc.result === 'success' && bc.settlementMode) sm0 = bc.settlementMode;
+      } catch (eSm) { /* 略 */ }
+      window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
+      window.__POS_DINEIN_CART_CTX__ = {
+        tableNo: tnorm,
+        token: null,
+        key: null,
+        settlementMode: sm0 === 'postpay' ? 'postpay' : 'prepay',
+        sessionDeferred: true
+      };
       if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
       if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
-      var bindP = posRunSheetMutation_({
-        gasMethod: 'dineInPosEnsureOrderSessionFromPosClient',
-        gasArgs: [posGetClientKey_(), tbl, true],
-        postBody: { action: 'dineInPosEnsureOrderSession', key: posGetClientKey_(), table: tbl, deferTableOccupation: true }
-      }).then(function (r) {
-        window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
-        if (!r || r.result !== 'success') {
-          if (window.__posDineInAfterBindSubmit) window.__posDineInAfterBindSubmit = false;
-          window.__POS_DINEIN_CART_CTX__ = null;
-          posSwalAlert('背景同步失敗：' + ((r && r.message) || '無法綁定桌號，請確認該桌狀態'), 'error');
-          if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
-          if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
-          try {
-            if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
-          } catch (eUod2) { /* 略 */ }
-          return;
-        }
-        window.__POS_DINEIN_CART_CTX__ = {
-          tableNo: r.tableNo || tbl,
-          token: r.sessionToken,
-          key: r.dineInKey,
-          settlementMode: r.settlementMode || 'prepay'
-        };
-        if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
-        if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
-        try {
-          if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
-        } catch (eUod) { /* 略 */ }
-        try {
-          if (window.__posDineInAfterBindSubmit) {
-            window.__posDineInAfterBindSubmit = false;
-            setTimeout(function () {
-              try {
-                if (typeof submitOrder === 'function') submitOrder();
-              } catch (eSb) { /* 略 */ }
-            }, 0);
-          }
-        } catch (eAuto) { /* 略 */ }
-      }).catch(function (e) {
-        if (window.__posDineInAfterBindSubmit) window.__posDineInAfterBindSubmit = false;
-        window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
-        window.__POS_DINEIN_CART_CTX__ = null;
-        posSwalAlert((e && e.message) ? e.message : String(e), 'error');
-        if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
-        if (typeof posRefreshSubmitActionText_ === 'function') posRefreshSubmitActionText_();
-        try {
-          if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
-        } catch (eUod3) { /* 略 */ }
-      });
-      window.__POS_DINEIN_BIND_IN_FLIGHT__ = bindP;
-      bindP.finally(function () {
-        if (window.__POS_DINEIN_BIND_IN_FLIGHT__ === bindP) window.__POS_DINEIN_BIND_IN_FLIGHT__ = null;
-      });
+      try {
+        if (typeof updateOrderDisplay === 'function') updateOrderDisplay();
+      } catch (eUod) { /* 略 */ }
+      try { posSwalToastSuccess('已選擇桌 ' + tnorm + '（送單時一併綁定）', 1800); } catch (_t0) {}
     }
     var gridHtml = '<div id="swal-pos-dinein-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:8px;width:100%;max-width:360px;margin:10px auto 4px;">';
     for (var gi = 1; gi <= total; gi++) {
@@ -10657,7 +10625,7 @@ function openPosDineInTableModal_() {
         posSwalAlert('此桌使用中，請選空桌', 'warning');
         return;
       }
-      posDineInStartBindMutation_(tbl0);
+      posDineInSetTableSelectionOnly_(tbl0);
       return;
     }
     Swal.fire({
@@ -10730,7 +10698,7 @@ function openPosDineInTableModal_() {
       if (!res.isConfirmed) return;
       var tblPick = res.value;
       if (!tblPick) return;
-      posDineInStartBindMutation_(tblPick);
+      posDineInSetTableSelectionOnly_(tblPick);
     });
   }
   posPrefetchDineInBoardForPick_();
@@ -10865,90 +10833,77 @@ function performOrderSubmission(orderData) {
     snapshot.posTelegramNotify = true;
   }
 
-  /** 入佇列、清車、快取失效、列印觸發等皆延後執行，讓關閉計算機／按鈕狀態先繪製，避免主執行緒長時間卡住 */
-  function posRunOrderSubmitContinuation_() {
+  try {
+    posReservationDraft = null;
+    window.__POS_DINEIN_CART_CTX__ = null;
+    window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
+    if (typeof clearOrder === 'function') clearOrder();
+    posRefreshReservationButtonState_();
+    posRefreshSubmitActionText_();
+    if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
+  } catch (eCo) {
+    console.warn('[POS] clearOrder before background submit', eCo);
+  }
+  try {
+    pendingCheckoutOrderData = null;
+    checkoutReceivedAmount = '';
+    if (typeof updateCheckoutCalculatorDisplay === 'function') updateCheckoutCalculatorDisplay();
+    if (typeof closeCheckoutCalculator === 'function') closeCheckoutCalculator();
+  } catch (eCalc) { /* 略 */ }
+
+  const loadingEl = document.getElementById('submit-loading-box');
+  if (loadingEl) loadingEl.classList.add('hidden');
+  const submitBtn = document.getElementById('submit-order');
+  if (submitBtn) submitBtn.disabled = false;
+  _posOrderSubmitInFlight = false;
+
+  /* 背景：入佇列、列印、試算表寫入；先 Toast 再延遲先結大視窗，避免與清車同一瞬間擋住畫面 */
+  setTimeout(function () {
     try {
       posOrderQueueEnqueue(snapshot);
-      try {
-        posReservationDraft = null;
-        window.__POS_DINEIN_CART_CTX__ = null;
-        window.__POS_DINEIN_TABLE_UI_PENDING__ = null;
-        if (typeof clearOrder === 'function') clearOrder();
-        posRefreshReservationButtonState_();
-        posRefreshSubmitActionText_();
-        if (typeof posRefreshPosDineInTableButtonState_ === 'function') posRefreshPosDineInTableButtonState_();
-      } catch (eCo) {
-        console.warn('[POS] clearOrder after enqueue', eCo);
-      }
-      try {
-        pendingCheckoutOrderData = null;
-        checkoutReceivedAmount = '';
-        if (typeof updateCheckoutCalculatorDisplay === 'function') updateCheckoutCalculatorDisplay();
-        if (typeof closeCheckoutCalculator === 'function') closeCheckoutCalculator();
-      } catch (eCalc) { /* 略 */ }
-
-      var loadingEl = document.getElementById('submit-loading-box');
-      if (loadingEl) loadingEl.classList.add('hidden');
-      var submitBtn = document.getElementById('submit-order');
-      if (submitBtn) submitBtn.disabled = false;
-
-      posInvalidateOrderRelatedCaches_();
-    } finally {
-      _posOrderSubmitInFlight = false;
+    } catch (eQ) {
+      console.warn('[POS] posOrderQueueEnqueue', eQ);
     }
-    /* 先關車再背景：先結提示／列印／桌位同步／佇列刷寫延後，避免主執行緒與試算表請求卡住出餐感 */
+    try {
+      if (typeof pingPrinterPageInstantTrigger_ === 'function') {
+        pingPrinterPageInstantTrigger_(snapshot);
+      }
+    } catch (ePr) { /* 略 */ }
+
+    posInvalidateOrderRelatedCaches_();
+    setTimeout(function () { loadOrders(true); }, 1500);
+    if (typeof window.posRefreshOrderBoardNow === 'function') {
+      window.posRefreshOrderBoardNow();
+    }
     setTimeout(function () {
       try {
-        var smPre = snapshot.posDineInSettlementMode || 'prepay';
-        if (snapshot.tableNo && snapshot.dineInSession && smPre === 'prepay' && typeof Swal !== 'undefined') {
-          var tot0 = parseInt(snapshot.total, 10) || 0;
-          Swal.fire({
-            title: '請先結帳',
-            width: 'min(96vw, 820px)',
-            padding: '32px 28px',
-            html: '<div style="font-size:52px;line-height:1.55;text-align:left;font-weight:700;color:#1a1a1a;">請至櫃台完成付款<br><br>單號：<b>' + String(snapshot.orderId || '') + '</b><br>金額：<b>$' + tot0 + '</b></div>',
-            icon: 'info',
-            confirmButtonText: '確定',
-            customClass: { popup: 'order-dinein-prepay-swal', confirmButton: 'order-dinein-prepay-swal-btn' }
-          });
-        }
-      } catch (eSwPre) { /* 略 */ }
-      try {
-        if (typeof pingPrinterPageInstantTrigger_ === 'function') {
-          pingPrinterPageInstantTrigger_(snapshot);
-        }
-      } catch (ePr) { /* 略 */ }
-      try {
-        if (typeof window.dineInLoadBoard_ === 'function') {
-          setTimeout(function () {
-            try { window.dineInLoadBoard_({ silent: true }); } catch (_e0) {}
-          }, 650);
-          setTimeout(function () {
-            try { window.dineInLoadBoard_({ silent: true }); } catch (_e1) {}
-          }, 2200);
-        }
-      } catch (_eDlb) { /* 略 */ }
-      setTimeout(function () { loadOrders(true); }, 1500);
-      if (typeof window.posRefreshOrderBoardNow === 'function') {
-        window.posRefreshOrderBoardNow();
-      }
-      setTimeout(function () {
-        try {
-          if (typeof posOrderQueueTryFlushAll === 'function') posOrderQueueTryFlushAll();
-        } catch (eFl) { /* 略 */ }
-      }, 0);
-      var _toastDone = snapshot.tableNo ? '訂單已送出' : '結帳成功';
-      posSwalToastSuccess(_toastDone, 2500);
+        if (typeof posOrderQueueTryFlushAll === 'function') posOrderQueueTryFlushAll();
+      } catch (eFl) { /* 略 */ }
     }, 0);
-  }
-
-  if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(function () {
-      setTimeout(posRunOrderSubmitContinuation_, 0);
-    });
-  } else {
-    setTimeout(posRunOrderSubmitContinuation_, 0);
-  }
+    var _toastDone = snapshot.tableNo ? '訂單已送出' : '結帳成功';
+    posSwalToastSuccess(_toastDone, 2200);
+    try {
+      var smPre = snapshot.posDineInSettlementMode || 'prepay';
+      if (snapshot.tableNo && snapshot.dineInSession && smPre === 'prepay' && typeof Swal !== 'undefined') {
+        var tot0 = parseInt(snapshot.total, 10) || 0;
+        setTimeout(function () {
+          try {
+            Swal.fire({
+              title: '請先結帳',
+              width: 'min(96vw, 820px)',
+              padding: '32px 28px',
+              html: '<div style="font-size:52px;line-height:1.55;text-align:left;font-weight:700;color:#1a1a1a;">請至櫃台完成付款<br><br>單號：<b>' + String(snapshot.orderId || '') + '</b><br>金額：<b>$' + tot0 + '</b></div>',
+              icon: 'info',
+              confirmButtonText: '確定',
+              allowOutsideClick: true,
+              allowEscapeKey: true,
+              customClass: { popup: 'order-dinein-prepay-swal', confirmButton: 'order-dinein-prepay-swal-btn' }
+            });
+          } catch (eSw2) { /* 略 */ }
+        }, 400);
+      }
+    } catch (eSwPre) { /* 略 */ }
+  }, 0);
 }
 
 function submitReservationOnly_(orderData) {
@@ -10999,10 +10954,7 @@ function confirmCheckoutAndSubmit() {
   if (!checkoutReceivedAmount || received < total) return;
   const orderData = pendingCheckoutOrderData;
   closeCheckoutCalculator();
-  /* 關閉計算機後下一事件迴圈再入佇列送單（與原版資料來源一致 + 畫面能先重繪） */
-  setTimeout(function () {
-    performOrderSubmission(orderData);
-  }, 0);
+  performOrderSubmission(orderData);
 }
 
 function finalSendOrder(orderData) {
@@ -11087,21 +11039,26 @@ function initializeCheckoutCalculatorToggle() {
 }
 
 function submitOrderAfterDineInChoice_() {
-  const orderData = buildCurrentOrderData();
   if (posHasReservationDraft_()) {
-    submitReservationOnly_(orderData);
-    return;
-  }
-  const toggle = document.getElementById('checkout-calculator-toggle');
-  const isEnabled = toggle ? toggle.checked : false;
-  const totNum = parseInt(String(orderData && orderData.total != null ? orderData.total : 0), 10) || 0;
-
-  if (isEnabled && totNum > 0) {
-    openCheckoutCalculator(orderData);
+    submitReservationOnly_(buildCurrentOrderData());
     return;
   }
 
-  finalSendOrder(orderData);
+  function proceedToCheckoutOrSend_() {
+    const orderData = buildCurrentOrderData();
+    const toggle = document.getElementById('checkout-calculator-toggle');
+    const isEnabled = toggle ? toggle.checked : false;
+    const totNum = parseInt(String(orderData && orderData.total != null ? orderData.total : 0), 10) || 0;
+
+    if (isEnabled && totNum > 0) {
+      openCheckoutCalculator(orderData);
+      return;
+    }
+
+    finalSendOrder(orderData);
+  }
+
+  proceedToCheckoutOrSend_();
 }
 
 // ✅ Submit order to Google Sheets
@@ -11112,15 +11069,7 @@ function submitOrder() {
     return;
   }
   if ((!order.items || order.items.length === 0) && !posHasReservationDraft_()) {
-    posSwalAlert('請先選擇餐點或填寫預約資料！', 'warning');
-    return;
-  }
-  /* 與原版：店內桌號綁定進行中時先等完成再送單／開計算機 */
-  var _diBindWait = window.__POS_DINEIN_BIND_IN_FLIGHT__;
-  if (_diBindWait) {
-    /* 桌號綁定 API 尚未完成時，舊版會靜默 return，使用者以為送單／出餐卡住 */
-    try { posSwalToastSuccess('店內桌號同步中，完成後將自動送出訂單…', 2200); } catch (_eTb) {}
-    _diBindWait.then(function () { submitOrder(); }).catch(function () {});
+    posSwalAlert('請先選擇餐點或填寫預約！', 'warning');
     return;
   }
 
@@ -12440,15 +12389,8 @@ function posOrdersFilterAndSort_(ordersList) {
 
 function posInvalidateOrderRelatedCaches_() {
   window.__posOrdersCache = null;
-  /* 勿設為 null：送單後若有統計預抓仍在 fetch 回呼裡寫入 cache 會拋錯（Cannot set properties of null） */
-  window.__posStatsCacheByKey_ = {};
+  window.__posStatsCacheByKey_ = null;
   window.__posKdsCache = null;
-  try {
-    if (typeof window.dineInLoadBoard_ === 'function') {
-      /* 送單／統計失效時一律靜默抓桌位，避免非店內分頁仍出現「讀取桌位」全畫面轉圈 */
-      window.dineInLoadBoard_({ silent: true });
-    }
-  } catch (_eDiInv) { /* 略 */ }
 }
 
 /** 開機後同時抓三組看板資料（與 pos.html 同行為） */
@@ -12511,22 +12453,6 @@ function posBootPrefetchBoardsData_() {
       }).catch(function () { /* 略 */ });
     }
   } catch (e0d) { /* 略 */ }
-  /* 店內桌次看板 + 佔用桌餐點預抓：不必先點「店內用餐」分頁，眼睛開啟較快 */
-  try {
-    if (currentWebAppUrl && typeof posGetClientKey_ === 'function' && typeof posRunSheetMutation_ === 'function') {
-      var _kBr = posGetClientKey_();
-      posRunSheetMutation_({
-        gasMethod: 'dineInPosGetBoardFromPosClient',
-        gasArgs: [_kBr],
-        postBody: { action: 'dineInPosGetBoard', key: _kBr }
-      }).then(function (br) {
-        if (!br || br.result !== 'success') return;
-        window.__dineInBoardCache__ = br;
-        var pf = window.dineInPrefetchOccupiedTableOrders_;
-        if (typeof pf === 'function') pf(br);
-      }).catch(function () { /* 略 */ });
-    }
-  } catch (eDinePf) { /* 略 */ }
 }
 window.posBootPrefetchBoardsData_ = posBootPrefetchBoardsData_;
 
@@ -14773,17 +14699,6 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                   posSwalAlert('更新失敗：' + (msg || ''), 'error');
                 }, function () {
                   refreshOrders();
-                  try {
-                    if (typeof window.dineInLoadBoard_ !== 'function') return;
-                    function diPull(opts) {
-                      try {
-                        window.dineInLoadBoard_(opts || { silent: true });
-                      } catch (_eDi) {}
-                    }
-                    diPull({ silent: true });
-                    setTimeout(function () { diPull({ silent: true }); }, 500);
-                    setTimeout(function () { diPull({ silent: true }); }, 1800);
-                  } catch (_eKdsDi) { /* 略 */ }
                 });
               });
             }
@@ -15954,9 +15869,27 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           });
         }
         var dineInBoardPollTimer_ = null;
+        var dineInBoardReconcileTimer_ = null;
         /** 使尚未回傳的 dineInLoadBoard_ 結果不套用（避免樂觀更新後被舊資料刷回白） */
         function dineInBumpBoardLoadSerial_() {
           window.__dineInBoardLoadSerial__ = (window.__dineInBoardLoadSerial__ || 0) + 1;
+        }
+        /** bump 後進行中的 load 會被丟棄，防抖補拉一趟與後端對齊（僅在目前開著店內分頁時） */
+        function dineInScheduleBoardReconcile_() {
+          if (dineInBoardReconcileTimer_) {
+            clearTimeout(dineInBoardReconcileTimer_);
+            dineInBoardReconcileTimer_ = null;
+          }
+          dineInBoardReconcileTimer_ = setTimeout(function () {
+            dineInBoardReconcileTimer_ = null;
+            try {
+              var dc = document.getElementById('dine-in-content');
+              var hidden = !dc || dc.classList.contains('hidden');
+              if (typeof dineInLoadBoard_ === 'function') {
+                dineInLoadBoard_(hidden ? { backgroundOnly: true } : null);
+              }
+            } catch (_eR) {}
+          }, 420);
         }
         /** 與後端 normalizeDineInTableNo_ 一致：方塊用兩位桌號當鍵 */
         function dineInBoardNormTableKey_(t) {
@@ -16213,6 +16146,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                 var mode = c.settlementMode || 'prepay';
                 var nextSt = mode === 'prepay' ? '待出餐' : '待清桌';
                 dineInBumpBoardLoadSerial_();
+                dineInScheduleBoardReconcile_();
                 dineInBoardPatchTableRow_(c, tb, { status: nextSt });
                 try { dineInRenderBoard_(c); } catch (_co0) {}
                 try { posSwalToastSuccess('桌號 ' + tb + ' 結帳完成', 2000); } catch (_tc) {}
@@ -16224,7 +16158,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                   if (!r || r.result !== 'success') {
                     posSwalAlert((r && r.message) || '結帳寫入失敗，請重試', 'error');
                     dineInLoadBoard_();
+                    return;
                   }
+                  dineInScheduleBoardReconcile_();
                 }).catch(function (e) {
                   posSwalAlert((e && e.message) ? e.message : String(e), 'error');
                   dineInLoadBoard_();
@@ -16244,6 +16180,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                   return;
                 }
                 dineInBumpBoardLoadSerial_();
+                dineInScheduleBoardReconcile_();
                 dineInBoardPatchTableRow_(c, tb, { status: '使用中', posBoardYellow: false });
                 try { dineInRenderBoard_(c); } catch (_ho0) {}
                 try { posSwalToastSuccess('桌號 ' + tb + ' 已佔桌', 2000); } catch (_th) {}
@@ -16255,7 +16192,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                   if (!r || r.result !== 'success') {
                     posSwalAlert((r && r.message) || '佔桌寫入失敗，請重試', 'error');
                     dineInLoadBoard_();
+                    return;
                   }
+                  dineInScheduleBoardReconcile_();
                 }).catch(function (e) {
                   posSwalAlert((e && e.message) ? e.message : String(e), 'error');
                   dineInLoadBoard_();
@@ -16274,6 +16213,7 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                   return;
                 }
                 dineInBumpBoardLoadSerial_();
+                dineInScheduleBoardReconcile_();
                 dineInBoardPatchTableRow_(c, tb, { status: '空閒', lastOrderId: '', posBoardYellow: false });
                 try { dineInRenderBoard_(c); } catch (_cl0) {}
                 try { posSwalToastSuccess('桌號 ' + tb + ' 清桌完成', 2000); } catch (_tk) {}
@@ -16285,7 +16225,9 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                   if (!r || r.result !== 'success') {
                     posSwalAlert((r && r.message) || '清桌寫入失敗，請重試', 'error');
                     dineInLoadBoard_();
+                    return;
                   }
+                  dineInScheduleBoardReconcile_();
                 }).catch(function (e) {
                   posSwalAlert((e && e.message) ? e.message : String(e), 'error');
                   dineInLoadBoard_();
@@ -16307,31 +16249,14 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (postpay) postpay.checked = mode === 'postpay';
         }
         function dineInLoadBoard_(opts) {
-          opts = opts && typeof opts === 'object' ? opts : {};
-          var silent = !!opts.silent;
-          var dinePane = document.getElementById('dine-in-content');
-          var paneShown = !!(dinePane && !dinePane.classList.contains('hidden'));
-          var gridLoading = document.getElementById('dinein-board-grid');
-          if (gridLoading && paneShown && !silent) {
-            gridLoading.innerHTML = '<div class="text-center text-sm text-slate-500 py-10 px-2"><span class="inline-block animate-spin rounded-full h-7 w-7 border-2 border-violet-500 border-t-transparent mr-2" style="vertical-align:middle" aria-hidden="true"></span>正在讀取試算表「桌位」…<br><span class="text-xs text-slate-400 mt-2 block">（若久無資料請確認 Web App 網址與 A2 金鑰）</span></div>';
-          }
-          /* 僅非靜默請求遞增序號。靜默回傳若發現序號已變（例：新全量載入／佔桌結帳 bump）則丟棄，避免舊資料蓋樂觀更新。
-             非靜默回傳一律套用：若仍比對 mySerial，dineInBumpBoardLoadSerial_ 會在未遞增情況下推高序號→回呼被 return→畫面永遠停在「讀取桌位」。 */
-          var mySerial;
-          var baselineAtStart = window.__dineInBoardLoadSerial__ || 0;
-          if (!silent) {
-            mySerial = (window.__dineInBoardLoadSerial__ = baselineAtStart + 1);
-          } else {
-            mySerial = null;
-          }
+          var bgOnly = opts === true || (opts && opts.backgroundOnly === true);
+          var mySerial = (window.__dineInBoardLoadSerial__ = (window.__dineInBoardLoadSerial__ || 0) + 1);
           posRunSheetMutation_({
             gasMethod: 'dineInPosGetBoardFromPosClient',
             gasArgs: [posGetClientKey_()],
             postBody: { action: 'dineInPosGetBoard', key: posGetClientKey_() }
           }).then(function (r) {
-            if (silent) {
-              if (window.__dineInBoardLoadSerial__ !== baselineAtStart) return;
-            }
+            if (mySerial !== window.__dineInBoardLoadSerial__) return;
             if (r && r.result === 'success') {
               var smSrv = r.settlementMode || 'prepay';
               var tsAp = window.__dineInSettlementApplyTs || 0;
@@ -16345,25 +16270,42 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               window.__dineInBoardCache__ = r;
               _dineInBoardPrefetched = true;
             }
-            dineInRenderBoard_(r);
+            var dc = document.getElementById('dine-in-content');
+            var vis = dc && !dc.classList.contains('hidden');
+            if (!bgOnly || vis) {
+              dineInRenderBoard_(r);
+            }
             try {
               if (r && r.result === 'success') dineInPrefetchOccupiedTableOrders_(r);
             } catch (ePf) { /* 略 */ }
           }).catch(function (e) {
-            if (silent) {
-              if (window.__dineInBoardLoadSerial__ !== baselineAtStart) return;
-            }
+            if (mySerial !== window.__dineInBoardLoadSerial__) return;
             var m = (e && e.message) ? String(e.message) : (typeof e === 'string' ? e : '網路或伺服器錯誤');
-            dineInRenderBoard_({ result: 'error', message: m });
+            var dc2 = document.getElementById('dine-in-content');
+            if (!bgOnly || (dc2 && !dc2.classList.contains('hidden'))) {
+              dineInRenderBoard_({ result: 'error', message: m });
+            }
           });
         }
         try { window.dineInLoadBoard_ = dineInLoadBoard_; } catch (_eWDi) { /* 略 */ }
-        function dineInStopBoardPoll_() {
-          if (dineInBoardPollTimer_) {
-            clearInterval(dineInBoardPollTimer_);
-            dineInBoardPollTimer_ = null;
-          }
+        /** 舊介面保留：店內輪詢改為全站背景執行，切換分頁不打斷 */
+        function dineInStopBoardPoll_() { /* no-op */ }
+        function dineInStartBackgroundBoardPoll_() {
+          if (window.__posDineInBoardBgPollStarted) return;
+          if (typeof posGetClientKey_ !== 'function' || !posGetClientKey_()) return;
+          if (!currentWebAppUrl && !(typeof google !== 'undefined' && google.script && google.script.run)) return;
+          window.__posDineInBoardBgPollStarted = true;
+          setTimeout(function () {
+            try { dineInLoadBoard_({ backgroundOnly: true }); } catch (_t0) {}
+          }, 80);
+          dineInBoardPollTimer_ = setInterval(function () {
+            try {
+              if (typeof posGetClientKey_ !== 'function' || !posGetClientKey_()) return;
+              dineInLoadBoard_({ backgroundOnly: true });
+            } catch (_iv) {}
+          }, 5000);
         }
+        try { window.dineInStartBackgroundBoardPoll_ = dineInStartBackgroundBoardPoll_; } catch (_eSb) { /* 略 */ }
         function dineInRefreshQrAutoStatus_() {
           var el = document.getElementById('dinein-qr-auto-status');
           if (!el) return;
@@ -16430,15 +16372,8 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           if (_dineInBoardPrefetched && window.__dineInBoardCache__ && window.__dineInBoardCache__.result === 'success') {
             try { dineInRenderBoard_(window.__dineInBoardCache__); } catch (eDi0) {}
           }
-          dineInLoadBoard_();
+          try { dineInStartBackgroundBoardPoll_(); } catch (_sb0) {}
           try { dineInRefreshQrAutoStatus_(); } catch (eQrSt) { /* 略 */ }
-          dineInStopBoardPoll_();
-          /* 僅背景靜默更新桌位（不覆蓋讀取中 UI）；間隔 5 秒 */
-          dineInBoardPollTimer_ = setInterval(function () {
-            var dc = document.getElementById('dine-in-content');
-            if (!dc || dc.classList.contains('hidden')) return;
-            try { dineInLoadBoard_({ silent: true }); } catch (_ePol) {}
-          }, 5000);
         }
         try { window.posActivateDineInView_ = posActivateDineInView_; } catch (_eAct) { /* 略 */ }
 
@@ -16453,18 +16388,6 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
           }, false);
         })();
 
-        if (!window.__dineInVisibilityBound__) {
-          window.__dineInVisibilityBound__ = true;
-          document.addEventListener('visibilitychange', function () {
-            if (document.hidden) return;
-            try {
-              var dcv = document.getElementById('dine-in-content');
-              if (dcv && !dcv.classList.contains('hidden') && typeof window.dineInLoadBoard_ === 'function') {
-                window.dineInLoadBoard_({ silent: true });
-              }
-            } catch (_eVis) { /* 略 */ }
-          });
-        }
         ['dinein-settle-prepay', 'dinein-settle-postpay'].forEach(function (rid) {
           var el = document.getElementById(rid);
           if (!el) return;
@@ -16548,22 +16471,6 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         setTimeout(function () {
           try { loadReservationBoard_(); } catch (e) {}
         }, 400);
-        setTimeout(function () {
-          try {
-            if (typeof posGetClientKey_ === 'function') {
-              posRunSheetMutation_({
-                gasMethod: 'dineInPosGetBoardFromPosClient',
-                gasArgs: [posGetClientKey_()],
-                postBody: { action: 'dineInPosGetBoard', key: posGetClientKey_() }
-              }).then(function (r) {
-                if (r && r.result === 'success') {
-                  window.__dineInBoardCache__ = r;
-                  _dineInBoardPrefetched = true;
-                }
-              }).catch(function () {});
-            }
-          } catch (eDiPre) {}
-        }, 900);
 
         (function initPosSubscriptionMgmt_() {
           function posFormatSubscriptionDateDisplay(iso) {
@@ -17816,6 +17723,13 @@ function renderFilteredStats(type) {
                         setTimeout(posBootPrefetchBoardsData_, 0);
                       }
                     } catch (ePf) { /* 略 */ }
+                    try {
+                      setTimeout(function () {
+                        if (typeof window.dineInStartBackgroundBoardPoll_ === 'function') {
+                          window.dineInStartBackgroundBoardPoll_();
+                        }
+                      }, 0);
+                    } catch (eDiBg) { /* 略 */ }
                     /* 訂閱資料預先載入（不用等使用者點開「訂閱管理」） */
                     try {
                       setTimeout(function () {
