@@ -53,16 +53,18 @@
       -webkit-text-size-adjust: 100%;
     }
 
+    /* 免費版橫幅補償：body 改為 flex column，#pos-app-root 從 fixed 改為 relative flex-grow */
+    body { display: flex; flex-direction: column; }
+    #free-plan-banner { flex-shrink: 0; }
+
     /* 主殼固定於視窗，避免觸控時整塊版面被拖動 */
     #pos-app-root {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      position: relative;
+      top: auto; left: auto; right: auto; bottom: auto;
       width: 100%;
       max-width: 100vw;
       overflow: hidden;
+      flex: 1 1 0%;
       min-height: 0;
       display: flex;
       flex-direction: column;
@@ -179,6 +181,22 @@
       letter-spacing: 0.04em;
     }
 
+    /* ── 免費版鎖定樣式 ── */
+    .free-lock-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 700; padding: 2px 7px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #fff; white-space: nowrap; letter-spacing: 0.02em;
+    }
+    #free-plan-banner {
+      display: none; /* JS 在 free planType 時改為 flex */
+      background: linear-gradient(90deg, #fbbf24, #f59e0b);
+      color: #78350f; font-size: 13px; font-weight: 700;
+      text-align: center; padding: 6px 12px; flex-shrink: 0;
+      align-items: center; justify-content: center; gap: 8px;
+      z-index: 200; width: 100%;
+    }
     .pos-printer-led { font-size: 18px; line-height: 1; user-select: none; transition: color 0.2s; }
     .pos-printer-led--off { color: #ef4444; text-shadow: 0 0 6px rgba(239, 68, 68, 0.45); }
     .pos-printer-led--on { color: #22c55e; text-shadow: 0 0 6px rgba(34, 197, 94, 0.45); }
@@ -1829,6 +1847,12 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     <div id="initial-loader-error" aria-live="assertive"></div>
   </div>
 
+  <!-- 🆓 免費版橫幅（planType=free 時由 JS 顯示） -->
+  <div id="free-plan-banner">
+    <i class="fas fa-unlock-alt"></i>
+    <span>目前為 <strong>免費版</strong>，部分功能已鎖定。請至「訂閱管理」升級以解鎖全部功能。</span>
+  </div>
+
   <div id="pos-app-root" class="flex flex-col md:flex-row h-full w-full">
     <!-- Order Summary Section (Left 1/3) -->
     <div class="w-full md:w-1/3 bg-white p-4 flex flex-col border-r border-gray-200 h-full">
@@ -2007,16 +2031,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <i class="fas fa-chevron-down ml-1 text-xs"></i>
           </button>
           
-          <!-- 下拉菜單 -->
-          <div id="features-dropdown-menu" class="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg hidden min-w-[150px]">
+          <!-- 下拉菜單（免費版：鎖定付費功能；訂閱管理始終開放） -->
+          <div id="features-dropdown-menu" class="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg hidden min-w-[190px]">
+            <!-- ✅ 免費版可用 -->
             <button id="orders-tab" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-search mr-2"></i>訂單查詢
-            </button>
-            <button id="reservation-view-tab" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
-              <i class="fas fa-calendar-check mr-2"></i>預約查看
-            </button>
-            <button id="dine-in-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
-              <i class="fas fa-qrcode mr-2"></i>店內用餐
             </button>
             <button id="stats-tab" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-chart-bar mr-2"></i>統計
@@ -2024,23 +2043,38 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <button id="merchant-tab" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-store mr-2"></i>商家資訊
             </button>
-            <button id="member-hub-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
-              <i class="fas fa-user-tag mr-2"></i>會員專區
-            </button>
-            <button id="merchant-promotions-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
-              <i class="fas fa-gift mr-2"></i>商家活動
-            </button>
-            <button id="merchant-images-btn" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
-              <i class="fas fa-image mr-2"></i>上傳圖片
-            </button>
-            <button id="print-settings-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center border-b border-gray-100 last:border-b-0">
-              <i class="fas fa-print mr-2"></i>打印設定
-            </button>
+            <!-- ✅ 訂閱管理：免費版必須開放（讓老闆可以升級購買） -->
             <button id="subscription-settings-tab" type="button" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center border-b border-gray-100 last:border-b-0">
               <i class="fas fa-sync-alt mr-2"></i>訂閱管理
             </button>
-            <button id="sort-mode-btn" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 hover:text-amber-600 flex items-center border-b border-gray-100 last:border-b-0">
-              <i class="fas fa-sort mr-2"></i>商品排序
+            <!-- 🔒 付費版才能使用（依 planType 動態顯示鎖定樣式，見 JS freePlanLockInit_） -->
+            <button id="reservation-view-tab" class="free-lockable w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-between border-b border-gray-100 last:border-b-0">
+              <span><i class="fas fa-calendar-check mr-2"></i>預約查看</span>
+              <span class="free-lock-badge hidden"><i class="fas fa-lock text-xs"></i> 付費</span>
+            </button>
+            <button id="dine-in-tab" type="button" class="free-lockable w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-between border-b border-gray-100 last:border-b-0">
+              <span><i class="fas fa-qrcode mr-2"></i>店內用餐</span>
+              <span class="free-lock-badge hidden"><i class="fas fa-lock text-xs"></i> 付費</span>
+            </button>
+            <button id="member-hub-tab" type="button" class="free-lockable w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-between border-b border-gray-100 last:border-b-0">
+              <span><i class="fas fa-user-tag mr-2"></i>會員專區</span>
+              <span class="free-lock-badge hidden"><i class="fas fa-lock text-xs"></i> 付費</span>
+            </button>
+            <button id="merchant-promotions-tab" type="button" class="free-lockable w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-between border-b border-gray-100 last:border-b-0">
+              <span><i class="fas fa-gift mr-2"></i>商家活動</span>
+              <span class="free-lock-badge hidden"><i class="fas fa-lock text-xs"></i> 付費</span>
+            </button>
+            <button id="merchant-images-btn" type="button" class="free-lockable w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-between border-b border-gray-100 last:border-b-0">
+              <span><i class="fas fa-image mr-2"></i>上傳圖片</span>
+              <span class="free-lock-badge hidden"><i class="fas fa-lock text-xs"></i> 付費</span>
+            </button>
+            <button id="print-settings-tab" type="button" class="free-lockable w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-between border-b border-gray-100 last:border-b-0">
+              <span><i class="fas fa-print mr-2"></i>打印設定</span>
+              <span class="free-lock-badge hidden"><i class="fas fa-lock text-xs"></i> 付費</span>
+            </button>
+            <button id="sort-mode-btn" class="free-lockable w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 hover:text-amber-600 flex items-center justify-between border-b border-gray-100 last:border-b-0">
+              <span><i class="fas fa-sort mr-2"></i>商品排序</span>
+              <span class="free-lock-badge hidden"><i class="fas fa-lock text-xs"></i> 付費</span>
             </button>
           </div>
         </div>
@@ -3574,6 +3608,59 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       }
 
       /** @returns {Promise<{ok:boolean, reason?: string}>} */
+      // ── 免費版方案判斷 ──────────────────────────────────────────
+      var posCurrentPlanType_ = 'paid'; // 預設付費；後端回傳 'free' 後更新
+
+      /** 依 planType 啟用免費版 UI 限制 */
+      function freePlanLockInit_(planType) {
+        if (planType !== 'free') return; // 付費版不做任何限制
+        posCurrentPlanType_ = 'free';
+
+        // 1. 加頂部橫幅
+        var banner = document.getElementById('free-plan-banner');
+        if (banner) banner.style.display = 'flex';
+
+        // 2. 鎖定 .free-lockable 按鈕
+        document.querySelectorAll('.free-lockable').forEach(function(btn) {
+          btn.querySelectorAll('.free-lock-badge').forEach(function(b) { b.classList.remove('hidden'); });
+          // capture=true 攔截，阻止原有事件
+          btn.addEventListener('click', function(e) {
+            e.stopImmediatePropagation();
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                icon: 'info',
+                title: '🔒 付費版功能',
+                html: '此功能為<b>付費版專屬</b>。<br>請至「訂閱管理」升級以解鎖全部功能。',
+                confirmButtonText: '前往訂閱管理',
+                confirmButtonColor: '#f59e0b',
+                showCancelButton: true,
+                cancelButtonText: '關閉'
+              }).then(function(r) {
+                if (r.isConfirmed) {
+                  var subBtn = document.getElementById('subscription-settings-tab');
+                  if (subBtn) subBtn.click();
+                }
+              });
+            } else {
+              alert('此功能為付費版專屬，請至訂閱管理升級。');
+            }
+          }, true);
+        });
+
+        // 3. 鎖定出單機按鈕（自動列印為付費功能）
+        var printerBtn = document.getElementById('pos-open-printer-panel-btn');
+        if (printerBtn) {
+          printerBtn.classList.add('opacity-60', 'cursor-not-allowed');
+          printerBtn.title = '自動列印為付費版功能';
+          printerBtn.addEventListener('click', function(e) {
+            e.stopImmediatePropagation();
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({ icon: 'info', title: '🔒 付費版功能', text: '自動列印為付費版功能，請升級以使用。', confirmButtonColor: '#f59e0b' });
+            }
+          }, true);
+        }
+      }
+
       async function posVerifyClientKeyOrFail_() {
         if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
         var ck = posGetClientKey_();
@@ -3591,7 +3678,12 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             console.error('[POS] checkClientKey 回應非 JSON', { url: url, status: res.status, statusText: res.statusText, bodyPreview: (text || '').slice(0, 600), parseError: pe });
             return { ok: false, reason: 'bad_response', raw: null };
           }
-          if (data && data.result === 'success') return { ok: true };
+          if (data && data.result === 'success') {
+            // 取得 planType 並初始化免費版限制
+            var pt = (data.planType === 'free') ? 'free' : 'paid';
+            freePlanLockInit_(pt);
+            return { ok: true, planType: pt };
+          }
           console.error('[POS] checkClientKey 未通過', { url: url, status: res.status, response: data, sentClientKeyLen: (ck || '').length });
           return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
         } catch (err) {
