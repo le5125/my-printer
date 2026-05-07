@@ -4616,6 +4616,14 @@ function mpRowItemDisc(r) {
               });
           }
 
+          function merchantPromoNetworkFetchMayUpdateUi_() {
+            try {
+              return !(window.__mpIgnoreFetchUntil && Date.now() < window.__mpIgnoreFetchUntil);
+            } catch (eIg) {
+              return true;
+            }
+          }
+
           function merchantPromoRefreshFromServer_(force) {
             var todayKey = posTodayCacheKey_();
             var cached = window.__merchantPromotionsCachedPayload;
@@ -4624,13 +4632,13 @@ function mpRowItemDisc(r) {
               renderAllFromPayload_(cached);
               merchantPromoFetch_(function (data) {
                 applyCacheFromServer_(data, { fromNetworkFetch: true });
-                if (data && data.result === 'success') renderAllFromPayload_(data);
+                if (merchantPromoNetworkFetchMayUpdateUi_() && data && data.result === 'success') renderAllFromPayload_(data);
               }, false);
               return;
             }
             merchantPromoFetch_(function (data) {
               applyCacheFromServer_(data, { fromNetworkFetch: true });
-              if (data && data.result === 'success') renderAllFromPayload_(data);
+              if (merchantPromoNetworkFetchMayUpdateUi_() && data && data.result === 'success') renderAllFromPayload_(data);
             }, true);
           }
 
@@ -4770,6 +4778,7 @@ function mpRowItemDisc(r) {
             }
             if (btnOk) {
               btnOk.addEventListener('click', function () {
+                var prevImgDraft = typeof window.__merchantPromoActivityImageDraft === 'string' ? window.__merchantPromoActivityImageDraft : '';
                 window.__merchantPromoActivityImageDraft = staging;
                 close_();
                 merchantPromoImageSyncPreview_();
@@ -4779,23 +4788,35 @@ function mpRowItemDisc(r) {
                 }
                 var payloadApply = collectPayloadFromDom_();
                 if (payloadApply.activityEndDate && payloadApply.activityEndDate < todayYmdMpApply_()) {
+                  window.__merchantPromoActivityImageDraft = prevImgDraft;
+                  merchantPromoImageSyncPreview_();
                   posSwalAlert('活動結束日須為今天（含）之後', 'warning');
                   return;
                 }
                 if (payloadApply.activityStartDate && payloadApply.activityEndDate && payloadApply.activityStartDate > payloadApply.activityEndDate) {
+                  window.__merchantPromoActivityImageDraft = prevImgDraft;
+                  merchantPromoImageSyncPreview_();
                   posSwalAlert('活動開始日不能晚於結束日', 'warning');
                   return;
                 }
-                mpPostJson_(payloadApply, function (r, ok) {
-                  if (!ok || !r || r.result !== 'success') {
-                    posSwalAlert((r && r.message) ? r.message : '活動圖儲存失敗', 'error');
-                    return;
-                  }
-                  try { window.__mpIgnoreFetchUntil = Date.now() + 2800; } catch (eIg) { /* 略 */ }
-                  posSwalToastSuccess('活動圖已套用並儲存', 2200);
-                  applyCacheFromServer_(r);
-                  renderAllFromPayload_(r);
-                });
+                var optimistic = Object.assign({}, payloadApply, { result: 'success' });
+                try { window.__mpIgnoreFetchUntil = Date.now() + 2800; } catch (eIg) { /* 略 */ }
+                applyCacheFromServer_(optimistic);
+                posSwalToastSuccess('活動圖已套用並儲存', 2200);
+                setTimeout(function () {
+                  mpPostJson_(payloadApply, function (r, ok) {
+                    if (!ok || !r || r.result !== 'success') {
+                      window.__merchantPromoActivityImageDraft = prevImgDraft;
+                      merchantPromoImageSyncPreview_();
+                      try {
+                        applyCacheFromServer_(Object.assign({ result: 'success' }, collectPayloadFromDom_()));
+                      } catch (eRb) { /* 略 */ }
+                      posSwalAlert((r && r.message) ? r.message : '活動圖儲存失敗', 'error');
+                      return;
+                    }
+                    applyCacheFromServer_(r);
+                  });
+                }, 0);
               });
             }
           })();
@@ -6945,33 +6966,31 @@ function saveSortOrder() {
 
   if (ids.length === 0) { exitSortMode(); return; }
 
-  saveBtn.disabled = true;
-  saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 儲存中…';
+  var itemsBefore = (menuTabs[currentTab] || []).slice();
+  var itemMap = {};
+  itemsBefore.forEach(function (item) { itemMap[item.id] = item; });
+  menuTabs[currentTab] = ids.map(function (id) { return itemMap[id]; }).filter(Boolean);
+  exitSortMode();
+  renderMenuItems();
+  var tip = document.createElement('div');
+  tip.textContent = '✓ 排序已儲存';
+  tip.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:8px 20px;border-radius:8px;font-size:14px;z-index:9999;pointer-events:none;';
+  document.body.appendChild(tip);
+  setTimeout(function () { tip.remove(); }, 2200);
 
   posRunSheetMutation_({
     gasMethod: 'saveProductOrder',
     gasArgs: [ids],
     postBody: { action: 'saveProductOrder', ids: ids }
   }).then(function (result) {
-    saveBtn.disabled = false;
-    saveBtn.innerHTML = '<i class="fas fa-save"></i> 儲存排序';
-    if (result && result.result === 'success') {
-      var items   = menuTabs[currentTab] || [];
-      var itemMap = {};
-      items.forEach(function (item) { itemMap[item.id] = item; });
-      menuTabs[currentTab] = ids.map(function (id) { return itemMap[id]; }).filter(Boolean);
-      exitSortMode();
-      var tip = document.createElement('div');
-      tip.textContent = '✓ 排序已儲存';
-      tip.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:8px 20px;border-radius:8px;font-size:14px;z-index:9999;pointer-events:none;';
-      document.body.appendChild(tip);
-      setTimeout(function () { tip.remove(); }, 2200);
-    } else {
+    if (!result || result.result !== 'success') {
+      menuTabs[currentTab] = itemsBefore;
+      renderMenuItems();
       posSwalAlert('儲存失敗：' + ((result && result.message) || '未知錯誤'), 'error');
     }
   }).catch(function (err) {
-    saveBtn.disabled = false;
-    saveBtn.innerHTML = '<i class="fas fa-save"></i> 儲存排序';
+    menuTabs[currentTab] = itemsBefore;
+    renderMenuItems();
     posSwalAlert('連線錯誤，請稍後再試', 'error');
     console.error('saveProductOrder error:', err);
   });
@@ -7057,33 +7076,33 @@ function saveMenuTabOrder() {
   var ids  = Array.from(els).map(function(el){ return el.getAttribute('data-menu-id'); });
   if (ids.length === 0) { exitMenuTabSort(); exitSortMode(); return; }
 
-  var saveBtn = document.getElementById('sort-save-btn');
-  saveBtn.disabled = true;
-  saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 儲存中…';
+  var menuOrderBefore = Array.isArray(menuOrder) ? menuOrder.slice() : [];
+  menuOrder = ids;
+  exitMenuTabSort();
+  exitSortMode();
+  renderAllMenuTabs();
+  renderMenuItems();
+  var tip = document.createElement('div');
+  tip.textContent = '✓ 菜單順序已儲存';
+  tip.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:8px 20px;border-radius:8px;font-size:14px;z-index:9999;pointer-events:none;';
+  document.body.appendChild(tip);
+  setTimeout(function () { tip.remove(); }, 2200);
 
   posRunSheetMutation_({
     gasMethod: 'saveMenuOrder',
     gasArgs: [ids],
     postBody: { action: 'saveMenuOrder', orderedIds: ids }
   }).then(function (result) {
-    saveBtn.disabled = false;
-    saveBtn.innerHTML = '<i class="fas fa-save"></i> 儲存排序';
-    if (result && result.result === 'success') {
-      menuOrder = ids;
-      exitMenuTabSort();
-      exitSortMode();
+    if (!result || result.result !== 'success') {
+      menuOrder = menuOrderBefore;
       renderAllMenuTabs();
-      var tip = document.createElement('div');
-      tip.textContent = '✓ 菜單順序已儲存';
-      tip.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:8px 20px;border-radius:8px;font-size:14px;z-index:9999;pointer-events:none;';
-      document.body.appendChild(tip);
-      setTimeout(function () { tip.remove(); }, 2200);
-    } else {
+      renderMenuItems();
       posSwalAlert('儲存失敗：' + ((result && result.message) || '未知錯誤'), 'error');
     }
   }).catch(function (err) {
-    saveBtn.disabled = false;
-    saveBtn.innerHTML = '<i class="fas fa-save"></i> 儲存排序';
+    menuOrder = menuOrderBefore;
+    renderAllMenuTabs();
+    renderMenuItems();
     posSwalAlert('連線錯誤，請稍後再試', 'error');
     console.error('saveMenuOrder:', err);
   });
