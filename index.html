@@ -8766,11 +8766,16 @@ function _posParseStyledLines_(rawText, baseFc) {
   return out;
 }
 
+/** 商品標籤 {空行}：以「一行文字行高」為基準的比例（0.35～0.7 常見；1=整行高） */
+var POS_LABEL_BLANK_LINE_FRAC = 0.5;
 function _posLabelBlankLinePx_(fontCfg) {
   var fc = fontCfg || { size: 'small', bold: false };
   var o = _posFontSizeToken_((fc && fc.size) || 'small');
   var lh = Math.max(Math.round(o.previewPx * 1.22), o.previewPx + 4);
-  return Math.max(2, Math.round(lh));
+  var frac = typeof POS_LABEL_BLANK_LINE_FRAC === 'number' ? POS_LABEL_BLANK_LINE_FRAC : 0.5;
+  if (frac < 0.15) frac = 0.15;
+  if (frac > 1) frac = 1;
+  return Math.max(2, Math.round(lh * frac));
 }
 
 function _posStyledLinesToHtml_(styledLines, opts) {
@@ -17737,7 +17742,9 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
   const n = styledLines.length;
   const fcBlank = getActiveFontCfg_();
   const blankMul = fontSizeToTsplMul_((fcBlank && fcBlank.size) || 'small');
-  const blankRowH = 24 * blankMul + 8;
+  const textRowHBlank = 24 * blankMul + 8;
+  const _blankFrac = typeof POS_LABEL_BLANK_LINE_FRAC === 'number' ? POS_LABEL_BLANK_LINE_FRAC : 0.5;
+  const blankRowH = Math.max(6, Math.round(textRowHBlank * Math.min(1, Math.max(0.15, _blankFrac))));
   const textCmds = [];
   for (let k = 0; k < n; k++) {
     const segs = styledLines[k] || [];
