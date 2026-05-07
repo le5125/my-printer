@@ -9579,6 +9579,31 @@ window.__initPrintSettingsUi_ = (function () {
     const txt = _posRenderTemplate_(tpl, map);
 
     const fc = fontCfg || (_posFontCfgCache_ && _posFontCfgCache_.label) || { size: 'small', bold: false };
+    const styledLines = _posParseStyledLines_(txt, fc);
+    var firstRowMul = fontSizeToTsplMul_(fc.size);
+    var firstRowToken = fc.size;
+    for (var si = 0; si < styledLines.length; si++) {
+      var segs0 = styledLines[si];
+      if (!segs0 || !segs0.length) continue;
+      var foundFr = false;
+      for (var fi = 0; fi < segs0.length; fi++) {
+        var sg = segs0[fi];
+        if (String(sg.text || '').trim()) {
+          firstRowMul = fontSizeToTsplMul_(sg.size);
+          firstRowToken = sg.size;
+          foundFr = true;
+          break;
+        }
+      }
+      if (foundFr) break;
+    }
+    var rowHDotsFirst = 24 * firstRowMul + 8;
+    var fsFirst = _posFontSizeToken_(firstRowToken);
+    var lhFirst = Math.max(Math.round(fsFirst.previewPx * 1.22), fsFirst.previewPx + 4);
+    var yTopExtraPx = rowHDotsFirst > 0
+      ? (Math.max(0, ys) / rowHDotsFirst) * lhFirst
+      : 0;
+
     const fs = _posFontSizeToken_(fc.size);
 
     previewEl.textContent = '';
@@ -9600,10 +9625,10 @@ window.__initPrintSettingsUi_ = (function () {
     f.style.fontSize = fs.previewPx + 'px';
     f.style.fontWeight = fc.bold ? '700' : '400';
     f.style.lineHeight = '1.35';
-    const LABEL_PREVIEW_MM_PX = 3.78;
-    const yTopExtraPx = (Math.max(0, ys) / TSPL_DOTS_PER_MM) * LABEL_PREVIEW_MM_PX;
-    f.style.paddingTop = (6 + yTopExtraPx) + 'px';
-    const styledLines = _posParseStyledLines_(txt, fc);
+    f.style.paddingTop = Math.max(2, yTopExtraPx) + 'px';
+    f.style.paddingRight = '8px';
+    f.style.paddingBottom = '6px';
+    f.style.paddingLeft = '8px';
     f.innerHTML = _posStyledLinesToHtml_(styledLines, { isLabelBlock: true, fontCfg: fc });
     const meta = document.createElement('div');
     meta.className = 'label-frame-meta';
