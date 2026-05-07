@@ -1082,7 +1082,7 @@
   .submit-right { display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
   .submit-qty  { font-size: 1.64568rem; font-weight:700; opacity:.85; }  .submit-price { font-size: 2.37712rem; font-weight:900; }
   .order-dinein-prepay-swal .swal2-title { font-size: 2.37712rem !important; font-weight:900 !important; color:#1a1a1a !important; }  .order-dinein-prepay-swal .swal2-confirm.order-dinein-prepay-swal-btn { font-size: 2.01144rem !important; font-weight:800 !important; padding:18px 40px !important; border-radius:16px !important; }
-    #closed-overlay { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.88); display:none; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px; }
+    #closed-overlay { position:fixed; inset:0; z-index:200000; background:rgba(0,0,0,.88); display:none; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px; }
   #closed-overlay.show { display:flex; }
 
     .pb-safe { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
@@ -2952,6 +2952,7 @@ async function orderEnsureMemberStubByLineFromWeb_(lineUserId) {
 }
 
 async function orderRunMemberGate_() {
+  if (window.__ORDER_VACATION_BLOCK__) return false;
   if (window.__ORDER_TABLE_MODE_ACTIVE__) {
     orderWaitShowTruck_('菜單載入中…');
     orderEnsureBootPrefetch_();
@@ -4270,24 +4271,80 @@ window.addEventListener('scroll', () => {
   });
 }, { passive: true });
 
-async function loadMerchantInfo() {
+async function orderFetchMerchantInfoJsonOnly_() {
+  try {
+    if (!currentWebAppUrl) return null;
+    var u = orderWebAppGetActionUrl_('getMerchantInfo', '_=' + Date.now());
+    if (!u) return null;
+    var res = await fetch(u, { cache: 'no-store', credentials: 'omit' });
+    var text = await res.text();
+    try {
+      return text ? JSON.parse(text) : null;
+    } catch (eJ) {
+      return null;
+    }
+  } catch (e) {
+    return null;
+  }
+}
+
+/** 授權通過後優先判斷是否休假／週休；是則最上層遮罩並中止開機後續 */
+async function orderBootstrapVacationGateAfterAuth_() {
+  var out = { blocked: false, preload: null };
+  try {
+    var data = await orderFetchMerchantInfoJsonOnly_();
+    out.preload = data;
+    if (!data || data.result !== 'success') return out;
+    var __mer = data.merchant || {};
+    if (__mer.holidays) {
+      holidayList = Array.isArray(__mer.holidays)
+        ? __mer.holidays.filter(Boolean)
+        : String(__mer.holidays).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    } else {
+      holidayList = [];
+    }
+    fixedClosedDays = normalizeFixedClosedDays(__mer.fixedClosedDays);
+    if (!orderIsVacationOrFixedClosedToday_(new Date())) return out;
+    try { window.__ORDER_VACATION_BLOCK__ = true; } catch (eVB) {}
+    try { if (typeof Swal !== 'undefined') Swal.close(); } catch (eS) {}
+    merchantInfo = __mer;
+    try {
+      var _ml = document.getElementById('menu-loading');
+      if (_ml) {
+        _ml.style.display = 'none';
+        _ml.setAttribute('aria-busy', 'false');
+      }
+      orderTruckStopProgress_(true);
+      if (typeof orderWaitGameStop_ === 'function') orderWaitGameStop_();
+    } catch (eH) {}
+    showClosedOverlay();
+    out.blocked = true;
+    return out;
+  } catch (e) {
+    return out;
+  }
+}
+
+async function loadMerchantInfo(preloaded) {
   try {
     if (!currentWebAppUrl) {
       console.error('[order] loadMerchantInfo：currentWebAppUrl 未設定');
       return;
     }
-    const u = orderWebAppGetActionUrl_('getMerchantInfo', '_=' + Date.now());
-    if (!u) return;
-    const res = await fetch(u, { cache: 'no-store', credentials: 'omit' });
-    const text = await res.text();
-    var data = null;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch (eJ) {
-      console.error('[ordergit] getMerchantInfo 非 JSON', (text || '').slice(0, 400));
-      return;
+    var data = (preloaded && preloaded.result === 'success') ? preloaded : null;
+    if (!data) {
+      const u = orderWebAppGetActionUrl_('getMerchantInfo', '_=' + Date.now());
+      if (!u) return;
+      const res = await fetch(u, { cache: 'no-store', credentials: 'omit' });
+      const text = await res.text();
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (eJ) {
+        console.error('[ordergit] getMerchantInfo 非 JSON', (text || '').slice(0, 400));
+        return;
+      }
     }
-    if (data.result !== 'success') return;
+    if (!data || data.result !== 'success') return;
     try {
       window.__ORDER_SHOP_NAME_CACHE__ = String((data.merchant && data.merchant.name) || '線上點餐').trim();
     } catch (eCache) {}
@@ -4408,6 +4465,7 @@ function updateStatusDisplay() {
 }
 
 function showClosedOverlay() {
+  try { if (typeof Swal !== 'undefined') Swal.close(); } catch (eSw) {}
   const today = new Date();
   const todayWeekLabel = getTodayWeekLabel(today);
 
@@ -4762,6 +4820,7 @@ function orderTryCloseInitialLoading_() {
 }
 
 function orderKickMemberGateBackgroundOnce_() {
+  if (window.__ORDER_VACATION_BLOCK__) return;
   if (window.__ORDER_MEMBER_GATE_BG_STARTED__) return;
   window.__ORDER_MEMBER_GATE_BG_STARTED__ = true;
   void (async function () {
@@ -7496,6 +7555,7 @@ async function bootstrapOrder() {
     window.__ORDER_LIFF_INIT_PROMISE__ = null;
     window.__ORDER_LINE_USER_ID__ = '';
     window.__ORDER_MEMBER_GATE_BG_STARTED__ = false;
+    window.__ORDER_VACATION_BLOCK__ = false;
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
   var swalOk = await orderEnsureSwalReady_();
@@ -7567,7 +7627,9 @@ async function bootstrapOrder() {
   try {
     currentWebAppUrl = String(currentWebAppUrl || '').trim().replace(/\?+$/, '');
   } catch (eNormU) { /* 略 */ }
-  void loadMerchantInfo().catch(function (e) { console.error(e); });
+  var _vacGate = await orderBootstrapVacationGateAfterAuth_();
+  if (_vacGate.blocked) return;
+  void loadMerchantInfo(_vacGate.preload).catch(function (e) { console.error(e); });
 
     var _dipEarly = orderParseDineInUrlParams_();
   if (_dipEarly && String(_dipEarly.table || '').trim() && String(_dipEarly.key || '').trim()) {
