@@ -2033,6 +2033,47 @@ function orderHydrateBuiltInKeyFromGas_() {
   });
 }
 
+/** GAS 部署 ID（…/macros/s/【此段】/exec），用於金鑰驗證結果之 session 快取鍵 */
+function orderExtractGasDeploymentId_(url) {
+  try {
+    var m = String(url || '').match(/\/macros\/s\/([^/]+)\//);
+    return m ? String(m[1]).trim() : '';
+  } catch (e) {
+    return '';
+  }
+}
+function orderClientKeySessionSig_(ck) {
+  ck = String(ck || '').trim();
+  if (!ck) return '';
+  if (ck.length <= 32) return ck;
+  return ck.slice(0, 16) + ':' + ck.slice(-16);
+}
+var ORDER_CK_SESS_VERIFY_KEY = 'order_ck_sess_ok_v1';
+var ORDER_CK_SESS_VERIFY_TTL_MS = 30 * 60 * 1000;
+function orderReadSessClientKeyVerify_() {
+  try {
+    var raw = sessionStorage.getItem(ORDER_CK_SESS_VERIFY_KEY);
+    if (!raw) return null;
+    var o = JSON.parse(raw);
+    return (o && typeof o === 'object') ? o : null;
+  } catch (e) {
+    return null;
+  }
+}
+function orderWriteSessClientKeyVerify_(depId, ksig, planType) {
+  try {
+    sessionStorage.setItem(ORDER_CK_SESS_VERIFY_KEY, JSON.stringify({
+      depId: String(depId || ''),
+      ksig: String(ksig || ''),
+      planType: planType === 'paid' ? 'paid' : 'free',
+      t: Date.now()
+    }));
+  } catch (e) { /* 配額或無痕 */ }
+}
+function orderClearSessClientKeyVerify_() {
+  try { sessionStorage.removeItem(ORDER_CK_SESS_VERIFY_KEY); } catch (e) {}
+}
+
 async function orderVerifyClientKeyOrFail_v2_() {
   if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
   var ck = orderGetClientKey_();
@@ -2067,13 +2108,29 @@ async function orderVerifyClientKeyOrFail_v2_() {
 }
 
 async function orderVerifyClientKeyOrFail_() {
-  var v2 = await orderVerifyClientKeyOrFail_v2_();
-  if (v2.ok) return v2;
-  if (v2.reason !== 'bad_response' && v2.reason !== 'network') return v2;
-
   if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
   var ck = orderGetClientKey_();
   if (!ck) return { ok: false, reason: 'no_client_key' };
+  var depId = orderExtractGasDeploymentId_(currentWebAppUrl);
+  var ksig = orderClientKeySessionSig_(ck);
+  var sessHit = orderReadSessClientKeyVerify_();
+  if (sessHit && sessHit.depId === depId && sessHit.ksig === ksig && (Date.now() - sessHit.t) < ORDER_CK_SESS_VERIFY_TTL_MS) {
+    try { window.__ORDER_PLAN_TYPE__ = (sessHit.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+    return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
+  }
+
+  var v2 = await orderVerifyClientKeyOrFail_v2_();
+  if (v2.ok) {
+    orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
+    return v2;
+  }
+  if (v2.reason !== 'bad_response' && v2.reason !== 'network') {
+    orderClearSessClientKeyVerify_();
+    return v2;
+  }
+
+  if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
+  if (!orderGetClientKey_()) return { ok: false, reason: 'no_client_key' };
   try {
     var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
     var sep2 = u2.indexOf('?') >= 0 ? '&' : '?';
@@ -2089,9 +2146,11 @@ async function orderVerifyClientKeyOrFail_() {
     }
     if (data && data.result === 'success') {
       try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+      orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
       return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
     }
     console.error('[order] checkClientKey GET 未通過', { url: url, status: res.status, response: data });
+    orderClearSessClientKeyVerify_();
     return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
   } catch (err) {
     console.error('[order] clientKey 驗證失敗（完整）', err, err && err.message, err && err.stack);
@@ -7569,6 +7628,7 @@ async function bootstrapOrder() {
   }
   var _orderUrlQ = new URLSearchParams(window.location.search);
     var _orderBossId = (_orderUrlQ.get('mid') || _orderUrlQ.get('Mid') || _orderUrlQ.get('id') || _orderUrlQ.get('Id') || '').trim();
+  var _orderUrlPinnedByQuery = !!_orderBossId;
   if (_orderBossId) {
     currentWebAppUrl = 'https://script.google.com/macros/s/' + _orderBossId + '/exec';
   } else if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) {
@@ -7603,11 +7663,15 @@ async function bootstrapOrder() {
   }
   var orderKeyFetch;
   try {
-    var _bootPair = await Promise.all([
-      freshUrlPromise,
-      isOrderGas ? orderHydrateBuiltInKeyFromGas_() : orderFetchBuiltInClientKey_()
-    ]);
-    orderKeyFetch = _bootPair[1];
+    if (_orderUrlPinnedByQuery) {
+      orderKeyFetch = isOrderGas ? await orderHydrateBuiltInKeyFromGas_() : await orderFetchBuiltInClientKey_();
+    } else {
+      var _bootPair = await Promise.all([
+        freshUrlPromise,
+        isOrderGas ? orderHydrateBuiltInKeyFromGas_() : orderFetchBuiltInClientKey_()
+      ]);
+      orderKeyFetch = _bootPair[1];
+    }
   } catch (eBootParallel) {
     console.error('[order] bootstrap 並行階段失敗', eBootParallel);
     orderKeyFetch = { ok: false, reason: 'bootstrap_parallel' };
