@@ -12991,37 +12991,39 @@ if (!isRedeem) {
         });
         document.getElementById('merchant-images-save')?.addEventListener('click', function () {
           var saveEl = document.getElementById('merchant-images-save');
-          saveEl.disabled = true;
           var logoC = (document.getElementById('merchant-logo-color') && document.getElementById('merchant-logo-color').value) || '#fff4e6';
           var coverC = (document.getElementById('merchant-cover-color') && document.getElementById('merchant-cover-color').value) || '#fff4e6';
-          posRunSheetMutation_({
-            gasMethod: 'saveMerchantImagesData',
-            gasArgs: [pendingMerchantLogo || '', pendingMerchantCover || '', logoC, coverC],
-            postBody: {
-              action: 'saveMerchantImages',
-              logoImage: pendingMerchantLogo || '',
-              coverImage: pendingMerchantCover || '',
-              logoColor: logoC,
-              coverColor: coverC
-            }
-          }).then(function (res) {
-            saveEl.disabled = false;
-            if (res && res.result === 'success') {
-              posSwalToastSuccess('商家圖片已儲存', 2200);
-              cachedMerchantImagesSnapshot = {
-                logoImage: (pendingMerchantLogo || '').toString(),
-                coverImage: (pendingMerchantCover || '').toString(),
-                logoColor: String(logoC).trim(),
-                coverColor: String(coverC).trim()
-              };
-              closeMerchantImagesModal();
-            } else {
-              posSwalAlert('儲存失敗：' + (res && (res.message || res.msg) ? (res.message || res.msg) : JSON.stringify(res || {})), 'error');
-            }
-          }).catch(function (err) {
-            saveEl.disabled = false;
-            posSwalAlert('儲存失敗：' + (err.message || err), 'error');
-          });
+          var snapshotBefore = cachedMerchantImagesSnapshot ? Object.assign({}, cachedMerchantImagesSnapshot) : null;
+          var nextSnap = {
+            logoImage: (pendingMerchantLogo || '').toString(),
+            coverImage: (pendingMerchantCover || '').toString(),
+            logoColor: String(logoC).trim(),
+            coverColor: String(coverC).trim()
+          };
+          cachedMerchantImagesSnapshot = nextSnap;
+          closeMerchantImagesModal();
+          posSwalToastSuccess('商家圖片已儲存', 2200);
+          setTimeout(function () {
+            posRunSheetMutation_({
+              gasMethod: 'saveMerchantImagesData',
+              gasArgs: [pendingMerchantLogo || '', pendingMerchantCover || '', logoC, coverC],
+              postBody: {
+                action: 'saveMerchantImages',
+                logoImage: pendingMerchantLogo || '',
+                coverImage: pendingMerchantCover || '',
+                logoColor: logoC,
+                coverColor: coverC
+              }
+            }).then(function (res) {
+              if (!res || res.result !== 'success') {
+                cachedMerchantImagesSnapshot = snapshotBefore;
+                posSwalAlert('儲存失敗：' + (res && (res.message || res.msg) ? (res.message || res.msg) : JSON.stringify(res || {})), 'error');
+              }
+            }).catch(function (err) {
+              cachedMerchantImagesSnapshot = snapshotBefore;
+              posSwalAlert('儲存失敗：' + (err.message || err), 'error');
+            });
+          }, 0);
         });
 
         function bindMerchantFilePick(inputId, mode, opts) {
