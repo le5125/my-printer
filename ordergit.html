@@ -1567,7 +1567,7 @@
 <div id="closed-overlay">
   <div style="font-size: 3.29144rem;">🚫</div>
   <div id="closed-title" style="font-size: 2.37712rem;font-weight:900;color:white;margin-top:1.1429rem;">今日公休</div>
-  <div id="closed-sub" style="font-size: 2.01144rem;color:rgba(255,255,255,.65);margin-top:0.7143rem;max-width:20rem;line-height:1.6;"></div>
+  <div id="closed-sub" style="font-size: 2.01144rem;color:rgba(255,255,255,.65);margin-top:0.7143rem;max-width:20rem;line-height:1.6;white-space:pre-line;"></div>
 </div>
 
 <div id="hero-banner">
@@ -4392,7 +4392,7 @@ function showClosedOverlay() {
       : '今日為指定公休日';
   } else {
     document.getElementById('closed-title').textContent = '休息中';
-    document.getElementById('closed-sub').textContent   = `營業時間：${merchantInfo.businessHours || '--'}`;
+    document.getElementById('closed-sub').textContent   = `營業時間\n${merchantInfo.businessHours || '--'}`;
   }
   document.getElementById('closed-overlay').classList.add('show');
 }
