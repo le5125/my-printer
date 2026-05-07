@@ -4172,6 +4172,43 @@ function normalizeFixedClosedDays(src) {
   return [];
 }
 
+function orderPad2_(n) {
+  n = Number(n);
+  if (isNaN(n)) n = 0;
+  return n < 10 ? '0' + n : String(n);
+}
+/** 本機日曆 YYYY-MM-DD（休假日比對優先用，避免 toISOString 用 UTC 日期錯一天） */
+function orderLocalYmd_(d) {
+  var x = d instanceof Date ? d : new Date(d);
+  if (isNaN(x.getTime())) x = new Date();
+  return x.getFullYear() + '-' + orderPad2_(x.getMonth() + 1) + '-' + orderPad2_(x.getDate());
+}
+/** 後端休假日可能為 2026/5/7 或 2026-05-07，正規成 YYYY-MM-DD */
+function orderNormalizeHolidayDateStr_(raw) {
+  var s = String(raw == null ? '' : raw).trim();
+  if (!s) return '';
+  s = s.replace(/[／．\.]/g, '-');
+  var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return m[1] + '-' + orderPad2_(m[2]) + '-' + orderPad2_(m[3]);
+  return s;
+}
+function orderIsHolidayDateMatchToday_(today) {
+  var localY = orderLocalYmd_(today);
+  var utcY = today.toISOString().split('T')[0];
+  for (var i = 0; i < holidayList.length; i++) {
+    var k = orderNormalizeHolidayDateStr_(holidayList[i]);
+    if (k && (k === localY || k === utcY)) return true;
+  }
+  return false;
+}
+function orderIsFixedClosedToday_(today) {
+  return fixedClosedDays.indexOf(getTodayWeekLabel(today)) >= 0;
+}
+/** 指定公休日／休假日／固定週休 — 優先於營業時段與 status */
+function orderIsVacationOrFixedClosedToday_(today) {
+  return orderIsHolidayDateMatchToday_(today) || orderIsFixedClosedToday_(today);
+}
+
 let toastTimer = null;
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -4335,14 +4372,8 @@ async function loadMerchantInfo() {
 }
 
 function checkBusinessStatus() {
-  const today    = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-  const localStr = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().split('T')[0];
-  const todayWeekLabel = getTodayWeekLabel(today);
-
-  const isHolidayClosed = holidayList.includes(todayStr) || holidayList.includes(localStr);
-  const isFixedClosed   = fixedClosedDays.includes(todayWeekLabel);
-  if (isHolidayClosed || isFixedClosed) return true;
+  const today = new Date();
+  if (orderIsVacationOrFixedClosedToday_(today)) return true;
 
   const rawHours = (merchantInfo.businessHours || '')
     .replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30))
@@ -4377,13 +4408,11 @@ function updateStatusDisplay() {
 }
 
 function showClosedOverlay() {
-  const today    = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-  const localStr = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+  const today = new Date();
   const todayWeekLabel = getTodayWeekLabel(today);
 
-  const isHolidayClosed = holidayList.includes(todayStr) || holidayList.includes(localStr);
-  const isFixedClosed   = fixedClosedDays.includes(todayWeekLabel);
+  const isHolidayClosed = orderIsHolidayDateMatchToday_(today);
+  const isFixedClosed   = orderIsFixedClosedToday_(today);
 
   if (isHolidayClosed || isFixedClosed) {
     document.getElementById('closed-title').textContent = '今日公休';
