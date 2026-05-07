@@ -8767,7 +8767,11 @@ function _posParseStyledLines_(rawText, baseFc) {
 }
 
 /** 商品標籤 {空行}：以「一行文字行高」為基準的比例（0.35～0.7 常見；1=整行高） */
-var POS_LABEL_BLANK_LINE_FRAC = 0.5;
+var POS_LABEL_BLANK_LINE_FRAC = 0.8;
+/** 商品標籤即時預覽：每一模板行下方的加碼間距（px），0=維持現狀；例如 4～8 可拉開品名與選項（列印不受影響） */
+var POS_LABEL_PREVIEW_LINE_GAP_PX = 0;
+/** 商品標籤即時預覽：文字行高縮放，1=原本；0.85～0.92 行距變緊（無 {空行} 時改這個；列印不受影響） */
+var POS_LABEL_PREVIEW_TEXT_LH_FRAC = 0.5;
 function _posLabelBlankLinePx_(fontCfg) {
   var fc = fontCfg || { size: 'small', bold: false };
   var o = _posFontSizeToken_((fc && fc.size) || 'small');
@@ -8797,6 +8801,13 @@ function _posStyledLinesToHtml_(styledLines, opts) {
       inner = segs.map(function (s) {
         const fs = _posFontSizeToken_(s.size);
         var lh = Math.max(Math.round(fs.previewPx * 1.22), fs.previewPx + 4);
+        if (opts.isLabelBlock && typeof POS_LABEL_PREVIEW_TEXT_LH_FRAC === 'number' && !isNaN(POS_LABEL_PREVIEW_TEXT_LH_FRAC)) {
+          var _lhf = POS_LABEL_PREVIEW_TEXT_LH_FRAC;
+          if (_lhf < 0.35) _lhf = 0.35;
+          if (_lhf > 1.4) _lhf = 1.4;
+          lh = Math.round(lh * _lhf);
+          lh = Math.max(fs.previewPx, lh);
+        }
         const style =
           'font-size:' + fs.previewPx + 'px;' +
           'font-weight:' + (s.bold ? 700 : 400) + ';' +
@@ -8805,7 +8816,13 @@ function _posStyledLinesToHtml_(styledLines, opts) {
         return '<span style="' + style + '">' + esc(s.text) + '</span>';
       }).join('');
     }
-    return '<div class="pos-print-preview-line" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:0">' + inner + '</div>';
+    var lineGapExtra = 0;
+    if (opts.isLabelBlock && typeof POS_LABEL_PREVIEW_LINE_GAP_PX === 'number' && !isNaN(POS_LABEL_PREVIEW_LINE_GAP_PX)) {
+      lineGapExtra = Math.max(0, POS_LABEL_PREVIEW_LINE_GAP_PX);
+    }
+    var rowStyleBase = 'white-space:pre-wrap;word-break:break-word;margin:0 0 ' + lineGapExtra + 'px 0;padding:0';
+    if (opts.isLabelBlock) rowStyleBase += ';line-height:1';
+    return '<div class="pos-print-preview-line" style="' + rowStyleBase + '">' + inner + '</div>';
   }).join('');
 }
 function _posAddonNamesFromProduct_(p) {
@@ -9603,6 +9620,9 @@ window.__initPrintSettingsUi_ = (function () {
     var yTopExtraPx = rowHDotsFirst > 0
       ? (Math.max(0, ys) / rowHDotsFirst) * lhFirst
       : 0;
+    /** 只影響「即時預覽」頂距：1＝用上面算出來的值；0.5＝剩一半（內容往上靠）；列印不變 */
+    var POS_LABEL_PREVIEW_TOP_SCALE = 0.2;
+    yTopExtraPx *= POS_LABEL_PREVIEW_TOP_SCALE;
 
     const fs = _posFontSizeToken_(fc.size);
 
@@ -9624,7 +9644,7 @@ window.__initPrintSettingsUi_ = (function () {
     f.style.setProperty('--label-h', String(h));
     f.style.fontSize = fs.previewPx + 'px';
     f.style.fontWeight = fc.bold ? '700' : '400';
-    f.style.lineHeight = '1.35';
+    f.style.lineHeight = '1';
     f.style.paddingTop = Math.max(2, yTopExtraPx) + 'px';
     f.style.paddingRight = '8px';
     f.style.paddingBottom = '6px';
