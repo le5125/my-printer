@@ -2770,10 +2770,15 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
                    class="w-[4.5rem] border border-amber-300 rounded px-2 py-1 text-right" value="30">
             <span class="text-gray-500">mm</span>
           </label>
+          <label class="inline-flex items-center gap-1" title="標籤機第一行字的 Y 起點（dots，約每 mm 8 dots）；數值愈大離上緣愈遠">
+            <span class="text-gray-700 whitespace-nowrap">內容距頂</span>
+            <input type="number" id="label-y-start" min="0" max="200" step="1"
+                   class="w-[4.5rem] border border-amber-300 rounded px-2 py-1 text-right" value="48">
+            <span class="text-gray-500 text-xs">dots</span>
+          </label>
         </div>
         <label class="hidden"><input type="number" id="label-size-gap" min="0" max="25" step="0.5" value="3"></label>
         <label class="hidden"><input type="number" id="label-gap-offset" min="0" max="10" step="0.5" value="0"></label>
-        <label class="hidden"><input type="number" id="label-y-start" min="0" max="200" step="1" value="20"></label>
         <select id="label-font-size" class="hidden" aria-hidden="true"><option value="normal" selected>標準</option></select>
         <input type="checkbox" id="label-font-bold" class="hidden" aria-hidden="true">
 
@@ -3658,7 +3663,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
                 if (!(_go >= 0) || isNaN(_go)) _go = 0;
                 if (_go > 10) _go = 10;
                 var _ys = parseInt(data.labelSize.yStart, 10);
-                if (isNaN(_ys)) _ys = 20;
+                if (isNaN(_ys)) _ys = 48;
                 if (_ys < 0) _ys = 0;
                 if (_ys > 200) _ys = 200;
                 _posLabelSizeCache_ = {
@@ -7575,7 +7580,7 @@ let _posDetailPrintLayoutCache_ = 'telegram';
 let _posLabelSizeCache_ = {
   width: 40, height: 30, gap: 3,
   gapOffset: 0,
-  yStart: 20
+  yStart: 48
 };
 let _posFontCfgCache_   = {
   detail: { size: 'small', bold: false },
@@ -7592,7 +7597,7 @@ function getPosLabelSize_() {
   if (!(go >= 0) || isNaN(go)) go = 0;
   if (go > 10) go = 10;
   var ys = parseInt(_posLabelSizeCache_ && _posLabelSizeCache_.yStart, 10);
-  if (isNaN(ys)) ys = 20;
+  if (isNaN(ys)) ys = 48;
   if (ys < 0) ys = 0;
   if (ys > 200) ys = 200;
   return { width: w, height: h, gap: g, gapOffset: go, yStart: ys };
@@ -7715,7 +7720,7 @@ function applyPrintSettingsBackendPayloadToCaches_(data) {
     if (!(__go >= 0) || isNaN(__go)) __go = 0;
     if (__go > 10) __go = 10;
     var __ys = parseInt(data.labelSize.yStart, 10);
-    if (isNaN(__ys)) __ys = 20;
+    if (isNaN(__ys)) __ys = 48;
     if (__ys < 0) __ys = 0;
     if (__ys > 200) __ys = 200;
     _posLabelSizeCache_ = {
@@ -7770,7 +7775,7 @@ async function savePrintSettingsToBackend_(detailTpl, labelTpl, mode, labelSize,
     if (!(go >= 0) || isNaN(go)) go = 0;
     if (go > 10) go = 10;
     var ys = parseInt(labelSize.yStart, 10);
-    if (isNaN(ys)) ys = 20;
+    if (isNaN(ys)) ys = 48;
     if (ys < 0) ys = 0;
     if (ys > 200) ys = 200;
     body.labelSize = {
@@ -8764,11 +8769,8 @@ function _posParseStyledLines_(rawText, baseFc) {
 function _posLabelBlankLinePx_(fontCfg) {
   var fc = fontCfg || { size: 'small', bold: false };
   var o = _posFontSizeToken_((fc && fc.size) || 'small');
-  var mul = o.tsplScale;
-  var blankRowH = Math.max(3, Math.round(4 * mul + 1));
-  var rowH = 24 * mul + 8;
   var lh = Math.max(Math.round(o.previewPx * 1.22), o.previewPx + 4);
-  return Math.max(2, Math.round(lh * (blankRowH / rowH)));
+  return Math.max(2, Math.round(lh));
 }
 
 function _posStyledLinesToHtml_(styledLines, opts) {
@@ -9406,8 +9408,8 @@ window.__initPrintSettingsUi_ = (function () {
       let go = labelGapOff ? Number(labelGapOff.value) : 0;
       if (!(go >= 0) || isNaN(go)) go = 0;
       if (go > 10) go = 10;
-      let ys = labelYStart ? parseInt(labelYStart.value, 10) : 20;
-      if (isNaN(ys)) ys = 20;
+      let ys = labelYStart ? parseInt(labelYStart.value, 10) : 48;
+      if (isNaN(ys)) ys = 48;
       if (ys < 0) ys = 0;
       if (ys > 200) ys = 200;
       return {
@@ -9522,7 +9524,7 @@ window.__initPrintSettingsUi_ = (function () {
         if (labelH) labelH.value = '30';
         if (labelG) labelG.value = '3';
         if (labelGapOff) labelGapOff.value = '0';
-        if (labelYStart) labelYStart.value = '20';
+        if (labelYStart) labelYStart.value = '48';
         if (lFontSize) lFontSize.value = 'normal';
         if (lFontBold) lFontBold.checked = false;
       } else {
@@ -9551,7 +9553,7 @@ window.__initPrintSettingsUi_ = (function () {
     let go = Number(sizeMm && sizeMm.gapOffset);
     if (!(go >= 0) || isNaN(go)) go = 0;
     let ys = parseInt(sizeMm && sizeMm.yStart, 10);
-    if (isNaN(ys)) ys = 20;
+    if (isNaN(ys)) ys = 48;
     const ord = _posPreviewSampleOrder_();
     const ft = _posFmtTime_(ord.timestamp);
     const sn = _posCurrentStoreName_();
@@ -9593,6 +9595,9 @@ window.__initPrintSettingsUi_ = (function () {
     f.style.fontSize = fs.previewPx + 'px';
     f.style.fontWeight = fc.bold ? '700' : '400';
     f.style.lineHeight = '1.35';
+    const LABEL_PREVIEW_MM_PX = 3.78;
+    const yTopExtraPx = (Math.max(0, ys) / TSPL_DOTS_PER_MM) * LABEL_PREVIEW_MM_PX;
+    f.style.paddingTop = (6 + yTopExtraPx) + 'px';
     const styledLines = _posParseStyledLines_(txt, fc);
     f.innerHTML = _posStyledLinesToHtml_(styledLines, { isLabelBlock: true, fontCfg: fc });
     const meta = document.createElement('div');
@@ -9635,7 +9640,7 @@ window.__initPrintSettingsUi_ = (function () {
     if (lH) lH.value = String(sz.height);
     if (lG) lG.value = String(sz.gap != null ? sz.gap : 3);
     if (lGO) lGO.value = String(sz.gapOffset != null ? sz.gapOffset : 0);
-    if (lYS) lYS.value = String(sz.yStart != null ? sz.yStart : 20);
+    if (lYS) lYS.value = String(sz.yStart != null ? sz.yStart : 48);
     const fc = getPosFontCfg_() || {};
     const fcD = fc.detail || { size: 'small', bold: false };
     const fcL = fc.label  || { size: 'small', bold: false };
@@ -17720,7 +17725,7 @@ function getActiveFontCfg_() {
 function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, gapOffsetMm, yStartDots) {
   const x0 = 10;
   let y0 = parseInt(yStartDots, 10);
-  if (isNaN(y0) || y0 < 0) y0 = 20;
+  if (isNaN(y0) || y0 < 0) y0 = 48;
   if (y0 > 200) y0 = 200;
   const font = TSPL_FONT_ZH;
   const hPhys = Number(heightMm);
@@ -17732,7 +17737,7 @@ function buildLabelTsplBlockFromStyled_(styledLines, widthMm, heightMm, gapMm, g
   const n = styledLines.length;
   const fcBlank = getActiveFontCfg_();
   const blankMul = fontSizeToTsplMul_((fcBlank && fcBlank.size) || 'small');
-  const blankRowH = Math.max(3, Math.round(4 * blankMul + 1));
+  const blankRowH = 24 * blankMul + 8;
   const textCmds = [];
   for (let k = 0; k < n; k++) {
     const segs = styledLines[k] || [];
@@ -17958,7 +17963,7 @@ function ensureTsplForManualPrint_(raw, optsParam) {
     if (!(gapOff >= 0) || isNaN(gapOff)) gapOff = 0;
     if (gapOff > 10) gapOff = 10;
     let yStart = parseInt(sz.yStart, 10);
-    if (isNaN(yStart)) yStart = 20;
+    if (isNaN(yStart)) yStart = 48;
     if (yStart < 0) yStart = 0;
     if (yStart > 200) yStart = 200;
     const MARK = '<<<__POS_LABEL_BREAK__>>>';
@@ -18829,7 +18834,7 @@ function getLabelSize_() {
         if (!(go >= 0) || isNaN(go)) go = 0;
         if (go > 10) go = 10;
         let ys = parseInt(o.yStart, 10);
-        if (isNaN(ys)) ys = 20;
+        if (isNaN(ys)) ys = 48;
         if (ys < 0) ys = 0;
         if (ys > 200) ys = 200;
         return {
@@ -18842,7 +18847,7 @@ function getLabelSize_() {
       }
     }
   } catch (e) { /* 略 */ }
-  return { width: 40, height: 30, gap: 3, gapOffset: 0, yStart: 20 };
+  return { width: 40, height: 30, gap: 3, gapOffset: 0, yStart: 48 };
 }
 
 function getFontConfig_() {
@@ -19630,7 +19635,7 @@ async function syncPrintSettingsFromBackend_() {
       if (!(go >= 0) || isNaN(go)) go = 0;
       if (go > 10) go = 10;
       let ys = parseInt(data.labelSize.yStart, 10);
-      if (isNaN(ys)) ys = 20;
+      if (isNaN(ys)) ys = 48;
       if (ys < 0) ys = 0;
       if (ys > 200) ys = 200;
       localStorage.setItem(LS_LABEL_SIZE, JSON.stringify({
