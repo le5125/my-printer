@@ -11,16 +11,9 @@
   } catch (e) {}
 })();
 </script>
-<!-- GitHub／LINE：請用 ?id= 或 ?mid= GAS 部署 ID -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>線上點餐</title>
-<!--
-  ordergit.html（GitHub Pages 單檔版）— 與 GAS 版 order.html 同源流程，差異在部署與部分樣式變數。
-  LIFF：LIFF ID 由後端讀取試算表「認證碼」I2（勿寫死）；空白則不啟用 LIFF。
-  為 LINE WebView 效能：不使用 Tailwind CDN（整頁 JIT 極慢）；樣式以本檔 <style> 為主。
-  主程式：DOMContentLoaded → bootstrapOrder → init → renderMenu。
--->
 <link rel="dns-prefetch" href="https://script.google.com">
 <link rel="preconnect" href="https://script.google.com" crossorigin>
 <script>
@@ -37,8 +30,7 @@
 <script defer src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
   :root {
-    /* LIFF／系統 WebView 易覆寫 CSS 變數，!important 固定品牌色備援；後台 menuColors 會再以 inline !important 更新 */
-    --panda: #D70464 !important;
+        --panda: #D70464 !important;
     --panda-dark: #b50353 !important;
     --panda-light: rgba(215, 4, 100, 0.1) !important;
     -webkit-text-size-adjust: 100%;
@@ -47,8 +39,7 @@
 
   * { box-sizing: border-box; }
 
-  /* GitHub 流動式：根字級與 order.html（瀏覽器預設／Tailwind 基準）一致為 16px；勿對 body 設 overflow-x:hidden，以免 sticky 失效 */
-  html, body {
+    html, body {
     font-size: 16px;
     margin: 0;
     padding: 0;
@@ -72,13 +63,11 @@
   body button, body input, body textarea, body select {
     font-weight: 500;
   }
-  /* SweetAlert／表單插件：標題略粗即可，勿整頁等同 order.html 會員彈窗的極粗字 */
-  .swal2-popup, .swal2-title, .swal2-html-container, .swal2-input, .swal2-textarea {
+    .swal2-popup, .swal2-title, .swal2-html-container, .swal2-input, .swal2-textarea {
     font-weight: 500 !important;
   }
 
-  /* 通用容器：寬 90%、上限 360px（內文區置中；全螢幕底層抽屜另於內層約束） */
-  .ordergit-ui-panel-inner {
+    .ordergit-ui-panel-inner {
     width: 90%;
     max-width: 360px;
     margin-left: auto;
@@ -90,8 +79,7 @@
     z-index: 12000 !important;
   }
 
-  /* 所有標示為 .modal-content 的 SweetAlert：與手機彈窗同寬、左右留白 */
-  .swal2-popup.modal-content {
+    .swal2-popup.modal-content {
     width: 90% !important;
     max-width: 360px !important;
     min-width: unset !important;
@@ -99,8 +87,7 @@
     box-sizing: border-box !important;
   }
 
-  /* 會員彈窗：SweetAlert 用 .order-member-swal-popup + .modal-content */
-  .order-member-swal-popup.modal-content,
+    .order-member-swal-popup.modal-content,
   .modal-content.order-member-swal-popup,
   .order-member-swal-popup {
     width: 90% !important;
@@ -147,8 +134,7 @@
     flex: 1 1 auto !important;
   }
 
-  /* 預約抽屜內容區置中並不超過 360px */
-  #resv-drawer .resv-d-header,
+    #resv-drawer .resv-d-header,
   #resv-drawer .resv-d-body {
     width: 90%;
     max-width: 360px;
@@ -156,8 +142,7 @@
     margin-right: auto;
     box-sizing: border-box;
   }
-  /* 購物車抽屜：滿寬（僅依區塊自身 padding 留白，避免過窄） */
-  #cart-drawer .cart-header,
+    #cart-drawer .cart-header,
   #cart-drawer .cart-content-pad,
   #cart-drawer .sheet-footer {
     width: 100%;
@@ -167,26 +152,19 @@
     box-sizing: border-box;
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     GitHub：進場動畫結束後的首頁骨架（Hero → 分類 Tab → 商品網格）
-     全寬、overflow-x 由 body 控制；與 #menu-loading 分層
-     ═══════════════════════════════════════════════════════════ */
-  /* ════ Hero Banner（高度再縮約 1/5；logo／店名／營業狀態放大 1.5×）════ */
-  #hero-banner {
+      #hero-banner {
     height: clamp(8.8rem, 28vh, 22.5rem);
     background: linear-gradient(135deg, #1a0a10 0%, #3d0622 40%, #D70464 100%);
     position: relative; overflow: hidden;
     transition: height 0.35s cubic-bezier(.4,0,.2,1);
-    /* 右上角圖示：與 GAS 同級小圓鈕，供 calc(right) 共用 */
-    --hero-icon-size: 3rem;
+        --hero-icon-size: 3rem;
     --hero-icon-gap-x: 0.5rem;
     --hero-icon-top: 0.5714rem;
     --hero-icon-edge: 0.5714rem;
   }
   #hero-banner.collapsed { height: 0; }
   .hero-img { width:100%; height:100%; object-fit:cover; opacity:.55; position:absolute; inset:0; z-index:1; }
-  /* 無封面圖、僅試算表底色：全幅漸層（與 POS 選色一致） */
-  .hero-color-layer {
+    .hero-color-layer {
     position:absolute; inset:0; z-index:0; pointer-events:none; display:none;
   }
   #hero-banner.hero-has-color {
@@ -196,8 +174,7 @@
   #hero-banner.hero-has-color .hero-overlay {
     background: linear-gradient(to top, rgba(0,0,0,.4) 0%, rgba(0,0,0,.1) 55%, transparent 78%);
   }
-  /* 有上傳封面時：圖片清楚、遮罩僅底部微暗以利文字閱讀 */
-  #hero-banner.hero-has-cover .hero-img { opacity:1; }
+    #hero-banner.hero-has-cover .hero-img { opacity:1; }
   #hero-banner.hero-has-cover .hero-overlay {
     background: linear-gradient(to top, rgba(0,0,0,.45) 0%, rgba(0,0,0,.12) 45%, transparent 75%);
   }
@@ -226,11 +203,9 @@
     display:block;
   }
 
-  /*營業中 */
-  .open-badge { display:inline-flex; align-items:center; gap:0.18rem; background:rgba(255,255,255,.15); color:white; font-size:0.88rem; padding:0.18rem 0.42rem; border-radius:666px; }
+    .open-badge { display:inline-flex; align-items:center; gap:0.18rem; background:rgba(255,255,255,.15); color:white; font-size:0.88rem; padding:0.18rem 0.42rem; border-radius:666px; }
   .dot { width:0.5rem; height:0.5rem; border-radius:50%; background:#4ade80; display:inline-block; flex-shrink:0; }
-  /* 封面字級／logo／營業標：依 14px-root 視覺等比例縮放（抵消 html 18px） */
-  #hero-shop-name {
+    #hero-shop-name {
     font-size: clamp(1.38rem, 4.6vw, 1.92rem);
     font-weight: 900;
     color: #fff;
@@ -241,8 +216,7 @@
   }
   .dot.closed { background:#ef4444; }
 
-  /* ════ Sticky Nav（與 GAS order.html 同款：sticky top:0）════ */
-  #sticky-nav {
+    #sticky-nav {
     position: -webkit-sticky;
     position: sticky;
     top: 0;
@@ -250,16 +224,13 @@
     background: #fff;
     box-shadow: 0 2px 12px rgba(0,0,0,.08);
   }
-  /* 只用 max-height 做滑出動畫，不用 opacity，避免半透明鬼影 */
-  /* ════ Cat Tabs ════ */
-  #cat-tabs {
+      #cat-tabs {
     display:flex; gap:0;
     overflow-x:auto; overflow-y:hidden;
     scroll-behavior:smooth; -webkit-overflow-scrolling:touch;
     scrollbar-width:none;
     border-bottom:2px solid #f0f0f0;
-    /* 防止任何子元素溢出造成上下晃動 */
-    align-items:flex-end;
+        align-items:flex-end;
   }
   #cat-tabs::-webkit-scrollbar { display:none; }
   .cat-tab {
@@ -281,8 +252,7 @@
   }
   .cat-tab:active { transform:scale(.95); }
 
-  /* ════ Menu Section（首頁商品卡：流動寬度、無 px、圖片比例穩定）════ */
-  .menu-section {
+    .menu-section {
     width: 100%;
     max-width: 100%;
     margin: 0 auto;
@@ -298,8 +268,7 @@
     border-bottom: 0.0714rem solid #f0f0f0;
     box-sizing: border-box;
   }
-  /* 與 GAS 一致：手機即雙欄網格 */
-  .menu-grid {
+    .menu-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5em;
@@ -420,8 +389,7 @@
     white-space: nowrap;
     flex-shrink: 0;
   }
-  /* 特價雙價格列較寬時略縮字級，讓 + 與價格維持同一行（對齊一般單價卡） */
-  .menu-card-price:has(.mc-price-sale) {
+    .menu-card-price:has(.mc-price-sale) {
     font-size: 0.95rem;
     gap: 0.2rem 0.4rem;
   }
@@ -471,8 +439,7 @@
     padding-bottom: 3.4286rem;
   }
 
-  /* GitHub：載入結束後才顯示的主內容層（與 #menu-loading 分離，避免倍率問題） */
-  #menu-content {
+    #menu-content {
     width: 100%;
     max-width: 100%;
     margin: 0 auto;
@@ -487,12 +454,10 @@
     transform: translateY(0);
   }
 
-  /* ════ Bottom Sheet（商品抽屜）════ */
-  #sheet-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100; opacity:0; pointer-events:none; transition:opacity .3s; }
+    #sheet-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100; opacity:0; pointer-events:none; transition:opacity .3s; }
   #sheet-overlay.show { opacity:1; pointer-events:all; }
 
-  /* 抽屜本體：幾乎滿版（foodpanda 風格），下滑可關閉 */
-  #bottom-sheet {
+    #bottom-sheet {
     position:fixed; top:3.1429rem; bottom:0; left:0; right:0; background:#fff;
     border-radius:1.7143rem 1.7143rem 0 0; z-index:101;
     transform:translateY(100%);
@@ -506,9 +471,7 @@
 
   .sheet-handle { width:40px; height:4px; background:#e0e0e0; border-radius:2px; margin:12px auto 0; flex-shrink:0; }
 
-  /* 全寬圖片（滿版 cover，允許裁切） */
-  /* 商品介紹頂圖：order.html 為 33vh；再高 1/3 → 約 44vh，並設上限避免超高 */
-  #sheet-img-area {
+      #sheet-img-area {
     width:100%; height:min(44vh, 17rem);
     flex-shrink:0; position:relative; overflow:hidden;
     background:linear-gradient(135deg,#f0f0f0,#e0e0e0);
@@ -521,8 +484,7 @@
     word-break:break-word;
   }
 
-  /* 叉叉固定在 #bottom-sheet 左上角（不隨捲動消失） */
-  .sheet-img-close {
+    .sheet-img-close {
     position:absolute; top:0.65rem; left:0.65rem; z-index:300;
     width:2.5rem; height:2.5rem; border-radius:50%;
     background:rgba(255,255,255,.88);
@@ -534,12 +496,10 @@
   }
   .sheet-img-close:active { background:rgba(255,255,255,1); }
 
-  /* 可捲動內容區（整頁單一捲動，無側邊 padding） */
-  .sheet-scroll { overflow-y:auto; flex:1; padding:0; -webkit-overflow-scrolling:touch; }
+    .sheet-scroll { overflow-y:auto; flex:1; padding:0; -webkit-overflow-scrolling:touch; }
   .sheet-scroll::-webkit-scrollbar { display:none; }
 
-  /* 圖片以下內容的 padding 包裝 */
-  .sheet-content-pad {
+    .sheet-content-pad {
     width: 90%;
     max-width: 360px;
     margin-left: auto;
@@ -548,11 +508,9 @@
     box-sizing: border-box;
   }
 
-  /* 商品資訊區（名稱 / 描述 / 價格） */
-  .sheet-info-block { padding:0.85rem 0 0.65rem; border-bottom:1px solid #f0f0f0; }
+    .sheet-info-block { padding:0.85rem 0 0.65rem; border-bottom:1px solid #f0f0f0; }
 
-  /* 購物車品項提示橫條 */
-  .sheet-cart-hint {
+    .sheet-cart-hint {
     display:flex; align-items:center; justify-content:space-between;
     background:#fce4ef; border-radius:0.65rem;
     padding:0.65rem 0.75rem; margin:0.65rem 0 0.25rem;
@@ -567,8 +525,7 @@
   .sheet-item-price .sh-price-orig { font-size: 0.95rem; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; font-weight:800; }
   .sheet-item-price .sh-price-sale { font-size: 1.1rem; color:#7c3aed; font-weight:900; }
   .sheet-price-note { font-size: 0.82rem; font-weight:700; color:#888; margin-left:0.35rem; }
-  /* 附加選項 */
-  .option-group { margin:1rem 0; }
+    .option-group { margin:1rem 0; }
   .option-group-title { font-size: 1rem; font-weight:700; color:#1a1a1a; display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem; flex-wrap:wrap; }
   .option-group-note { font-size: 0.82rem; font-weight:700; color:#aaa; margin-left:0.15rem; }
   .option-sub { font-size: 0.85rem; color:#aaa; margin-bottom:0.65rem; }
@@ -579,13 +536,11 @@
   .option-checkbox { width:1.65rem; height:1.65rem; border-radius:0.35rem; border:2px solid #ddd; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
   .option-checkbox.checked { border-color: var(--panda) !important; background: var(--panda) !important; }
   .option-checkbox.checked::after { content:'✓'; color:white; font-size: 0.85rem; font-weight:700; }
-  /* 數量控制（商品抽屜） */
-  .qty-control { display:flex; align-items:center; border:2px solid var(--panda); border-radius:999px; overflow:hidden; }
+    .qty-control { display:flex; align-items:center; border:2px solid var(--panda); border-radius:999px; overflow:hidden; }
   .qty-btn { width:2.5rem; height:2.5rem; display:flex; align-items:center; justify-content:center; font-size: 1.15rem; font-weight:300; color:var(--panda); background:transparent; cursor:pointer; transition:background .15s; }
   .qty-btn:active { background:var(--panda-light); }
   .qty-val { font-size: 1rem; font-weight:700; width:2.25rem; text-align:center; color:#1a1a1a; }
-  /* 抽屜底部按鈕 */
-  .sheet-footer { padding:0.85rem 1rem 1.25rem; border-top:1px solid #f0f0f0; background:#fff; flex-shrink:0; }
+    .sheet-footer { padding:0.85rem 1rem 1.25rem; border-top:1px solid #f0f0f0; background:#fff; flex-shrink:0; }
   .add-to-cart-btn {
     width: 100%;
     padding: 0.75rem 1rem;
@@ -615,8 +570,7 @@
   .sheet-qty-row { display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0; border-top:1px solid #f5f5f5; margin-top:0.35rem; }
   .sheet-qty-label { font-size: 1rem; font-weight:700; color:#1a1a1a; }
 
-  /* ════ 抽屜頂部列（handle + 左上角關閉 X）════ */
-  .sheet-topbar {
+    .sheet-topbar {
     position:relative; flex-shrink:0;
     display:flex; align-items:center; justify-content:center;
     padding:12px 20px 6px;
@@ -630,8 +584,7 @@
   }
   .drawer-close-btn:active { background:rgba(0,0,0,.14); }
 
-  /* ════ 購物車抽屜（整頁版）════ */
-  #cart-drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:110; opacity:0; pointer-events:none; transition:opacity .3s; }
+    #cart-drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:110; opacity:0; pointer-events:none; transition:opacity .3s; }
   #cart-drawer-overlay.show { opacity:1; pointer-events:all; }
   #cart-drawer {
     position:fixed; top:3.1429rem; bottom:0; left:0; right:0;
@@ -644,8 +597,7 @@
   }
   #cart-drawer.show { transform:translateY(0); }
 
-  /* 購物車抽屜：按鈕與表單收斂（與首頁比例一致） */
-  #cart-drawer .cart-header {
+    #cart-drawer .cart-header {
     padding: 0.85rem 1rem 0.65rem;
     gap: 0.75rem;
     border-bottom-width: 1px;
@@ -730,16 +682,14 @@
   }
   #cart-drawer .cart-point-discount-hint { font-size: 0.82rem !important; }
 
-  /* 購物車 header（叉叉 + 標題同排） */
-  .cart-header {
+    .cart-header {
     display:flex; align-items:center; gap:20px;
     padding:20px 20px 16px; border-bottom:2px solid #f0f0f0;
     flex-shrink:0;
   }
   .cart-drawer-title { font-size: 2.37712rem; font-weight:900; color:#1a1a1a; }
 
-  /* 首頁右上角：商家／查詢／會員等抽屜 — 標題列縮小（購物車維持原樣） */
-  #store-info-sheet .cart-header,
+    #store-info-sheet .cart-header,
   #order-lookup-sheet .cart-header,
   #member-corner-sheet .cart-header,
   #member-redeem-sheet .cart-header,
@@ -767,18 +717,15 @@
   #member-guide-sheet .cart-drawer-title {
     font-size: 1.15rem;
   }
-  /* 購物車單一捲動區 */
-  .cart-scroll { overflow-y:auto; flex:1; padding:0; -webkit-overflow-scrolling:touch; }
+    .cart-scroll { overflow-y:auto; flex:1; padding:0; -webkit-overflow-scrolling:touch; }
   .cart-scroll::-webkit-scrollbar { display:none; }
   .cart-content-pad { padding:0 20px 20px; }
 
-  /* 購物車品項列（名稱+垃圾桶 一排 / 數量+價錢 一排）*/
-  .cart-item-row { padding:20px 0; border-bottom:1px solid #f0f0f0; }
+    .cart-item-row { padding:20px 0; border-bottom:1px solid #f0f0f0; }
   .cart-item-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
   .cart-item-name  { font-size: 2.37712rem; font-weight:700; color:#1a1a1a; flex:1; }  .cart-item-opts  { font-size: 2.01144rem; color:#888; margin-top:6px; line-height:1.5; }  .cart-item-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:14px; }
   .cart-item-price { font-size: 2.37712rem; font-weight:700; color:var(--panda); display:flex; align-items:baseline; flex-wrap:wrap; justify-content:flex-end; gap:6px 12px; text-align:right; }  .cart-item-price .cart-price-orig { font-size: 1.82856rem; font-weight:700; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; }  .cart-item-price .cart-price-sale { color:#7c3aed; }
-  /* 購物車內：滿額贈等促銷贈品列（字級縮小） */
-  .cart-promo-gift-row { padding:0.65rem 0; border-bottom:1px solid #ede9fe; background:linear-gradient(90deg, rgba(245,243,255,.6) 0%, transparent 100%); }
+    .cart-promo-gift-row { padding:0.65rem 0; border-bottom:1px solid #ede9fe; background:linear-gradient(90deg, rgba(245,243,255,.6) 0%, transparent 100%); }
   .cart-promo-gift-inner { display:flex; align-items:flex-start; gap:0.5rem; padding:0.5rem 0.65rem; border-radius:0.65rem; border:1px solid #ddd6fe; }
   .cart-promo-gift-icon { flex-shrink:0; width:1.75rem; text-align:center; font-size: 1rem; color:#7c3aed; }
   .cart-promo-gift-title { font-size: 0.88rem; font-weight:800; color:#4c1d95; flex:1; min-width:0; line-height:1.35; }
@@ -793,8 +740,7 @@
     width: 100%; font-size: 2.01144rem; font-weight: 700; padding: 14px 16px;    border: 2px solid #ddd; border-radius: 12px; box-sizing: border-box;
   }
   .cart-point-discount-hint { font-size: 1.46288rem; color: #666; margin-top: 10px; line-height: 1.45; }
-  /* 購物車內數量控制器 */
-  .cart-qty-ctrl { display:flex; align-items:center; gap:0; border:3px solid var(--panda); border-radius:50px; overflow:hidden; }
+    .cart-qty-ctrl { display:flex; align-items:center; gap:0; border:3px solid var(--panda); border-radius:50px; overflow:hidden; }
   .cart-qty-btn {
     width:56px; height:56px;
     display:flex; align-items:center; justify-content:center;
@@ -802,8 +748,7 @@
   }
   .cart-qty-btn:active { background:var(--panda-light); }
   .cart-qty-num { font-size: 1.65rem; font-weight:700; width:48px; text-align:center; color:#1a1a1a; }
-  /* 垃圾桶刪除按鈕 */
-  .cart-item-trash {
+    .cart-item-trash {
     width:72px; height:72px; border-radius:50%;
     background:#fee2e2; color:#ef4444;
     display:flex; align-items:center; justify-content:center;
@@ -812,8 +757,7 @@
   .cart-item-trash:active { background:#fca5a5; transform:scale(.9); }
   .cart-item-trash svg { width:40px; height:40px; }
 
-  /* ════ 取餐時間選擇器 ════ */
-  .pickup-time-area {
+    .pickup-time-area {
     background:#f8f8f8; border-radius:16px;
     padding:24px 20px; margin-bottom:16px;
     display:flex; align-items:center; justify-content:space-between;
@@ -827,10 +771,7 @@
     min-width:100px;
   }
   .time-colon { font-size: 2.37712rem; font-weight:900; color:var(--panda); padding:0 4px; }
-  /* ════ 懸浮購物車條 ════ */
-  /* 底部「查看購物車」浮層：字與區塊縮小以免遮版 */
-  /* bottom：在安全區之上再加一段距離，避免貼底被 Home 指示列／瀏覽器工具列遮住；可改 10px～20px */
-  #cart-bar { position:fixed; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); left:0.75rem; right:0.75rem; background:var(--panda) !important; color:#fff !important; border-radius:0.85rem; padding:0.55rem 0.85rem; min-height:0; z-index:90; display:flex; align-items:center; justify-content:space-between; gap:0.5rem; box-shadow:0 4px 18px rgba(215,4,100,.38) !important; cursor:pointer; transform:translateY(120px); opacity:0; transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s; box-sizing:border-box; }
+        #cart-bar { position:fixed; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); left:0.75rem; right:0.75rem; background:var(--panda) !important; color:#fff !important; border-radius:0.85rem; padding:0.55rem 0.85rem; min-height:0; z-index:90; display:flex; align-items:center; justify-content:space-between; gap:0.5rem; box-shadow:0 4px 18px rgba(215,4,100,.38) !important; cursor:pointer; transform:translateY(120px); opacity:0; transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s; box-sizing:border-box; }
   #cart-bar.show   { transform:translateY(0); opacity:1; }
   #cart-bar.bounce { animation:cartBounce .4s cubic-bezier(.34,1.56,.64,1); }
   @keyframes cartBounce { 0%{transform:scale(1)} 40%{transform:scale(1.05)} 70%{transform:scale(.97)} 100%{transform:scale(1)} }
@@ -839,11 +780,9 @@
   .cart-action { font-size: 0.88rem; font-weight:700; color:rgba(255,255,255,.92); display:flex; align-items:center; gap:0.25rem; flex-shrink:0; }
   #cart-bar .cart-inner-row { display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; flex:1; min-width:0; }
   #cart-bar-dinein-pill { font-size:0.82rem !important; font-weight:800; padding:0.2rem 0.5rem !important; }
-  /* ════ Toast ════ */
-  #toast { position:fixed; top:64px; left:50%; transform:translateX(-50%) translateY(-12px); background:#1a1a1a; color:white; padding:0.45rem 1rem; border-radius:999px; font-size:0.95rem; font-weight:700; opacity:0; pointer-events:none; transition:all .3s; z-index:200; white-space:nowrap; max-width:min(92vw, 22rem); overflow:hidden; text-overflow:ellipsis; }  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    #toast { position:fixed; top:64px; left:50%; transform:translateX(-50%) translateY(-12px); background:#1a1a1a; color:white; padding:0.45rem 1rem; border-radius:999px; font-size:0.95rem; font-weight:700; opacity:0; pointer-events:none; transition:all .3s; z-index:200; white-space:nowrap; max-width:min(92vw, 22rem); overflow:hidden; text-overflow:ellipsis; }  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-  /* 金鑰比對失敗等：蓋住整頁，只顯示「系統維修中」 */
-  #order-public-maintenance-layer {
+    #order-public-maintenance-layer {
     position: fixed;
     inset: 0;
     z-index: 10050;
@@ -855,8 +794,7 @@
     padding: max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px));
   }
 
-  /* ════ 進頁載入（版型與 GAS order.html 一致：全螢幕、overflow:hidden、卡車 scale）═══ */
-  #menu-loading {
+    #menu-loading {
     position: fixed;
     inset: 0;
     z-index: 1040;
@@ -880,8 +818,7 @@
     line-height: 1.45;
     margin-top: -8px;
   }
-  /* 卡車面板：標題／副標字級與彼此及與動畫的間距（覆寫上列通用值） */
-  #order-wait-panel-truck .order-wait-title {
+    #order-wait-panel-truck .order-wait-title {
     font-size: clamp(1.2rem, 4.2vw, 1.65rem);
     letter-spacing: 0.05em;
     line-height: 1.25;
@@ -895,8 +832,7 @@
     margin-bottom: 1.25rem;
     max-width: min(520px, 90vw);
   }
-  /* 貨車淺灰底（與 order.html 同款尺寸／動畫） */
-  #order-wait-panel-truck {
+    #order-wait-panel-truck {
     position: absolute;
     inset: 0;
     box-sizing: border-box;
@@ -1028,8 +964,7 @@
     transition: width .25s ease;
   }
 
-  /* ── 等待層：極限點擊小遊戲（取代進度條時顯示）── */
-  .order-wait-game--hidden { display: none !important; }
+    .order-wait-game--hidden { display: none !important; }
   #order-wait-game-root {
     width: min(calc(var(--order-truck-base-width) * var(--order-truck-scale)), 86vw);
     margin-top: 10px;
@@ -1096,8 +1031,7 @@
     color: #6b7280;
   }
 
-  /* ════ 表單輸入框 ════ */
-  .form-input { width:100%; border:2px solid #e0e0e0; border-radius:12px; padding:16px; font-size: 2.37712rem; font-family:inherit; outline:none; transition:border-color .2s; background:#fafafa; }  .form-input:focus { border-color:var(--panda); background:#fff; }
+    .form-input { width:100%; border:2px solid #e0e0e0; border-radius:12px; padding:16px; font-size: 2.37712rem; font-family:inherit; outline:none; transition:border-color .2s; background:#fafafa; }  .form-input:focus { border-color:var(--panda); background:#fff; }
   .form-input.error { border-color:#ef4444; background:#fff5f5; }
   #order-phone.order-phone-locked {
     background:#ecfdf5;
@@ -1105,8 +1039,7 @@
     color:#065f46;
   }
 
-  /* ════ 送出訂單按鈕 ════ */
-  #submit-btn {
+    #submit-btn {
     width: 100%;
     padding: 24px 28px;
     border-radius: 1rem;
@@ -1139,15 +1072,12 @@
   .submit-right { display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
   .submit-qty  { font-size: 1.64568rem; font-weight:700; opacity:.85; }  .submit-price { font-size: 2.37712rem; font-weight:900; }
   .order-dinein-prepay-swal .swal2-title { font-size: 2.37712rem !important; font-weight:900 !important; color:#1a1a1a !important; }  .order-dinein-prepay-swal .swal2-confirm.order-dinein-prepay-swal-btn { font-size: 2.01144rem !important; font-weight:800 !important; padding:18px 40px !important; border-radius:16px !important; }
-  /* ════ 公休遮罩 ════ */
-  #closed-overlay { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.88); display:none; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px; }
+    #closed-overlay { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.88); display:none; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px; }
   #closed-overlay.show { display:flex; }
 
-  /* 底部留白：足夠避開懸浮購物車條即可（勿過大） */
-  .pb-safe { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
+    .pb-safe { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
 
-  /* ════ 封面右上角圖示按鈕（共用樣式，對齊 GAS 小圓鈕） ════ */
-  .hero-icon-btn {
+    .hero-icon-btn {
     position:absolute;
     top: var(--hero-icon-top);
     z-index:10;
@@ -1249,8 +1179,7 @@
   #merchant-promo-ad-text .order-guide-h2 { font-size: 1.05rem; margin: 0.35rem 0 0.5rem; }
   #merchant-promo-ad-text .order-promo-ad-title { margin-top: 0.25rem; }
   #merchant-promo-ad-text .order-guide-line { font-size: 0.88rem; margin-bottom:0.45rem; }
-  /* 預約抽屜：由下往上滑、字級與首頁一致（精簡版） */
-  #resv-drawer {
+    #resv-drawer {
     position:fixed; left:0; right:0; bottom:0; top:auto;
     width:100%; max-width:none; height:min(88vh, 36rem); max-height:88vh;
     border-top-left-radius:1.25rem; border-top-right-radius:1.25rem;
@@ -1368,8 +1297,7 @@
     padding:0.65rem 0.75rem; line-height:1.35;
   }
 
-  /* ════ 會員專區（點餐頁） ════ */
-  #member-corner-overlay {
+    #member-corner-overlay {
     position:fixed; inset:0; background:rgba(0,0,0,.5);
     z-index:125; opacity:0; pointer-events:none; transition:opacity .3s;
   }
@@ -1443,8 +1371,7 @@
   }
   .member-hist-chip:active { background:#fff0f5; }
 
-  /* ════ 商家資訊彈窗 ════ */
-  #store-info-overlay {
+    #store-info-overlay {
     position:fixed; inset:0; background:rgba(0,0,0,.5);
     z-index:110; opacity:0; pointer-events:none; transition:opacity .3s;
   }
@@ -1473,8 +1400,7 @@
   }
   .si-store-promo-btn:active { opacity:.92; }
 
-  /* 每一行資訊 */
-  .si-row {
+    .si-row {
     display:flex; align-items:flex-start; gap:0.85rem;
     padding:1rem 0; border-bottom:1px solid #f2f2f2;
   }
@@ -1485,8 +1411,7 @@
   .si-value { font-size: 0.95rem; color:#1a1a1a; line-height:1.5; font-weight:700; word-break:break-all; }
   .si-value a { color:var(--panda); text-decoration:none; }
 
-  /* ── 全寬地址區塊（Foodpanda 風格）── */
-  .si-addr-block {
+    .si-addr-block {
     padding:1rem 0 0;
     border-top:1px solid #f2f2f2;
   }
@@ -1499,8 +1424,7 @@
     flex:1; font-size: 1.05rem; font-weight:900; color:#1a1a1a; line-height:1.45; word-break:break-all;
   }
 
-  /* 導航按鈕 */
-  .si-nav-btn {
+    .si-nav-btn {
     display:inline-flex; align-items:center; gap:0.35rem;
     background:var(--panda); color:white;
     font-size: 0.92rem; font-weight:700; padding:0.55rem 1.15rem; border-radius:999px;
@@ -1510,8 +1434,7 @@
   }
   .si-nav-btn:active { transform:scale(.95); }
 
-  /* ════ 訂單查詢 overlay + sheet ════ */
-  #order-lookup-overlay {
+    #order-lookup-overlay {
     position:fixed; inset:0; background:rgba(0,0,0,.5);
     z-index:120; opacity:0; pointer-events:none; transition:opacity .3s;
   }
@@ -1537,8 +1460,7 @@
   .ol-block { margin-bottom:1.15rem; }
   .ol-block-title { font-size:1.05rem; font-weight:900; color:#1a1a1a; margin:0 0 0.5rem; letter-spacing:.02em; }
 
-  /* 搜尋欄 */
-  .ol-search-row {
+    .ol-search-row {
     display:flex; flex-wrap:wrap; align-items:stretch;
     gap:0.5rem; margin-bottom:0.65rem;
     background:#fff; border-radius:0.75rem;
@@ -1565,8 +1487,7 @@
   .ol-search-btn:disabled { background:#ccc; box-shadow:none; }
   .ol-search-row .ol-search-btn { text-align:center; justify-content:center; display:inline-flex; align-items:center; }
 
-  /* 訂單卡片 */
-  .ol-card {
+    .ol-card {
     background:#fff; border-radius:0.85rem;
     box-shadow:0 1px 8px rgba(0,0,0,.08);
     padding:1rem; margin-bottom:0.65rem;
@@ -1608,8 +1529,7 @@
     font-size: 0.82rem; color:#aaa; margin-bottom:0.65rem;
   }
 
-  /* 查詢預約區（店家開放線上預約時才顯示） */
-  .ol-resv-block {
+    .ol-resv-block {
     margin-top:0.5rem; padding-top:1rem;
     border-top:1px solid #e5e7eb;
   }
@@ -1633,34 +1553,19 @@
 </style>
 </head>
 <body>
-<!--
-  ╔══════════════════════════════════════════════════════════════════════════╗
-  ║ ordergit.html 頁面結構（可自行搜尋錨點調整）                              ║
-  ╠══════════════════════════════════════════════════════════════════════════╣
-  ║ HERO／封面          → #hero-banner（右上角：預約、會員、查詢、商家資訊）   ║
-  ║ 各種底部抽屜／遮罩   → #store-info-*、#order-lookup-*、會員／預約／活動廣告  ║
-  ║ HERO 下為：分類 sticky → menu-loading（全螢幕）→ menu-content（與 order.html 相同層級） ║
-  ║ 商品介紹            → #bottom-sheet + #sheet-img-area                      ║
-  ║ 購物車抽屜          → #cart-drawer                                         ║
-  ║ 底部浮條            → #cart-bar（開啟購物車）                              ║
-  ╚══════════════════════════════════════════════════════════════════════════╝
--->
 
-<!-- ═══ CLOSED OVERLAY ═══ -->
 <div id="closed-overlay">
   <div style="font-size: 3.29144rem;">🚫</div>
   <div id="closed-title" style="font-size: 2.37712rem;font-weight:900;color:white;margin-top:1.1429rem;">今日公休</div>
   <div id="closed-sub" style="font-size: 2.01144rem;color:rgba(255,255,255,.65);margin-top:0.7143rem;max-width:20rem;line-height:1.6;"></div>
 </div>
 
-<!-- ═══ HERO BANNER ═══ -->
 <div id="hero-banner">
   <img class="hero-img" id="hero-img" src="" alt="" style="display:none;">
   <div id="hero-color-layer" class="hero-color-layer" aria-hidden="true"></div>
   <div class="hero-overlay"></div>
 
-  <!-- 視覺由右→左：商家｜查詢｜本桌｜會員｜預約（會員說明僅自會員專區內開啟） -->
-  <button id="reservation-corner-btn" class="hero-icon-btn" style="display:none;" onclick="openReservationDrawer()" aria-label="線上預約">
+    <button id="reservation-corner-btn" class="hero-icon-btn" style="display:none;" onclick="openReservationDrawer()" aria-label="線上預約">
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="4" width="18" height="18" rx="2"/>
       <line x1="16" y1="2" x2="16" y2="6"/>
@@ -1717,10 +1622,8 @@
   </div>
 </div>
 
-<!-- ═══ STORE INFO OVERLAY ═══ -->
 <div id="store-info-overlay" onclick="closeStoreInfo()"></div>
 
-<!-- ═══ STORE INFO SHEET ═══ -->
 <div id="store-info-sheet">
   <div class="cart-header">
     <div class="drawer-close-btn" onclick="closeStoreInfo()" style="position:static;transform:none;flex-shrink:0;">✕</div>
@@ -1728,15 +1631,12 @@
   </div>
   <div class="store-info-scroll" id="store-info-scroll">
     <div class="store-info-pad" id="store-info-content">
-      <!-- 動態填入 -->
-    </div>
+          </div>
   </div>
 </div>
 
-<!-- ═══ ORDER LOOKUP OVERLAY ═══ -->
 <div id="order-lookup-overlay" onclick="closeOrderLookup()"></div>
 
-<!-- ═══ ORDER LOOKUP SHEET ═══ -->
 <div id="order-lookup-sheet">
   <div class="cart-header">
     <div class="drawer-close-btn" onclick="closeOrderLookup()" style="position:static;transform:none;flex-shrink:0;">✕</div>
@@ -1770,7 +1670,6 @@
   </div>
 </div>
 
-<!-- ═══ 店內座號：我的清單 ═══ -->
 <div id="dinein-my-list-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:115;" onclick="orderCloseDineInMyList_()"></div>
 <div id="dinein-my-list-sheet" style="display:none;position:fixed;left:0;right:0;bottom:0;top:auto;height:72vh;max-height:90vh;background:#fff;border-radius:24px 24px 0 0;z-index:116;box-shadow:0 -8px 40px rgba(0,0,0,.18);flex-direction:column;">
   <div class="cart-header">
@@ -1785,7 +1684,6 @@
   </div>
 </div>
 
-<!-- ═══ MEMBER CORNER SHEET ═══ -->
 <div id="member-corner-overlay" onclick="closeMemberCornerSheet()"></div>
 <div id="member-corner-sheet">
   <div class="cart-header">
@@ -1797,7 +1695,6 @@
   </div>
 </div>
 
-<!-- 會員專區：可兌換品項（子抽屜） -->
 <div id="member-redeem-overlay" class="member-sub-overlay" onclick="closeMemberRedeemDrawer_()"></div>
 <div id="member-redeem-sheet" class="member-sub-sheet">
   <div class="cart-header">
@@ -1809,7 +1706,6 @@
   </div>
 </div>
 
-<!-- 會員專區：點數紀錄（子抽屜） -->
 <div id="member-hist-overlay" class="member-sub-overlay" onclick="closeMemberHistDrawer_()"></div>
 <div id="member-hist-sheet" class="member-sub-sheet">
   <div class="cart-header">
@@ -1853,12 +1749,10 @@
   </div>
 </div>
 
-<!-- ═══ STICKY NAV（與 order.html 同款層級）═══ -->
 <div id="sticky-nav">
   <div id="cat-tabs"></div>
 </div>
 
-<!-- ═══ MENU LOADING（全螢幕；會員比對 Swal 疊於其上） ═══ -->
 <div id="menu-loading" role="status" aria-live="polite" aria-busy="true">
   <div id="order-wait-panel-truck" hidden aria-hidden="true">
     <div class="order-wait-title">請稍等</div>
@@ -1908,44 +1802,32 @@
   </div>
 </div>
 
-<!-- ═══ MENU CONTENT：菜單區塊由 renderMenu() 填入 ═══ -->
 <div id="menu-content" class="pb-safe" style="display:none;"></div>
 
-<!-- ═══ BOTTOM SHEET OVERLAY ═══ -->
 <div id="sheet-overlay" onclick="closeSheet()"></div>
 
-<!-- ═══ BOTTOM SHEET ═══ -->
 <div id="bottom-sheet">
 
-  <!-- 叉叉固定於 sheet 左上角，不隨捲動移動 -->
-  <div class="sheet-img-close" onclick="closeSheet()">✕</div>
+    <div class="sheet-img-close" onclick="closeSheet()">✕</div>
 
-  <!-- 整頁單一捲動區（圖片 + 資訊全部在此） -->
-  <div class="sheet-scroll" id="sheet-scroll-area">
+    <div class="sheet-scroll" id="sheet-scroll-area">
 
-    <!-- 全寬商品圖片 -->
-    <div id="sheet-img-area"></div>
+        <div id="sheet-img-area"></div>
 
-    <!-- 圖片以下：有 padding 的內容區 -->
-    <div class="sheet-content-pad">
+        <div class="sheet-content-pad">
 
-      <!-- 購物車提示（圖片正下方、商品名稱上方） -->
-      <div id="sheet-cart-hint" style="display:none;"></div>
+            <div id="sheet-cart-hint" style="display:none;"></div>
 
-      <!-- 商品名稱 / 描述 / 費用 -->
-      <div class="sheet-info-block" id="sheet-info-area"></div>
+            <div class="sheet-info-block" id="sheet-info-area"></div>
 
-      <!-- 附加選項 -->
-      <div id="sheet-options"></div>
+            <div id="sheet-options"></div>
 
-      <!-- 品項備註 -->
-      <div class="sheet-note-block">
+            <div class="sheet-note-block">
         <label class="sheet-note-label">品項備註</label>
         <input id="sheet-note" type="text" placeholder="例：不要香菜、少辣..." class="form-input sheet-note-input">
       </div>
 
-      <!-- 數量 -->
-      <div class="sheet-qty-row">
+            <div class="sheet-qty-row">
         <span class="sheet-qty-label">數量</span>
         <div class="qty-control">
           <div class="qty-btn" onclick="changeQty(-1)">−</div>
@@ -1957,8 +1839,7 @@
     </div><!-- /.sheet-content-pad -->
   </div><!-- /.sheet-scroll -->
 
-  <!-- 加入購物車按鈕（固定在底部） -->
-  <div class="sheet-footer">
+    <div class="sheet-footer">
     <div class="add-to-cart-btn" onclick="addToCart()" id="cart-btn">
       <span>加入購物車</span>
       <span id="cart-btn-price">NT$0</span>
@@ -1966,13 +1847,10 @@
   </div>
 </div>
 
-<!-- ═══ CART DRAWER OVERLAY ═══ -->
 <div id="cart-drawer-overlay" onclick="closeCartDrawer()"></div>
 
-<!-- ═══ CART DRAWER ═══ -->
 <div id="cart-drawer">
-  <!-- 叉叉 + 購物車 同排 header -->
-  <div class="cart-header">
+    <div class="cart-header">
     <div class="drawer-close-btn" onclick="closeCartDrawer()" style="position:static;transform:none;flex-shrink:0;">✕</div>
     <div style="display:flex;align-items:center;gap:20px;flex:1;flex-wrap:wrap;min-width:0;">
       <div class="cart-drawer-title" style="margin:0;">購物車</div>
@@ -1980,11 +1858,9 @@
     </div>
   </div>
 
-  <!-- 整頁單一捲動（品項 + 時間 + 表單） -->
-  <div class="cart-scroll" id="cart-scroll-area">
+    <div class="cart-scroll" id="cart-scroll-area">
     <div class="cart-content-pad">
-      <!-- 品項列表 -->
-      <div id="cart-items-list"></div>
+            <div id="cart-items-list"></div>
 
       <div id="cart-point-discount-block" class="cart-point-discount-block" style="display:none;">
         <span class="cpd-label">點數折抵金額（NT$）</span>
@@ -1993,8 +1869,7 @@
         <div id="cart-point-discount-hint" class="cart-point-discount-hint"></div>
       </div>
 
-      <!-- 取餐時間 -->
-      <div class="pickup-time-area" style="margin-top:20px;">
+            <div class="pickup-time-area" style="margin-top:20px;">
         <span class="pickup-time-label">🕐 取餐時間</span>
         <div class="pickup-time-selects">
           <select id="pickup-hour" class="time-select"></select>
@@ -2003,8 +1878,7 @@
         </div>
       </div>
 
-      <!-- 電話（必填）；店內模式由 CSS .cart-order-phone-block 隱藏，改由後端合成電話 -->
-      <div class="cart-order-phone-block" style="margin-bottom:16px;">
+            <div class="cart-order-phone-block" style="margin-bottom:16px;">
         <label style="font-size: 1.2rem;font-weight:700;color:#555;display:block;margin-bottom:8px;">
           聯絡電話 <span style="color:var(--panda);">*必填</span>
         </label>
@@ -2012,16 +1886,14 @@
                oninput="this.classList.remove('error')">
       </div>
 
-      <!-- 整筆備註 -->
-      <div style="margin-bottom:20px;">
+            <div style="margin-bottom:20px;">
         <label style="font-size: 1.2rem;font-weight:700;color:#555;display:block;margin-bottom:8px;">整筆訂單備註（選填）</label>
         <input id="order-notes" type="text" placeholder="特殊要求..." class="form-input">
       </div>
     </div>
   </div>
 
-  <!-- 固定底部：送出按鈕 -->
-  <div class="sheet-footer">
+    <div class="sheet-footer">
     <div id="submit-btn" onclick="submitOrder()">
       <span id="submit-btn-label">確認送出訂單</span>
       <div class="submit-right">
@@ -2032,7 +1904,6 @@
   </div>
 </div>
 
-<!-- ═══ FLOATING CART BAR ═══ -->
 <div id="cart-bar">
   <div class="cart-inner-row">
     <div class="cart-badge" id="cart-count">0</div>
@@ -2042,34 +1913,16 @@
   <div class="cart-action">查看訂單 →</div>
 </div>
 
-<!-- ═══ TOAST ═══ -->
 <div id="toast">✓ 已加入購物車</div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════════════════
-// ordergit.html — GitHub Pages 獨立消費者點餐頁（單一 HTML）
-//
-// 啟動：DOMContentLoaded → bootstrapOrder()；網址須帶 ?id= 或 ?mid=（GAS 部署 ID）
-//
-// 模組速查（搜尋函名即可跳到實作）：
-//   · WebApp / 金鑰：orderWebAppGetActionUrl_、orderFetchJsonFromAction_、bootstrapOrder
-//   · 菜單：loadMenuData_、renderMenu、scrollToSection、allProducts
-//   · 商品抽屜：openSheet、closeSheet、addToCart、bottom-sheet
-//   · 購物車：cartItems、openCartDrawer、submit_order、#cart-drawer
-//   · 會員闸道：orderRunMemberGate_（首屏後背景）、orderKickMemberGateBackgroundOnce_
-//   · 促銷／廣告：orderGetStorePromotionsFetchOnce_、orderFillAndShowMerchantPromoAdDrawer_
-//   · 預約：openReservationDrawer、refreshReservationCornerVisibility_（檔末第二段 script）
-//   · 載入 UI：orderWaitShowTruck_、#menu-loading、#order-wait-panel-truck
-// ═══════════════════════════════════════════════════════════════════════════
 var __ORDERGIT_STANDALONE__ = true;
 let currentWebAppUrl = '';
-/** 本頁為消費者線上點餐：內建金鑰取得失敗、或後端金鑰比對（checkClientKey）未通過時，畫面僅顯示此句（細節只打 console） */
 var ORDER_PUBLIC_MAINTENANCE_MESSAGE_ = '系統維修中';
 var orderBuiltInClientKeyCache_ = '';
 function orderGetClientKey_() {
   return String(orderBuiltInClientKeyCache_ || '').trim();
 }
-/** 消費者端：GET action 網址（Web App 網址若已含 query 則用 & 接續 action） */
 function orderWebAppGetActionUrl_(action, extraQuery) {
   var u = (typeof currentWebAppUrl === 'string') ? currentWebAppUrl.trim().replace(/\?+$/, '') : '';
   if (!u || !action) return '';
@@ -2080,7 +1933,6 @@ function orderWebAppGetActionUrl_(action, extraQuery) {
   }
   return u + sep + q;
 }
-/** GitHub：GET 後強制 text→JSON，避免非 JSON 時 .json() 拋錯 */
 function orderFetchJsonFromAction_(action, extraQuery) {
   var u = orderWebAppGetActionUrl_(action, (extraQuery ? String(extraQuery).replace(/^&+/, '') + '&' : '') + '_=' + Date.now());
   if (!u) return Promise.resolve(null);
@@ -2094,7 +1946,6 @@ function orderFetchJsonFromAction_(action, extraQuery) {
       }
     });
 }
-/** @returns {Promise<{ok:boolean, reason?: string}>} */
 async function orderFetchBuiltInClientKey_(opts) {
   opts = opts || {};
   if (!opts.force && orderGetClientKey_()) return { ok: true };
@@ -2118,7 +1969,6 @@ async function orderFetchBuiltInClientKey_(opts) {
   return { ok: false, reason: 'fetch_fail' };
 }
 
-/** GAS HtmlService：getBuiltInKey + getKeyData，確保 A2 未填時仍可阻擋消費者頁 */
 function orderHydrateBuiltInKeyFromGas_() {
   return new Promise(function (resolve) {
     try {
@@ -2173,7 +2023,6 @@ function orderHydrateBuiltInKeyFromGas_() {
   });
 }
 
-/** @returns {Promise<{ok:boolean, reason?: string, raw?: *}>} */
 async function orderVerifyClientKeyOrFail_v2_() {
   if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
   var ck = orderGetClientKey_();
@@ -2207,7 +2056,6 @@ async function orderVerifyClientKeyOrFail_v2_() {
   }
 }
 
-/** @returns {Promise<{ok:boolean, reason?: string, raw?: *}>} */
 async function orderVerifyClientKeyOrFail_() {
   var v2 = await orderVerifyClientKeyOrFail_v2_();
   if (v2.ok) return v2;
@@ -2241,11 +2089,8 @@ async function orderVerifyClientKeyOrFail_() {
   }
 }
 
-/** 任務二：會員門檻／手機記憶（與 URL ?phone= 同步） */
 var ORDER_MEMBER_PHONE_STORAGE_KEY = 'order_member_phone_v1';
-/** 同瀏覽器工作階段關閉過商家活動廣告後不再自動彈出 */
 var ORDER_PROMO_AD_SESSION_KEY = 'order_merchant_promo_ad_closed_v1';
-/** 1×1 透明圖，避免活動圖 <img> 在關閉後 src 為空導致主控台警告 */
 var ORDER_PROMO_AD_IMG_BLANK_SRC_ = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 var ORDER_GUEST_SKIP_MEMBER_KEY = 'order_guest_no_member_v1';
 var ORDER_WEBAPP_URL_CACHE_KEY = 'order_webapp_url_cache_v1';
@@ -2274,7 +2119,6 @@ function orderLineUserIdLooksValid_(id) {
   return /^U[a-fA-F0-9]{32}$/.test(String(id || '').trim());
 }
 
-/** 僅在將寫入「會員」表或呼叫需 LINE 綁定 API 時使用（一般消費不呼叫） */
 function orderGetLineUserIdForMemberBind_() {
   try {
     var id = String(window.__ORDER_LINE_USER_ID__ || '').trim();
@@ -2289,7 +2133,6 @@ function orderIsLineStubMemberPhone_(raw) {
   return /^088887\d{4}$/.test(p);
 }
 
-/** 點數折抵：一般為輸入手機須與已登入會員手機一致；LIFF 暫存會員時允許首次填入真實手機 */
 function orderCartPointDiscountAllowedPhone_(phone10) {
   var p10 = orderNormalizePhone10_(phone10 || '');
   if (!p10) return false;
@@ -2506,7 +2349,6 @@ function orderWaitGameIsEnabled_() {
   return !!(window.__ORDER_WAIT_GAME_CFG__ && window.__ORDER_WAIT_GAME_CFG__.enabled);
 }
 
-/** 全螢幕載入層與卡車區皆顯示時才允許跑等待遊戲 RAF（與卡車同進同出） */
 function orderWaitLoadingLayerVisibleForGame_() {
   var ml = document.getElementById('menu-loading');
   if (!ml) return false;
@@ -2521,10 +2363,6 @@ function orderWaitLoadingLayerVisibleForGame_() {
   return !!(truck && !truck.hidden && truck.classList.contains('order-wait-truck--on'));
 }
 
-/**
- * 卡車面板開著時：數字進度條與等待遊戲互斥；卡車關著時停止遊戲並隱藏遊戲區。
- * @param {boolean} wasTruckAlreadyVisible 呼叫前卡車是否已經是開啟狀態（供首次開啟時決定是否重開進度計時）
- */
 function orderWaitApplyProgressVsGameUi_(wasTruckAlreadyVisible) {
   var truck = document.getElementById('order-wait-panel-truck');
   var truckOn = !!(truck && !truck.hidden && truck.classList.contains('order-wait-truck--on'));
@@ -2754,7 +2592,6 @@ function orderHeroIconIsVisible_(el) {
   } catch (e) { return false; }
   return true;
 }
-/** 預約鈕在「會員／會員說明」顯示與否時補位，避免沿用舊版 px 或預留空槽 */
 function orderSyncReservationHeroPosition_() {
   var btn = document.getElementById('reservation-corner-btn');
   if (!btn) return;
@@ -2806,10 +2643,6 @@ function orderNormalizePhone10_(raw) {
   return /^\d{10}$/.test(d) ? d : '';
 }
 
-/**
- * 任務三：將合法手機寫入網址列為唯一參數名 phone（10 碼數字），不重新載入頁面。
- * 保留其餘 query 參數；移除重複的 Phone。
- */
 function orderEnsureCanonicalPhoneInUrl_(phone10) {
   if (!phone10 || !/^\d{10}$/.test(phone10)) return;
   if (orderIsLineStubMemberPhone_(phone10)) return;
@@ -2876,7 +2709,6 @@ function orderRedirectToMemberUrl_(phone10) {
   }
 }
 
-/** 自網址移除 phone／Phone 參數（無效手機連結時使用） */
 function orderStripPhoneParamsFromUrl_() {
   try {
     var u = new URL(window.location.href);
@@ -2887,7 +2719,6 @@ function orderStripPhoneParamsFromUrl_() {
   } catch (e) {}
 }
 
-/** 解析後端／JSON 的 enabled（支援布林、字串 FALSE／0 等；無法辨識時回 null） */
 function orderCoerceMemberSystemEnabled_(raw) {
   if (raw === false || raw === 0) return false;
   if (raw === true || raw === 1) return true;
@@ -3110,14 +2941,6 @@ async function orderEnsureMemberStubByLineFromWeb_(lineUserId) {
   }
 }
 
-/**
- * SaaS：Settings.Enable_Member_System 為 FALSE 時略過。
- * 會員開啟時：
- * - LIFF：試算表已有同 LINE_User_ID 且為真實手機 → 自動載入；否則呼叫 ensureMemberStubByLineId 建暫存會員（088887xxxx），首單填真機後由後端升級。
- * - 非 LIFF：localStorage／URL ?phone= 若試算表有該會員則載入；已移除「登入／註冊」Swal。
- * - 會員關閉時：一般點餐畫面。
- * @return {Promise<boolean>} true 表示即將 location.replace，不應再執行 init
- */
 async function orderRunMemberGate_() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) {
     orderWaitShowTruck_('菜單載入中…');
@@ -3125,7 +2948,6 @@ async function orderRunMemberGate_() {
     return false;
   }
   var forceMemberEnabledCheck = !orderMemberEnabledForcedOnce_;
-  // 會員開關：有快取用快取，無快取時以後端結果為準，避免誤走錯流程
   var enabled = await orderFetchMemberSystemEnabled_(forceMemberEnabledCheck);
   orderMemberEnabledForcedOnce_ = true;
   if (!enabled) {
@@ -3137,7 +2959,6 @@ async function orderRunMemberGate_() {
   }
   var __orderLiffGatePromise = orderLiffInitMaybe_();
   orderWaitShowCapybara_();
-  // 會員比對時同步做進頁預載，並與 LIFF 並行，縮短 LINE 登入場景的首屏等待。
   orderEnsureBootPrefetch_();
   await __orderLiffGatePromise;
   var gateProfileCache = Object.create(null);
@@ -3339,13 +3160,9 @@ function orderRetryDomApply(label, isReady, apply, maxTries) {
   tick();
 }
 
-// ════════════════════════════════════════════════════
-// 全域狀態
-// ════════════════════════════════════════════════════
 let allProducts     = [];
 let menuCategories  = [];
 let cartItems       = [];
-/** 線上點餐：點數折抵金額（元），僅在 POS 啟用「折抵消費」且已登入會員時有效 */
 let orderCartPointDiscountNtd = 0;
 try { window.__ORDER_MEMBER_SETTINGS = null; } catch (e) {}
 try { window.__orderMemberPtsForDiscount = null; } catch (e2) {}
@@ -3355,12 +3172,10 @@ let merchantInfo    = {};
 let isBusinessClosed = false;
 let storeData       = null;   // 商家資訊（預載，供秒開彈窗使用）
 
-// Bottom sheet 狀態
 let currentProduct = null;
 let currentQty     = 1;
 let selectedExtras = {};
 
-/** 主餐名稱（全形括號前）；與後端 orderItemMainNameForSort_ 一致 */
 function orderItemMainNameForSort_(it) {
   if (!it) return '';
   const raw = (it.name != null ? String(it.name) : '').trim();
@@ -3368,7 +3183,6 @@ function orderItemMainNameForSort_(it) {
   if (m) return m[1].trim();
   return raw;
 }
-/** 整筆 cart／訂單品項為一體，依主餐名排序（穩定） */
 function sortOrderItemsByMainNameClient_(items) {
   const arr = (items || []).map((it, i) => ({ it, i }));
   arr.sort((a, b) => {
@@ -3380,9 +3194,6 @@ function sortOrderItemsByMainNameClient_(items) {
   return arr.map(x => x.it);
 }
 
-// ════════════════════════════════════════════════════
-// 工具函式
-// ════════════════════════════════════════════════════
 function generateOrderId() {
   const L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', N = '0123456789';
   let r = '';
@@ -3393,9 +3204,6 @@ function generateOrderId() {
 
 function formatPrice(p) { return `NT$${p}`; }
 
-// ════════════════════════════════════════════════════
-// 商家活動（與 POS posMerchantPromo* / posComputeMerchantPromotionsPreview_ 同源）
-// ════════════════════════════════════════════════════
 function orderEscHtml_(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -3438,7 +3246,6 @@ function orderCatalogProductIdFromPromoLine_(it) {
   var ix = s.indexOf('-');
   return orderPromoNormId_(ix === -1 ? s : s.slice(0, ix));
 }
-/** 打折數值：1–10 為折數（9＝九折、8.5＝八五折）；11–100 為應付成數％（90 同九折） */
 function orderPromoPercentPayMultiplier_(v) {
   var x = parseFloat(v);
   if (!isFinite(x) || x <= 0) return 1;
@@ -3446,7 +3253,6 @@ function orderPromoPercentPayMultiplier_(v) {
   if (x <= 100) return x / 100;
   return 1;
 }
-/** 滿額門檻「折後」是否以單品折後合計為準（對齊 amountBasis／thresholdBasis） */
 function orderMerchantPromoRuleUsesPostItemBasis_(rule) {
   if (!rule || typeof rule !== 'object') return false;
   var b = rule.amountBasis != null ? rule.amountBasis : rule.thresholdBasis;
@@ -3645,7 +3451,6 @@ function orderComputeMerchantPromotionsPreview_(items, promo) {
         amountBasis: orderMerchantPromoRuleUsesPostItemBasis_(rule) ? 'postItem' : 'preItem'
       });
     } else if (v > 0 && v <= 100) {
-      // 與單品折扣一致：1~10 視為折數（8 = 8折），11~100 視為應付百分比（80 = 8折）
       orderTotal = Math.round(orderTotal * orderPromoPercentPayMultiplier_(v));
       thresholdOrderApplied.push({
         mode: 'percent',
@@ -3676,7 +3481,6 @@ function orderFmtThresholdFoldDisplay_(v) {
   if (s.indexOf('.') >= 0) s = s.replace(/\.?0+$/, '');
   return '打' + s + '折';
 }
-/** 單條已套用滿額整單說明 */
 function orderFormatOneThresholdOrderApplied_(a) {
   if (!a) return '';
   var th = parseInt(a.threshold, 10) || 0;
@@ -3780,7 +3584,6 @@ function orderSubmitUnitPriceByKey_() {
   }
   return out;
 }
-/** 與送單價格一致之現金小計（整數） */
 function orderSumSubmitItemsCash_() {
   var cfg = orderGetMerchantPromoCfg_();
   var pv = orderGetCartPromoPreview_();
@@ -3859,7 +3662,6 @@ function orderRevalueCartLineUnitPrice_(ci) {
   ci.lineTotal = ci.unitPrice * ci.qty;
 }
 
-/** 促銷試算專用：回到「原始菜單價 + 加購」作為規則基準，避免折上折。 */
 function orderCartLineRawUnitPriceForPromo_(ci) {
   if (!ci || ci.isRedeem) return 0;
   var prod = (allProducts || []).find(function (p) { return p && String(p.id) === String(ci.id); });
@@ -3882,7 +3684,6 @@ function orderRevalueCartItemsForPromo_() {
 
 var __orderStorePromoFetchPromise__ = null;
 
-/** 向後端重新抓取商家活動（含活動圖），避免快取導致圖片舊資料 */
 function orderGetStorePromotionsFetchOnce_() {
   if (__orderStorePromoFetchPromise__) return __orderStorePromoFetchPromise__;
   __orderStorePromoFetchPromise__ = (async function () {
@@ -3916,7 +3717,6 @@ function orderGetStorePromotionsFetchOnce_() {
   return __orderStorePromoFetchPromise__;
 }
 
-/** 已抓過則不重複請求（供 loadMerchantInfo 等）；僅補跑一次 menu 刷新 */
 function orderEnsureStorePromotionsFetchedAtLeastOnce_() {
   if (__orderStorePromoFetchPromise__) return __orderStorePromoFetchPromise_;
   try {
@@ -3945,8 +3745,7 @@ function orderRefreshMenuPricingAfterPromotions_() {
 
 function orderAfterStorePromotionsFetched_() {
   orderRefreshMenuPricingAfterPromotions_();
-  /* 活動廣告：首屏載入已關後再開抽屜（會員／LIFF 改為背景執行） */
-  try {
+    try {
     if (orderInitialReadyState_.loadingClosed) {
       orderPromoAdUiAfterPromotionsPayload_();
     }
@@ -3956,7 +3755,6 @@ function orderAfterStorePromotionsFetched_() {
   } catch (eSi) { /* 略 */ }
 }
 
-/** 進頁時預留：原「載入商家活動…」壳；關閉促銷後不應出現，且首屏改為背景抓取完成後再決定是否開抽屜 */
 function orderPromoAdShowLoadingShell_() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) return;
   if (!orderInitialReadyState_.loadingClosed) return;
@@ -3990,7 +3788,6 @@ function orderPromoAdShowLoadingShell_() {
   try { document.body.style.overflow = 'hidden'; } catch (e2) { /* 略 */ }
 }
 
-/** 活動不存在或僅載入壳時關閉，不寫入「已關閉廣告」session */
 function orderCloseMerchantPromoAdQuiet_() {
   var ov = document.getElementById('merchant-promo-ad-overlay');
   var sh = document.getElementById('merchant-promo-ad-sheet');
@@ -4029,8 +3826,6 @@ function orderPromoAdUiAfterPromotionsPayload_() {
   orderFillAndShowMerchantPromoAdDrawer_({ requireImage: false, rememberOnOverlayClose: false });
 }
 
-/** 首屏載入結束後：背景抓取促銷資料，僅在後端開啟且檔期內時才顯示活動抽屜（不顯示「載入商家活動」壳） */
-/** 桌號 dine-in 模式也允許顯示活動廣告（要求：在卡車動畫關閉後出現） */
 function orderResumePromoAdAfterHomepageVisible_() {
   if (!orderInitialReadyState_.loadingClosed) return;
   try {
@@ -4121,7 +3916,6 @@ function orderStoreInfoPromoBtnVisible_() {
   return !!(cfg && cfg.enabled && orderMerchantPromoIsActiveNow_(cfg));
 }
 
-/** @param {{ requireImage?: boolean, rememberOnOverlayClose?: boolean }} opt */
 function orderFillAndShowMerchantPromoAdDrawer_(opt) {
   opt = opt || {};
   var requireImage = !!opt.requireImage;
@@ -4171,7 +3965,6 @@ function orderFillAndShowMerchantPromoAdDrawer_(opt) {
 }
 
 function orderTryShowMerchantPromoAdDrawer_() {
-  // 桌號模式也允許彈出（在卡車動畫關閉後）；前提是 loading 已關閉
   if (!orderInitialReadyState_.loadingClosed) return;
   orderFillAndShowMerchantPromoAdDrawer_({ requireImage: false, rememberOnOverlayClose: false });
 }
@@ -4336,7 +4129,6 @@ function orderCloseMemberGuideSheet_() {
   orderSyncBodyOverflowToOpenSheets_();
 }
 
-/** POS 儲存之封面底色 → 線上 Hero 漸層（與試算表單色一致） */
 function coverGradientFromHex(hex) {
   if (!hex || typeof hex !== 'string') return '';
   var h = hex.replace('#', '').trim();
@@ -4370,9 +4162,6 @@ function normalizeFixedClosedDays(src) {
   return [];
 }
 
-// ════════════════════════════════════════════════════
-// Toast
-// ════════════════════════════════════════════════════
 let toastTimer = null;
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -4382,18 +4171,11 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// ════════════════════════════════════════════════════
-// Hero scroll behaviour
-// ════════════════════════════════════════════════════
-
-// 頁面捲動中旗標（防止 cart-bar 被滑動誤觸）
 let _pageScrolling = false;
 let _pageScrollTimer = null;
-// 程式主動捲動旗標（scrollToSection 專用，不受 scroll 事件覆蓋）
 let _programScroll = false;
 let _programScrollTimer = null;
 
-// ── 捲動相關 DOM 緩存（renderMenu 後呼叫 _cacheScrollRefs 更新）──
 let _scrollHeroBanner = null;
 let _scrollCatTabsEl  = null;
 let _scrollSections   = []; // section 元素陣列
@@ -4410,19 +4192,16 @@ function _cacheScrollRefs() {
 }
 
 window.addEventListener('scroll', () => {
-  // 標記「捲動中」，捲動停止 400ms 後解除（時間加長避免 smooth scroll 尾端誤觸）
   _pageScrolling = true;
   clearTimeout(_pageScrollTimer);
   _pageScrollTimer = setTimeout(() => { _pageScrolling = false; }, 400);
 
-  // requestAnimationFrame 節流：每一幀最多執行一次，避免高頻 scroll 事件造成卡頓
   if (_scrollRafPending) return;
   _scrollRafPending = true;
   requestAnimationFrame(() => {
     _scrollRafPending = false;
     const scrollY = window.scrollY;
 
-    // Hero banner 折疊 / 展開
     if (_scrollHeroBanner) {
       if (scrollY > 60) {
         _scrollHeroBanner.classList.add('collapsed');
@@ -4431,7 +4210,6 @@ window.addEventListener('scroll', () => {
       }
     }
 
-    // ScrollSpy：用 offsetTop（不觸發 reflow）比對捲動位置
     if (_scrollSections.length > 0 && _scrollCatTabsEl) {
       const catH = _scrollCatTabsEl.offsetHeight;
       const threshold = scrollY + catH + 16;
@@ -4445,9 +4223,6 @@ window.addEventListener('scroll', () => {
   });
 }, { passive: true });
 
-// ════════════════════════════════════════════════════
-// 載入商家資訊
-// ════════════════════════════════════════════════════
 async function loadMerchantInfo() {
   try {
     if (!currentWebAppUrl) {
@@ -4541,7 +4316,6 @@ async function loadMerchantInfo() {
     updateStatusDisplay();
     if (isBusinessClosed) showClosedOverlay();
 
-    // 商家資訊預載入：存入 storeData 供彈窗秒開使用
     storeData = merchantInfo;
     try { void orderEnsureStorePromotionsFetchedAtLeastOnce_(); } catch (eSp) { /* 略 */ }
     });
@@ -4613,9 +4387,6 @@ function showClosedOverlay() {
   document.getElementById('closed-overlay').classList.add('show');
 }
 
-// ════════════════════════════════════════════════════
-// 載入菜單
-// ════════════════════════════════════════════════════
 let _menuCategoryOrder = []; // 從後端取得的菜單名稱排序
 
 var ORDER_CACHED_MENU_KEY = 'cachedMenu';
@@ -4658,7 +4429,6 @@ function orderPersistMenuPayload_(payload) {
   }
 }
 
-/** getMenuNamesData 回傳 menuOrder 為 ID；HTTP getMenuNames 回傳為分類名稱 */
 function orderApplyCategoryOrderFromNamesData_(namesData) {
   if (!namesData || namesData.result !== 'success') return;
   var mo = namesData.menuOrder;
@@ -4673,7 +4443,6 @@ function orderApplyCategoryOrderFromNamesData_(namesData) {
   orderApplyBrandCssVarsFromNamesData_(namesData);
 }
 
-/** 依 getMenuNamesData.menuColors 更新全站 --panda / --panda-dark / --panda-light */
 function orderApplyBrandCssVarsFromNamesData_(namesData) {
   if (!namesData || namesData.result !== 'success') return;
   var mc = namesData.menuColors;
@@ -4838,7 +4607,6 @@ async function fetchMenuFromServer_Order_() {
   return { namesData: parsed[0] || { result: 'error' }, prodData: parsed[1] || { result: 'error' } };
 }
 
-/** 僅抓取／套用菜單資料（不關閉全螢幕等待層；供進頁與會員門檻並行預載） */
 async function loadMenuData_() {
   if (window.__orderLoadMenuPromise__) return window.__orderLoadMenuPromise__;
   var p = (async function () {
@@ -4948,14 +4716,12 @@ var orderInitialReadyState_ = {
 function orderTryCloseInitialLoading_() {
   if (orderInitialReadyState_.loadingClosed) return;
   if (!orderInitialReadyState_.homeReady) return;
-  /* 一般模式：首屏須同時完成菜單與商家活動 API，再關卡車 */
-  if (!orderInitialReadyState_.promoBootReady && !window.__ORDER_TABLE_MODE_ACTIVE__) return;
+    if (!orderInitialReadyState_.promoBootReady && !window.__ORDER_TABLE_MODE_ACTIVE__) return;
   if (!orderInitialReadyState_.menuReady && !window.__ORDER_TABLE_MODE_ACTIVE__) return;
   orderInitialReadyState_.loadingClosed = true;
   orderFinishMenuLoadingUi_();
 }
 
-/** 首屏（卡車已關、菜單已現）後背景跑會員／LIFF；右上角會員角標等將於完成後更新 */
 function orderKickMemberGateBackgroundOnce_() {
   if (window.__ORDER_MEMBER_GATE_BG_STARTED__) return;
   window.__ORDER_MEMBER_GATE_BG_STARTED__ = true;
@@ -5016,9 +4782,6 @@ function buildProductOptions(p) {
   return opts;
 }
 
-// ════════════════════════════════════════════════════
-// 渲染菜單
-// ════════════════════════════════════════════════════
 function renderMenu() {
   var catTabsEl = document.getElementById('cat-tabs');
   var menuContentEl = document.getElementById('menu-content');
@@ -5034,7 +4797,6 @@ function renderMenu() {
     catMap[p.category].push(p);
   });
 
-  // 依後端菜單順序排列分類，未在順序清單的分類補到最後
   const allCatNames = Object.keys(catMap).filter(function (n) { return n !== ORDER_REDEEM_TAB_NAME; });
   let sortedNames;
   if (_menuCategoryOrder.length > 0) {
@@ -5079,7 +4841,6 @@ function renderMenu() {
     </div>`;
   }).join('');
 
-  // 菜單含「兌換」區時預載會員點數，點卡片加入購物車可不阻塞等網路
   try {
     if (redeemList.length > 0 && window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
       var phMenu = orderGetStoredMemberPhone10_();
@@ -5087,7 +4848,6 @@ function renderMenu() {
     }
   } catch (eRm) {}
 
-  // 菜單渲染完畢後更新捲動緩存
   _cacheScrollRefs();
 }
 
@@ -5121,7 +4881,6 @@ function renderMenuCard(item) {
 }
 
 function scrollToSection(idx) {
-  // 程式主動捲動鎖：1600ms，不受 scroll 事件覆蓋，確保 smooth scroll 結束前 cart-bar 不誤開
   _programScroll = true;
   clearTimeout(_programScrollTimer);
   _programScrollTimer = setTimeout(() => { _programScroll = false; }, 1600);
@@ -5131,7 +4890,6 @@ function scrollToSection(idx) {
     const stickyNav = document.getElementById('sticky-nav');
     const stickyH = stickyNav ? stickyNav.offsetHeight : 48;
     const rawOffset = sec.getBoundingClientRect().top + window.scrollY - stickyH - 6;
-    // 不捲到頁面絕對底部（留 100px 緩衝，避免 iOS 彈性捲動讓底部元素彈出）
     const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
     const safeOffset = Math.min(Math.max(0, rawOffset), maxScroll - 100);
     window.scrollTo({ top: safeOffset, behavior: 'smooth' });
@@ -5141,9 +4899,6 @@ function scrollToSection(idx) {
   document.querySelector(`.cat-tab[data-cat="${idx}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 }
 
-// ════════════════════════════════════════════════════
-// Bottom Sheet — 新佈局：圖片 → 名稱 → 描述 → 費用 → 選項
-// ════════════════════════════════════════════════════
 function openSheet(productId) {
   const item = allProducts.find(p => p.id === productId);
   if (!item || item.isSoldOut) return;
@@ -5152,7 +4907,6 @@ function openSheet(productId) {
   currentQty     = 1;
   selectedExtras = {};
 
-  // ── 全寬圖片區 ──
   const imgArea = document.getElementById('sheet-img-area');
   if (item.image) {
     imgArea.innerHTML = `<img src="${item.image}" alt="${item.name}">`;
@@ -5166,13 +4920,11 @@ function openSheet(productId) {
     ? '<div class="sheet-item-price"><span class="sh-price-orig">' + formatPrice(pp.orig) + '</span><span class="sh-price-sale">' + formatPrice(pp.sale) + '</span><span class="sheet-price-note">（單價，不含加購）</span></div>'
     : `<div class="sheet-item-price">${formatPrice(item.price)}</div>`;
 
-  // ── 商品資訊：名稱 / 描述 / 費用 ──
   document.getElementById('sheet-info-area').innerHTML = `
     <div class="sheet-item-name">${item.name}</div>
     ${item.description ? `<div class="sheet-item-desc">${item.description}</div>` : ''}
     ${sheetPriceHtml}`;
 
-  // ── 購物車提示：若此商品已在購物車則顯示 ──
   const hintEl   = document.getElementById('sheet-cart-hint');
   const inCartQty = cartItems.filter(ci => ci.id === item.id).reduce((s, ci) => s + ci.qty, 0);
   if (inCartQty > 0) {
@@ -5187,7 +4939,6 @@ function openSheet(productId) {
     hintEl.innerHTML = '';
   }
 
-  // ── 附加選項 ──
   let html = '';
   if (item.options.length > 0) {
     html = `<div class="option-group">
@@ -5219,7 +4970,6 @@ function openSheet(productId) {
 
 function closeSheet() {
   const sheet = document.getElementById('bottom-sheet');
-  // 清除 swipe 拖曳時殘留的 inline transform/transition
   sheet.style.transition = '';
   sheet.style.transform  = '';
   document.getElementById('sheet-overlay').classList.remove('show');
@@ -5253,9 +5003,6 @@ function updateCartBtn() {
   document.getElementById('cart-btn-price').textContent = formatPrice(calcSheetPrice());
 }
 
-// ════════════════════════════════════════════════════
-// 加入購物車
-// ════════════════════════════════════════════════════
 function addToCart() {
   if (!currentProduct) return;
   var cfg = orderGetMerchantPromoCfg_();
@@ -5288,9 +5035,6 @@ function addToCart() {
   showToast(`✓ 已加入 ${currentProduct.name}`);
 }
 
-// ════════════════════════════════════════════════════
-// 快速加入（直接點 + 按鈕）
-// ════════════════════════════════════════════════════
 function quickAdd(productId) {
   const item = allProducts.find(p => p.id === productId);
   if (!item || item.isSoldOut) return;
@@ -5322,7 +5066,6 @@ function orderGetCashCartSubtotal_() {
   return orderSumSubmitItemsCash_();
 }
 
-/** 購物車內兌換商品將消耗的點數（與送單 redeemPoints 一致） */
 function orderGetCartReservedRedeemPoints_() {
   var sum = 0;
   (cartItems || []).forEach(function (ci) {
@@ -5336,7 +5079,6 @@ function orderGetCartReservedRedeemPoints_() {
   return sum;
 }
 
-/** 折抵消費計算用的可用點數（總點數扣除購物車兌換預扣）；點數尚未載入時回 null */
 function orderGetEffectiveMemberPtsForPointDiscount_() {
   var raw = window.__orderMemberPtsForDiscount;
   if (raw == null || raw === '') return null;
@@ -5345,7 +5087,6 @@ function orderGetEffectiveMemberPtsForPointDiscount_() {
   return Math.max(0, total - reserved);
 }
 
-/** 點數兌換：向後端確認會員並同步折抵／會員專區快取 */
 async function orderResolveMemberBalanceForRedeem_(phone10) {
   var prof = await orderFetchMemberProfile_(phone10);
   if (!prof || prof.result !== 'success') {
@@ -5363,7 +5104,6 @@ async function orderResolveMemberBalanceForRedeem_(phone10) {
   return { ok: true, balance: balance };
 }
 
-/** 同步讀取尚在 TTL 內的會員點數（orderFetchMemberProfile_ 的快取）；無可用資料回 null（須走網路） */
 function orderPeekMemberProfilePointsBalance_(phone10) {
   if (!phone10 || !/^\d{10}$/.test(phone10)) return null;
   var c = orderMemberProfileCache_[phone10];
@@ -5386,7 +5126,6 @@ function orderCartPointOffsetUsable_() {
   return true;
 }
 
-/** 依 POS「上限」設定算出本筆現金最多可折幾元（無設定則回傳現金小計） */
 function orderGetOffsetCapMaxNtdForCash_(cash) {
   var m = window.__ORDER_MEMBER_SETTINGS;
   if (!m || m.result !== 'success') return cash;
@@ -5543,9 +5282,6 @@ async function orderFetchMemberSettings_() {
   }
 }
 
-// ════════════════════════════════════════════════════
-// 浮動購物車條
-// ════════════════════════════════════════════════════
 function updateCartBar() {
   orderClampPointDiscountNtd_();
   var cfg = orderGetMerchantPromoCfg_();
@@ -5576,11 +5312,7 @@ function updateCartBar() {
   orderRefreshDineInCartChrome_();
 }
 
-// ════════════════════════════════════════════════════
-// 購物車抽屜
-// ════════════════════════════════════════════════════
 function openCartDrawer() {
-  // 頁面正在捲動或程式主動捲動時不響應（防止滑過 cart-bar 誤觸）
   if (_pageScrolling || _programScroll) return;
   if (cartItems.length === 0) return;
   renderCartItems();
@@ -5611,7 +5343,6 @@ function removeFromCart(idx) {
   if (cartItems.length === 0) closeCartDrawer();
 }
 
-// 購物車內 +/- 調整數量
 function adjustCartItemQty(idx, delta) {
   const ci = cartItems[idx];
   if (!ci) return;
@@ -5690,7 +5421,6 @@ async function orderAdjustRedeemCartQtyMaybe_(idx, delta) {
   renderCartItems();
 }
 
-// 垃圾桶 SVG
 const trashSVG = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none"
   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <polyline points="3 6 5 6 21 6"></polyline>
@@ -5780,14 +5510,10 @@ function renderCartItems() {
   orderSyncCartPointDiscountBlock_();
 }
 
-// ════════════════════════════════════════════════════
-// 取餐時間 Picker
-// ════════════════════════════════════════════════════
 function initTimePicker() {
   const now = new Date();
   now.setMinutes(now.getMinutes() + 15);
 
-  // 向上取整到 5 分鐘
   const rawMin  = now.getMinutes();
   const roundM  = Math.ceil(rawMin / 5) * 5;
   let   pickH   = now.getHours();
@@ -5824,7 +5550,6 @@ function getPickupTime() {
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
-/** KDS 用：線上訂單短編號（如 A-01） */
 function generateKdsShortId() {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const c = letters.charAt(Math.floor(Math.random() * letters.length));
@@ -5832,9 +5557,6 @@ function generateKdsShortId() {
   return c + '-' + n;
 }
 
-// ════════════════════════════════════════════════════
-// 送出訂單（先執行後紀錄）
-// ════════════════════════════════════════════════════
 let _orderSubmitInFlight = false;
 let _orderRecentSubmitSig = '';
 let _orderRecentSubmitAt = 0;
@@ -5864,7 +5586,6 @@ function buildOrderSubmitSig_(orderData) {
 }
 
 function submitOrder() {
-  // 免費試用版禁止送出線上訂單（保留瀏覽功能）
   if (window.__ORDER_PLAN_TYPE__ === 'free') {
     try {
       if (window.Swal && typeof Swal.fire === 'function') {
@@ -5945,7 +5666,6 @@ function submitOrder() {
   _orderSubmitInFlight = true;
   submitBtn.classList.add('loading');
 
-  // ── 立即顯示成功（先執行後紀錄）──
   submitBtn.classList.add('success');
   submitLabel.textContent = '✓ 訂單已送出！';
   document.getElementById('submit-qty-display').textContent   = '';
@@ -6087,7 +5807,6 @@ function submitOrder() {
     }
   }
 
-  // ── 背景送 GAS：★ 用 text/plain 避免 application/json 觸發 CORS preflight（GitHub Pages 等跨網域會被擋）──
   fetch(currentWebAppUrl, {
     method: 'POST',
     mode: 'cors',
@@ -6120,7 +5839,6 @@ function submitOrder() {
     .catch(function (err) { console.error('[order] GAS 紀錄失敗:', err); });
   orderRefreshMemberCornerAfterSubmit_();
 
-  // 清空購物車、延遲關閉抽屜
   cartItems = [];
   orderCartPointDiscountNtd = 0;
   window.__orderMemberPtsForDiscount = null;
@@ -6139,10 +5857,6 @@ function submitOrder() {
   }, 1800);
 }
 
-// ════════════════════════════════════════════════════
-// 下滑關閉商品抽屜（swipe-down-to-dismiss）
-// 邏輯：在 scrollTop === 0 且手指向下滑 → 拖移抽屜 → 超過 120px 即關閉
-// ════════════════════════════════════════════════════
 function initSheetSwipe() {
   const sheet      = document.getElementById('bottom-sheet');
   const scrollArea = document.getElementById('sheet-scroll-area');
@@ -6156,11 +5870,9 @@ function initSheetSwipe() {
 
   sheet.addEventListener('touchmove', e => {
     const dy = e.touches[0].clientY - startY;
-    // 只在 scroll 頂端且手指向下才攔截
     if (startScrollTop <= 0 && dy > 8) {
       dragging = true;
       sheet.style.transition = 'none';
-      // 限制最大拖曳距離避免過度拉扯
       sheet.style.transform  = `translateY(${Math.min(dy * 0.85, 380)}px)`;
       e.preventDefault();
     }
@@ -6173,7 +5885,6 @@ function initSheetSwipe() {
     sheet.style.transition = 'transform .35s cubic-bezier(.4,0,.2,1)';
 
     if (dy > 120) {
-      // 滑動超過閾值 → 動畫到底部後關閉
       sheet.style.transform = 'translateY(100%)';
       setTimeout(() => {
         sheet.style.transform  = '';
@@ -6183,7 +5894,6 @@ function initSheetSwipe() {
         document.body.style.overflow = '';
       }, 350);
     } else {
-      // 未超過 → 彈回原位
       sheet.style.transform = 'translateY(0)';
       setTimeout(() => {
         sheet.style.transform  = '';
@@ -6193,10 +5903,6 @@ function initSheetSwipe() {
   });
 }
 
-// ════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════
-// 商家資訊彈窗
-// ════════════════════════════════════════════════════
 const DAY_MAP = { '0':'日','1':'一','2':'二','3':'三','4':'四','5':'五','6':'六' };
 
 function openStoreInfo() {
@@ -6290,7 +5996,6 @@ function orderStartMemberCornerAutoRefresh_() {
   orderMemberCornerRefreshTimer_ = setInterval(function () {
     orderMemberCornerAutoRefreshTick_();
   }, ORDER_MEMBER_CORNER_REFRESH_MS);
-  // 啟動後先做一次，讓會員剛送單後點數更快同步。
   orderMemberCornerAutoRefreshTick_();
 }
 
@@ -6298,7 +6003,6 @@ function orderRefreshMemberCornerAfterSubmit_() {
   if (!window.__ORDER_MEMBER_SYSTEM_ENABLED__ || !window.__ORDER_MEMBER_ACTIVITIES_ON__) return;
   var phone = orderGetStoredMemberPhone10_();
   if (!phone) return;
-  // 送單後給後端一點寫入時間，再立即刷新一次會員專區資料。
   setTimeout(function () {
     orderRefreshMemberCornerSilent_(phone);
     orderPrefetchMemberHistory_();
@@ -6364,7 +6068,6 @@ function closeMemberRedeemDrawer_() {
   if (sh) sh.classList.remove('show');
 }
 
-/** 與菜單 renderMenuCard 相同版型：圖／色塊、名稱、footer 顯示點數與 + */
 function renderRedeemMenuCardHtml_(pr) {
   if (!pr) return '';
   var sold = (pr.saleStatus || '是') === '否';
@@ -6830,7 +6533,6 @@ function initMerchantPromoAdSwipe() {
   });
 }
 
-/** 會員子抽屜：捲動區頂端時向下滑可關閉（與會員主抽屜相同手勢） */
 function initMemberSubDrawerSwipe_(sheetId, scrollId, closeFn) {
   var sheet = document.getElementById(sheetId);
   var scrollEl = document.getElementById(scrollId);
@@ -6894,17 +6596,14 @@ function renderStoreInfo() {
     html += '<button type="button" class="si-store-promo-btn" onclick="orderOpenMerchantPromoAdFromStore_()">🎁 商家活動</button>';
   }
 
-  // ── 商家簡介 ──
   if (s.description) {
     html += siRow('📝', '商家簡介', escHtml(s.description));
   }
 
-  // ── 營業時間 ──
   if (s.businessHours) {
     html += siRow('🕐', '營業時間', escHtml(s.businessHours));
   }
 
-  // ── 公休日（每週固定）──
   if (s.fixedClosedDays) {
     var dayParts = String(s.fixedClosedDays).split(',');
     var dayLabels = [];
@@ -6919,7 +6618,6 @@ function renderStoreInfo() {
     }
   }
 
-  // ── 休假日（特定日期假期）──
   if (s.holidays && s.holidays.length) {
     var hdates = [];
     for (var hi = 0; hi < s.holidays.length; hi++) {
@@ -6927,7 +6625,6 @@ function renderStoreInfo() {
       if (hd) hdates.push(hd);
     }
     if (hdates.length) {
-      // 超過 5 筆只顯示前 5 筆 + 省略
       var display = hdates.slice(0, 5);
       var extra   = hdates.length - display.length;
       var hdStr   = display.join('、');
@@ -6936,23 +6633,19 @@ function renderStoreInfo() {
     }
   }
 
-  // ── 電話 ──
   if (s.phone) {
     html += siRow('📞', '電話',
       '<a href="tel:' + escHtml(s.phone) + '">' + escHtml(s.phone) + '</a>');
   }
 
-  // ── 地址 + 導航 + 地圖（全寬 Foodpanda 風格）──
   if (s.address) {
     var mapUrl   = s.mapUrl || ('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.address));
 
-    // MapPin SVG（線稿圖釘，與文字同色）
     var pinSVG = '<svg class="si-addr-pin" width="52" height="52" viewBox="0 0 24 24"'
       + ' fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
       + '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>'
       + '<circle cx="12" cy="10" r="3"/></svg>';
 
-    // 導航箭頭 SVG
     var navSVG = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
       + ' stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
       + '<polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>';
@@ -6971,7 +6664,6 @@ function renderStoreInfo() {
   el.innerHTML = html || '<div style="padding:40px;text-align:center;color:#aaa;font-size: 2.37712rem;">暫無資料</div>';
 }
 
-// 下滑關閉商家資訊（同 bottom-sheet 邏輯）
 function initStoreInfoSwipe() {
   const sheet = document.getElementById('store-info-sheet');
   const scrollEl = document.getElementById('store-info-scroll');
@@ -7014,8 +6706,6 @@ function initStoreInfoSwipe() {
   });
 }
 
-// 下滑關閉購物車抽屜（swipe-down-to-dismiss）
-// ════════════════════════════════════════════════════
 function initCartSwipe() {
   const drawer     = document.getElementById('cart-drawer');
   const scrollArea = document.getElementById('cart-scroll-area');
@@ -7061,9 +6751,6 @@ function initCartSwipe() {
   });
 }
 
-// ════════════════════════════════════════════════════
-// 訂單查詢
-// ════════════════════════════════════════════════════
 function openOrderLookup() {
   document.getElementById('order-lookup-overlay').classList.add('show');
   var sheet = document.getElementById('order-lookup-sheet');
@@ -7121,7 +6808,6 @@ function doOrderSearch() {
       try { data = txt ? JSON.parse(txt) : null; } catch (eJ) { data = null; }
       if (data.result !== 'success') throw new Error(data.message || '查詢失敗');
       renderOrderResults(data.orders);
-      // 平滑捲到結果
       setTimeout(function() {
         resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 120);
@@ -7144,7 +6830,6 @@ function renderOrderResults(orders) {
     return;
   }
 
-  // 依日期新→舊排序
   orders.sort(function(a, b) {
     return (b.date || '').localeCompare(a.date || '');
   });
@@ -7339,19 +7024,14 @@ function initOrderLookupSwipe() {
   });
 }
 
-// ════════════════════════════════════════════════════
-// 初始化
-// ════════════════════════════════════════════════════
 async function init() {
   var bootPromise = orderEnsureBootPrefetch_().catch(function (err) {
     console.error('❌ init 失敗:', err);
   });
   orderRenderMenuSkeleton_();
   bootPromise.then(function () {
-    // 菜單資料由 loadMenuData_ 完成後自行 renderMenu；此處只保險觸發一次顯示更新。
     if (allProducts && allProducts.length > 0) renderMenu();
   });
-  // 會員專區與點數紀錄改為背景預載，不影響菜單先顯示（店內快點模式略過以加快首屏）
   if (!window.__ORDER_TABLE_MODE_ACTIVE__) {
     Promise.all([
       orderPrefetchMemberCornerData_(),
@@ -7383,12 +7063,6 @@ async function init() {
     });
   }
 
-
-  // ── Cart-bar 防誤觸：三重保護 ──
-  // 條件1：touch 必須從 cart-bar 本身開始（頁面滑動的 touch 是從內容區開始的）
-  // 條件2：手指位移 < 5px（排除滑動手勢）
-  // 條件3：頁面不在捲動中
-  // e.preventDefault() 阻止瀏覽器合成假 click 事件
   const cartBar = document.getElementById('cart-bar');
   let _cbOnBar = false, _cbStartY = 0, _cbMoved = false;
 
@@ -7411,7 +7085,6 @@ async function init() {
     openCartDrawer();
   }, { passive: false });
 
-  // 桌機滑鼠（mouseup）：若 500ms 內有過 touch 事件，視為合成事件忽略
   let _lastTouchMs = 0;
   document.addEventListener('touchstart', () => { _lastTouchMs = Date.now(); }, { passive: true, capture: true });
   cartBar.addEventListener('mouseup', e => {
@@ -7421,17 +7094,12 @@ async function init() {
   });
 
   orderRefreshMemberCornerVisibility_();
-  /* 預約圖示：依後端「是否開放預約」決定是否顯示 */
-  try { if (typeof refreshReservationCornerVisibility_ === 'function') refreshReservationCornerVisibility_(); } catch (eRC0) {}
+    try { if (typeof refreshReservationCornerVisibility_ === 'function') refreshReservationCornerVisibility_(); } catch (eRC0) {}
   try { orderRefreshDineInCartChrome_(); } catch (eDc) {}
   orderInitialReadyState_.homeReady = true;
   orderTryCloseInitialLoading_();
 }
 
-/**
- * 消費者端：無後端網址、拿不到內建金鑰、或金鑰比對（checkClientKey）未通過 — 不彈授權／金鑰視窗，全頁只顯示維護提示。
- * @param {string} [messageOverride] 若傳入非空字串，優先顯示（例如 GitHub 版未帶 ?id= 的說明）
- */
 function orderShowBootstrapMaintenance_(messageOverride) {
   try {
     if (typeof Swal !== 'undefined') Swal.close();
@@ -7465,7 +7133,6 @@ function orderShowBootstrapMaintenance_(messageOverride) {
   document.body.appendChild(layer);
 }
 
-/** 店內座號 QR：session 與後端連線 */
 var ORDER_DINEIN_SESS_KEY = 'order_dinein_sess_v1';
 function orderParseDineInUrlParams_() {
   try {
@@ -7609,7 +7276,6 @@ function orderDineInStopOpenListFastPoll_() {
     }
   } catch (eO) {}
 }
-/** 本桌清單抽層開啟時較密集更新（櫃台結帳後回到頁面可較快看到品項） */
 function orderDineInStartOpenListFastPoll_() {
   orderDineInStopOpenListFastPoll_();
   if (!window.__ORDER_DINEIN_CTX__) return;
@@ -7774,8 +7440,7 @@ async function bootstrapOrder() {
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
   var _orderUrlQ = new URLSearchParams(window.location.search);
-  /* GitHub 獨立版：僅認網址 ?mid=／?id=（不寫死部署 ID、也不用 localStorage 以免誤連他店）。嵌入 GAS 時仍可用快取／試算表 B2。 */
-  var _orderBossId = (_orderUrlQ.get('mid') || _orderUrlQ.get('Mid') || _orderUrlQ.get('id') || _orderUrlQ.get('Id') || '').trim();
+    var _orderBossId = (_orderUrlQ.get('mid') || _orderUrlQ.get('Mid') || _orderUrlQ.get('id') || _orderUrlQ.get('Id') || '').trim();
   if (_orderBossId) {
     currentWebAppUrl = 'https://script.google.com/macros/s/' + _orderBossId + '/exec';
   } else if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) {
@@ -7828,8 +7493,7 @@ async function bootstrapOrder() {
   } catch (eNormU) { /* 略 */ }
   void loadMerchantInfo().catch(function (e) { console.error(e); });
 
-  /* 店內 QR：驗證通過後與 claim 並行預載菜單（縮短掃碼進頁等待） */
-  var _dipEarly = orderParseDineInUrlParams_();
+    var _dipEarly = orderParseDineInUrlParams_();
   if (_dipEarly && String(_dipEarly.table || '').trim() && String(_dipEarly.key || '').trim()) {
     orderRenderMenuSkeleton_();
     void loadMenuData_().catch(function () {});
@@ -7848,8 +7512,7 @@ async function bootstrapOrder() {
   if (window.__ORDER_TABLE_MODE_ACTIVE__) {
     orderInitialReadyState_.promoBootReady = true;
     orderEnsureBootPrefetch_();
-    /* 掃碼桌號模式：背景並行抓取商家活動，讓卡車動畫關閉後可即時彈出活動廣告 */
-    void orderGetStorePromotionsFetchOnce_().catch(function () {});
+        void orderGetStorePromotionsFetchOnce_().catch(function () {});
   } else {
     void Promise.all([
       loadMenuData_(),
@@ -7878,7 +7541,6 @@ async function bootstrapOrder() {
 })();
 </script>
 
-<!-- ═══ 線上預約抽屜（由下往上滑、字體跟商品/購物車一致、可下滑關閉） ═══ -->
 <div id="resv-drawer-overlay" style="display:none;" onclick="closeReservationDrawer()"></div>
 <aside id="resv-drawer" aria-hidden="true">
   <div class="resv-d-grip" id="resv-drawer-grip"><span class="resv-d-grip-bar"></span></div>
@@ -7915,8 +7577,7 @@ async function bootstrapOrder() {
   </div>
 </aside>
 <script>
-  /* 線上預約抽屜：開啟時從後端讀「預約系統設定 + 當日容量」，依容量／客滿註記決定哪些時段可選 */
-  window.__resvDrawerSettings = null;
+    window.__resvDrawerSettings = null;
   window.__resvDrawerSelectedTime = '';
   function _resvDrawerLocalDateStr_() {
     var d = new Date();
@@ -7957,14 +7618,12 @@ async function bootstrapOrder() {
       orderSyncReservationHeroPosition_();
     } catch (e) { /* 略 */ }
   }
-  /** 預設明天的日期（本地） */
-  function _resvDrawerTomorrow_() {
+    function _resvDrawerTomorrow_() {
     var d = new Date(); d.setDate(d.getDate() + 1);
     var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
     return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
   }
-  /* 背景預抓：app 啟動或圖示顯示時就把「設定 + 明天容量」一起拉好，按鈕點下立刻能 render 不卡 */
-  async function _resvDrawerBgPrefetch_() {
+    async function _resvDrawerBgPrefetch_() {
     try {
       var s = await _resvDrawerFetch_('getReservationSettings');
       if (s && s.result === 'success') window.__resvDrawerSettings = s;
@@ -7985,16 +7644,12 @@ async function bootstrapOrder() {
     dr.style.display = 'flex';
     dr.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(function () { dr.classList.add('show'); });
-    /* 鎖背景捲動，避免畫面跑動感受到延遲 */
-    document.body.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
     var dInp = document.getElementById('resv-drawer-date');
-    /* 預設日期＝明天，保持與 POS／GitHub 同步 */
-    if (dInp && !dInp.value) dInp.value = _resvDrawerTomorrow_();
+        if (dInp && !dInp.value) dInp.value = _resvDrawerTomorrow_();
     if (dInp) dInp.onchange = refreshDrawerTimeGrid_;
-    /* 立即 render（用 cache 中的明天容量；若無則 refreshDrawerTimeGrid_ 會自動拉一次） */
-    refreshDrawerTimeGrid_();
-    /* 同步背景再抓一次今天，方便切換日期不卡 */
-    try {
+        refreshDrawerTimeGrid_();
+        try {
       var todayStr = (function () {
         var d = new Date(); var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
         return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
@@ -8006,26 +7661,22 @@ async function bootstrapOrder() {
         }
       });
     } catch (e2) { /* 略 */ }
-    /* 開啟瞬間捲到頂端 */
-    var sc = document.getElementById('resv-drawer-scroll');
+        var sc = document.getElementById('resv-drawer-scroll');
     if (sc) sc.scrollTop = 0;
-    /* 第一次開啟時掛上下滑關閉手勢 */
-    _initResvDrawerSwipe_();
+        _initResvDrawerSwipe_();
   }
   function closeReservationDrawer() {
     var ov = document.getElementById('resv-drawer-overlay');
     var dr = document.getElementById('resv-drawer');
     if (!ov || !dr) return;
-    /* 重置可能殘留的拖曳 transform */
-    dr.style.transform = '';
+        dr.style.transform = '';
     dr.style.transition = '';
     dr.classList.remove('show');
     ov.classList.remove('show');
     document.body.style.overflow = '';
     setTimeout(function () { ov.style.display = 'none'; dr.style.display = 'none'; dr.setAttribute('aria-hidden', 'true'); }, 360);
   }
-  /** 預約抽屜下滑關閉手勢：同商品抽屜 (initSheetSwipe) 邏輯 — scrollTop 為 0 時下滑＞120px 才關閉，否則彈回 */
-  function _initResvDrawerSwipe_() {
+    function _initResvDrawerSwipe_() {
     if (window.__resvDrawerSwipeInit) return;
     window.__resvDrawerSwipeInit = true;
     var dr = document.getElementById('resv-drawer');
@@ -8043,8 +7694,7 @@ async function bootstrapOrder() {
     function onMove(e) {
       var t = (e.touches && e.touches[0]) || e;
       var dy = t.clientY - startY;
-      /* 從拖曳條開始：可直接拖；從 body 開始：需在頂端且向下滑才接管 */
-      var canDrag = fromGrip || (startScrollTop <= 0 && dy > 8);
+            var canDrag = fromGrip || (startScrollTop <= 0 && dy > 8);
       if (canDrag && dy > 0) {
         dragging = true;
         dr.style.transition = 'none';
@@ -8069,8 +7719,7 @@ async function bootstrapOrder() {
     dr.addEventListener('touchmove', onMove, { passive: false });
     dr.addEventListener('touchend', onEnd);
   }
-  /** 分段營業時間解析（支援半形／全形逗號）；與 POS 取餐時段規則一致 */
-  function orderParseOpenCloseRangesForResv_(openingHours) {
+    function orderParseOpenCloseRangesForResv_(openingHours) {
     var cleaned = String(openingHours || '')
       .replace(/[０-９]/g, function (d) {
         return String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30);
@@ -8105,8 +7754,7 @@ async function bootstrapOrder() {
     }
     return arr;
   }
-  /** 把容量資訊渲染到時段 grid。可單獨呼叫（cache 即時 render 與 fetch 後刷新都重用此函式） */
-  function _resvDrawerRenderGridImpl_(settings, cap) {
+    function _resvDrawerRenderGridImpl_(settings, cap) {
     var grid = document.getElementById('resv-drawer-time-grid');
     if (!grid) return;
     settings = settings || window.__resvDrawerSettings || {};
@@ -8184,14 +7832,12 @@ async function bootstrapOrder() {
     var date = (document.getElementById('resv-drawer-date') || {}).value || _resvDrawerTomorrow_();
     var settings = window.__resvDrawerSettings;
     var capCache = window.__resvDrawerCapByDate || {};
-    /* 1) cache 已有資料：先立刻 render（使用體感 0 延遲） */
-    if (settings && capCache[date]) {
+        if (settings && capCache[date]) {
       _resvDrawerRenderGridImpl_(settings, capCache[date]);
     } else {
       grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#94a3b8;padding:24px;font-size: 0.82288rem;font-weight:800;">載入時段中...</div>';
     }
-    /* 2) 背景刷新最新設定（POS／GitHub 改完設定後消費者端會跟到） */
-    if (!settings) {
+        if (!settings) {
       var s = await _resvDrawerFetch_('getReservationSettings');
       if (s && s.result === 'success') settings = window.__resvDrawerSettings = s;
     } else {
@@ -8204,8 +7850,7 @@ async function bootstrapOrder() {
         }
       });
     }
-    /* 3) 抓最新容量並覆蓋 cache、重新 render（避免 cache 過期） */
-    var capRet = await _resvDrawerFetch_('getReservationCapacity', { date: date });
+        var capRet = await _resvDrawerFetch_('getReservationCapacity', { date: date });
     var cap = (capRet && capRet.result === 'success') ? capRet : (capCache[date] || null);
     if (capRet && capRet.result === 'success') {
       window.__resvDrawerCapByDate = window.__resvDrawerCapByDate || {};
@@ -8215,7 +7860,6 @@ async function bootstrapOrder() {
   }
   document.getElementById('resv-drawer-submit')?.addEventListener('click', function () {
     var submitBt = this;
-    // 免費試用版：禁止送出線上預約
     if (window.__ORDER_PLAN_TYPE__ === 'free') {
       try {
         if (window.Swal && typeof Swal.fire === 'function') {
@@ -8243,8 +7887,7 @@ async function bootstrapOrder() {
       alert('請填寫聯絡電話');
       return;
     }
-    /* 前端先做容量檢查，把超量的單擋下，避免送到後端再被拒絕 */
-    var settings = window.__resvDrawerSettings;
+        var settings = window.__resvDrawerSettings;
     if (settings && parseInt(settings.totalSeats, 10) > 0 && people > parseInt(settings.totalSeats, 10)) {
       alert('人數過多，超過餐廳總座位數（最多 ' + settings.totalSeats + ' 位）');
       return;
@@ -8264,8 +7907,7 @@ async function bootstrapOrder() {
     submitBt.classList.remove('success');
     submitBt.classList.add('loading');
     submitBt.disabled = true;
-    /* 立即顯示成功；GAS 在背景紀錄（與線上送單相同體驗） */
-    submitBt.classList.add('success');
+        submitBt.classList.add('success');
     submitBt.textContent = '✓ 預約已送出！';
     if (typeof orderSwalToastSuccess === 'function') {
       orderSwalToastSuccess('預約送出成功，謝謝！', 2500);
@@ -8303,14 +7945,12 @@ async function bootstrapOrder() {
       window.__resvOnlineSubmitInFlight = false;
     }, 1800);
   });
-  /* 啟動後刷新預約圖示顯示；同時把預約設定 / 明天容量背景預抓好（按下預約圖示立刻可開窗、不轉圈） */
-  document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function () {
     setTimeout(function () {
       refreshReservationCornerVisibility_();
       _resvDrawerBgPrefetch_();
     }, 1500);
-    /* 每 30 秒輪詢設定（同步老闆端的開關／座位／用餐時間變動） */
-    setInterval(function () {
+        setInterval(function () {
       try {
         if (document.hidden) return;
         refreshReservationCornerVisibility_();
@@ -8320,7 +7960,6 @@ async function bootstrapOrder() {
   });
 </script>
 
-<!-- ===== 免費試用版（free）前端補丁 ===== -->
 <style>
   #order-free-trial-banner {
     position: sticky;
@@ -8374,7 +8013,6 @@ async function bootstrapOrder() {
   function startFreeWatcher() {
     if (!isFreePlan()) return;
     ensureBanner();
-    // 會員專區內的「會員說明」按需保留（讓老闆試用會員功能時能看到完整介紹）
   }
 
   var tries = 0;
