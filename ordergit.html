@@ -16,12 +16,22 @@
 <title>線上點餐</title>
 <link rel="dns-prefetch" href="https://script.google.com">
 <link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script>
 (function () {
   if (document.documentElement.classList.contains('ordergit-line-inapp')) return;
+  var href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap';
+  var pre = document.createElement('link');
+  pre.rel = 'preload';
+  pre.as = 'style';
+  pre.href = href;
+  document.head.appendChild(pre);
   var l = document.createElement('link');
   l.rel = 'stylesheet';
-  l.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap';
+  l.href = href;
+  l.media = 'print';
+  l.onload = function () { this.media = 'all'; };
   document.head.appendChild(l);
 })();
 </script>
@@ -7428,6 +7438,26 @@ function orderCloseDineInMyList_() {
   if (sh) sh.style.display = 'none';
 }
 
+function orderEnsureSwalReady_() {
+  return new Promise(function (resolve) {
+    if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+      resolve(true);
+      return;
+    }
+    var n = 0;
+    var id = setInterval(function () {
+      if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+        clearInterval(id);
+        resolve(true);
+      } else if (++n >= 250) {
+        clearInterval(id);
+        console.warn('[order] SweetAlert2 載入逾時');
+        resolve(false);
+      }
+    }, 40);
+  });
+}
+
 async function bootstrapOrder() {
   if (document.readyState === 'loading') {
     await new Promise(function (r) { document.addEventListener('DOMContentLoaded', r, { once: true }); });
@@ -7439,6 +7469,15 @@ async function bootstrapOrder() {
     window.__ORDER_MEMBER_GATE_BG_STARTED__ = false;
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
+  var swalOk = await orderEnsureSwalReady_();
+  if (!swalOk) {
+    try {
+      orderShowBootstrapMaintenance_('介面元件載入逾時，請重新整理頁面或檢查網路後再試。');
+    } catch (eM) {
+      try { alert('介面載入逾時，請重新整理頁面。'); } catch (eA) {}
+    }
+    return;
+  }
   var _orderUrlQ = new URLSearchParams(window.location.search);
     var _orderBossId = (_orderUrlQ.get('mid') || _orderUrlQ.get('Mid') || _orderUrlQ.get('id') || _orderUrlQ.get('Id') || '').trim();
   if (_orderBossId) {
@@ -7450,6 +7489,9 @@ async function bootstrapOrder() {
   }
   var freshUrlPromise = fetchWebAppUrlFromSheet().then(function (url) {
     if (url) currentWebAppUrl = url;
+    return currentWebAppUrl;
+  }).catch(function (eFu) {
+    console.warn('[order] fetchWebAppUrlFromSheet 失敗', eFu);
     return currentWebAppUrl;
   });
   if (!currentWebAppUrl) {
@@ -7471,10 +7513,15 @@ async function bootstrapOrder() {
     } catch (eG) { isOrderGas = false; }
   }
   var orderKeyFetch;
-  if (isOrderGas) {
-    orderKeyFetch = await orderHydrateBuiltInKeyFromGas_();
-  } else {
-    orderKeyFetch = await orderFetchBuiltInClientKey_();
+  try {
+    var _bootPair = await Promise.all([
+      freshUrlPromise,
+      isOrderGas ? orderHydrateBuiltInKeyFromGas_() : orderFetchBuiltInClientKey_()
+    ]);
+    orderKeyFetch = _bootPair[1];
+  } catch (eBootParallel) {
+    console.error('[order] bootstrap 並行階段失敗', eBootParallel);
+    orderKeyFetch = { ok: false, reason: 'bootstrap_parallel' };
   }
   if (!orderKeyFetch.ok) {
     console.error('[order] getBuiltInClientKey 失敗（消費者端僅顯示系統維修中）', orderKeyFetch.reason || '');
