@@ -8118,21 +8118,17 @@ function posComputeMerchantPromotionsPreview_(items, promo, opts) {
     });
     var addPerUnit = 0;
     (it.options || []).forEach(function (opt) {
-      if (opt && typeof opt === 'object') {
-        addPerUnit += parseInt(opt.price, 10) || 0;
-        return;
+      var parsed = _posParseAddonEntryForPrint_(opt);
+      var aq = _posNormAddonOptQty_(parsed.optQty);
+      var pr = parseInt(parsed.price, 10) || 0;
+      var nm = String(parsed.name || '').trim();
+      if (!pr && nm && prodForAddon && Array.isArray(prodForAddon.options)) {
+        var hit = prodForAddon.options.find(function (o) {
+          return o && String(o.l).trim() === nm;
+        });
+        if (hit) pr = parseInt(hit.p, 10) || 0;
       }
-      var str = String(opt || '').trim();
-      var mm = str.match(/(?:\(\s*[+＋]?\s*(\d+)\s*\)|[+＋]\s*(\d+))\s*$/);
-      if (mm) {
-        addPerUnit += parseInt(mm[1] || mm[2], 10) || 0;
-        return;
-      }
-      var lab = str.replace(/(?:\(\s*[+＋]?\s*\d+\s*\)|[+＋]\s*\d+)\s*$/, '').trim();
-      var hit = (prodForAddon && prodForAddon.options || []).find(function (o) {
-        return o && String(o.l).trim() === lab;
-      });
-      if (hit) addPerUnit += parseInt(hit.p, 10) || 0;
+      addPerUnit += pr * aq;
     });
     var unitMain = Math.max(0, (parseInt(it.price, 10) || 0) - addPerUnit);
     var lineOrigMain = unitMain * qty;
@@ -8955,13 +8951,11 @@ function _posOrderDisplayAddonLabels_(item) {
   var opts = item && item.options ? item.options : [];
   if (!Array.isArray(opts) || !opts.length) return '';
   var labels = opts.map(function (o) {
-    var s = typeof o === 'string' ? o : (o && o.name != null ? String(o.name) : '');
-    s = String(s).trim();
-    var m = s.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
-    if (m) return m[1].trim();
-    m = s.match(/^(.+?)\s*\+\s*(\d+)\s*$/);
-    if (m) return m[1].trim();
-    return s;
+    var p = _posParseAddonEntryForPrint_(o);
+    var nm = String(p.name || '').trim();
+    if (!nm) return '';
+    var q = _posNormAddonOptQty_(p.optQty);
+    return q > 1 ? (nm + ' ×' + q + '份') : nm;
   }).filter(Boolean);
   return labels.length ? labels.join(' 、') : '';
 }
@@ -8972,9 +8966,13 @@ function _posOrderItemDisplayNameForPrint_(item) {
   const opts = item.options || item.addons || [];
   if (!Array.isArray(opts) || !opts.length) return base;
   const parts = opts.map(function (o) {
-    const p = typeof o === 'object' && o ? (parseInt(o.price, 10) || 0) : 0;
-    const n = typeof o === 'string' ? o : (o && o.name ? o.name : '');
-    return p > 0 ? n + '(+' + p + ')' : n;
+    var parsed = _posParseAddonEntryForPrint_(o);
+    const pPrice = parseInt(parsed.price, 10) || 0;
+    const nm = parsed.name || '';
+    const q = _posNormAddonOptQty_(parsed.optQty);
+    var seg = pPrice > 0 ? (nm + '(+' + pPrice + ')') : nm;
+    if (q > 1) seg += '×' + q + '份';
+    return seg;
   });
   return base + '（' + parts.join('、') + '）';
 }
@@ -9012,33 +9010,57 @@ function _posAddonListFromInner_(inner) {
   if (!inner) return [];
   return inner.split('、').map(function (entry) {
     var e = String(entry).trim();
+    var st = _posStripAddonPortionSuffix_(e);
+    e = st.text;
+    var optQty = st.qty;
     var optMatch = e.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
     if (optMatch) {
-      return { name: optMatch[1].trim(), price: parseInt(optMatch[2], 10) || 0 };
+      return { name: optMatch[1].trim(), price: parseInt(optMatch[2], 10) || 0, optQty: _posNormAddonOptQty_(optQty) };
     }
     var plusM = e.match(/^(.+?)\s*\+\s*(\d+)\s*$/);
-    if (plusM) return { name: plusM[1].trim(), price: parseInt(plusM[2], 10) || 0 };
-    return { name: e, price: 0 };
+    if (plusM) return { name: plusM[1].trim(), price: parseInt(plusM[2], 10) || 0, optQty: _posNormAddonOptQty_(optQty) };
+    return { name: e, price: 0, optQty: _posNormAddonOptQty_(optQty) };
   });
+}
+function _posNormAddonOptQty_(x) {
+  var n = parseInt(x, 10);
+  if (!n || n < 1 || isNaN(n)) return 1;
+  if (n > 999) return 999;
+  return n;
+}
+function _posStripAddonPortionSuffix_(rawStr) {
+  var s = String(rawStr || '').trim();
+  var m = s.match(/[×x]\s*(\d+)\s*份\s*$/);
+  if (!m) return { text: s, qty: 1 };
+  return { text: s.slice(0, m.index).trim(), qty: _posNormAddonOptQty_(m[1]) };
 }
 function _posParseAddonEntryForPrint_(o) {
   if (o != null && typeof o === 'object' && !Array.isArray(o)) {
     var n = o.name != null ? String(o.name).trim() : '';
     var p = parseInt(o.price, 10);
     if (isNaN(p)) p = 0;
+    var qObj = o.optQty != null || o.addonQty != null
+      ? _posNormAddonOptQty_(o.optQty != null ? o.optQty : o.addonQty)
+      : null;
     var mo = n.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
     if (mo) {
       n = mo[1].trim();
       if (!p) p = parseInt(mo[2], 10) || 0;
     }
-    return { name: n, price: p };
+    var stn = _posStripAddonPortionSuffix_(n);
+    n = stn.text;
+    var q = qObj != null ? qObj : stn.qty;
+    return { name: n, price: p, optQty: _posNormAddonOptQty_(q) };
   }
   var s = String(o || '').trim();
+  var st0 = _posStripAddonPortionSuffix_(s);
+  s = st0.text;
+  var qTail = st0.qty;
   var m = s.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
-  if (m) return { name: m[1].trim(), price: parseInt(m[2], 10) || 0 };
+  if (m) return { name: m[1].trim(), price: parseInt(m[2], 10) || 0, optQty: _posNormAddonOptQty_(qTail) };
   m = s.match(/^(.+?)\s*\+\s*(\d+)\s*$/);
-  if (m) return { name: m[1].trim(), price: parseInt(m[2], 10) || 0 };
-  return { name: s, price: 0 };
+  if (m) return { name: m[1].trim(), price: parseInt(m[2], 10) || 0, optQty: _posNormAddonOptQty_(qTail) };
+  return { name: s, price: 0, optQty: _posNormAddonOptQty_(qTail) };
 }
 function _posNormCmpLabel_(s) {
   try {
@@ -9130,7 +9152,11 @@ function _posItemsBlock_(items) {
       var _tdu = parseInt(item.telegramDisplayUnitPrice, 10);
       if (!isNaN(_tdu)) priceBasis = Math.max(0, _tdu);
     }
-    var addonPerUnit = addons.reduce(function (s, a) { return s + (parseInt(a.price, 10) || 0); }, 0);
+    var addonPerUnit = addons.reduce(function (s, a) {
+      var ap = parseInt(a.price, 10) || 0;
+      var aq = _posNormAddonOptQty_(a.optQty);
+      return s + ap * aq;
+    }, 0);
     var hasAddonLines = Array.isArray(addons) && addons.length > 0;
     var effCollapse = collapse;
     if (useDisc && collapse && hasAddonLines) effCollapse = false;
@@ -9157,10 +9183,12 @@ function _posItemsBlock_(items) {
       if (!effCollapse && hasAddonLines) {
         addons.forEach(function (ad) {
           var ap = parseInt(ad.price, 10) || 0;
+          var aq = _posNormAddonOptQty_(ad.optQty);
+          var totP = aq * quantity;
+          var priceText = (ap * aq * quantity) > 0 ? '        $' + (ap * aq * quantity) : '';
           var adName = _posPrinterEmojisToGt_(String(ad.name || '').trim());
           if (!adName) return;
-          var priceText = (ap * quantity) > 0 ? '        $' + (ap * quantity) : '';
-          block += '\n> ' + adName + ' x' + quantity + priceText;
+          block += '\n> ' + adName + ' ×' + totP + '份' + priceText;
         });
       }
       if (discText) block += '\n(' + _posPrinterEmojisToGt_(discText) + ')';
@@ -9173,10 +9201,12 @@ function _posItemsBlock_(items) {
       block = _posPrinterEmojisToGt_(String(bare).trim()) + '    $' + mainLineTotal;
       addons.forEach(function (ad) {
         var ap = parseInt(ad.price, 10) || 0;
+        var aq = _posNormAddonOptQty_(ad.optQty);
+        var totP = aq * quantity;
+        var ext = (ap * aq * quantity) > 0 ? ' +' + (ap * aq * quantity) : '';
         var adName = _posPrinterEmojisToGt_(String(ad.name || '').trim());
         if (!adName) return;
-        var ext = (ap * quantity) > 0 ? ' +' + (ap * quantity) : '';
-        block += '\n' + adName + ext;
+        block += '\n' + adName + ' ×' + totP + '份' + ext;
       });
     }
     var _lnPos = posPrinterOrderLineNote_(item);
@@ -9263,13 +9293,12 @@ function _posLabelOptionSlashFromItem_(it) {
   else if (it && Array.isArray(it.addons) && it.addons.length) opts = it.addons;
   if (opts) {
     opts.forEach(function (o) {
-      var s = '';
-      if (typeof o === 'string') s = o;
-      else if (o && typeof o === 'object') {
-        s = o.name != null ? String(o.name) : (o.text != null ? String(o.text) : (o.label != null ? String(o.label) : ''));
-      }
-      s = _posStripAddonTokenForLabelSlash_(String(s || '').trim());
-      if (s) labels.push(s);
+      var p = _posParseAddonEntryForPrint_(o);
+      var s = _posStripAddonTokenForLabelSlash_(String(p.name || '').trim());
+      if (!s) return;
+      var q = _posNormAddonOptQty_(p.optQty);
+      if (q > 1) s += '×' + q + '份';
+      labels.push(s);
     });
   }
   return labels.join('/');
@@ -11126,7 +11155,12 @@ window.openPendingOrderFullEditModal_ = function (orderSnap) {
       price: parseInt(it.price, 10) || 0,
       note: String(it.note || ''),
       options: Array.isArray(it.options) ? it.options.map(function (o) {
-        return { name: String(o && o.name != null ? o.name : '').trim(), price: parseInt(o && o.price, 10) || 0 };
+        var p = (typeof _posParseAddonEntryForPrint_ === 'function') ? _posParseAddonEntryForPrint_(o) : { name: o && o.name, price: o && o.price, optQty: 1 };
+        return {
+          name: String(p.name != null ? p.name : '').trim(),
+          price: parseInt(p.price, 10) || 0,
+          optQty: (typeof _posNormAddonOptQty_ === 'function') ? _posNormAddonOptQty_(p.optQty) : Math.max(1, parseInt(p.optQty, 10) || 1)
+        };
       }) : [],
       sheetColName: String(it.sheetColName || '').trim()
     };
@@ -12647,6 +12681,55 @@ document.addEventListener('click', function (e) {
   }
 });
 
+function posOnAddonStepperClick_(ev, btn) {
+  try {
+    var now = Date.now();
+    if (now - (window.__posAddonPortionBumpTs || 0) < 90) return;
+    window.__posAddonPortionBumpTs = now;
+  } catch (eTs) {}
+  if (ev) {
+    ev.stopPropagation();
+    ev.preventDefault();
+  }
+  if (!btn) return;
+  var delta = parseInt(btn.getAttribute('data-addon-delta'), 10);
+  if (isNaN(delta) || (delta !== 1 && delta !== -1)) return;
+  var row = btn.closest('.pos-option-row');
+  var cb = row && row.querySelector('.option-check');
+  var iq = row && row.querySelector('.option-portion-qty');
+  if (!iq || !cb) return;
+  if (!cb.checked) {
+    if (delta < 0) return;
+    cb.checked = true;
+    cb.dispatchEvent(new Event('change', { bubbles: true }));
+    return;
+  }
+  iq.disabled = false;
+  var v = parseInt(iq.value, 10) || 1;
+  v = Math.max(1, Math.min(99, v + delta));
+  iq.value = v;
+}
+
+function posBindPosOptionAddonSteppers_(root) {
+  if (!root) return;
+  root.querySelectorAll('.option-portion-qty').forEach(function (inp) {
+    inp.addEventListener('click', function (e) { e.stopPropagation(); });
+    inp.addEventListener('mousedown', function (e) { e.stopPropagation(); }, true);
+    inp.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true, capture: true });
+  });
+  root.querySelectorAll('.pos-portion-step-btn[data-addon-delta]').forEach(function (btn) {
+    btn.addEventListener('click', function (ev) {
+      posOnAddonStepperClick_(ev, btn);
+    }, true);
+    btn.addEventListener('touchend', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      posOnAddonStepperClick_(ev, btn);
+    }, { passive: false, capture: true });
+    btn.style.touchAction = 'manipulation';
+  });
+}
+
 function showOptionModal(item, opts) {
   opts = opts || {};
   var previewOnly = !!opts.previewOnly;
@@ -12666,27 +12749,56 @@ for (let i = 1; i <= 8; i++) {
   const price = item[`option${i}Price`] || 0;
   if (name) {
     const priceText = price > 0 ? `+NT$${price}` : '免費';
+    const safeName = String(name).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     optionList.innerHTML += `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#f8fafc; border-radius:8px; border:1px solid #e5e7eb;">
-        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; flex:1;">
-          <input type="checkbox" class="option-check" data-name="${name}" data-price="${price}"
+      <div class="pos-option-row" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px; background:#f8fafc; border-radius:8px; border:1px solid #e5e7eb;">
+        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; flex:1; min-width:0;">
+          <input type="checkbox" class="option-check" data-name="${safeName}" data-price="${price}"
             style="width:20px; height:20px; accent-color:#3b82f6; cursor:pointer; flex-shrink:0;">
           <span style="font-size:1.05rem; font-weight:600; color:#1e293b;">${name}</span>
         </label>
-        <span style="font-size:1rem; font-weight:700; color:#2563eb; margin-left:8px; flex-shrink:0;">${priceText}</span>
+        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+          <span style="font-size:1rem; font-weight:700; color:#2563eb;">${priceText}</span>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:0.85rem; color:#64748b; white-space:nowrap;">份數</span>
+            <div class="pos-option-portion-stepper" style="position:relative;z-index:2;touch-action:manipulation;display:flex;align-items:center;border:1px solid #d1d5db;border-radius:6px;overflow:hidden;background:#fff;">
+              <button type="button" class="pos-portion-step-btn" aria-label="減少份數" data-addon-delta="-1"
+                style="width:38px;height:36px;border:none;border-right:1px solid #e5e7eb;background:#f8fafc;font-size:1.25rem;font-weight:700;color:#334155;cursor:pointer;line-height:1;padding:0;touch-action:manipulation;-webkit-user-select:none;user-select:none;">−</button>
+              <input type="number" class="option-portion-qty" min="1" max="99" value="1" oninput="void 0"
+                style="width:48px;height:36px;padding:0 4px;border:none;text-align:center;font-size:1rem;font-weight:600;box-sizing:border-box;-moz-appearance:textfield;">
+              <button type="button" class="pos-portion-step-btn" aria-label="增加份數" data-addon-delta="1"
+                style="width:38px;height:36px;border:none;border-left:1px solid #e5e7eb;background:#f8fafc;font-size:1.25rem;font-weight:700;color:#334155;cursor:pointer;line-height:1;padding:0;touch-action:manipulation;-webkit-user-select:none;user-select:none;">+</button>
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }
 }
 
-  optionList.innerHTML += `
+optionList.querySelectorAll('.option-portion-qty').forEach(function (iq) {
+  iq.disabled = true;
+});
+optionList.querySelectorAll('.option-check').forEach(function (cb) {
+  cb.addEventListener('change', function () {
+    var row = cb.closest('.pos-option-row');
+    var iq = row && row.querySelector('.option-portion-qty');
+    if (iq) {
+      iq.disabled = !cb.checked;
+      if (!cb.checked) iq.value = 1;
+    }
+  });
+});
+posBindPosOptionAddonSteppers_(optionList);
+
+  optionList.insertAdjacentHTML('beforeend', `
     <div style="margin-top:8px; padding-top:10px; border-top:1px solid #e5e7eb;">
       <label style="display:block; font-size:1rem; font-weight:700; color:#374151; margin-bottom:6px;">備註</label>
       <input type="text" id="option-note-input"
         style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:1rem; font-weight:500; box-sizing:border-box;"
         placeholder="此品項備註（可留空）">
     </div>
-  `;
+  `);
 
   document.getElementById('option-close').onclick = () => {
     posHideOptionModalIos_(function () {
@@ -12712,22 +12824,38 @@ for (let i = 1; i <= 8; i++) {
       return;
     }
     const quantity = parseInt(document.getElementById('option-qty-input').value) || 1;
-    const checks = document.querySelectorAll('.option-check:checked');
-    const extras = Array.from(checks).map(chk => `${chk.dataset.name} (+${chk.dataset.price})`);
-    const totalExtra = Array.from(checks).reduce((sum, chk) => sum + parseInt(chk.dataset.price), 0);
+    const checks = document.querySelectorAll('#option-list .option-check:checked');
+    const optionObjs = [];
+    let totalExtra = 0;
+    Array.from(checks).forEach(function (chk) {
+      var row = chk.closest('.pos-option-row');
+      var iq = row && row.querySelector('.option-portion-qty');
+      var aq = iq ? parseInt(iq.value, 10) : 1;
+      if (!aq || aq < 1 || isNaN(aq)) aq = 1;
+      if (aq > 99) aq = 99;
+      var pr = parseInt(chk.dataset.price, 10) || 0;
+      var nm = String(chk.dataset.name || '').trim();
+      if (!nm) return;
+      totalExtra += pr * aq;
+      optionObjs.push({ name: nm, price: pr, optQty: aq });
+    });
+    const extrasDisplay = optionObjs.map(function (o) {
+      var pq = Math.max(1, parseInt(o.optQty, 10) || 1);
+      return pq > 1 ? (o.name + ' (+' + o.price + ')×' + pq + '份') : (o.name + ' (+' + o.price + ')');
+    });
     const note = document.getElementById('option-note-input').value.trim();
 
-    const fullName = item.name + (extras.length ? `（${extras.join('、')}）` : '');
+    const fullName = item.name + (optionObjs.length ? `（${extrasDisplay.join('、')}）` : '');
     const totalPrice = item.price + totalExtra;
 
     const plOn = !(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0');
     posHideOptionModalIos_(function () {
       addItemToOrder(
-        item.id + '-' + extras.join('+'),
+        item.id + '-' + optionObjs.map(function (o) { return o.name + ':' + o.price + 'x' + o.optQty; }).join('+'),
         fullName,
         totalPrice,
         quantity,
-        extras,
+        optionObjs,
         note,
         (item.labelName || '').toString().trim(),
         plOn,
@@ -13999,11 +14127,19 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
                 let optsHtml = '';
                 if (it.options && it.options.length) {
                   optsHtml = it.options.map(function (opt) {
-                    const on = kdsEscapeHtml((opt.name || '').toString());
-                    const p = parseInt(opt.price, 10) || 0;
-                    const q = parseInt(it.quantity || 1, 10) || 1;
-                    const extra = p > 0 ? ' (+' + (p * q) + ')' : '';
-                    return '<div class="order-card-line-addon">➜ ' + on + extra + '</div>';
+                    var parsed = (typeof _posParseAddonEntryForPrint_ === 'function')
+                      ? _posParseAddonEntryForPrint_(opt)
+                      : { name: opt && opt.name, price: opt && opt.price, optQty: 1 };
+                    const on = kdsEscapeHtml(String(parsed.name || '').trim());
+                    const p = parseInt(parsed.price, 10) || 0;
+                    const lineQty = parseInt(it.quantity || 1, 10) || 1;
+                    const aq = (typeof _posNormAddonOptQty_ === 'function')
+                      ? _posNormAddonOptQty_(parsed.optQty)
+                      : Math.max(1, Math.min(999, parseInt(parsed.optQty, 10) || 1));
+                    const totalP = aq * lineQty;
+                    const extra = p > 0 ? ' (+' + (p * aq * lineQty) + ')' : '';
+                    const qtyLab = totalP > 1 ? (' ×' + totalP + '份') : '';
+                    return '<div class="order-card-line-addon">➜ ' + on + qtyLab + extra + '</div>';
                   }).join('');
                 }
                 const noteHtml = inote ? '<div class="order-card-item-note">' + kdsEscapeHtml(inote) + '</div>' : '';
@@ -18963,42 +19099,26 @@ function _splitItemBaseAndAddonInner_(fullName) {
 function _addonListFromInner_(inner) {
   if (!inner) return [];
   return inner.split('、').map(function (entry) {
-    var e = String(entry).trim();
-    var optMatch = e.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
-    if (optMatch) {
-      return { name: optMatch[1].trim(), price: parseInt(optMatch[2], 10) || 0 };
-    }
-    var plusM = e.match(/^(.+?)\s*\+\s*(\d+)\s*$/);
-    if (plusM) return { name: plusM[1].trim(), price: parseInt(plusM[2], 10) || 0 };
-    return { name: e, price: 0 };
+    return _parseAddonEntryForPrintBridge_(String(entry || '').trim());
   });
 }
 
 function _parseAddonEntryForPrintBridge_(o) {
+  if (typeof _posParseAddonEntryForPrint_ === 'function') return _posParseAddonEntryForPrint_(o);
   if (o != null && typeof o === 'object' && !Array.isArray(o)) {
     var n = o.name != null ? String(o.name).trim() : '';
     var p = parseInt(o.price, 10);
     if (isNaN(p)) p = 0;
-    var mo = n.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
-    if (mo) {
-      n = mo[1].trim();
-      if (!p) p = parseInt(mo[2], 10) || 0;
-    }
-    if (!p) {
-      var mp = n.match(/^(.+?)\s*\+\s*(\d+)\s*$/);
-      if (mp) {
-        n = mp[1].trim();
-        p = parseInt(mp[2], 10) || 0;
-      }
-    }
-    return { name: n, price: p };
+    var q = parseInt(o.optQty != null ? o.optQty : o.addonQty, 10);
+    if (!q || q < 1 || isNaN(q)) q = 1;
+    return { name: n, price: p, optQty: q };
   }
   var s = String(o || '').trim();
   var m = s.match(/^(.+?)\s*[\(（]\s*[+＋]?\s*(\d+)\s*[\)）]\s*$/);
-  if (m) return { name: m[1].trim(), price: parseInt(m[2], 10) || 0 };
+  if (m) return { name: m[1].trim(), price: parseInt(m[2], 10) || 0, optQty: 1 };
   m = s.match(/^(.+?)\s*\+\s*(\d+)\s*$/);
-  if (m) return { name: m[1].trim(), price: parseInt(m[2], 10) || 0 };
-  return { name: s, price: 0 };
+  if (m) return { name: m[1].trim(), price: parseInt(m[2], 10) || 0, optQty: 1 };
+  return { name: s, price: 0, optQty: 1 };
 }
 
 function _orderItemLineFullNameForPrint_(item) {
@@ -19099,7 +19219,11 @@ function _itemsBlock_(itemsOrOrder, opts) {
     var useListUnit = !isPos && !useDisc && listUnitRaw != null && listUnitRaw !== ''
       && !isNaN(parseInt(listUnitRaw, 10));
     var priceForLine = useListUnit ? Math.max(0, parseInt(listUnitRaw, 10)) : basePrice;
-    var addonPerUnit = addons.reduce(function (sum, a) { return sum + (parseInt(a.price, 10) || 0); }, 0);
+    var addonPerUnit = addons.reduce(function (sum, a) {
+      var ap = parseInt(a.price, 10) || 0;
+      var aq = (typeof _posNormAddonOptQty_ === 'function') ? _posNormAddonOptQty_(a.optQty) : (Math.max(1, Math.min(999, parseInt(a.optQty, 10) || 1)));
+      return sum + ap * aq;
+    }, 0);
     var bundledOnline = !isPos;
         var splitMainForAddonLines = telegramLayout && !effRedundant && addons.length > 0;
     var unitMain = (effRedundant || (bundledOnline && !splitMainForAddonLines))
@@ -19122,9 +19246,12 @@ function _itemsBlock_(itemsOrOrder, opts) {
     if (!effRedundant) {
       addons.forEach(function (addon) {
         if (!addon || !addon.name) return;
+        var ap = parseInt(addon.price, 10) || 0;
+        var aq = (typeof _posNormAddonOptQty_ === 'function') ? _posNormAddonOptQty_(addon.optQty) : (Math.max(1, Math.min(999, parseInt(addon.optQty, 10) || 1)));
+        var totP = aq * quantity;
         var priceText = '';
-        if (addon.price > 0) priceText = '        $' + (addon.price * quantity);
-        line += '\n➜ ' + addon.name + ' x' + quantity + priceText;
+        if (ap > 0) priceText = '        $' + (ap * aq * quantity);
+        line += '\n➜ ' + addon.name + ' ×' + totP + '份' + priceText;
       });
     }
     if (discText) line += '\n(' + discText + ')';
