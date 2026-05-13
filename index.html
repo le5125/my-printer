@@ -6231,6 +6231,54 @@ let holidayList = [];
 let fixedClosedDays = [];
 const fixedClosedDayLabels = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
 
+/** 本機「今天」YYYYMMDD，供過期休假比對（與 type=date / 試算表日序一致） */
+function posLocalDateYMD_() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/** 休假日項目正規為 YYYY-MM-DD；無法解析則回傳 ''（保留無法解析的原文在 pruning 時不刪除） */
+function posHolidayEntryToYMD_(raw) {
+  var s = String(raw == null ? '' : raw).trim();
+  if (!s) return '';
+  var m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+  if (!m) return '';
+  var yy = parseInt(m[1], 10);
+  var mm = parseInt(m[2], 10);
+  var dd = parseInt(m[3], 10);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return '';
+  return yy + '-' + String(mm).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
+}
+
+/** 移除「日曆上已過」且可解析日期的休假；無法解析之字串原樣保留 */
+function posPruneExpiredHolidaysFromList_(list) {
+  var today = posLocalDateYMD_();
+  var parsedOk = [];
+  var legacy = [];
+  var seenY = Object.create(null);
+  var seenL = Object.create(null);
+  (Array.isArray(list) ? list : []).forEach(function (entry) {
+    var raw = String(entry == null ? '' : entry).trim();
+    if (!raw) return;
+    var ymd = posHolidayEntryToYMD_(raw);
+    if (!ymd) {
+      if (!seenL[raw]) {
+        seenL[raw] = true;
+        legacy.push(raw);
+      }
+      return;
+    }
+    if (ymd < today) return;
+    if (!seenY[ymd]) {
+      seenY[ymd] = true;
+      parsedOk.push(ymd);
+    }
+  });
+  parsedOk.sort();
+  legacy.sort();
+  return parsedOk.concat(legacy);
+}
+
 function normalizeMerchantHoursString(rawHours) {
   return (rawHours || '')
     .toString()
@@ -6505,6 +6553,8 @@ function loadMerchantInfo() {
           holidayList = [];
         }
 
+        holidayList = posPruneExpiredHolidaysFromList_(holidayList);
+
         fixedClosedDays = normalizeFixedClosedDays(merchant.fixedClosedDays);
 
         document.getElementById('merchant-name').value = merchant.name || '';
@@ -6663,6 +6713,7 @@ async function removeHoliday(date) {
 window.removeHoliday = removeHoliday; // ⬅️ 確保 onclick 可以找到這個 function
 
 function syncHolidayList() {
+  holidayList = posPruneExpiredHolidaysFromList_(holidayList);
   holidayList = Array.from(new Set(holidayList)).sort();
   const holidays = holidayList.join(',');
 
@@ -6691,6 +6742,7 @@ document.getElementById('add-holiday-btn')?.addEventListener('click', addHoliday
 document.getElementById('add-holiday-range-btn')?.addEventListener('click', addHolidayRange);
 
 document.getElementById('business-status-toggle')?.addEventListener('click', function () {
+  holidayList = posPruneExpiredHolidaysFromList_(holidayList);
   const statusBtn = this;
   const currentStatus = statusBtn.dataset.status;
   const isNowOpen = currentStatus === '營業中';
