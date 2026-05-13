@@ -539,13 +539,52 @@
   .option-group-title { font-size: 1rem; font-weight:700; color:#1a1a1a; display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem; flex-wrap:wrap; }
   .option-group-note { font-size: 0.82rem; font-weight:700; color:#aaa; margin-left:0.15rem; }
   .option-sub { font-size: 0.85rem; color:#aaa; margin-bottom:0.65rem; }
-  .option-item { display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0; border-bottom:1px solid #f5f5f5; cursor:pointer; }
+  .option-item { display:flex; align-items:center; justify-content:flex-start; gap:0.65rem; padding:0.65rem 0; border-bottom:1px solid #f5f5f5; cursor:pointer; }
   .option-item:active { background:#fafafa; }
-  .option-label { font-size: 0.95rem; color:#2a2a2a; }
-  .option-price-tag { font-size: 0.82rem; color:#888; margin-right:0.5rem; }
+  .option-label { flex:1; min-width:0; font-size:0.95rem; font-weight:600; color:#2a2a2a; line-height:1.25; }
+  .option-price-tag { font-size:0.95rem; font-weight:600; color:#888; margin-right:0.5rem; }
   .option-checkbox { width:1.65rem; height:1.65rem; border-radius:0.35rem; border:2px solid #ddd; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
   .option-checkbox.checked { border-color: var(--panda) !important; background: var(--panda) !important; }
   .option-checkbox.checked::after { content:'✓'; color:white; font-size: 0.85rem; font-weight:700; }
+
+  .order-option-portion-row-label { font-size: 0.82rem; font-weight:600; color:#64748b; white-space:nowrap; }
+  .order-option-portion-stepper {
+    position:relative; z-index:2; touch-action:manipulation;
+    display:flex; align-items:stretch; flex-shrink:0;
+    border:2px solid #cbd5e1; border-radius:0.65rem; overflow:hidden; background:#fff;
+  }
+  .order-option-portion-stepper > .order-portion-step-btn:first-of-type {
+    border-right:1px solid #e2e8f0;
+  }
+  .order-option-portion-stepper > .order-portion-step-btn:last-of-type {
+    border-left:1px solid #e2e8f0;
+  }
+  .order-portion-step-btn {
+    width:2.5rem; min-width:2.5rem; height:2.5rem; box-sizing:border-box;
+    border:none; background:#f8fafc; margin:0; padding:0;
+    font-size:0.95rem; font-weight:700; color:#334155; line-height:1;
+    cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    -webkit-user-select:none; user-select:none;
+  }
+  .order-option-portion {
+    flex:0 0 auto;
+    width:2.85rem; min-width:2.85rem; height:2.5rem; box-sizing:border-box;
+    padding:0 0.2rem; border:none; margin:0; text-align:center;
+    font-size:0.95rem; font-weight:700; color:#1a1a1a;
+    background:#fff;
+    -moz-appearance:textfield;
+    appearance:textfield;
+  }
+  .order-option-portion:disabled {
+    color:#64748b; background:#f1f5f9;
+  }
+  .order-option-portion::-webkit-outer-spin-button,
+  .order-option-portion::-webkit-inner-spin-button {
+    -webkit-appearance:none;
+    margin:0;
+  }
+
     .qty-control { display:flex; align-items:center; border:2px solid var(--panda); border-radius:999px; overflow:hidden; }
   .qty-btn { width:2.5rem; height:2.5rem; display:flex; align-items:center; justify-content:center; font-size: 1.15rem; font-weight:300; color:var(--panda); background:transparent; cursor:pointer; transition:background .15s; }
   .qty-btn:active { background:var(--panda-light); }
@@ -3407,22 +3446,9 @@ function orderComputeMerchantPromotionsPreview_(items, promo) {
     var qty = Math.max(1, parseInt(it.quantity, 10) || 1);
     var prodForAddon = (allProducts || []).find(function (p) { return p && String(p.id) === String(it.id); });
     var addPerUnit = 0;
+    var prodOpts = prodForAddon && prodForAddon.options ? prodForAddon.options : [];
     (it.options || []).forEach(function (opt) {
-      if (opt && typeof opt === 'object') {
-        addPerUnit += parseInt(opt.price, 10) || 0;
-        return;
-      }
-      var str = String(opt || '').trim();
-      var mm = str.match(/(?:\(\s*[+＋]?\s*(\d+)\s*\)|[+＋]\s*(\d+))\s*$/);
-      if (mm) {
-        addPerUnit += parseInt(mm[1] || mm[2], 10) || 0;
-        return;
-      }
-      var lab = str.replace(/(?:\(\s*[+＋]?\s*\d+\s*\)|[+＋]\s*\d+)\s*$/,'').trim();
-      var hit = (prodForAddon && prodForAddon.options || []).find(function (o) {
-        return o && String(o.l).trim() === lab;
-      });
-      if (hit) addPerUnit += parseInt(hit.p, 10) || 0;
+      addPerUnit += orderOptionUnitExtraNtd_(opt, prodOpts);
     });
     var unitMain = Math.max(0, (parseInt(it.price, 10) || 0) - addPerUnit);
     var lineOrigMain = unitMain * qty;
@@ -3717,14 +3743,8 @@ function orderRevalueCartLineUnitPrice_(ci) {
   var prod = (allProducts || []).find(function (p) { return p && String(p.id) === String(ci.id); });
   if (!prod) return;
   var extra = 0;
-  (ci.options || []).forEach(function (optStr) {
-    var str = String(optStr || '');
-    var mm = str.match(/^(.+?)(?:\s+\+(\d+))?$/);
-    var lab = mm ? mm[1].trim() : str.trim();
-    var addFromStr = mm && mm[2] != null ? parseInt(mm[2], 10) : null;
-    var hit = (prod.options || []).find(function (o) { return o && String(o.l).trim() === lab; });
-    if (hit) extra += parseInt(hit.p, 10) || 0;
-    else if (addFromStr != null && !isNaN(addFromStr)) extra += addFromStr;
+  (ci.options || []).forEach(function (opt) {
+    extra += orderOptionUnitExtraNtd_(opt, prod.options || []);
   });
   var cfg = orderGetMerchantPromoCfg_();
   var pp = orderMerchantPromoUnitPriceForMenuCard_(prod.id, prod.price, cfg);
@@ -3737,14 +3757,9 @@ function orderCartLineRawUnitPriceForPromo_(ci) {
   var prod = (allProducts || []).find(function (p) { return p && String(p.id) === String(ci.id); });
   var base = prod ? (parseInt(prod.price, 10) || 0) : (parseInt(ci.unitPrice, 10) || 0);
   var extra = 0;
-  (ci.options || []).forEach(function (optStr) {
-    var str = String(optStr || '');
-    var mm = str.match(/^(.+?)(?:\s+\+(\d+))?$/);
-    var lab = mm ? mm[1].trim() : str.trim();
-    var addFromStr = mm && mm[2] != null ? parseInt(mm[2], 10) : null;
-    var hit = (prod && prod.options || []).find(function (o) { return o && String(o.l).trim() === lab; });
-    if (hit) extra += parseInt(hit.p, 10) || 0;
-    else if (addFromStr != null && !isNaN(addFromStr)) extra += addFromStr;
+  var pOpts = prod && prod.options ? prod.options : [];
+  (ci.options || []).forEach(function (opt) {
+    extra += orderOptionUnitExtraNtd_(opt, pOpts);
   });
   return Math.max(0, base + extra);
 }
@@ -4939,6 +4954,73 @@ function buildProductOptions(p) {
   return opts;
 }
 
+function orderNormAddonOptQty_(x) {
+  var n = parseInt(x, 10);
+  if (!n || n < 1 || isNaN(n)) return 1;
+  if (n > 99) return 99;
+  return n;
+}
+
+/** 估算單一主餐單位的加購加價（已含 optQty） */
+function orderOptionUnitExtraNtd_(opt, prodOptsArr) {
+  prodOptsArr = prodOptsArr || [];
+  var pq = 1;
+  var pr = 0;
+  var lab = '';
+  if (opt && typeof opt === 'object') {
+    pr = parseInt(opt.price, 10) || 0;
+    pq = orderNormAddonOptQty_(opt.optQty);
+    lab = String(opt.name != null ? opt.name : (opt.l != null ? opt.l : '')).trim();
+    if (!pr && lab) {
+      var hit = prodOptsArr.find(function (o) { return o && String(o.l).trim() === lab; });
+      if (hit) pr = parseInt(hit.p, 10) || 0;
+    }
+    return pr * pq;
+  }
+  var str = String(opt || '').trim();
+  var mQty = str.match(/[×x]\s*(\d+)\s*份\s*$/);
+  if (mQty) {
+    pq = orderNormAddonOptQty_(mQty[1]);
+    str = str.slice(0, mQty.index).trim();
+  }
+  var mm = str.match(/(?:\(\s*[+＋]?\s*(\d+)\s*\)|[+＋]\s*(\d+))\s*$/);
+  if (mm) {
+    pr = parseInt(mm[1] || mm[2], 10) || 0;
+    lab = str.replace(/(?:\(\s*[+＋]?\s*\d+\s*\)|[+＋]\s*\d+)\s*$/, '').trim();
+  } else {
+    lab = str.trim();
+  }
+  if (!pr && lab) {
+    var hit2 = prodOptsArr.find(function (o) { return o && String(o.l).trim() === lab; });
+    if (hit2) pr = parseInt(hit2.p, 10) || 0;
+  }
+  return pr * pq;
+}
+
+function orderCartOptionLabelHtml_(opt) {
+  var esc = function (t) {
+    return String(t == null ? '' : t)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  };
+  if (opt && typeof opt === 'object') {
+    var nm = String(opt.name != null ? opt.name : (opt.l != null ? opt.l : '')).trim();
+    var pq = orderNormAddonOptQty_(opt.optQty);
+    var p = parseInt(opt.price, 10) || 0;
+    var suf = pq > 1 ? (' ×' + pq + '份') : '';
+    return esc(nm) + suf + (p > 0 ? ' (+' + p + ')' : '');
+  }
+  return esc(orderFormatCartOptionLine_(opt) || opt);
+}
+
+function orderFormatCartOptionLine_(opt) {
+  if (opt && typeof opt === 'object') {
+    var nm = String(opt.name != null ? opt.name : (opt.l != null ? opt.l : '')).trim();
+    var pq = orderNormAddonOptQty_(opt.optQty);
+    return pq > 1 && nm ? (nm + ' ×' + pq + '份') : nm;
+  }
+  return String(opt || '').trim();
+}
+
 function renderMenu() {
   var catTabsEl = document.getElementById('cat-tabs');
   var menuContentEl = document.getElementById('menu-content');
@@ -5097,17 +5179,29 @@ function openSheet(productId) {
   }
 
   let html = '';
-  if (item.options.length > 0) {
+  var sheetOptsSrc = Array.isArray(item.options) ? item.options : [];
+  if (sheetOptsSrc.length > 0) {
     html = `<div class="option-group">
       <div class="option-group-title">加購選項
         <span class="option-group-note">（可多選）</span>
       </div>`;
-    item.options.forEach((opt, ei) => {
-      html += `<div class="option-item" onclick="toggleExtra(${ei})">
+    sheetOptsSrc.forEach((opt, ei) => {
+      html += `<div class="option-item" onclick="orderOptionRowClick(event, ${ei})">
+        <div class="option-checkbox" id="ext-${ei}" style="flex-shrink:0;"></div>
         <span class="option-label">${opt.l}</span>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;margin-left:auto;">
           ${opt.p > 0 ? `<span class="option-price-tag">+NT$${opt.p}</span>` : '<span class="option-price-tag">免費</span>'}
-          <div class="option-checkbox" id="ext-${ei}"></div>
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span class="order-option-portion-row-label">份數</span>
+            <div class="order-option-portion-stepper" data-ei="${ei}">
+              <button type="button" class="order-portion-step-btn" aria-label="減少份數"
+                onclick="orderBumpOptionPortion(event, -1, ${ei})">−</button>
+              <input type="number" class="order-option-portion" data-ei="${ei}" min="1" max="99" value="1" disabled
+                onclick="event.stopPropagation()" oninput="updateCartBtn()">
+              <button type="button" class="order-portion-step-btn" aria-label="增加份數"
+                onclick="orderBumpOptionPortion(event, 1, ${ei})">+</button>
+            </div>
+          </div>
         </div>
       </div>`;
     });
@@ -5125,6 +5219,31 @@ function openSheet(productId) {
   document.body.style.overflow = 'hidden';
 }
 
+function orderBumpOptionPortion(ev, delta, ei) {
+  if (ev) {
+    ev.stopPropagation();
+    ev.preventDefault();
+  }
+  var root = document.getElementById('sheet-options');
+  var inp = root && root.querySelector('.order-option-portion[data-ei="' + ei + '"]');
+  if (!inp) return;
+  if (!selectedExtras[ei]) {
+    if (delta < 0) return;
+    toggleExtra(ei);
+    return;
+  }
+  inp.disabled = false;
+  var v = parseInt(inp.value, 10) || 1;
+  v = Math.max(1, Math.min(99, v + delta));
+  inp.value = v;
+  updateCartBtn();
+}
+
+function orderOptionRowClick(ev, ei) {
+  if (ev && ev.target && ev.target.closest && ev.target.closest('.order-option-portion-stepper')) return;
+  toggleExtra(ei);
+}
+
 function closeSheet() {
   const sheet = document.getElementById('bottom-sheet');
   sheet.style.transition = '';
@@ -5138,6 +5257,12 @@ function toggleExtra(ei) {
   selectedExtras[ei] = !selectedExtras[ei];
   const cb = document.getElementById(`ext-${ei}`);
   if (cb) cb.className = 'option-checkbox' + (selectedExtras[ei] ? ' checked' : '');
+  var row = cb && cb.closest('.option-item');
+  var portion = row && row.querySelector('.order-option-portion');
+  if (portion) {
+    portion.disabled = !selectedExtras[ei];
+    if (!selectedExtras[ei]) portion.value = 1;
+  }
   updateCartBtn();
 }
 
@@ -5152,7 +5277,14 @@ function calcSheetPrice() {
   var cfg = orderGetMerchantPromoCfg_();
   var pp = orderMerchantPromoUnitPriceForMenuCard_(currentProduct.id, currentProduct.price, cfg);
   let unit = pp.sale;
-  currentProduct.options.forEach((opt, i) => { if (selectedExtras[i]) unit += opt.p; });
+  var sheetOpts = document.getElementById('sheet-options');
+  var oo = Array.isArray(currentProduct.options) ? currentProduct.options : [];
+  oo.forEach((opt, i) => {
+    if (!selectedExtras[i]) return;
+    var inp = sheetOpts && sheetOpts.querySelector('.order-option-portion[data-ei="' + i + '"]');
+    var aq = orderNormAddonOptQty_(inp ? parseInt(inp.value, 10) : 1);
+    unit += (parseInt(opt.p, 10) || 0) * aq;
+  });
   return unit * currentQty;
 }
 
@@ -5164,12 +5296,21 @@ function addToCart() {
   if (!currentProduct) return;
   var cfg = orderGetMerchantPromoCfg_();
   var pp = orderMerchantPromoUnitPriceForMenuCard_(currentProduct.id, currentProduct.price, cfg);
-  const unitPrice = pp.sale + currentProduct.options.reduce((s, opt, i) => selectedExtras[i] ? s + opt.p : s, 0);
-  const selectedOpts   = currentProduct.options.filter((_, i) => selectedExtras[i]);
-  const optionsStrings = selectedOpts.map(opt => `${opt.l}${opt.p > 0 ? ' +' + opt.p : ''}`);
-  const note           = document.getElementById('sheet-note').value.trim();
+  const sheetOptsRoot = document.getElementById('sheet-options');
+  const optObjs = [];
+  var ooCart = Array.isArray(currentProduct.options) ? currentProduct.options : [];
+  ooCart.forEach((opt, i) => {
+    if (!selectedExtras[i]) return;
+    var inp = sheetOptsRoot && sheetOptsRoot.querySelector('.order-option-portion[data-ei="' + i + '"]');
+    var aq = orderNormAddonOptQty_(inp ? parseInt(inp.value, 10) : 1);
+    optObjs.push({ name: opt.l, price: parseInt(opt.p, 10) || 0, optQty: aq });
+  });
+  const unitPrice = pp.sale + optObjs.reduce(function (s, o) {
+    return s + (parseInt(o.price, 10) || 0) * orderNormAddonOptQty_(o.optQty);
+  }, 0);
+  const note = document.getElementById('sheet-note').value.trim();
 
-  const key      = `${currentProduct.id}|${optionsStrings.join(',')}|${note}`;
+  const key = `${currentProduct.id}|${optObjs.map(o => o.name + ':' + o.price + 'x' + o.optQty).join(',')}|${note}`;
   const existing = cartItems.find(ci => ci._key === key);
   if (existing) {
     existing.qty      += currentQty;
@@ -5181,7 +5322,7 @@ function addToCart() {
       name:      currentProduct.name,
       unitPrice,
       qty:       currentQty,
-      options:   optionsStrings,
+      options:   optObjs,
       note,
       lineTotal: unitPrice * currentQty,
     });
@@ -5632,7 +5773,7 @@ function renderCartItems() {
         <span class="cart-item-name">${nameHtml}</span>
         <div class="cart-item-trash" onclick="removeFromCart(${idx})">${trashSVG}</div>
       </div>
-      ${ci.options.length ? `<div class="cart-item-opts">${ci.options.join('、')}</div>` : ''}
+      ${ci.options.length ? `<div class="cart-item-opts">${ci.options.map(function (co) { return orderCartOptionLabelHtml_(co); }).join('、')}</div>` : ''}
       ${ci.note ? `<div class="cart-item-opts">備註：${ci.note}</div>` : ''}
       <div class="cart-item-bottom">
         <div class="cart-qty-ctrl">
@@ -5726,7 +5867,12 @@ function buildOrderSubmitSig_(orderData) {
         String(it.name || ''),
         Number(it.price) || 0,
         Number(it.quantity) || 0,
-        Array.isArray(it.options) ? it.options.join('|') : '',
+        Array.isArray(it.options) ? it.options.map(function (o) {
+          if (o && typeof o === 'object') {
+            return String(o.name != null ? o.name : (o.l != null ? o.l : '')) + ':' + (Number(o.price) || 0) + 'x' + orderNormAddonOptQty_(o.optQty);
+          }
+          return String(o || '');
+        }).join('|') : '',
         String(it.note || '')
       ].join('^');
     }).join('||');
@@ -5866,16 +6012,8 @@ function submitOrder() {
         var qSafe = Math.max(1, parseInt(ci.qty, 10) || 1);
         var origUnit = Math.round((parseInt(rowT.origLine, 10) || 0) / qSafe);
         if (origUnit > 0) {
-          var addonsUnit = (ci.options || []).reduce(function (s, optStr) {
-            if (optStr && typeof optStr === 'object') {
-              return s + (parseInt(optStr.price, 10) || 0);
-            }
-            var str = String(optStr || '').trim();
-            var mm = str.match(/(?:\(\s*[+＋]?\s*(\d+)\s*\)|[+＋]\s*(\d+))\s*$/);
-            if (mm) return s + (parseInt(mm[1] || mm[2], 10) || 0);
-            var lab = str.replace(/(?:\(\s*[+＋]?\s*\d+\s*\)|[+＋]\s*\d+)\s*$/,'').trim();
-            var hit = (prod && prod.options || []).find(function (o) { return o && String(o.l).trim() === lab; });
-            return s + (hit ? (parseInt(hit.p, 10) || 0) : 0);
+          var addonsUnit = (ci.options || []).reduce(function (s, opt) {
+            return s + orderOptionUnitExtraNtd_(opt, prod && prod.options ? prod.options : []);
           }, 0);
           pu = Math.max(0, origUnit - addonsUnit);
         }
@@ -5886,7 +6024,19 @@ function submitOrder() {
         sheetColName: cleanName,
         price:    ci.isRedeem ? 0 : pu,
         quantity: ci.qty,
-        options:  (ci.options || []).filter(function (s) { return String(s || '').trim() !== ''; }),
+        options:  (ci.options || []).filter(function (o) {
+          if (o && typeof o === 'object') return String(o.name != null ? o.name : (o.l != null ? o.l : '')).trim() !== '';
+          return String(o || '').trim() !== '';
+        }).map(function (o) {
+          if (o && typeof o === 'object') {
+            return {
+              name: String(o.name != null ? o.name : (o.l != null ? o.l : '')).trim(),
+              price: parseInt(o.price, 10) || 0,
+              optQty: orderNormAddonOptQty_(o.optQty)
+            };
+          }
+          return o;
+        }),
         note:     ci.note
       };
       if (ci.isRedeem) {
@@ -6026,6 +6176,10 @@ function initSheetSwipe() {
   }, { passive: true });
 
   sheet.addEventListener('touchmove', e => {
+    const t = e.target;
+    if (t && t.closest && t.closest('button, input, textarea, select, a, label, .qty-control, .order-option-portion-stepper, #sheet-note, .add-to-cart-btn, #cart-btn')) {
+      return;
+    }
     const dy = e.touches[0].clientY - startY;
     if (startScrollTop <= 0 && dy > 8) {
       dragging = true;
@@ -7005,8 +7159,14 @@ function renderOrderResults(orders) {
       var addonParts = [];
       var opts = item.options || [];
       for (var oi2 = 0; oi2 < opts.length; oi2++) {
-        addonSum += (opts[oi2].price || 0);
-        addonParts.push(escHtml(opts[oi2].name));
+        var op = opts[oi2];
+        var aq = orderNormAddonOptQty_(op && op.optQty);
+        var pp = parseInt(op && op.price, 10) || 0;
+        var nm = escHtml(op && op.name ? String(op.name).trim() : '');
+        addonSum += pp * aq * qty;
+        if (nm) {
+          addonParts.push(nm + (aq > 1 ? (' ×' + aq + '份') : '') + (pp > 0 ? (' +NT$' + (pp * aq * qty)) : ''));
+        }
       }
       var unitPrice = (item.price || 0);
       var qty       = (item.quantity || 1);
