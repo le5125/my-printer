@@ -15146,26 +15146,11 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
         }
                 var _resvSettingsLastVersion = 0;
         function _resvStartSettingsPoll_() {
-          if (window.__resvSettingsPollStarted) return;
-          window.__resvSettingsPollStarted = true;
-          setInterval(function () {
-            try {
-              if (document.hidden) return;
-              _resvSettingsRunGet_('getReservationSettingsFromPosClient').then(function (s) {
-                if (!s || s.result !== 'success') return;
-                var v = parseInt(s.version || 0, 10);
-                if (v && v !== _resvSettingsLastVersion) {
-                  _resvSettingsLastVersion = v;
-                  window._reservationSettings = s;
-                  applyReservationSettingsToUi_();
-                  try { if (typeof renderReservationCalendar_ === 'function' && _reservationBoardViewMode === 'calendar') renderReservationCalendar_(); } catch (e0) {}
-                  try { if (typeof _resvUpdateRemainingHint_ === 'function') _resvUpdateRemainingHint_(); } catch (e1) {}
-                }
-              }).catch(function () { /* 略 */ });
-            } catch (eP) { /* 略 */ }
-          }, 20000);
+          // 已停用：1 台 POS 模式下，預約設定都是自己改的，不需要每 20 秒輪詢同步
+          // 改成只在「打開預約設定 modal」時拉一次最新資料即可（既有程式碼已有處理）
+          return;
         }
-        try { _resvStartSettingsPoll_(); } catch (ePs) { /* 略 */ }
+        // try { _resvStartSettingsPoll_(); } catch (ePs) { /* 略 */ }
         function saveReservationSettingsToBackend_(payload) {
           return posRunSheetMutation_({
             gasMethod: 'setReservationSettingsFromPosClient',
