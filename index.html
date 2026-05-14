@@ -16968,15 +16968,7 @@ function posPrefetchFeatureCachesBackground_() {
   computeSummaryByPeriod(t0, t0, { prefetchSilent: true, force: true });
   var _mr = posDefaultStatsMonthRangeStrings_();
   computeSummaryByPeriod(_mr.startStr, _mr.endStr, { prefetchSilent: true, force: true });
-  if (!window.__posStatsPrefetchIntervalId) {
-    window.__posStatsPrefetchIntervalId = setInterval(function () {
-      if (!currentWebAppUrl || document.hidden) return;
-      var td = posMerchantPromoTodayYmdLocal_();
-      computeSummaryByPeriod(td, td, { prefetchSilent: true, force: true });
-      var mr = posDefaultStatsMonthRangeStrings_();
-      computeSummaryByPeriod(mr.startStr, mr.endStr, { prefetchSilent: true, force: true });
-    }, 30000);
-  }
+ 
   if (typeof window.__memberHubPrefetchCachesSilent === 'function') {
     window.__memberHubPrefetchCachesSilent();
   }
