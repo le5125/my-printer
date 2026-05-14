@@ -15905,7 +15905,8 @@ if (!isRedeemContext) Object.assign(newItem, options); // 一般菜單才帶附�
               }
               var dc = document.getElementById('dine-in-content');
               var vis = dc && !dc.classList.contains('hidden');
-                            dineInLoadBoard_(vis ? null : { backgroundOnly: true });
+                            if (!vis) return;
+                            dineInLoadBoard_();
             } catch (_iv) {}
           }, iv);
         }
