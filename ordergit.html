@@ -2679,6 +2679,14 @@ function orderApplyMemberPhoneLockToForm_() {
     }
   } catch (eStub) {}
   var p = orderGetStoredMemberPhone10_();
+  // 若 localStorage 存的是 LINE stub 假電話（088887xxxx），輸入框留空白，避免消費者看到一個不是自己的電話
+  if (p && orderIsLineStubMemberPhone_(p)) {
+    el.value = '';
+    el.placeholder = '請填寫手機（首次下單將綁定）';
+    el.readOnly = false;
+    el.classList.remove('order-phone-locked');
+    return;
+  }
   if (p && window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
     el.value = p;
     el.readOnly = true;
@@ -3056,8 +3064,9 @@ async function orderRunMemberGate_() {
     orderEnsureBootPrefetch_();
     return false;
   }
-  var forceMemberEnabledCheck = !orderMemberEnabledForcedOnce_;
-  var enabled = await orderFetchMemberSystemEnabled_(forceMemberEnabledCheck);
+  // 改為總是優先用快取（sessionStorage 已有 12 小時 TTL）
+  // 避免每個分頁第一次進站都白打一次 API（0.3~0.8 秒）
+  var enabled = await orderFetchMemberSystemEnabled_(false);
   orderMemberEnabledForcedOnce_ = true;
   if (!enabled) {
     try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (eDis) {}
@@ -7777,15 +7786,10 @@ async function bootstrapOrder() {
     window.__ORDER_VACATION_BLOCK__ = false;
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
-  var swalOk = await orderEnsureSwalReady_();
-  if (!swalOk) {
-    try {
-      orderShowBootstrapMaintenance_('介面元件載入逾時，請重新整理頁面或檢查網路後再試。');
-    } catch (eM) {
-      try { alert('介面載入逾時，請重新整理頁面。'); } catch (eA) {}
-    }
-    return;
-  }
+  // SweetAlert2 改成背景載入（不擋 boot 流程）
+  // 用到 Swal 的地方都有 typeof Swal !== 'undefined' 的自我檢查
+  // 即使 CDN 慢、Swal 還沒到，也只會略過該提示視窗，不影響核心功能
+  void orderEnsureSwalReady_();
   var _orderUrlQ = new URLSearchParams(window.location.search);
     var _orderBossId = (_orderUrlQ.get('mid') || _orderUrlQ.get('Mid') || _orderUrlQ.get('id') || _orderUrlQ.get('Id') || '').trim();
   var _orderUrlPinnedByQuery = !!_orderBossId;
