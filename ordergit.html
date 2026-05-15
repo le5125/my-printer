@@ -1999,6 +1999,25 @@ async function orderFetchBuiltInClientKey_(opts) {
   opts = opts || {};
   if (!opts.force && orderGetClientKey_()) return { ok: true };
   if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
+  // 從 currentWebAppUrl 拆出部署 ID（…/macros/s/【這段】/exec）
+  function _extractDepId(u) {
+    var m = String(u || '').match(/\/macros\/s\/([^/]+)\/exec/);
+    return m ? m[1] : '';
+  }
+  // 先嘗試從 localStorage 快取還原（同一個老闆部署 ID、24 小時內）
+  if (!opts.force) {
+    try {
+      var depIdNow = _extractDepId(currentWebAppUrl);
+      var rawK = localStorage.getItem('order_builtin_clientkey_v1');
+      if (rawK && depIdNow) {
+        var oK = JSON.parse(rawK);
+        if (oK && oK.depId === depIdNow && oK.k && (Date.now() - (oK.t || 0)) < 86400000) {
+          orderBuiltInClientKeyCache_ = String(oK.k).trim();
+          if (orderGetClientKey_()) return { ok: true };
+        }
+      }
+    } catch (eR) { /* 略 */ }
+  }
   try {
     var url = orderWebAppGetActionUrl_('getBuiltInClientKey', '_=' + Date.now());
     if (!url) return { ok: false, reason: 'no_url' };
@@ -2007,6 +2026,17 @@ async function orderFetchBuiltInClientKey_(opts) {
     var data = text ? JSON.parse(text) : null;
     if (data && data.result === 'success' && data.clientKey) {
       orderBuiltInClientKeyCache_ = String(data.clientKey).trim();
+      // 順手寫入 localStorage，下次新分頁進站可以秒讀
+      try {
+        var depIdSav = _extractDepId(currentWebAppUrl);
+        if (depIdSav) {
+          localStorage.setItem('order_builtin_clientkey_v1', JSON.stringify({
+            depId: depIdSav,
+            k: orderBuiltInClientKeyCache_,
+            t: Date.now()
+          }));
+        }
+      } catch (eSav) { /* 略 */ }
       return orderGetClientKey_() ? { ok: true } : { ok: false, reason: 'bad_key' };
     }
     if (data && data.result === 'forbidden' && (data.reason === 'no_client_key' || data.sheetKeyConfigured === false)) {
@@ -3746,6 +3776,13 @@ function orderApplyStorePromotionsPayload_(d) {
     thresholdOrder: Array.isArray(d.thresholdOrder) ? d.thresholdOrder : [],
     activityImage: typeof d.activityImage === 'string' ? d.activityImage : ''
   };
+  // 順手寫入 localStorage，下次進站可以秒讀
+  try {
+    localStorage.setItem('order_merchant_promo_cache_v1', JSON.stringify({
+      data: window.__merchantPromotionsCache,
+      t: Date.now()
+    }));
+  } catch (eSav) { /* 略 */ }
 }
 function orderRevalueCartLineUnitPrice_(ci) {
   if (!ci || ci.isRedeem) return;
@@ -3777,6 +3814,19 @@ function orderRevalueCartItemsForPromo_() {
 }
 
 var __orderStorePromoFetchPromise__ = null;
+
+// 開機時先從 localStorage 還原促銷快取，讓菜單可以立刻顯示「會員價/特價」
+// 之後 fetch 回來會自動覆蓋（背景更新）
+(function orderRestorePromoCacheFromLocal_() {
+  try {
+    var raw = localStorage.getItem('order_merchant_promo_cache_v1');
+    if (!raw) return;
+    var o = JSON.parse(raw);
+    if (o && o.data && (Date.now() - (o.t || 0)) < 86400000) {
+      window.__merchantPromotionsCache = o.data;
+    }
+  } catch (eR) { /* 略 */ }
+})();
 
 function orderGetStorePromotionsFetchOnce_() {
   if (__orderStorePromoFetchPromise__) return __orderStorePromoFetchPromise__;
@@ -7358,7 +7408,7 @@ async function init() {
   bootPromise.then(function () {
     if (allProducts && allProducts.length > 0) renderMenu();
   });
-  if (!window.__ORDER_TABLE_MODE_ACTIVE__) {
+  /*if (!window.__ORDER_TABLE_MODE_ACTIVE__) {
     Promise.all([
       orderPrefetchMemberCornerData_(),
       orderPrefetchMemberHistory_(),
@@ -7366,7 +7416,7 @@ async function init() {
     ]).catch(function (e) {
       console.warn('[order] background member prefetch failed', e);
     });
-  }
+  }*/
   try {
     if (storeData && document.getElementById('store-info-content')) renderStoreInfo();
   } catch (eStore) {}
