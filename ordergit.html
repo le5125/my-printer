@@ -992,12 +992,24 @@
     inset: 0;
     overflow: hidden;
     pointer-events: auto;
-    z-index: 1045;
+    z-index: 1060;
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
     display: none;
-    background: transparent;
+    background: linear-gradient(180deg, #FFE5EC 0%, #FFF5F9 35%, #FFEEF5 70%, #FCDCE8 100%);
+  }
+  #order-mini-game-canvas::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(255,182,193,0.35) 0%, transparent 35%),
+      radial-gradient(circle at 85% 30%, rgba(255,228,225,0.45) 0%, transparent 40%),
+      radial-gradient(circle at 50% 75%, rgba(255,192,203,0.30) 0%, transparent 45%),
+      radial-gradient(circle at 25% 90%, rgba(255,218,224,0.40) 0%, transparent 35%);
+    pointer-events: none;
+    z-index: 0;
   }
   #order-mini-game-canvas.omg-active {
     display: block;
@@ -1007,41 +1019,75 @@
   }
   @keyframes omg-shake {
     0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-8px); }
-    50% { transform: translateX(8px); }
-    75% { transform: translateX(-4px); }
+    25% { transform: translateX(-10px); }
+    50% { transform: translateX(10px); }
+    75% { transform: translateX(-5px); }
   }
   #order-mini-game-canvas .omg-title {
-    position: absolute; top: calc(env(safe-area-inset-top, 0px) + 8px); left: 0; right: 0;
-    text-align: center; font-size: 14px; font-weight: 700;
-    color: #993556; pointer-events: none;
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 20px);
+    left: 50%; transform: translateX(-50%);
+    text-align: center;
+    font-size: 18px; font-weight: 900;
+    color: #993556;
+    pointer-events: none;
+    z-index: 5;
+    background: rgba(255,255,255,0.85);
+    padding: 8px 18px;
+    border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(215,4,100,0.18);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
   }
   #order-mini-game-canvas .omg-score {
-    position: absolute; top: calc(env(safe-area-inset-top, 0px) + 8px); right: 12px;
-    font-size: 14px; font-weight: 700; color: #993556;
-    background: rgba(255,255,255,0.85); padding: 4px 10px;
-    border-radius: 8px; pointer-events: none;
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 20px);
+    right: 16px;
+    font-size: 16px; font-weight: 900; color: #FFF;
+    background: linear-gradient(135deg, #D70464, #FF4081);
+    padding: 8px 14px;
+    border-radius: 999px;
+    pointer-events: none;
+    z-index: 5;
+    box-shadow: 0 4px 14px rgba(215,4,100,0.4);
+    min-width: 60px;
+    text-align: center;
   }
   #order-mini-game-canvas .omg-plate {
-    position: absolute; font-size: 42px;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
+    position: absolute;
+    font-size: 64px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 180px);
     transition: transform 0.05s linear;
-    z-index: 3; pointer-events: none;
+    z-index: 3;
+    pointer-events: none;
     transform: translateX(-50%);
+    filter: drop-shadow(0 6px 12px rgba(0,0,0,0.22));
   }
   #order-mini-game-canvas .omg-fitem {
-    position: absolute; font-size: 36px;
-    pointer-events: none; will-change: transform, opacity;
+    position: absolute;
+    font-size: 48px;
+    pointer-events: none;
+    will-change: transform, opacity;
     transform: translateX(-50%);
+    filter: drop-shadow(0 3px 8px rgba(0,0,0,0.18));
+    z-index: 2;
   }
   #order-mini-game-canvas .omg-pop {
-    position: absolute; font-size: 18px; font-weight: 800;
-    pointer-events: none; transform: translateX(-50%);
+    position: absolute;
+    font-size: 24px; font-weight: 900;
+    pointer-events: none;
+    transform: translateX(-50%);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    z-index: 6;
   }
   #order-mini-game-canvas .omg-miss {
-    position: absolute; font-size: 20px; font-weight: 700;
-    color: #A32D2D; pointer-events: none; opacity: 0;
+    position: absolute;
+    font-size: 24px; font-weight: 900;
+    color: #A32D2D; pointer-events: none;
+    opacity: 0;
     transform: translateX(-50%);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    z-index: 6;
   }
   #order-mini-game-canvas .omg-flash {
     position: absolute; inset: 0; background: #FFF;
@@ -1051,15 +1097,62 @@
     animation: omg-flash 0.5s;
   }
   @keyframes omg-flash {
-    0% { opacity: 0; } 15% { opacity: 0.9; } 100% { opacity: 0; }
+    0% { opacity: 0; } 15% { opacity: 0.92; } 100% { opacity: 0; }
   }
   #order-mini-game-canvas .omg-bits {
-    position: absolute; font-size: 36px;
-    pointer-events: none; z-index: 7;
+    position: absolute;
+    font-size: 44px;
+    pointer-events: none;
+    z-index: 7;
     transform: translate(-50%, -50%);
     will-change: transform, opacity;
   }
+  #order-mini-game-canvas .omg-progress-wrap {
+    position: absolute;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 30px);
+    left: 24px; right: 24px;
+    z-index: 5;
+    display: flex; flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+  #order-mini-game-canvas .omg-progress-label {
+    font-size: 15px; font-weight: 800;
+    color: #993556;
+    text-shadow: 0 1px 3px rgba(255,255,255,0.6);
+  }
+  #order-mini-game-canvas .omg-progress-bar {
+    width: 100%;
+    height: 16px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.7);
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.12), 0 2px 8px rgba(215,4,100,0.15);
+  }
+  #order-mini-game-canvas .omg-progress-fill {
+    width: 0%;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #FF85A1 0%, #D70464 50%, #FF4081 100%);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 12px rgba(215,4,100,0.5);
+  }
+  #order-mini-game-canvas .omg-hint {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 70px);
+    left: 50%; transform: translateX(-50%);
+    font-size: 12px; font-weight: 700;
+    color: #993556;
+    opacity: 0.7;
+    pointer-events: none;
+    z-index: 5;
+    background: rgba(255,255,255,0.5);
+    padding: 4px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
   /* === Mini Game CSS End === */
+
   #order-wait-panel-truck .order-truck-progress {
     width: min(calc(var(--order-truck-base-width) * var(--order-truck-scale)), 86vw);
     display: flex;
@@ -2506,9 +2599,26 @@ function orderInitMiniGame_() {
     }
     window.__orderGameStarted__ = true;
 
+    // 動態插入進度條 + 滑動提示
+    if (!document.getElementById('omg-progress-fill')) {
+      var hintDiv = document.createElement('div');
+      hintDiv.className = 'omg-hint';
+      hintDiv.textContent = '← 滑動接食物 / 避開 💣 →';
+      canvas.appendChild(hintDiv);
+
+      var progWrap = document.createElement('div');
+      progWrap.className = 'omg-progress-wrap';
+      progWrap.innerHTML =
+        '<div class="omg-progress-label" id="omg-progress-label">資料載入中… 0%</div>' +
+        '<div class="omg-progress-bar"><div class="omg-progress-fill" id="omg-progress-fill"></div></div>';
+      canvas.appendChild(progWrap);
+    }
+
     var plate = document.getElementById('omg-plate');
     var scoreEl = document.getElementById('omg-score');
     var flash = document.getElementById('omg-flash');
+    var progFill = document.getElementById('omg-progress-fill');
+    var progLabel = document.getElementById('omg-progress-label');
     if (!plate || !scoreEl || !flash) {
       console.warn('[order-game] dom missing');
       window.__orderGameStarted__ = false;
@@ -2522,7 +2632,7 @@ function orderInitMiniGame_() {
     var BOOM_BITS = ['💥','🔥','💢','✨','💨'];
 
     var score = 0, plateX = 0.5, rect = null, foods = [], rafId = 0, running = true;
-    var spawnTimer = 0;
+    var spawnTimer = 0, progTimer = 0, progVal = 0;
 
     function updateRect() { rect = canvas.getBoundingClientRect(); }
     updateRect();
@@ -2551,9 +2661,10 @@ function orderInitMiniGame_() {
       f.textContent = isBomb ? '💣' : FOODS[Math.floor(Math.random() * FOODS.length)];
       var startX = 0.08 + Math.random() * 0.84;
       f.style.left = (startX * 100) + '%';
-      f.style.top = '-50px';
+      f.style.top = '-60px';
       canvas.appendChild(f);
-      foods.push({ el: f, x: startX, y: -50, vy: 1.6 + Math.random() * 1.4, bomb: isBomb });
+      // 速度加快 1.5 倍：原本 1.6~3.0 → 改成 2.4~4.5
+      foods.push({ el: f, x: startX, y: -60, vy: 2.4 + Math.random() * 2.1, bomb: isBomb });
     }
 
     function tick() {
@@ -2561,21 +2672,22 @@ function orderInitMiniGame_() {
       if (!rect || rect.width === 0) updateRect();
       var h = rect ? rect.height : window.innerHeight;
       var w = rect ? rect.width : window.innerWidth;
-      var plateY = h - 110, plateHalfW = Math.min(32, w * 0.09);
+      // 盤子位置往上抬一點，避開進度條
+      var plateY = h - 200, plateHalfW = Math.min(40, w * 0.11);
       for (var i = foods.length - 1; i >= 0; i--) {
         var ff = foods[i];
         ff.y += ff.vy;
         ff.el.style.top = ff.y + 'px';
-        if (ff.y > plateY - 26 && ff.y < plateY + 22) {
+        if (ff.y > plateY - 30 && ff.y < plateY + 28) {
           var fx = ff.x * w, px = plateX * w;
-          if (Math.abs(fx - px) < plateHalfW + 20) {
+          if (Math.abs(fx - px) < plateHalfW + 26) {
             if (ff.bomb) {
               bigBoom(ff.x, plateY);
               score = Math.max(0, score - 20);
-              showPop('-20', ff.x, plateY - 22, '#A32D2D');
+              showPop('-20', ff.x, plateY - 28, '#A32D2D');
             } else {
               score += 10;
-              showPop('+10', ff.x, plateY - 22, '#0F6E56');
+              showPop('+10', ff.x, plateY - 28, '#0F6E56');
             }
             ff.el.remove();
             foods.splice(i, 1);
@@ -2583,7 +2695,7 @@ function orderInitMiniGame_() {
             continue;
           }
         }
-        if (ff.y > h + 20) {
+        if (ff.y > h + 30) {
           if (!ff.bomb) showMiss(ff.x, plateY - 10);
           ff.el.remove();
           foods.splice(i, 1);
@@ -2600,7 +2712,7 @@ function orderInitMiniGame_() {
       var op = 1, ty = 0;
       function a() {
         if (!running) { p.remove(); return; }
-        op -= 0.04; ty -= 1.5;
+        op -= 0.035; ty -= 2;
         p.style.opacity = op;
         p.style.transform = 'translateX(-50%) translateY(' + ty + 'px)';
         if (op > 0) requestAnimationFrame(a); else p.remove();
@@ -2617,7 +2729,7 @@ function orderInitMiniGame_() {
       var op = 1, ty = 0;
       function a() {
         if (!running) { m.remove(); return; }
-        op -= 0.03; ty += 1;
+        op -= 0.028; ty += 1.2;
         m.style.opacity = op;
         m.style.transform = 'translateX(-50%) translateY(' + ty + 'px)';
         if (op > 0) requestAnimationFrame(a); else m.remove();
@@ -2629,30 +2741,44 @@ function orderInitMiniGame_() {
       flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
       canvas.classList.remove('game-shake'); void canvas.offsetWidth; canvas.classList.add('game-shake');
       setTimeout(function () { canvas.classList.remove('game-shake'); }, 300);
-      for (var i = 0; i < 10; i++) {
+      for (var i = 0; i < 12; i++) {
         var b = document.createElement('div');
         b.className = 'omg-bits';
         b.textContent = BOOM_BITS[Math.floor(Math.random() * BOOM_BITS.length)];
         b.style.left = (x * 100) + '%'; b.style.top = y + 'px';
         canvas.appendChild(b);
         (function (el, ang) {
-          var dist = 80 + Math.random() * 60;
+          var dist = 100 + Math.random() * 80;
           var dx = Math.cos(ang) * dist, dy = Math.sin(ang) * dist, t = 0;
           function a() {
             if (!running) { el.remove(); return; }
-            t += 0.06;
+            t += 0.05;
             if (t >= 1) { el.remove(); return; }
             el.style.opacity = 1 - t;
-            el.style.transform = 'translate(-50%,-50%) translate(' + (dx * t) + 'px,' + (dy * t) + 'px) scale(' + (1 + t * 0.5) + ')';
+            el.style.transform = 'translate(-50%,-50%) translate(' + (dx * t) + 'px,' + (dy * t) + 'px) scale(' + (1 + t * 0.6) + ')';
             requestAnimationFrame(a);
           }
           a();
-        })(b, (i / 10) * Math.PI * 2);
+        })(b, (i / 12) * Math.PI * 2);
       }
     }
 
-    spawnTimer = setInterval(spawn, 700);
+    // 食物產生頻率也加快：從 700ms → 500ms
+    spawnTimer = setInterval(spawn, 500);
     rafId = requestAnimationFrame(tick);
+
+    // 同步外面的真實進度條到遊戲內進度條
+    progTimer = setInterval(function () {
+      try {
+        var realFill = document.getElementById('order-truck-progress-fill');
+        if (realFill && progFill) {
+          var w = realFill.style.width || '0%';
+          progFill.style.width = w;
+          var pct = parseInt(w, 10) || 0;
+          if (progLabel) progLabel.textContent = '資料載入中… ' + pct + '%';
+        }
+      } catch (eP) {}
+    }, 200);
 
     // 偵測 #menu-loading 隱藏 → 自動停止
     var menuLoading = document.getElementById('menu-loading');
@@ -2661,6 +2787,7 @@ function orderInitMiniGame_() {
       if (menuLoading.style.display === 'none') {
         running = false;
         try { clearInterval(spawnTimer); } catch (e) {}
+        try { clearInterval(progTimer); } catch (e) {}
         try { cancelAnimationFrame(rafId); } catch (e) {}
         try { canvas.classList.remove('omg-active'); canvas.style.display = 'none'; } catch (e) {}
         return true;
