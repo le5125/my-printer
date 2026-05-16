@@ -984,6 +984,8 @@
   }
   .order-card.card-online { border-color: #93c5fd; background: linear-gradient(180deg, #eff6ff 0%, #fff 40px); }
   .order-card.card-pos { border-color: #a7f3d0; background: linear-gradient(180deg, #ecfdf5 0%, #fff 40px); }
+  .order-card.card-resv { border-color: #fcd34d; background: linear-gradient(180deg, #fef3c7 0%, #fff 40px); }
+  .order-card.card-hd { border-color: #7dd3fc; background: linear-gradient(180deg, #e0f2fe 0%, #fff 40px); }
   .order-card-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #f3f4f6; flex-shrink: 0; }
   .order-card-id { font-weight: 800; font-size: 1.05rem; color: #111827; }
   .order-card-tag {
@@ -7068,8 +7070,8 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
           grid.innerHTML = '';
           viewRows.forEach(function (r) {
             const card = document.createElement('div');
-            card.className = 'order-card card-pos';
             const isHd = r.boardKind === 'homeDelivery';
+            card.className = 'order-card ' + (isHd ? 'card-hd' : 'card-resv');
             const bkAttr = isHd ? ' data-board-kind="homeDelivery"' : ' data-board-kind="reservation"';
             const lines = [];
             if (isHd) {
@@ -7258,6 +7260,7 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
         }
         var _reservationCalendarDate = _resvCalLocalDateStr_();
         var _reservationCalendarTimer = null;
+        var _resvCalAutoScrollOnNextRender_ = false;
                 var RESV_BOOKING_DEFAULT_MIN = 90;
         function resvCalGetMerchantHoursStrForCal_() {
           try {
@@ -7376,6 +7379,7 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
           _reservationCalendarDate = dateStr;
           var input = document.getElementById('resv-cal-date');
           if (input && input.value !== dateStr) input.value = dateStr;
+          _resvCalAutoScrollOnNextRender_ = true;
           renderReservationCalendar_();
         }
         function resvCalShiftDate_(deltaDays) {
@@ -7438,6 +7442,7 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
             if (dateWrap) dateWrap.classList.remove('hidden');
             if (monthLabel) monthLabel.classList.add('hidden');
             if (summary) summary.classList.remove('hidden');
+            _resvCalAutoScrollOnNextRender_ = true;
             renderReservationCalendar_();
           }
         }
@@ -7513,8 +7518,7 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
         var _LUNAR_DAY_CN_ = ['','初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
         function _lunarShortLabel_(lun) {
           if (!lun) return '';
-          if (lun.d === 1) return (lun.isLeap ? '閏' : '') + _LUNAR_MONTH_CN_[lun.m - 1] + '月';
-          return _LUNAR_DAY_CN_[lun.d] || '';
+          return (lun.isLeap ? '閏' : '') + lun.m + '/' + lun.d;
         }
         /* ===== 台灣國定假日（先用內建 2026-2027 作 fallback；啟動時從 GitHub 抓最新版覆蓋） ===== */
         var _TW_HOLIDAYS_ = {
@@ -7656,7 +7660,7 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
             if (c.inMonth && countByDate[c.dateStr]) {
               var cnt = countByDate[c.dateStr];
               if (cnt.pickup > 0) {
-                html += '<div style="background:#dbeafe;color:#1e40af;border-radius:4px;padding:1px 4px;font-size:11px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">👜取貨' + cnt.pickup + '筆</div>';
+                html += '<div style="background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 4px;font-size:11px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">👜取貨' + cnt.pickup + '筆</div>';
               }
               if (cnt.hd > 0) {
                 html += '<div style="background:#e0f2fe;color:#075985;border-radius:4px;padding:1px 4px;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🚚宅配' + cnt.hd + '筆</div>';
@@ -7787,9 +7791,11 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
               '</div>'
             );
           });
+          var _topNowPxForScroll_ = null;
           if (nowMin > 0) {
             var topNowPx = resvCalNowLineTopPx_(slots, slotMin, nowMin, SLOT_H);
             if (topNowPx != null) {
+              _topNowPxForScroll_ = topNowPx;
               html.push(
                 '<div class="resv-cal-now-line" style="position:absolute;left:0;right:0;top:' + topNowPx + 'px;height:0;border-top:2px solid #ef4444;z-index:5;pointer-events:none;">' +
                   '<span style="position:absolute;left:-58px;top:-10px;background:#ef4444;color:#fff;padding:1px 5px;border-radius:4px;font-size:11px;font-weight:700;">現在 ' +
@@ -7806,6 +7812,20 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
             summary.textContent = dateStr + ' · 取貨 ' + pickups.length + ' 筆 · 宅配 ' + homeDels.length + ' 筆';
           }
           wrap.innerHTML = html.join('');
+
+          /* 若該日是今日，把現在時間線捲到容器中間（只在使用者觸發時捲，timer 重繪不捲動） */
+          if (_topNowPxForScroll_ != null && dateStr === _resvCalLocalDateStr_() && _resvCalAutoScrollOnNextRender_) {
+            _resvCalAutoScrollOnNextRender_ = false;
+            setTimeout(function () {
+              try {
+                var ch = wrap.clientHeight || 0;
+                if (ch > 0) {
+                  var target = Math.max(0, _topNowPxForScroll_ - ch / 2);
+                  wrap.scrollTop = target;
+                }
+              } catch (eScroll) { /* 略 */ }
+            }, 0);
+          }
 
           var openCardForRow_ = function (rn, boardKind) {
             var bk = boardKind || 'reservation';
@@ -7885,6 +7905,7 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
             var input = document.getElementById('resv-cal-date');
             if (input && !input.value) input.value = _reservationCalendarDate;
             _resvLoadSettingsIfNeeded_();
+            _resvCalAutoScrollOnNextRender_ = true;
             renderReservationCalendar_();
             if (_reservationCalendarTimer) clearInterval(_reservationCalendarTimer);
             _reservationCalendarTimer = setInterval(function () {
