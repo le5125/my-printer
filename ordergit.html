@@ -1770,31 +1770,30 @@
 
 </style>
 <style id="order-v2-design">
-  /* 1. 共用 Hero header（所有 sheet 用） */
-  #store-info-sheet,
-  #order-lookup-sheet,
-  #member-corner-sheet,
-  #member-redeem-sheet,
-  #member-hist-sheet,
-  #member-guide-sheet,
-  #merchant-promo-ad-sheet,
-  #dinein-my-list-sheet {
+  /* 1. 共用分頁背景（所有 sheet 用） */
+  #store-info-sheet, #order-lookup-sheet, #member-corner-sheet, 
+  #member-redeem-sheet, #member-hist-sheet, #member-guide-sheet, 
+  #merchant-promo-ad-sheet, #dinein-my-list-sheet {
     background: #fafbfc;
   }
 
-  .sheet-hero {
+  /* 2. 統一 Hero Header 基礎樣式 (包含線上預約) */
+  .sheet-hero, 
+  #resv-drawer .resv-d-header {
     position: relative;
     overflow: hidden;
     border-bottom: none !important;
-    padding: 12px 16px !important; /* 縮小內距 */
-    color: #fff;
+    padding: 12px 16px !important; /* 縮小高度與內距 */
+    color: #fff !important;
+    display: flex !important;
     align-items: center !important;
     gap: 10px !important;
     flex-shrink: 0;
+    min-height: auto !important;
   }
 
-  /* 背景裝飾圓圈縮小 */
-  .sheet-hero::before {
+  /* 3. 加入漸層裝飾圓圈 (所有標題區塊通用) */
+  .sheet-hero::before, #resv-drawer .resv-d-header::before {
     content: "";
     position: absolute;
     top: -45%; right: -8%;
@@ -1803,7 +1802,7 @@
     pointer-events: none;
     z-index: 0;
   }
-  .sheet-hero::after {
+  .sheet-hero::after, #resv-drawer .resv-d-header::after {
     content: "";
     position: absolute;
     bottom: -55%; left: -10%;
@@ -1813,93 +1812,64 @@
     z-index: 0;
   }
 
-  /* 關閉按鈕縮小 (通用型) */
-  .sheet-hero .sheet-hero-close {
+  /* 4. 統一文字與標題樣式 */
+  .sheet-hero-text, .resv-d-title {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    min-width: 0;
+    color: #fff !important;
+    text-shadow: 0 2px 8px rgba(0,0,0,.18);
+  }
+
+  .sheet-hero .sheet-hero-title, #resv-drawer .resv-d-title {
+    font-size: 20px !important; /* 調小後的字體 */
+    font-weight: 900 !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .sheet-hero-sub {
+    font-size: 13px;
+    color: rgba(255,255,255,.85);
+    font-weight: 500;
+  }
+
+  /* 5. 統一關閉按鈕樣式 (玻璃擬態) */
+  .sheet-hero .sheet-hero-close, #resv-drawer .resv-d-close {
     position: absolute !important;
-    top: 12px !important;
+    top: 50% !important;
     right: 16px !important;
-    left: auto !important;
-    bottom: auto !important;
-    transform: none !important;
+    transform: translateY(-50%) !important; /* 置中 */
     z-index: 3;
     background: rgba(255,255,255,.18) !important;
     color: #fff !important;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     border: 1.5px solid rgba(255,255,255,.32);
-    width: 32px !important; /* 原 64px */
-    height: 32px !important; /* 原 64px */
-    font-size: 20px !important; /* 原 36px */
-    font-weight: 400 !important;
-    line-height: 1 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    transition: background .15s, transform .1s;
-    border-radius: 8px;
-  }
-
-  .sheet-hero-text {
-    position: relative;
-    z-index: 2;
-    flex: 1;
-    min-width: 0;
-    padding-right: 44px;
-  }
-
-  .sheet-hero .sheet-hero-title {
-    color: #fff !important;
-    font-size: 22px !important; /* 大標題縮小 */
-    font-weight: 900 !important;
-    line-height: 1.2 !important;
-    letter-spacing: 0.3px;
-    margin: 0 0 4px !important;
-    text-shadow: 0 2px 8px rgba(0,0,0,.18);
-  }
-
-  .sheet-hero-sub {
-    font-size: 14px; /* 副標題縮小 */
-    color: rgba(255,255,255,.85);
-    line-height: 1.4;
-    font-weight: 500;
-    text-shadow: 0 1px 4px rgba(0,0,0,.18);
-  }
-
-  /* 2. 線上預約面板 (resv-drawer) 專屬縮小樣式 */
-  #resv-drawer .resv-d-header {
-    padding: 10px 16px !important; /* 標題列高度調低 */
-    min-height: auto !important;
-  }
-  
-  #resv-drawer .resv-d-title {
-    font-size: 1.05rem !important; /* 預約標題文字縮小 */
-    font-weight: 700 !important;
-  }
-  
-  #resv-drawer .resv-d-title-icon {
-    width: 1.1rem !important; /* 標題旁的日曆圖示縮小 */
-    height: 1.1rem !important;
-  }
-  
-  #resv-drawer .resv-d-close {
-    width: 32px !important; /* 關閉按鈕大小同步 */
+    width: 32px !important;
     height: 32px !important;
-    font-size: 1.1rem !important;
-    line-height: 32px !important;
+    font-size: 18px !important;
+    border-radius: 8px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     padding: 0 !important;
+    margin: 0 !important;
   }
 
-  /* 各分頁漸層背景色保持不變 */
-  .sheet-hero--store    { background: linear-gradient(135deg, #0c1f3f 0%, #1e3a8a 45%, #0ea5e9 100%) !important; box-shadow: 0 6px 18px -6px rgba(14,165,233,.35); }
-  .sheet-hero--lookup   { background: linear-gradient(135deg, #0a1f1c 0%, #064e3b 45%, #10b981 100%) !important; box-shadow: 0 6px 18px -6px rgba(16,185,129,.35); }
-  .sheet-hero--member   { background: linear-gradient(135deg, #3b0a0a 0%, #9a3412 45%, #f59e0b 100%) !important; box-shadow: 0 6px 18px -6px rgba(245,158,11,.4); }
-  .sheet-hero--redeem   { background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 45%, #818cf8 100%) !important; box-shadow: 0 6px 18px -6px rgba(99,102,241,.4); }
-  .sheet-hero--hist     { background: linear-gradient(135deg, #052e2b 0%, #0f766e 45%, #2dd4bf 100%) !important; box-shadow: 0 6px 18px -6px rgba(45,212,191,.4); }
-  .sheet-hero--guide    { background: linear-gradient(135deg, #1e0a3c 0%, #4c1d95 45%, #7c3aed 100%) !important; box-shadow: 0 6px 18px -6px rgba(124,58,237,.35); }
-  .sheet-hero--dinein   { background: linear-gradient(135deg, #1a0a10 0%, #3d0622 45%, #D70464 100%) !important; box-shadow: 0 6px 18px -6px rgba(215,4,100,.35); }
+  /* 6. 各分頁的漸層顏色設定 (包含線上預約) */
+  #resv-drawer .resv-d-header { background: linear-gradient(135deg, #0f172a 0%, #334155 45%, #64748b 100%) !important; } /* 預約專用深灰藍漸層 */
+  .sheet-hero--store    { background: linear-gradient(135deg, #0c1f3f 0%, #1e3a8a 45%, #0ea5e9 100%) !important; }
+  .sheet-hero--lookup   { background: linear-gradient(135deg, #0a1f1c 0%, #064e3b 45%, #10b981 100%) !important; }
+  .sheet-hero--member   { background: linear-gradient(135deg, #3b0a0a 0%, #9a3412 45%, #f59e0b 100%) !important; }
+  .sheet-hero--redeem   { background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 45%, #818cf8 100%) !important; }
+  .sheet-hero--hist     { background: linear-gradient(135deg, #052e2b 0%, #0f766e 45%, #2dd4bf 100%) !important; }
+  .sheet-hero--guide    { background: linear-gradient(135deg, #1e0a3c 0%, #4c1d95 45%, #7c3aed 100%) !important; }
+  .sheet-hero--dinein   { background: linear-gradient(135deg, #1a0a10 0%, #3d0622 45%, #D70464 100%) !important; }
 </style>
 </head>
 <body>
