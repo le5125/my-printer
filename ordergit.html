@@ -1766,6 +1766,106 @@
   .ol-resv-chip--bad { background:#fee2e2; color:#b91c1c; }
   .ol-resv-chip--muted { background:#f1f5f9; color:#475569; }
 
+  
+
+</style>
+<style id="order-v2-design">
+  /* 共用 Hero header（所有 sheet 用） */
+  #store-info-sheet,
+  #order-lookup-sheet,
+  #member-corner-sheet,
+  #member-redeem-sheet,
+  #member-hist-sheet,
+  #member-guide-sheet,
+  #merchant-promo-ad-sheet,
+  #dinein-my-list-sheet {
+    background: #fafbfc;
+  }
+  .sheet-hero {
+    position: relative;
+    overflow: hidden;
+    border-bottom: none !important;
+    padding: 24px 22px 24px 22px !important;
+    color: #fff;
+    align-items: center !important;
+    gap: 18px !important;
+    flex-shrink: 0;
+  }
+  .sheet-hero::before {
+    content: "";
+    position: absolute;
+    top: -45%; right: -8%;
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, rgba(255,255,255,.20) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .sheet-hero::after {
+    content: "";
+    position: absolute;
+    bottom: -55%; left: -10%;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .sheet-hero .sheet-hero-close {
+    position: absolute !important;
+    top: 20px !important;
+    right: 22px !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    z-index: 3;
+    background: rgba(255,255,255,.18) !important;
+    color: #fff !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1.5px solid rgba(255,255,255,.32);
+    width: 64px !important;
+    height: 64px !important;
+    font-size: 36px !important;
+    font-weight: 400 !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background .15s, transform .1s;
+  }
+  .sheet-hero .sheet-hero-close:active {
+    background: rgba(255,255,255,.32) !important;
+    transform: scale(.92);
+  }
+  .sheet-hero-text {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    min-width: 0;
+    padding-right: 80px;
+  }
+  .sheet-hero .sheet-hero-title {
+    color: #fff !important;
+    font-size: 48px !important;
+    font-weight: 900 !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.3px;
+    margin: 0 0 6px !important;
+    text-shadow: 0 2px 8px rgba(0,0,0,.18);
+  }
+  .sheet-hero-sub {
+    font-size: 28px;
+    color: rgba(255,255,255,.85);
+    line-height: 1.4;
+    font-weight: 500;
+    text-shadow: 0 1px 4px rgba(0,0,0,.18);
+  }
+  .sheet-hero--store    { background: linear-gradient(135deg, #0c1f3f 0%, #1e3a8a 45%, #0ea5e9 100%) !important; box-shadow: 0 6px 18px -6px rgba(14,165,233,.35); }
+  .sheet-hero--lookup   { background: linear-gradient(135deg, #0a1f1c 0%, #064e3b 45%, #10b981 100%) !important; box-shadow: 0 6px 18px -6px rgba(16,185,129,.35); }
+  .sheet-hero--member   { background: linear-gradient(135deg, #3b0a0a 0%, #9a3412 45%, #f59e0b 100%) !important; box-shadow: 0 6px 18px -6px rgba(245,158,11,.4); }
+  .sheet-hero--redeem   { background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 45%, #818cf8 100%) !important; box-shadow: 0 6px 18px -6px rgba(99,102,241,.4); }
+  .sheet-hero--hist     { background: linear-gradient(135deg, #052e2b 0%, #0f766e 45%, #2dd4bf 100%) !important; box-shadow: 0 6px 18px -6px rgba(45,212,191,.4); }
+  .sheet-hero--guide    { background: linear-gradient(135deg, #1e0a3c 0%, #4c1d95 45%, #7c3aed 100%) !important; box-shadow: 0 6px 18px -6px rgba(124,58,237,.35); }
+  .sheet-hero--dinein   { background: linear-gradient(135deg, #1a0a10 0%, #3d0622 45%, #D70464 100%) !important; box-shadow: 0 6px 18px -6px rgba(215,4,100,.35); }
 </style>
 </head>
 <body>
@@ -1841,9 +1941,12 @@
 <div id="store-info-overlay" onclick="closeStoreInfo()"></div>
 
 <div id="store-info-sheet">
-  <div class="cart-header">
-    <div class="drawer-close-btn" onclick="closeStoreInfo()" style="position:static;transform:none;flex-shrink:0;">✕</div>
-    <div class="cart-drawer-title">商家資訊</div>
+  <div class="cart-header sheet-hero sheet-hero--store">
+    <div class="drawer-close-btn sheet-hero-close" onclick="closeStoreInfo()" style="position:static;transform:none;flex-shrink:0;">✕</div>
+    <div class="sheet-hero-text">
+      <div class="cart-drawer-title sheet-hero-title">商家資訊</div>
+      <div class="sheet-hero-sub">了解我們的營業狀況、聯絡方式與位置</div>
+    </div>
   </div>
   <div class="store-info-scroll" id="store-info-scroll">
     <div class="store-info-pad" id="store-info-content">
@@ -1854,9 +1957,12 @@
 <div id="order-lookup-overlay" onclick="closeOrderLookup()"></div>
 
 <div id="order-lookup-sheet">
-  <div class="cart-header">
-    <div class="drawer-close-btn" onclick="closeOrderLookup()" style="position:static;transform:none;flex-shrink:0;">✕</div>
-    <div class="cart-drawer-title">查詢</div>
+  <div class="cart-header sheet-hero sheet-hero--lookup">
+    <div class="drawer-close-btn sheet-hero-close" onclick="closeOrderLookup()" style="position:static;transform:none;flex-shrink:0;">✕</div>
+    <div class="sheet-hero-text">
+      <div class="cart-drawer-title sheet-hero-title">查詢訂單</div>
+      <div class="sheet-hero-sub">輸入手機號碼，即可查看歷史訂單</div>
+    </div>
   </div>
   <div class="ol-scroll" id="ol-scroll">
     <div class="ol-pad">
@@ -1888,11 +1994,14 @@
 
 <div id="dinein-my-list-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:115;" onclick="orderCloseDineInMyList_()"></div>
 <div id="dinein-my-list-sheet" style="display:none;position:fixed;left:0;right:0;bottom:0;top:auto;height:72vh;max-height:90vh;background:#fff;border-radius:24px 24px 0 0;z-index:116;box-shadow:0 -8px 40px rgba(0,0,0,.18);flex-direction:column;">
-  <div class="cart-header">
-    <div class="drawer-close-btn" onclick="orderCloseDineInMyList_()" style="position:static;transform:none;flex-shrink:0;">✕</div>
-    <div style="display:flex;align-items:center;gap:20px;flex:1;flex-wrap:wrap;min-width:0;">
-      <div class="cart-drawer-title" style="margin:0;">本桌清單</div>
-      <span id="dinein-my-list-table-badge" style="font-size: 2.01144rem;font-weight:900;color:var(--panda);">—</span>
+  <div class="cart-header sheet-hero sheet-hero--dinein">
+    <div class="drawer-close-btn sheet-hero-close" onclick="orderCloseDineInMyList_()" style="position:static;transform:none;flex-shrink:0;">✕</div>
+    <div class="sheet-hero-text">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;min-width:0;">
+        <div class="cart-drawer-title sheet-hero-title" style="margin:0 0 6px;">本桌清單</div>
+        <span id="dinein-my-list-table-badge" style="font-size:34px;font-weight:900;color:#fff;background:rgba(255,255,255,.22);padding:4px 16px;border-radius:999px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1.5px solid rgba(255,255,255,.32);">—</span>
+      </div>
+      <div class="sheet-hero-sub">查看本桌已送出的訂單與出餐狀態</div>
     </div>
   </div>
   <div class="cart-scroll" style="flex:1;min-height:0;">
@@ -1902,9 +2011,12 @@
 
 <div id="member-corner-overlay" onclick="closeMemberCornerSheet()"></div>
 <div id="member-corner-sheet">
-  <div class="cart-header">
-    <div class="drawer-close-btn" onclick="closeMemberCornerSheet()" style="position:static;transform:none;flex-shrink:0;">✕</div>
-    <div class="cart-drawer-title">會員專區</div>
+ <div class="cart-header sheet-hero sheet-hero--member">
+    <div class="drawer-close-btn sheet-hero-close" onclick="closeMemberCornerSheet()" style="position:static;transform:none;flex-shrink:0;">✕</div>
+    <div class="sheet-hero-text">
+      <div class="cart-drawer-title sheet-hero-title">會員專區</div>
+      <div class="sheet-hero-sub">您的點數、兌換品項、歷史紀錄與會員權益</div>
+    </div>
   </div>
   <div class="member-corner-scroll" id="member-corner-scroll">
     <div class="member-corner-pad" id="member-corner-body"></div>
@@ -1913,9 +2025,12 @@
 
 <div id="member-redeem-overlay" class="member-sub-overlay" onclick="closeMemberRedeemDrawer_()"></div>
 <div id="member-redeem-sheet" class="member-sub-sheet">
-  <div class="cart-header">
-    <div class="drawer-close-btn" onclick="closeMemberRedeemDrawer_()" style="position:static;transform:none;flex-shrink:0;">✕</div>
-    <div class="cart-drawer-title">可兌換品項</div>
+  <div class="cart-header sheet-hero sheet-hero--redeem">
+    <div class="drawer-close-btn sheet-hero-close" onclick="closeMemberRedeemDrawer_()" style="position:static;transform:none;flex-shrink:0;">✕</div>
+    <div class="sheet-hero-text">
+      <div class="cart-drawer-title sheet-hero-title">可兌換品項</div>
+      <div class="sheet-hero-sub">使用您的累積點數兌換好禮</div>
+    </div>
   </div>
   <div class="member-corner-scroll" id="member-redeem-scroll">
     <div class="member-corner-pad" id="member-redeem-body"></div>
@@ -1924,9 +2039,12 @@
 
 <div id="member-hist-overlay" class="member-sub-overlay" onclick="closeMemberHistDrawer_()"></div>
 <div id="member-hist-sheet" class="member-sub-sheet">
-  <div class="cart-header">
-    <div class="drawer-close-btn" onclick="closeMemberHistDrawer_()" style="position:static;transform:none;flex-shrink:0;">✕</div>
-    <div class="cart-drawer-title">點數紀錄</div>
+ <div class="cart-header sheet-hero sheet-hero--hist">
+    <div class="drawer-close-btn sheet-hero-close" onclick="closeMemberHistDrawer_()" style="position:static;transform:none;flex-shrink:0;">✕</div>
+    <div class="sheet-hero-text">
+      <div class="cart-drawer-title sheet-hero-title">點數紀錄</div>
+      <div class="sheet-hero-sub">查看您的點數累積與使用明細</div>
+    </div>
   </div>
   <div class="member-corner-scroll" id="member-hist-scroll">
     <div class="member-corner-pad">
@@ -1943,9 +2061,12 @@
 
 <div id="member-guide-overlay" onclick="orderCloseMemberGuideSheet_()"></div>
 <div id="member-guide-sheet">
-  <div class="cart-header">
-    <div class="drawer-close-btn" onclick="orderCloseMemberGuideSheet_()" style="position:static;transform:none;flex-shrink:0;">✕</div>
-    <div class="cart-drawer-title">會員說明</div>
+ <div class="cart-header sheet-hero sheet-hero--guide">
+    <div class="drawer-close-btn sheet-hero-close" onclick="orderCloseMemberGuideSheet_()" style="position:static;transform:none;flex-shrink:0;">✕</div>
+    <div class="sheet-hero-text">
+      <div class="cart-drawer-title sheet-hero-title">會員說明</div>
+      <div class="sheet-hero-sub">了解您的累點規則、使用權益</div>
+    </div>
   </div>
   <div class="member-corner-scroll" id="member-guide-scroll">
     <div class="member-corner-pad" id="member-guide-body"></div>
