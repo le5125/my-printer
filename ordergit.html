@@ -1770,83 +1770,69 @@
 
 </style>
 <style id="order-v2-design">
-  /* 1. 統一所有面板背景 (包含預約面板) */
-  #store-info-sheet,
-  #order-lookup-sheet,
-  #member-corner-sheet,
-  #member-redeem-sheet,
-  #member-hist-sheet,
-  #member-guide-sheet,
-  #merchant-promo-ad-sheet,
-  #dinein-my-list-sheet,
-  #resv-drawer .resv-d-content {
+  /* 1. 統一背景色 */
+  #store-info-sheet, #order-lookup-sheet, #member-corner-sheet, 
+  #member-redeem-sheet, #member-hist-sheet, #member-guide-sheet, 
+  #merchant-promo-ad-sheet, #dinein-my-list-sheet, #resv-drawer .resv-d-content {
     background: #fafbfc;
   }
 
-  /* 2. 統一 Hero Header 基礎結構 (縮小版) */
-  .sheet-hero,
-  #resv-drawer .resv-d-header {
+  /* 2. 統一 Hero Header 結構 (縮小版) */
+  .sheet-hero, #resv-drawer .resv-d-header {
     position: relative;
     overflow: hidden;
     border-bottom: none !important;
-    padding: 12px 16px !important; /* 縮小內距 */
+    padding: 12px 16px !important; 
     color: #fff !important;
     display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
-    flex-shrink: 0;
-    min-height: auto !important;
+    flex-direction: column; /* 讓內容垂直排列 */
+    justify-content: center;
+    min-height: 60px !important; /* 確保最小高度 */
   }
 
-  /* 3. 加入背景裝飾圓圈 (所有標題通用) */
+  /* 3. 背景裝飾圓圈 (縮小) */
   .sheet-hero::before, #resv-drawer .resv-d-header::before {
-    content: "";
-    position: absolute;
-    top: -45%; right: -8%;
+    content: ""; position: absolute; top: -45%; right: -8%;
     width: 120px; height: 120px;
     background: radial-gradient(circle, rgba(255,255,255,.20) 0%, transparent 65%);
-    pointer-events: none;
-    z-index: 0;
+    pointer-events: none; z-index: 0;
   }
   .sheet-hero::after, #resv-drawer .resv-d-header::after {
-    content: "";
-    position: absolute;
-    bottom: -55%; left: -10%;
+    content: ""; position: absolute; bottom: -55%; left: -10%;
     width: 100px; height: 100px;
     background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 60%);
-    pointer-events: none;
-    z-index: 0;
+    pointer-events: none; z-index: 0;
   }
 
-  /* 4. 標題文字縮小樣式 */
-  .sheet-hero .sheet-hero-title, 
-  #resv-drawer .resv-d-title {
-    color: #fff !important;
-    font-size: 20px !important; /* 同步縮小 */
+  /* 4. 文字區塊修正：確保右側留白不擋到叉叉 */
+  .sheet-hero-text, #resv-drawer .resv-d-title {
+    position: relative;
+    z-index: 2;
+    padding-right: 40px !important; /* 預留空間給叉叉 */
+    text-shadow: 0 2px 8px rgba(0,0,0,.18);
+    display: block !important;
+  }
+
+  .sheet-hero .sheet-hero-title, #resv-drawer .resv-d-title {
+    font-size: 20px !important;
     font-weight: 900 !important;
     line-height: 1.2 !important;
     margin: 0 !important;
-    text-shadow: 0 2px 8px rgba(0,0,0,.18);
-    position: relative;
-    z-index: 2;
-    display: flex !important;
-    align-items: center;
-    gap: 6px;
+    color: #fff !important;
+  }
+  
+  .sheet-hero-sub {
+    font-size: 13px !important;
+    color: rgba(255,255,255,.85) !important;
+    margin-top: 2px !important;
+    display: block;
   }
 
-  #resv-drawer .resv-d-title-icon {
-    width: 20px !important;
-    height: 20px !important;
-    filter: brightness(0) invert(1); /* 讓圖示變白色 */
-  }
-
-  /* 5. 統一關閉按鈕樣式 (白色玻璃質感) */
-  .sheet-hero .sheet-hero-close, 
-  #resv-drawer .resv-d-close {
+  /* 5. 關閉按鈕：固定在右上角，不再跑位 */
+  .sheet-hero .sheet-hero-close, #resv-drawer .resv-d-close {
     position: absolute !important;
-    top: 50% !important;
-    right: 16px !important;
-    transform: translateY(-50%) !important;
+    top: 12px !important;   /* 固定距離頂部 */
+    right: 16px !important; /* 固定距離右側 */
     z-index: 3;
     background: rgba(255,255,255,.18) !important;
     color: #fff !important;
@@ -1860,12 +1846,12 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    transform: none !important; /* 取消之前的位移 */
+    line-height: 1 !important;
   }
 
-  /* 6. 各分頁漸層背景色設定 */
-  #resv-drawer .resv-d-header { background: linear-gradient(135deg, #0f172a 0%, #334155 45%, #64748b 100%) !important; } /* 預約專用深藍灰漸層 */
+  /* 6. 漸層顏色設定 (包含預約) */
+  #resv-drawer .resv-d-header { background: linear-gradient(135deg, #0f172a 0%, #334155 45%, #64748b 100%) !important; }
   .sheet-hero--store    { background: linear-gradient(135deg, #0c1f3f 0%, #1e3a8a 45%, #0ea5e9 100%) !important; }
   .sheet-hero--lookup   { background: linear-gradient(135deg, #0a1f1c 0%, #064e3b 45%, #10b981 100%) !important; }
   .sheet-hero--member   { background: linear-gradient(135deg, #3b0a0a 0%, #9a3412 45%, #f59e0b 100%) !important; }
