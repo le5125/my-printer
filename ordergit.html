@@ -163,11 +163,11 @@
   }
 
       #hero-banner {
-    height: clamp(8.8rem, 15vh, 22.5rem);
+    height: clamp(8.8rem, 28vh, 22.5rem);
     background: linear-gradient(135deg, #1a0a10 0%, #3d0622 40%, #D70464 100%);
     position: relative; overflow: hidden;
     transition: height 0.35s cubic-bezier(.4,0,.2,1);
-        --hero-icon-size: 2rem;
+        --hero-icon-size: 3rem;
     --hero-icon-gap-x: 0.5rem;
     --hero-icon-top: 0.5714rem;
     --hero-icon-edge: 0.5714rem;
@@ -216,7 +216,7 @@
     .open-badge { display:inline-flex; align-items:center; gap:0.18rem; background:rgba(255,255,255,.15); color:white; font-size:0.88rem; padding:0.18rem 0.42rem; border-radius:666px; }
   .dot { width:0.5rem; height:0.5rem; border-radius:50%; background:#4ade80; display:inline-block; flex-shrink:0; }
     #hero-shop-name {
-    font-size: clamp(1.38rem, 4.6vw, 1rem);
+    font-size: clamp(1.38rem, 4.6vw, 1.92rem);
     font-weight: 900;
     color: #fff;
     line-height: 1.2;
@@ -1785,17 +1785,17 @@
     position: relative;
     overflow: hidden;
     border-bottom: none !important;
-    padding: 24px 22px 24px 22px !important;
+    padding: 12px 16px !important; /* 縮小上下左右內距 (原 24px 22px) */
     color: #fff;
     align-items: center !important;
-    gap: 18px !important;
+    gap: 10px !important; /* 縮小元素間距 (原 18px) */
     flex-shrink: 0;
   }
   .sheet-hero::before {
     content: "";
     position: absolute;
     top: -45%; right: -8%;
-    width: 260px; height: 260px;
+    width: 120px; height: 120px; /* 縮小背景裝飾圓圈 (原 260px) */
     background: radial-gradient(circle, rgba(255,255,255,.20) 0%, transparent 65%);
     pointer-events: none;
     z-index: 0;
@@ -1804,15 +1804,15 @@
     content: "";
     position: absolute;
     bottom: -55%; left: -10%;
-    width: 220px; height: 220px;
+    width: 100px; height: 100px; /* 縮小背景裝飾圓圈 (原 220px) */
     background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 60%);
     pointer-events: none;
     z-index: 0;
   }
   .sheet-hero .sheet-hero-close {
     position: absolute !important;
-    top: 20px !important;
-    right: 22px !important;
+    top: 12px !important; /* 調整關閉按鈕位置 */
+    right: 16px !important;
     left: auto !important;
     bottom: auto !important;
     transform: none !important;
@@ -1822,15 +1822,16 @@
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     border: 1.5px solid rgba(255,255,255,.32);
-    width: 64px !important;
-    height: 64px !important;
-    font-size: 36px !important;
+    width: 32px !important; /* 縮小關閉按鈕寬度 (原 64px) */
+    height: 32px !important; /* 縮小關閉按鈕高度 (原 64px) */
+    font-size: 20px !important; /* 縮小關閉按鈕的 X 字體 (原 36px) */
     font-weight: 400 !important;
     line-height: 1 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     transition: background .15s, transform .1s;
+    border-radius: 8px; /* 加上微圓角讓縮小後的按鈕更好看，若不要可移除此行 */
   }
   .sheet-hero .sheet-hero-close:active {
     background: rgba(255,255,255,.32) !important;
@@ -1841,19 +1842,19 @@
     z-index: 2;
     flex: 1;
     min-width: 0;
-    padding-right: 80px;
+    padding-right: 44px; /* 縮小右側留白，配合變小的關閉按鈕 (原 80px) */
   }
   .sheet-hero .sheet-hero-title {
     color: #fff !important;
-    font-size: 48px !important;
+    font-size: 22px !important; /* 大幅縮小標題字體 (原 48px) */
     font-weight: 900 !important;
     line-height: 1.2 !important;
     letter-spacing: 0.3px;
-    margin: 0 0 6px !important;
+    margin: 0 0 4px !important; /* 縮小與副標題的間距 (原 6px) */
     text-shadow: 0 2px 8px rgba(0,0,0,.18);
   }
   .sheet-hero-sub {
-    font-size: 28px;
+    font-size: 14px; /* 大幅縮小副標題字體 (原 28px) */
     color: rgba(255,255,255,.85);
     line-height: 1.4;
     font-weight: 500;
