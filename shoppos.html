@@ -19083,6 +19083,9 @@ function buildPrintTextFromBackendOrder_(ord) {
   if (ord && ord.reservationCardPrint === true) {
     return _printerEmojisToGt_(buildReceiptPlainTextMirroringGas_(ord));
   }
+  if (_printerBridgeIsHomeDeliveryPrintOrder_(ord)) {
+    return _printerEmojisToGt_(buildReceiptPlainTextMirroringGas_(ord));
+  }
   var detailLayout = getDetailPrintLayout_();
   if (ord && (ord.detailPrintLayout === 'template' || ord.detailPrintLayout === 'telegram')) {
     detailLayout = ord.detailPrintLayout;
@@ -19117,10 +19120,51 @@ function stripOrderDateToYyyyMmDdForPrint_(raw) {
 function buildReceiptDetailBodyMirroringGas_(ord) {
   if (!ord) return '';
   var packed = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
-  if (packed) return packed;
+  if (packed && typeof _printerBridgePackedIsHomeDeliveryDetail_ === 'function' &&
+      _printerBridgePackedIsHomeDeliveryDetail_(packed)) {
+    return packed;
+  }
+  if (packed && !(typeof _printerBridgeIsHomeDeliveryPrintOrder_ === 'function' &&
+      _printerBridgeIsHomeDeliveryPrintOrder_(ord))) {
+    return packed;
+  }
   var hasItems = Array.isArray(ord.items) && ord.items.length > 0;
   if (hasItems) return _itemsBlock_(ord, { telegramLayout: true });
-  return '';
+  return packed || '';
+}
+function _printerBridgeHomeDeliveryHasSubstance_(hd) {
+  if (!hd || typeof hd !== 'object') return false;
+  function ne(v) { return v != null && String(v).trim() !== ''; }
+  return ne(hd.date) || ne(hd.name) || ne(hd.phone) || ne(hd.address) ||
+    ne(hd.note) || ne(hd.payMethod);
+}
+function _printerBridgePackedIsHomeDeliveryDetail_(packed) {
+  if (!packed) return false;
+  var first = String(packed).replace(/^\uFEFF/, '').split('\n')[0].trim();
+  return first === '宅配';
+}
+function _printerBridgeIsHomeDeliveryPrintOrder_(ord) {
+  if (!ord) return false;
+  if (ord.homeDelivery && _printerBridgeHomeDeliveryHasSubstance_(ord.homeDelivery)) return true;
+  var packed = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
+  return _printerBridgePackedIsHomeDeliveryDetail_(packed);
+}
+function _printerBridgeHomeDeliveryPrintBody_(ord) {
+  var packed = ord.orderDetailTextForPrint != null ? String(ord.orderDetailTextForPrint).trim() : '';
+  if (_printerBridgePackedIsHomeDeliveryDetail_(packed)) return packed;
+  if (typeof posBuildHomeDeliveryDetailForPrint_ === 'function') {
+    try {
+      var built = posBuildHomeDeliveryDetailForPrint_(ord);
+      if (built && String(built).trim()) return String(built).trim();
+    } catch (eHd) { /* 略 */ }
+  }
+  return packed;
+}
+function _printerBridgeHomeDeliveryReceiptWithTitle_(ord, body) {
+  var srcRaw = ord && ord.source;
+  var isPos = (srcRaw === 'pos' || srcRaw === undefined || srcRaw === null || String(srcRaw).trim() === '');
+  var srcTag = isPos ? '🏪【現場/POS】' : '📱【線上】';
+  return '📦 有一筆新訂單！' + srcTag + '\n' + String(body || '').trim();
 }
 function buildReservationBlockForPrint_(ord) {
   var r = ord && ord.reservation && typeof ord.reservation === 'object' ? ord.reservation : null;
@@ -19217,6 +19261,9 @@ function buildReceiptPlainTextMirroringGas_(ord) {
         var hdr = _printerBridgeReservationThermalHeader_(ord);
         if (hdr) return hdr + '\n\n商品明細：\n\n' + pTrim;
       }
+      if (_printerBridgePackedIsHomeDeliveryDetail_(pTrim)) {
+        return _printerBridgeHomeDeliveryReceiptWithTitle_(ord, pTrim);
+      }
       return packed;
     }
     var totalNum = parseInt((ord.total != null ? ord.total : r.total), 10) || 0;
@@ -19257,6 +19304,9 @@ function buildReceiptPlainTextMirroringGas_(ord) {
     if (lines.length) return resCardHdr + '\n' + lines.join('\n');
     var rb = buildReservationBlockForPrint_(ord);
     return rb ? (resCardHdr + '\n' + rb) : resCardHdr;
+  }
+  if (_printerBridgeIsHomeDeliveryPrintOrder_(ord)) {
+    return _printerBridgeHomeDeliveryReceiptWithTitle_(ord, _printerBridgeHomeDeliveryPrintBody_(ord));
   }
   var srcRaw = ord.source;
   var isPos = (srcRaw === 'pos' || srcRaw === undefined || srcRaw === null || String(srcRaw).trim() === '');
