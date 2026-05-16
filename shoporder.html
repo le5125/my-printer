@@ -2,6 +2,14 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<script>
+(function () {
+  try {
+    var ua = navigator.userAgent || '';
+    if (/Line/i.test(ua)) document.documentElement.classList.add('ordergit-line-inapp');
+  } catch (e) {}
+})();
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -16,6 +24,7 @@
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script defer src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script defer src="https://cdn.tailwindcss.com"></script>
 <script defer>
   tailwind.config = {
@@ -41,6 +50,9 @@
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body { font-family: 'Noto Sans TC', sans-serif; background: #f7f7f7; overflow-x: hidden; overscroll-behavior-y: none; }
+  html.ordergit-line-inapp body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang TC', 'Heiti TC', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+  }
 
     .swal2-container {
     z-index: 12000 !important;
@@ -3089,6 +3101,7 @@
 <div id="toast">✓ 已加入購物車</div>
 
 <script>
+var __ORDERGIT_STANDALONE__ = true;
 let currentWebAppUrl = '';
 var ORDER_PUBLIC_MAINTENANCE_MESSAGE_ = '系統維修中';
 var orderBuiltInClientKeyCache_ = '';
@@ -3105,19 +3118,61 @@ function orderWebAppGetActionUrl_(action, extraQuery) {
   }
   return u + sep + q;
 }
+function orderFetchJsonFromAction_(action, extraQuery) {
+  var u = orderWebAppGetActionUrl_(action, (extraQuery ? String(extraQuery).replace(/^&+/, '') + '&' : '') + '_=' + Date.now());
+  if (!u) return Promise.resolve(null);
+  return fetch(u, { cache: 'no-store', credentials: 'omit' })
+    .then(function (r) { return r.text(); })
+    .then(function (t) {
+      try {
+        return t ? JSON.parse(t) : null;
+      } catch (eJ) {
+        return null;
+      }
+    });
+}
 async function orderFetchBuiltInClientKey_(opts) {
   opts = opts || {};
   if (!opts.force && orderGetClientKey_()) return { ok: true };
   if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
+  // 從 currentWebAppUrl 拆出部署 ID（…/macros/s/【這段】/exec）
+  function _extractDepId(u) {
+    var m = String(u || '').match(/\/macros\/s\/([^/]+)\/exec/);
+    return m ? m[1] : '';
+  }
+  // 先嘗試從 localStorage 快取還原（同一個老闆部署 ID、24 小時內）
+  if (!opts.force) {
+    try {
+      var depIdNow = _extractDepId(currentWebAppUrl);
+      var rawK = localStorage.getItem('order_builtin_clientkey_v1');
+      if (rawK && depIdNow) {
+        var oK = JSON.parse(rawK);
+        if (oK && oK.depId === depIdNow && oK.k && (Date.now() - (oK.t || 0)) < 86400000) {
+          orderBuiltInClientKeyCache_ = String(oK.k).trim();
+          if (orderGetClientKey_()) return { ok: true };
+        }
+      }
+    } catch (eR) { /* 略 */ }
+  }
   try {
-    var u = String(currentWebAppUrl).trim().replace(/\?+$/, '');
-    var sep = u.indexOf('?') >= 0 ? '&' : '?';
-    var url = u + sep + 'action=getBuiltInClientKey&_=' + Date.now();
+    var url = orderWebAppGetActionUrl_('getBuiltInClientKey', '_=' + Date.now());
+    if (!url) return { ok: false, reason: 'no_url' };
     var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
     var text = await res.text();
     var data = text ? JSON.parse(text) : null;
     if (data && data.result === 'success' && data.clientKey) {
       orderBuiltInClientKeyCache_ = String(data.clientKey).trim();
+      // 順手寫入 localStorage，下次新分頁進站可以秒讀
+      try {
+        var depIdSav = _extractDepId(currentWebAppUrl);
+        if (depIdSav) {
+          localStorage.setItem('order_builtin_clientkey_v1', JSON.stringify({
+            depId: depIdSav,
+            k: orderBuiltInClientKeyCache_,
+            t: Date.now()
+          }));
+        }
+      } catch (eSav) { /* 略 */ }
       return orderGetClientKey_() ? { ok: true } : { ok: false, reason: 'bad_key' };
     }
     if (data && data.result === 'forbidden' && (data.reason === 'no_client_key' || data.sheetKeyConfigured === false)) {
@@ -3316,18 +3371,24 @@ var ORDER_WEBAPP_URL_CACHE_KEY = 'order_webapp_url_cache_v1';
 var ORDER_MEMBER_CORNER_REFRESH_MS = 10000;
 try { window.__ORDER_MEMBER_SYSTEM_ENABLED__ = true; } catch (e) {}
 try { window.__ORDER_MEMBER_ACTIVITIES_ON__ = true; } catch (e) {}
+try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (e) {}
 var ORDER_MEMBER_ENABLED_SESSION_KEY = 'order_member_enabled_cache_v1';
 var ORDER_MEMBER_PROFILE_CACHE_TTL_MS = 90000;
 var ORDER_REDEEM_TAB_NAME = '兌換';
 var orderMemberProfileCache_ = Object.create(null);
+var orderMemberProfileByLineCache_ = Object.create(null);
 var orderMemberProfileInflight_ = Object.create(null);
 var orderMemberCornerRefreshTimer_ = null;
 var orderMemberCornerRefreshInFlight_ = false;
 var orderTruckProgressTimer_ = null;
 var orderTruckProgressValue_ = 0;
+var orderWaitGameRafId_ = null;
+var orderWaitGameRunning_ = false;
+var orderWaitGamePointerBound_ = false;
+var orderWaitGameState_ = { cursorLeftPct: 0, dir: 1, lastTs: 0, targetLeftPct: 25, tapLock: false, cursorW: 4 };
 var orderMemberEnabledForcedOnce_ = false;
+try { window.__ORDER_LIFF_ID_RESOLVED__ = ''; } catch (e) {}
 
-/** 與 GitHub 版一致：送單帶 lineUserId 時，後端可先 upgradeMemberStubPhoneFromLineOrder_ 再寫入點數／最後消費日（同「會員」表 E、F 欄）。 */
 function orderLineUserIdLooksValid_(id) {
   return /^U[a-fA-F0-9]{32}$/.test(String(id || '').trim());
 }
@@ -3338,6 +3399,124 @@ function orderGetLineUserIdForMemberBind_() {
   } catch (e) {
     return '';
   }
+}
+
+function orderIsLineStubMemberPhone_(raw) {
+  var p = orderNormalizePhone10_(String(raw || ''));
+  return /^088887\d{4}$/.test(p);
+}
+
+function orderCartPointDiscountAllowedPhone_(phone10) {
+  var p10 = orderNormalizePhone10_(phone10 || '');
+  if (!p10) return false;
+  var stored = orderGetStoredMemberPhone10_();
+  if (!stored) return false;
+  if (p10 === stored) return true;
+  try {
+    if (window.__ORDER_LIFF_STUB_MEMBER__ && orderIsLineStubMemberPhone_(stored) && orderLineUserIdLooksValid_(orderGetLineUserIdForMemberBind_())) {
+      return !!p10 && !orderIsLineStubMemberPhone_(p10);
+    }
+  } catch (e) {}
+  return false;
+}
+
+function orderNormalizeLiffIdFromSheet_(raw) {
+  var s = String(raw || '').trim();
+  if (!s || s.length > 64) return '';
+  if (!/^[0-9A-Za-z\-]+$/.test(s)) return '';
+  return s;
+}
+
+async function orderFetchLiffIdFromBackend_() {
+  try {
+    if (typeof window.__ORDER_LIFF_ID_RESOLVED__ === 'string' && window.__ORDER_LIFF_ID_RESOLVED__) {
+      return window.__ORDER_LIFF_ID_RESOLVED__;
+    }
+  } catch (e0) {}
+  var ORDERGIT_LIFF_ID_SS_KEY = 'ordergit_liff_id_sheet_v1';
+  var ORDERGIT_LIFF_ID_SS_TTL_MS = 43200000;
+  try {
+    var rawSs = sessionStorage.getItem(ORDERGIT_LIFF_ID_SS_KEY);
+    if (rawSs) {
+      var oSs = JSON.parse(rawSs);
+      if (oSs && oSs.lid && oSs.t && (Date.now() - oSs.t) < ORDERGIT_LIFF_ID_SS_TTL_MS) {
+        var lidSs = orderNormalizeLiffIdFromSheet_(oSs.lid);
+        if (lidSs) {
+          try { window.__ORDER_LIFF_ID_RESOLVED__ = lidSs; } catch (eSs1) {}
+          return lidSs;
+        }
+      }
+    }
+  } catch (eSs0) {}
+  var lid = '';
+  try {
+    if (typeof orderCanUseScriptRun_ === 'function' && orderCanUseScriptRun_()) {
+      var data = await new Promise(function (resolve) {
+        google.script.run
+          .withSuccessHandler(function (r) {
+            resolve(r && typeof r === 'object' ? r : null);
+          })
+          .withFailureHandler(function () {
+            resolve(null);
+          })
+          .getOrderLiffIdFromSheetForClient();
+      });
+      if (data && data.result === 'success') lid = orderNormalizeLiffIdFromSheet_(data.liffId);
+    }
+  } catch (e1) {}
+  if (!lid && currentWebAppUrl) {
+    try {
+      var uL = orderWebAppGetActionUrl_('getOrderLiffId', '_=' + Date.now());
+      if (uL) {
+        var res = await fetch(uL, { cache: 'no-store', credentials: 'omit' });
+        var text = await res.text();
+        var j = null;
+        try {
+          j = text ? JSON.parse(text) : null;
+        } catch (eP) {
+          j = null;
+        }
+        if (j && j.result === 'success') lid = orderNormalizeLiffIdFromSheet_(j.liffId);
+      }
+    } catch (e2) {}
+  }
+  try {
+    window.__ORDER_LIFF_ID_RESOLVED__ = lid;
+  } catch (e3) {}
+  if (lid) {
+    try {
+      sessionStorage.setItem(ORDERGIT_LIFF_ID_SS_KEY, JSON.stringify({ lid: lid, t: Date.now() }));
+    } catch (eSav) {}
+  }
+  return lid;
+}
+
+function orderLiffInitMaybe_() {
+  if (window.__ORDER_LIFF_INIT_PROMISE__) return window.__ORDER_LIFF_INIT_PROMISE__;
+  window.__ORDER_LIFF_INIT_PROMISE__ = (async function () {
+    try {
+      window.__ORDER_LINE_USER_ID__ = '';
+    } catch (e0) {}
+    var lid = await orderFetchLiffIdFromBackend_();
+    if (!lid) return;
+    var _dl = Date.now() + 15000;
+    while (typeof liff === 'undefined' && Date.now() < _dl) {
+      await new Promise(function (r) { setTimeout(r, 45); });
+    }
+    if (typeof liff === 'undefined') return;
+    try {
+      await liff.init({ liffId: lid });
+      if (!liff.isLoggedIn()) {
+        liff.login({ withLoginOnExternalBrowser: true });
+        return;
+      }
+      var prof = await liff.getProfile();
+      if (prof && prof.userId) window.__ORDER_LINE_USER_ID__ = String(prof.userId).trim();
+    } catch (e) {
+      console.warn('[order] LIFF', e);
+    }
+  })();
+  return window.__ORDER_LIFF_INIT_PROMISE__;
 }
 
 function orderGetCachedWebAppUrl_() {
@@ -4042,19 +4221,113 @@ async function orderEnsureMemberCreated_(phone10) {
   }
 }
 
+async function orderFetchMemberProfileByLineId_(lineUserId) {
+  var lid = String(lineUserId || '').trim();
+  if (!orderLineUserIdLooksValid_(lid)) {
+    return { result: 'error', exists: false, message: 'invalid_line' };
+  }
+  var now = Date.now();
+  var cached = orderMemberProfileByLineCache_[lid];
+  if (cached && (now - cached.at) < ORDER_MEMBER_PROFILE_CACHE_TTL_MS) {
+    return cached.data;
+  }
+  if (orderCanUseScriptRun_()) {
+    try {
+      var data = await new Promise(function (resolve) {
+        google.script.run
+          .withSuccessHandler(function (r) {
+            resolve(r && typeof r === 'object' ? r : { result: 'error', exists: false });
+          })
+          .withFailureHandler(function (err) {
+            resolve({ result: 'error', exists: false, message: err && err.message ? err.message : String(err) });
+          })
+          .getMemberProfileByLineIdDataFromOrderClient(lid);
+      });
+      orderMemberProfileByLineCache_[lid] = { at: Date.now(), data: data };
+      return data;
+    } catch (e) {
+      return { result: 'error', exists: false, message: String(e && e.message || e) };
+    }
+  }
+  if (!currentWebAppUrl) return { result: 'error', exists: false, message: 'no_url' };
+  try {
+    var uL = orderWebAppGetActionUrl_('getMemberProfileByLineId', 'lineId=' + encodeURIComponent(lid) + '&_=' + Date.now());
+    if (!uL) return { result: 'error', exists: false, message: 'no_url' };
+    var res = await fetch(uL, { cache: 'no-store', credentials: 'omit' });
+    var text = await res.text();
+    var j = null;
+    try {
+      j = text ? JSON.parse(text) : null;
+    } catch (eP) {
+      j = null;
+    }
+    var out = j || { result: 'error', exists: false };
+    orderMemberProfileByLineCache_[lid] = { at: Date.now(), data: out };
+    return out;
+  } catch (e2) {
+    return { result: 'error', exists: false, message: String(e2 && e2.message || e2) };
+  }
+}
+
+async function orderEnsureMemberStubByLineFromWeb_(lineUserId) {
+  var lid = String(lineUserId || '').trim();
+  if (!orderLineUserIdLooksValid_(lid)) return { result: 'error', message: 'invalid_line' };
+  if (orderCanUseScriptRun_()) {
+    return new Promise(function (resolve) {
+      google.script.run
+        .withSuccessHandler(function (r) {
+          var out = (r && typeof r === 'object') ? r : { result: 'error' };
+          if (out && out.result === 'success') {
+            try { delete orderMemberProfileByLineCache_[lid]; } catch (e1) {}
+            var ph = orderNormalizePhone10_(out.phone || '');
+            if (ph) try { delete orderMemberProfileCache_[ph]; } catch (e2) {}
+          }
+          resolve(out);
+        })
+        .withFailureHandler(function (err) { resolve({ result: 'error', message: err && err.message ? err.message : String(err) }); })
+        .ensureMemberStubByLineIdDataFromOrderClient(lid);
+    });
+  }
+  if (!currentWebAppUrl) return { result: 'error', message: 'no_url' };
+  try {
+    var uS = orderWebAppGetActionUrl_('ensureMemberStubByLineId', 'lineId=' + encodeURIComponent(lid) + '&_=' + Date.now());
+    if (!uS) return { result: 'error', message: 'no_url' };
+    var res = await fetch(uS, { cache: 'no-store', credentials: 'omit' });
+    var text = await res.text();
+    var j = null;
+    try {
+      j = text ? JSON.parse(text) : null;
+    } catch (eP) {
+      j = null;
+    }
+    var out = j || { result: 'error' };
+    if (out && out.result === 'success') {
+      try { delete orderMemberProfileByLineCache_[lid]; } catch (e1) {}
+      var ph2 = orderNormalizePhone10_(out.phone || '');
+      if (ph2) try { delete orderMemberProfileCache_[ph2]; } catch (e2) {}
+    }
+    return out;
+  } catch (e) {
+    return { result: 'error', message: String(e && e.message || e) };
+  }
+}
+
 async function orderRunMemberGate_() {
   if (window.__ORDER_VACATION_BLOCK__) return false;
   var forceMemberEnabledCheck = !orderMemberEnabledForcedOnce_;
   var enabled = await orderFetchMemberSystemEnabled_(forceMemberEnabledCheck);
   orderMemberEnabledForcedOnce_ = true;
   if (!enabled) {
+    try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (eDis) {}
     orderApplyMemberSystemDisabledUi_();
     orderWaitShowTruck_('菜單載入中…');
     orderEnsureBootPrefetch_();
     return false;
   }
+  var __orderLiffGatePromise = orderLiffInitMaybe_();
   orderWaitShowCapybara_();
   orderEnsureBootPrefetch_();
+  await __orderLiffGatePromise;
   var gateProfileCache = Object.create(null);
   function gateProfileInvalidate_(phone10) {
     var p = orderNormalizePhone10_(phone10 || '');
@@ -4069,18 +4342,65 @@ async function orderRunMemberGate_() {
     return await gateProfileCache[p];
   }
 
+  var bindLine = orderGetLineUserIdForMemberBind_();
+
+  try {
+    if (bindLine && (currentWebAppUrl || orderCanUseScriptRun_())) {
+      var lineProfEarly = await orderFetchMemberProfileByLineId_(bindLine);
+      if (lineProfEarly && lineProfEarly.result === 'success' && lineProfEarly.exists && lineProfEarly.phone) {
+        var phoneFromLine = orderNormalizePhone10_(lineProfEarly.phone);
+        if (phoneFromLine && !orderIsLineStubMemberPhone_(phoneFromLine)) {
+          try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (eRl) {}
+          try { localStorage.setItem(ORDER_MEMBER_PHONE_STORAGE_KEY, phoneFromLine); } catch (eLineSt) {}
+          orderEnsureCanonicalPhoneInUrl_(phoneFromLine);
+          orderEnsureBootPrefetch_();
+          orderWaitShowTruck_('載入中…');
+          return false;
+        }
+      }
+    }
+  } catch (eLineGate) {}
+
+  try {
+    if (bindLine && (currentWebAppUrl || orderCanUseScriptRun_())) {
+      var stubRes = await orderEnsureMemberStubByLineFromWeb_(bindLine);
+      if (stubRes && stubRes.result === 'success' && stubRes.phone) {
+        var stubPhone = orderNormalizePhone10_(stubRes.phone);
+        if (stubPhone) {
+          try { window.__ORDER_LIFF_STUB_MEMBER__ = true; } catch (eStF) {}
+          try {
+            localStorage.setItem(ORDER_MEMBER_PHONE_STORAGE_KEY, stubPhone);
+            localStorage.removeItem(ORDER_GUEST_SKIP_MEMBER_KEY);
+          } catch (eLineStore) {}
+          try { delete orderMemberProfileCache_[stubPhone]; } catch (eCl) {}
+          try { delete orderMemberProfileByLineCache_[bindLine]; } catch (eCl2) {}
+          orderEnsureBootPrefetch_();
+          orderWaitShowTruck_('載入中…');
+          return false;
+        }
+      }
+    }
+  } catch (eStubGate) {}
+
+  try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (eDisLiff) {}
+
   var storedOk = '';
   try { storedOk = orderNormalizePhone10_(localStorage.getItem(ORDER_MEMBER_PHONE_STORAGE_KEY) || ''); } catch (e) {}
   if (storedOk) {
-    var storedProf = await fetchProfileOnceInGate_(storedOk);
-    if (storedProf && storedProf.result === 'success' && storedProf.exists) {
-      orderEnsureBootPrefetch_();
-      orderEnsureCanonicalPhoneInUrl_(storedOk);
-      orderWaitShowSynthwave_('載入中…');
-      return false;
+    if (orderIsLineStubMemberPhone_(storedOk) && !bindLine) {
+      try { localStorage.removeItem(ORDER_MEMBER_PHONE_STORAGE_KEY); } catch (eRm) {}
+      gateProfileInvalidate_(storedOk);
+    } else {
+      var storedProf = await fetchProfileOnceInGate_(storedOk);
+      if (storedProf && storedProf.result === 'success' && storedProf.exists) {
+        orderEnsureBootPrefetch_();
+        if (!orderIsLineStubMemberPhone_(storedOk)) orderEnsureCanonicalPhoneInUrl_(storedOk);
+        orderWaitShowSynthwave_('載入中…');
+        return false;
+      }
+      try { localStorage.removeItem(ORDER_MEMBER_PHONE_STORAGE_KEY); } catch (e2) {}
+      gateProfileInvalidate_(storedOk);
     }
-    try { localStorage.removeItem(ORDER_MEMBER_PHONE_STORAGE_KEY); } catch (e2) {}
-    gateProfileInvalidate_(storedOk);
   }
 
   var rawFromUrl = '';
@@ -4249,6 +4569,10 @@ function orderSwalToastSuccess(title, timerMs) {
 
 function fetchWebAppUrlFromSheet() {
   return new Promise(function (resolve) {
+    if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) {
+      resolve('');
+      return;
+    }
     if (typeof google === 'undefined' || !google.script || typeof google.script.run === 'undefined') {
       console.warn('[order] 非 GAS 嵌入環境，無法讀取試算表 B2');
       resolve('');
@@ -5844,6 +6168,7 @@ function tryRestoreOrderMenuFromCache_() {
 }
 
 function orderCanUseScriptRun_() {
+  if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) return false;
   return typeof google !== 'undefined' && google.script && typeof google.script.run !== 'undefined';
 }
 
@@ -8794,8 +9119,12 @@ async function bootstrapOrder() {
     await new Promise(function (r) { document.addEventListener('DOMContentLoaded', r, { once: true }); });
   }
   try {
+    window.__ORDER_LIFF_ID_RESOLVED__ = '';
+    window.__ORDER_LIFF_INIT_PROMISE__ = null;
+    window.__ORDER_LINE_USER_ID__ = '';
+    window.__ORDER_MEMBER_GATE_BG_STARTED__ = false;
     window.__ORDER_VACATION_BLOCK__ = false;
-  } catch (eResetVac) {}
+  } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
   setTimeout(function () { orderInitMiniGame_(); }, 200);
   var swalOk = await orderEnsureSwalReady_();
@@ -8812,6 +9141,8 @@ async function bootstrapOrder() {
   var _orderUrlPinnedByQuery = !!_orderBossId;
   if (_orderBossId) {
     currentWebAppUrl = 'https://script.google.com/macros/s/' + _orderBossId + '/exec';
+  } else if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) {
+    currentWebAppUrl = '';
   } else {
     currentWebAppUrl = orderGetCachedWebAppUrl_();
   }
@@ -8826,14 +9157,20 @@ async function bootstrapOrder() {
     currentWebAppUrl = await freshUrlPromise;
   }
   if (!currentWebAppUrl) {
-    console.error('[order] 無後端網址或讀取失敗（消費者端顯示維護中）');
-    orderShowBootstrapMaintenance_();
+    console.error('[ordergit] 無後端網址（GitHub 版請在網址加上 ?id= 或 ?mid=GAS部署ID）');
+    if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) {
+      orderShowBootstrapMaintenance_('請使用含部署 ID 的專屬連結：在網址加上 ?id= 或 ?mid=（貼上 GAS 網址 …/macros/s/【這一段】/exec 中間那段）。例：le5125.github.io/my-printer/ordergit.html?id=您的部署ID');
+    } else {
+      orderShowBootstrapMaintenance_();
+    }
     return;
   }
   var isOrderGas = false;
-  try {
-    isOrderGas = typeof google !== 'undefined' && google.script && typeof google.script.run !== 'undefined';
-  } catch (eG) { isOrderGas = false; }
+  if (!(typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__)) {
+    try {
+      isOrderGas = typeof google !== 'undefined' && google.script && typeof google.script.run !== 'undefined';
+    } catch (eG) { isOrderGas = false; }
+  }
   // ★ 改動：拿到 URL 後立刻預熱菜單快取（不等金鑰驗證）
   if (currentWebAppUrl) {
     void loadMenuData_().catch(function () {});
@@ -8867,6 +9204,9 @@ async function bootstrapOrder() {
   }
   var _vacGate = await orderBootstrapVacationGateAfterAuth_();
   if (_vacGate.blocked) return;
+  try {
+    currentWebAppUrl = String(currentWebAppUrl || '').trim().replace(/\?+$/, '');
+  } catch (eNormU) { /* 略 */ }
 
   // ★ 改動：驗證完成後，立刻同時啟動所有資料請求，不等後續流程
   var _merchantInfoPromise = loadMerchantInfo(_vacGate.preload).catch(function (e) { console.error(e); });
@@ -8889,10 +9229,10 @@ async function bootstrapOrder() {
   orderRefreshMemberCornerVisibility_();
   await init();
 }
-(function orderKickBootstrapOnDomReady_() {
+(function ordergitKickBootstrapOnDomReady_() {
   function kick() {
-    if (window.__ORDER_BOOT_KICKED__) return;
-    window.__ORDER_BOOT_KICKED__ = true;
+    if (window.__ORDERGIT_BOOT_KICKED__) return;
+    window.__ORDERGIT_BOOT_KICKED__ = true;
     void bootstrapOrder();
   }
   if (document.readyState === 'loading') {
