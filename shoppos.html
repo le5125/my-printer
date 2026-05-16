@@ -4837,6 +4837,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             ? posNormalizeHomeDeliveryDraft_(posHomeDeliveryDraft)
             : null
         };
+        if (payload.homeDelivery && typeof posBuildHomeDeliveryDetailForPrint_ === 'function') {
+          try {
+            payload.orderDetailTextForPrint = posBuildHomeDeliveryDetailForPrint_(payload) || payload.orderDetailTextForPrint;
+          } catch (eHdPrint) { /* 略 */ }
+        }
         return payload;
       }
 
@@ -6334,12 +6339,24 @@ function posBuildPendingOrderFullSaveExtras_(rawItems, orderSource) {
       displayItems.push(Object.assign({}, it));
     }
   });
-  var ordLike = { source: src, items: displayItems, merchantPromoTelegram: merchantPromoTelegram };
+  var ordLike = { source: src, items: displayItems, merchantPromoTelegram: merchantPromoTelegram, total: finalTotal };
   var block = '';
   try {
     block = _posItemsBlock_(ordLike, true, true);
   } catch (_b) {
     block = '';
+  }
+  if (typeof posHasHomeDeliveryDraft_ === 'function' && posHasHomeDeliveryDraft_()) {
+    try {
+      var hdOrd = Object.assign({}, ordLike, {
+        homeDelivery: posNormalizeHomeDeliveryDraft_(posHomeDeliveryDraft),
+        notes: String((typeof order !== 'undefined' && order && order.notes) ? order.notes : '').trim()
+      });
+      var ph = document.getElementById('pickup-hour');
+      var pm = document.getElementById('pickup-minute');
+      if (ph && pm && ph.value && pm.value) hdOrd.pickupTime = ph.value + ':' + pm.value;
+      block = posBuildHomeDeliveryDetailForPrint_(hdOrd) || block;
+    } catch (eHdEx) { /* 略 */ }
   }
   return {
     merchantPromoTelegram: merchantPromoTelegram,
@@ -6787,17 +6804,21 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
           var r = row || {};
           if (r.boardKind === 'homeDelivery') {
             var linesHd = [];
-            linesHd.push('宅配' + (r.reservationDate ? '  ' + String(r.reservationDate) : ''));
-            if (r.hdName) linesHd.push('姓名：' + String(r.hdName));
-            if (r.phone) linesHd.push('電話：' + String(r.phone));
-            if (r.hdAddress) linesHd.push('地址：' + String(r.hdAddress));
-            if (r.note) linesHd.push('備註：' + String(r.note));
-            if (r.paymentType) linesHd.push('付款：' + String(r.paymentType));
+            var dsHd = String(r.reservationDate || '').trim();
+            var tmHd = String(r.reservationTime || '').trim();
+            if (tmHd) dsHd = dsHd ? (dsHd + ' ' + tmHd) : tmHd;
+            linesHd.push('宅配' + (dsHd ? '  ' + dsHd : ''));
+            if (r.hdName) linesHd.push('收件人：' + String(r.hdName));
+            if (r.phone) linesHd.push('收件電話：' + String(r.phone));
+            if (r.hdAddress) linesHd.push('收件地址：' + String(r.hdAddress));
+            if (r.paymentType) linesHd.push('付款方式：' + String(r.paymentType));
             var totalHd = parseInt(r.total, 10) || 0;
-            if (totalHd > 0) linesHd.push('金額：' + String(totalHd));
+            if (totalHd > 0) linesHd.push('金額：' + String(totalHd) + ' 元');
             if (r.itemCount) linesHd.push('品項：共 ' + String(r.itemCount) + ' 項');
+            var noteHdCard = String(r.note || '').trim();
+            linesHd.push(noteHdCard ? ('備註：' + noteHdCard) : '備註：');
+            linesHd.push('');
             if (r.itemDetail) {
-              linesHd.push('');
               linesHd.push('商品明細：');
               linesHd.push('');
               String(r.itemDetail).split('\n').forEach(function (ln) {
@@ -10922,6 +10943,13 @@ function buildPrinterOrderPayloadFull_(orderData) {
     ? String(orderData.orderDetailTextForPrint).trim()
     : '';
   var isReservationCardInput = orderData && orderData.reservationCardPrint === true;
+  var hdForPrint = null;
+  if (orderData.homeDelivery && typeof orderData.homeDelivery === 'object' &&
+      typeof _homeDeliveryPayloadHasSubstanceClient_ === 'function' &&
+      _homeDeliveryPayloadHasSubstanceClient_(orderData.homeDelivery)) {
+    hdForPrint = (typeof posNormalizeHomeDeliveryDraft_ === 'function')
+      ? posNormalizeHomeDeliveryDraft_(orderData.homeDelivery) : orderData.homeDelivery;
+  }
   var items = Array.isArray(orderData.items) ? orderData.items : [];
   var reservationForPrint = (orderData.reservation && typeof orderData.reservation === 'object')
     ? {
@@ -10984,6 +11012,12 @@ function buildPrinterOrderPayloadFull_(orderData) {
   var finalPackedText = '';
   if (isReservationCardInput && incomingPackedText) {
     finalPackedText = incomingPackedText;
+  } else if (hdForPrint && typeof posBuildHomeDeliveryDetailForPrint_ === 'function') {
+    try {
+      finalPackedText = posBuildHomeDeliveryDetailForPrint_(Object.assign({}, orderData, { homeDelivery: hdForPrint })) || '';
+    } catch (eHdPack) {
+      finalPackedText = '';
+    }
   } else {
     finalPackedText = (function () {
       try {
@@ -11014,6 +11048,7 @@ function buildPrinterOrderPayloadFull_(orderData) {
       ? orderData.merchantPromoTelegram : undefined,
     reservation: reservationForPrint || undefined,
     reservationCardPrint: !!reservationForPrint || (orderData && orderData.reservationCardPrint === true),
+    homeDelivery: hdForPrint || undefined,
     orderDetailTextForPrint: finalPackedText || undefined,
     items    : mappedItems
   };
@@ -12775,6 +12810,87 @@ function posIsVirtualFeeOrderLine_(it) {
   if (nm.indexOf('運費+貨到付款') === 0) return true;
   if (nm === '貨到付款手續費') return true;
   return false;
+}
+function posCountOrderPiecesExcludingShipping_(orderData) {
+  orderData = orderData || {};
+  var items = Array.isArray(orderData.items) ? orderData.items : [];
+  var n = 0;
+  var i;
+  for (i = 0; i < items.length; i++) {
+    var it = items[i];
+    if (!it) continue;
+    if (posIsVirtualFeeOrderLine_(it)) continue;
+    var q = parseInt(it.quantity != null ? it.quantity : it.qty, 10) || 0;
+    if (q > 0) n += q;
+  }
+  var mpt = orderData.merchantPromoTelegram;
+  if (mpt && Array.isArray(mpt.gifts)) {
+    mpt.gifts.forEach(function (g) {
+      if (!g) return;
+      if (!String(g.title != null ? g.title : '').trim()) return;
+      var gq = parseInt(g.qty, 10);
+      if (!gq || isNaN(gq)) gq = 1;
+      n += gq;
+    });
+  }
+  return n;
+}
+function posBuildHomeDeliveryDetailForPrint_(orderData) {
+  orderData = orderData || {};
+  var hd = (orderData.homeDelivery && typeof orderData.homeDelivery === 'object') ? orderData.homeDelivery : {};
+  if (typeof posNormalizeHomeDeliveryDraft_ === 'function') {
+    try { hd = posNormalizeHomeDeliveryDraft_(hd) || hd; } catch (eN) { /* 略 */ }
+  }
+  function ne(v) { return v != null && String(v).trim() !== ''; }
+  var lines = [];
+  var ds = ne(hd.date) ? String(hd.date).trim() : '';
+  var pt = String(orderData.pickupTime || '').trim();
+  if (pt) {
+    if (/^\d{1,2}:\d{2}$/.test(pt)) {
+      if (ds) ds += ' ' + pt;
+      else ds = pt;
+    } else if (!ds) {
+      ds = pt;
+    }
+  }
+  lines.push('宅配' + (ds ? '  ' + ds : ''));
+  if (ne(hd.name)) lines.push('收件人：' + String(hd.name).trim());
+  var phoneDisp = ne(hd.phone) ? String(hd.phone).trim() : String(orderData.phone || '').replace(/^'/, '').trim();
+  if (phoneDisp) lines.push('收件電話：' + phoneDisp);
+  if (ne(hd.address)) lines.push('收件地址：' + String(hd.address).trim());
+  if (ne(hd.payMethod)) lines.push('付款方式：' + String(hd.payMethod).trim());
+  var totalNum = parseInt(orderData.total, 10);
+  if (!isNaN(totalNum) && totalNum >= 0) lines.push('金額：' + String(totalNum) + ' 元');
+  var pieceCnt = posCountOrderPiecesExcludingShipping_(orderData);
+  if (!pieceCnt && orderData.merchantPromoTelegram && orderData.merchantPromoTelegram.lineItemCount != null) {
+    pieceCnt = parseInt(orderData.merchantPromoTelegram.lineItemCount, 10) || 0;
+  }
+  if (pieceCnt > 0) lines.push('品項：共 ' + String(pieceCnt) + ' 項');
+  var noteHd = ne(hd.note) ? String(hd.note).trim() : '';
+  var noteOrd = orderData.notes != null ? String(orderData.notes).trim() : '';
+  var noteShow = noteHd || noteOrd;
+  lines.push(noteShow ? ('備註：' + noteShow) : '備註：');
+  lines.push('');
+  lines.push('商品明細：');
+  lines.push('');
+  var detailBody = '';
+  try {
+    if (typeof _posItemsBlock_ === 'function') {
+      detailBody = _posItemsBlock_(orderData, true, true) || '';
+    }
+  } catch (eB) {
+    detailBody = '';
+  }
+  if (!detailBody && typeof orderData.orderDetailTextForPrint === 'string') {
+    detailBody = String(orderData.orderDetailTextForPrint).trim();
+  }
+  if (detailBody) {
+    String(detailBody).replace(/\r\n/g, '\n').split('\n').forEach(function (ln) {
+      var t = String(ln || '').trim();
+      if (t) lines.push(t);
+    });
+  }
+  return lines.join('\n');
 }
 function posFindMenuProductByOrderItem_(item) {
   var cid = posCatalogProductIdFromOrderLine_(item);
@@ -18110,6 +18226,7 @@ window.addEventListener('message', async (event) => {
         printMode : (payload.printMode === 'label' || payload.printMode === 'detail') ? payload.printMode : undefined,
         reservation: (payload.reservation && typeof payload.reservation === 'object') ? payload.reservation : undefined,
         reservationCardPrint: payload.reservationCardPrint === true,
+        homeDelivery: (payload.homeDelivery && typeof payload.homeDelivery === 'object') ? payload.homeDelivery : undefined,
         itemCount: payload.itemCount,
         itemDetail: payload.itemDetail,
         dineInQrUrl: (typeof payload.dineInQrUrl === 'string' && payload.dineInQrUrl.trim())
@@ -18931,7 +19048,13 @@ function _labelItemNoteText_(it) {
   return String(raw == null ? '' : raw).trim();
 }
 function _itemShouldPrintProductLabel_(it) {
-  if (!it) return true;
+  if (!it) return false;
+  try {
+    if (typeof posIsVirtualFeeOrderLine_ === 'function' && posIsVirtualFeeOrderLine_(it)) return false;
+  } catch (eVf) { /* 略 */ }
+  try {
+    if (typeof posFinalPrintProductLabel_ === 'function') return posFinalPrintProductLabel_(it);
+  } catch (ePf) { /* 略 */ }
   if (it.printLabel === false || it.printLabel === 0) return false;
   if (it['印商品標籤'] === false || it['印商品標籤'] === 0) return false;
   var py = it['印商品標籤'];
@@ -19000,7 +19123,10 @@ function renderLabelsFromOrder_(ord) {
       '商品備註': _printerEmojisToGt_(_labelItemNoteText_(it))
     };
     const repeat = Math.max(1, parseInt(q, 10) || 1);
-    for (let r = 0; r < repeat; r++) out.push(_renderTemplate_(tpl, map));
+    for (let r = 0; r < repeat; r++) {
+      const mapOne = Object.assign({}, map, { '數量': 1 });
+      out.push(_renderTemplate_(tpl, mapOne));
+    }
   }
   return out.join(TSPL_LABEL_JOB_SEPARATOR);
 }
