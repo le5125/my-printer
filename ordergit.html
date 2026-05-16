@@ -1770,7 +1770,7 @@
 
 </style>
 <style id="order-v2-design">
-  /* 共用 Hero header（所有 sheet 用） */
+  /* 1. 共用 Hero header（所有 sheet 用） */
   #store-info-sheet,
   #order-lookup-sheet,
   #member-corner-sheet,
@@ -1781,21 +1781,24 @@
   #dinein-my-list-sheet {
     background: #fafbfc;
   }
+
   .sheet-hero {
     position: relative;
     overflow: hidden;
     border-bottom: none !important;
-    padding: 12px 16px !important; /* 縮小上下左右內距 (原 24px 22px) */
+    padding: 12px 16px !important; /* 縮小內距 */
     color: #fff;
     align-items: center !important;
-    gap: 10px !important; /* 縮小元素間距 (原 18px) */
+    gap: 10px !important;
     flex-shrink: 0;
   }
+
+  /* 背景裝飾圓圈縮小 */
   .sheet-hero::before {
     content: "";
     position: absolute;
     top: -45%; right: -8%;
-    width: 120px; height: 120px; /* 縮小背景裝飾圓圈 (原 260px) */
+    width: 120px; height: 120px;
     background: radial-gradient(circle, rgba(255,255,255,.20) 0%, transparent 65%);
     pointer-events: none;
     z-index: 0;
@@ -1804,14 +1807,16 @@
     content: "";
     position: absolute;
     bottom: -55%; left: -10%;
-    width: 100px; height: 100px; /* 縮小背景裝飾圓圈 (原 220px) */
+    width: 100px; height: 100px;
     background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 60%);
     pointer-events: none;
     z-index: 0;
   }
+
+  /* 關閉按鈕縮小 (通用型) */
   .sheet-hero .sheet-hero-close {
     position: absolute !important;
-    top: 12px !important; /* 調整關閉按鈕位置 */
+    top: 12px !important;
     right: 16px !important;
     left: auto !important;
     bottom: auto !important;
@@ -1822,44 +1827,72 @@
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     border: 1.5px solid rgba(255,255,255,.32);
-    width: 32px !important; /* 縮小關閉按鈕寬度 (原 64px) */
-    height: 32px !important; /* 縮小關閉按鈕高度 (原 64px) */
-    font-size: 20px !important; /* 縮小關閉按鈕的 X 字體 (原 36px) */
+    width: 32px !important; /* 原 64px */
+    height: 32px !important; /* 原 64px */
+    font-size: 20px !important; /* 原 36px */
     font-weight: 400 !important;
     line-height: 1 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     transition: background .15s, transform .1s;
-    border-radius: 8px; /* 加上微圓角讓縮小後的按鈕更好看，若不要可移除此行 */
+    border-radius: 8px;
   }
-  .sheet-hero .sheet-hero-close:active {
-    background: rgba(255,255,255,.32) !important;
-    transform: scale(.92);
-  }
+
   .sheet-hero-text {
     position: relative;
     z-index: 2;
     flex: 1;
     min-width: 0;
-    padding-right: 44px; /* 縮小右側留白，配合變小的關閉按鈕 (原 80px) */
+    padding-right: 44px;
   }
+
   .sheet-hero .sheet-hero-title {
     color: #fff !important;
-    font-size: 22px !important; /* 大幅縮小標題字體 (原 48px) */
+    font-size: 22px !important; /* 大標題縮小 */
     font-weight: 900 !important;
     line-height: 1.2 !important;
     letter-spacing: 0.3px;
-    margin: 0 0 4px !important; /* 縮小與副標題的間距 (原 6px) */
+    margin: 0 0 4px !important;
     text-shadow: 0 2px 8px rgba(0,0,0,.18);
   }
+
   .sheet-hero-sub {
-    font-size: 14px; /* 大幅縮小副標題字體 (原 28px) */
+    font-size: 14px; /* 副標題縮小 */
     color: rgba(255,255,255,.85);
     line-height: 1.4;
     font-weight: 500;
     text-shadow: 0 1px 4px rgba(0,0,0,.18);
   }
+
+  /* 2. 線上預約面板 (resv-drawer) 專屬縮小樣式 */
+  #resv-drawer .resv-d-header {
+    padding: 10px 16px !important; /* 標題列高度調低 */
+    min-height: auto !important;
+  }
+  
+  #resv-drawer .resv-d-title {
+    font-size: 1.05rem !important; /* 預約標題文字縮小 */
+    font-weight: 700 !important;
+  }
+  
+  #resv-drawer .resv-d-title-icon {
+    width: 1.1rem !important; /* 標題旁的日曆圖示縮小 */
+    height: 1.1rem !important;
+  }
+  
+  #resv-drawer .resv-d-close {
+    width: 32px !important; /* 關閉按鈕大小同步 */
+    height: 32px !important;
+    font-size: 1.1rem !important;
+    line-height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  /* 各分頁漸層背景色保持不變 */
   .sheet-hero--store    { background: linear-gradient(135deg, #0c1f3f 0%, #1e3a8a 45%, #0ea5e9 100%) !important; box-shadow: 0 6px 18px -6px rgba(14,165,233,.35); }
   .sheet-hero--lookup   { background: linear-gradient(135deg, #0a1f1c 0%, #064e3b 45%, #10b981 100%) !important; box-shadow: 0 6px 18px -6px rgba(16,185,129,.35); }
   .sheet-hero--member   { background: linear-gradient(135deg, #3b0a0a 0%, #9a3412 45%, #f59e0b 100%) !important; box-shadow: 0 6px 18px -6px rgba(245,158,11,.4); }
