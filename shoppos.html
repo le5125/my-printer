@@ -6784,10 +6784,9 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
           var r = row || {};
           if (r.boardKind === 'homeDelivery') {
             var linesHd = [];
+            linesHd.push('宅配');
             var dsHd = String(r.reservationDate || '').trim();
-            var tmHd = String(r.reservationTime || '').trim();
-            if (tmHd) dsHd = dsHd ? (dsHd + ' ' + tmHd) : tmHd;
-            linesHd.push('宅配' + (dsHd ? '  ' + dsHd : ''));
+            if (dsHd) linesHd.push('配送日期：' + dsHd);
             if (r.hdName) linesHd.push('收件人：' + String(r.hdName));
             if (r.phone) linesHd.push('收件電話：' + String(r.phone));
             if (r.hdAddress) linesHd.push('收件地址：' + String(r.hdAddress));
@@ -11762,6 +11761,16 @@ function _posSortOrderItemsByMainName_(items) {
   });
   return arr.map(function (x) { return x.it; });
 }
+function _posPartitionOrderItemsShippingLast_(items) {
+  var sorted = _posSortOrderItemsByMainName_(items || []);
+  var regular = [];
+  var shipping = [];
+  sorted.forEach(function (it) {
+    if (typeof posIsVirtualFeeOrderLine_ === 'function' && posIsVirtualFeeOrderLine_(it)) shipping.push(it);
+    else regular.push(it);
+  });
+  return regular.concat(shipping);
+}
 function _posBareProductNameForPrint_(item) {
   var s = String(item && item.name != null ? item.name : '').replace(/^'/, '').trim();
   var hasOpts = item && Array.isArray(item.options) && item.options.length > 0;
@@ -12015,7 +12024,18 @@ function _posItemsBlock_(ordOrItems, telegramLayout, retainEmojis) {
   var isPos = (ord.source === 'pos' || ord.source === undefined || ord.source === null || String(ord.source).trim() === '');
 
   var chunks = [];
-  _posSortOrderItemsByMainName_(items).forEach(function (item) {
+  var itemIter = tgLayout && typeof _posPartitionOrderItemsShippingLast_ === 'function'
+    ? _posPartitionOrderItemsShippingLast_(items)
+    : _posSortOrderItemsByMainName_(items);
+  itemIter.forEach(function (item) {
+    if (tgLayout && typeof posIsVirtualFeeOrderLine_ === 'function' && posIsVirtualFeeOrderLine_(item)) {
+      var shipNm = String(item.name != null ? item.name : '').trim();
+      var shipPr = parseInt(item.price, 10) || 0;
+      var shipQty = parseInt(item.quantity != null ? item.quantity : (item.qty || 1), 10) || 1;
+      if (shipPr === 0) chunks.push(toOut(shipNm));
+      else chunks.push(toOut(shipNm + ' x ' + shipQty + '        $' + shipPr));
+      return;
+    }
     var quantity = parseInt(item.quantity != null ? item.quantity : (item.qty || 1), 10);
     var basePrice = parseInt(item.price != null ? item.price : 0, 10);
     var fullName = _posOrderItemLineFullNameForPrint_(item);
@@ -12803,17 +12823,8 @@ function posBuildHomeDeliveryDetailForPrint_(orderData) {
   }
   function ne(v) { return v != null && String(v).trim() !== ''; }
   var lines = [];
-  var ds = ne(hd.date) ? String(hd.date).trim() : '';
-  var pt = String(orderData.pickupTime || '').trim();
-  if (pt) {
-    if (/^\d{1,2}:\d{2}$/.test(pt)) {
-      if (ds) ds += ' ' + pt;
-      else ds = pt;
-    } else if (!ds) {
-      ds = pt;
-    }
-  }
-  lines.push('宅配' + (ds ? '  ' + ds : ''));
+  lines.push('宅配');
+  if (ne(hd.date)) lines.push('配送日期：' + String(hd.date).trim());
   if (ne(hd.name)) lines.push('收件人：' + String(hd.name).trim());
   var phoneDisp = ne(hd.phone) ? String(hd.phone).trim() : String(orderData.phone || '').replace(/^'/, '').trim();
   if (phoneDisp) lines.push('收件電話：' + phoneDisp);
