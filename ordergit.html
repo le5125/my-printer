@@ -1777,20 +1777,22 @@
     background: #fafbfc;
   }
 
-  /* 2. 統一 Hero Header (確保為相對定位) */
-  .sheet-hero, #resv-drawer .resv-d-header {
-    position: relative !important; /* 重要：讓叉叉以此為基準 */
-    overflow: hidden !important;
-    padding: 10px 16px !important;
-    color: #fff !important;
+  /* 2. 統一 Header 容器：強制內容靠左、取消居中 */
+  .sheet-hero, 
+  #resv-drawer .resv-d-header {
+    position: relative !important;
     display: flex !important;
     flex-direction: column !important;
+    align-items: flex-start !important; /* 強制所有文字靠左 */
     justify-content: center !important;
-    min-height: 56px !important; /* 固定高度，讓叉叉位置更統一 */
+    text-align: left !important;        /* 強制文字左對齊 */
+    padding: 12px 16px !important;
+    min-height: 64px !important;       /* 固定高度防止叉叉跳動 */
+    overflow: hidden !important;
     box-sizing: border-box !important;
   }
 
-  /* 3. 背景圓圈裝飾 */
+  /* 3. 背景裝飾圓圈 */
   .sheet-hero::before, #resv-drawer .resv-d-header::before {
     content: ""; position: absolute; top: -45%; right: -8%;
     width: 120px; height: 120px;
@@ -1804,38 +1806,53 @@
     z-index: 0; pointer-events: none;
   }
 
-  /* 4. 文字內容區塊：強制留出右側空間給叉叉 */
-  .sheet-hero-text, #resv-drawer .resv-d-title {
+  /* 4. 文字區塊：確保不被叉叉擋住 */
+  .sheet-hero-text, 
+  #resv-drawer .resv-d-title {
     position: relative !important;
     z-index: 2 !important;
-    padding-right: 42px !important; /* 增加留白 */
+    padding-right: 45px !important; /* 留出右側空間給叉叉 */
     margin: 0 !important;
+    width: 100% !important;
     display: block !important;
   }
 
-  .sheet-hero .sheet-hero-title, #resv-drawer .resv-d-title {
-    font-size: 19px !important;
+  .sheet-hero .sheet-hero-title, 
+  #resv-drawer .resv-d-title {
+    color: #fff !important;
+    font-size: 20px !important;
     font-weight: 900 !important;
     line-height: 1.2 !important;
-    color: #fff !important;
     text-shadow: 0 2px 8px rgba(0,0,0,.18);
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  /* 讓預約的小圖示變白色並對齊 */
+  #resv-drawer .resv-d-title-icon {
+    width: 18px !important;
+    height: 18px !important;
+    filter: brightness(0) invert(1) !important;
+    margin: 0 !important;
   }
   
   .sheet-hero-sub {
     font-size: 13px !important;
     color: rgba(255,255,255,.85) !important;
-    margin-top: 1px !important;
+    margin-top: 3px !important;
     display: block !important;
   }
 
   /* 5. 叉叉 (關閉按鈕)：強制固定在右上角 */
-  .sheet-hero .sheet-hero-close, #resv-drawer .resv-d-close {
+  .sheet-hero .sheet-hero-close, 
+  #resv-drawer .resv-d-close {
     position: absolute !important;
-    top: 8px !important;    /* 靠近頂部 */
-    right: 8px !important;  /* 靠近右側 */
-    width: 32px !important;
-    height: 32px !important;
-    z-index: 10 !important; /* 確保在最上層 */
+    top: 12px !important;   /* 距離頂部固定 */
+    right: 12px !important;  /* 距離右側固定 */
+    width: 34px !important;
+    height: 34px !important;
+    z-index: 10 !important;
     
     /* 玻璃質感 */
     background: rgba(255,255,255,.18) !important;
@@ -1843,21 +1860,21 @@
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     border: 1.5px solid rgba(255,255,255,.32) !important;
-    border-radius: 8px !important;
+    border-radius: 10px !important;
     
-    /* 內部 X 字體置中 */
+    /* 置中 X */
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     font-size: 18px !important;
-    line-height: 1 !important;
+    transform: none !important;
     padding: 0 !important;
     margin: 0 !important;
-    transform: none !important; /* 移除任何位移 */
+    cursor: pointer;
   }
 
-  /* 6. 各標題漸層色 */
-  #resv-drawer .resv-d-header { background: linear-gradient(135deg, #0f172a 0%, #334155 45%, #64748b 100%) !important; }
+  /* 6. 各標題漸層背景色 */
+  #resv-drawer .resv-d-header { background: linear-gradient(135deg, #1e293b 0%, #334155 45%, #475569 100%) !important; }
   .sheet-hero--store    { background: linear-gradient(135deg, #0c1f3f 0%, #1e3a8a 45%, #0ea5e9 100%) !important; }
   .sheet-hero--lookup   { background: linear-gradient(135deg, #0a1f1c 0%, #064e3b 45%, #10b981 100%) !important; }
   .sheet-hero--member   { background: linear-gradient(135deg, #3b0a0a 0%, #9a3412 45%, #f59e0b 100%) !important; }
