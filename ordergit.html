@@ -1770,111 +1770,101 @@
 
 </style>
 <style id="order-v2-design">
-  /* 1. 統一背景色 */
+  /* 1. 基礎背景設定 */
   #store-info-sheet, #order-lookup-sheet, #member-corner-sheet, 
   #member-redeem-sheet, #member-hist-sheet, #member-guide-sheet, 
   #merchant-promo-ad-sheet, #dinein-my-list-sheet, #resv-drawer .resv-d-content {
-    background: #fafbfc;
+    background: #fafbfc !important;
   }
 
-  /* 2. 統一 Header 容器：強制內容靠左、取消居中 */
+  /* 2. 統一 Header 佈局（針對所有分頁與預約視窗） */
   .sheet-hero, 
-  #resv-drawer .resv-d-header {
+  #resv-drawer header.resv-d-header {
     position: relative !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: flex-start !important; /* 強制所有文字靠左 */
+    align-items: flex-start !important; /* 強制文字靠左 */
     justify-content: center !important;
-    text-align: left !important;        /* 強制文字左對齊 */
     padding: 12px 16px !important;
-    min-height: 64px !important;       /* 固定高度防止叉叉跳動 */
+    min-height: 64px !important;
+    max-height: 64px !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
+    border: none !important;
+    text-align: left !important;
   }
 
-  /* 3. 背景裝飾圓圈 */
-  .sheet-hero::before, #resv-drawer .resv-d-header::before {
-    content: ""; position: absolute; top: -45%; right: -8%;
-    width: 120px; height: 120px;
-    background: radial-gradient(circle, rgba(255,255,255,.20) 0%, transparent 65%);
-    z-index: 0; pointer-events: none;
+  /* 3. 背景圓圈裝飾（強制顯示） */
+  .sheet-hero::before, #resv-drawer header.resv-d-header::before {
+    content: "" !important; position: absolute !important; top: -45% !important; right: -8% !important;
+    width: 120px !important; height: 120px !important;
+    background: radial-gradient(circle, rgba(255,255,255,.20) 0%, transparent 65%) !important;
+    z-index: 1 !important; pointer-events: none !important;
   }
-  .sheet-hero::after, #resv-drawer .resv-d-header::after {
-    content: ""; position: absolute; bottom: -55%; left: -10%;
-    width: 100px; height: 100px;
-    background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 60%);
-    z-index: 0; pointer-events: none;
+  .sheet-hero::after, #resv-drawer header.resv-d-header::after {
+    content: "" !important; position: absolute !important; bottom: -55% !important; left: -10% !important;
+    width: 100px !important; height: 100px !important;
+    background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 60%) !important;
+    z-index: 1 !important; pointer-events: none !important;
   }
 
-  /* 4. 文字區塊：確保不被叉叉擋住 */
+  /* 4. 文字內容：確保白色與靠左 */
   .sheet-hero-text, 
   #resv-drawer .resv-d-title {
     position: relative !important;
     z-index: 2 !important;
-    padding-right: 45px !important; /* 留出右側空間給叉叉 */
+    padding-right: 45px !important;
     margin: 0 !important;
+    color: #ffffff !important;
+    text-align: left !important;
     width: 100% !important;
-    display: block !important;
   }
 
   .sheet-hero .sheet-hero-title, 
   #resv-drawer .resv-d-title {
-    color: #fff !important;
     font-size: 20px !important;
     font-weight: 900 !important;
     line-height: 1.2 !important;
-    text-shadow: 0 2px 8px rgba(0,0,0,.18);
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
+    color: #fff !important;
   }
 
-  /* 讓預約的小圖示變白色並對齊 */
+  /* 讓預約圖示變白色 */
   #resv-drawer .resv-d-title-icon {
     width: 18px !important;
     height: 18px !important;
     filter: brightness(0) invert(1) !important;
     margin: 0 !important;
   }
-  
-  .sheet-hero-sub {
-    font-size: 13px !important;
-    color: rgba(255,255,255,.85) !important;
-    margin-top: 3px !important;
-    display: block !important;
-  }
 
-  /* 5. 叉叉 (關閉按鈕)：強制固定在右上角 */
+  /* 5. 叉叉按鈕：強制右上角且固定大小 */
   .sheet-hero .sheet-hero-close, 
   #resv-drawer .resv-d-close {
     position: absolute !important;
-    top: 12px !important;   /* 距離頂部固定 */
-    right: 12px !important;  /* 距離右側固定 */
-    width: 34px !important;
-    height: 34px !important;
+    top: 12px !important;
+    right: 12px !important;
+    width: 32px !important;
+    height: 32px !important;
     z-index: 10 !important;
-    
-    /* 玻璃質感 */
     background: rgba(255,255,255,.18) !important;
     color: #fff !important;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
     border: 1.5px solid rgba(255,255,255,.32) !important;
     border-radius: 10px !important;
-    
-    /* 置中 X */
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     font-size: 18px !important;
-    transform: none !important;
-    padding: 0 !important;
     margin: 0 !important;
-    cursor: pointer;
+    padding: 0 !important;
+    transform: none !important;
   }
 
-  /* 6. 各標題漸層背景色 */
-  #resv-drawer .resv-d-header { background: linear-gradient(135deg, #1e293b 0%, #334155 45%, #475569 100%) !important; }
+  /* 6. 各標題漸層色設定（使用更高權限的 ID 選擇器） */
+  #resv-drawer header.resv-d-header { background: linear-gradient(135deg, #1e293b 0%, #334155 45%, #475569 100%) !important; }
   .sheet-hero--store    { background: linear-gradient(135deg, #0c1f3f 0%, #1e3a8a 45%, #0ea5e9 100%) !important; }
   .sheet-hero--lookup   { background: linear-gradient(135deg, #0a1f1c 0%, #064e3b 45%, #10b981 100%) !important; }
   .sheet-hero--member   { background: linear-gradient(135deg, #3b0a0a 0%, #9a3412 45%, #f59e0b 100%) !important; }
