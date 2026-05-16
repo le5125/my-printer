@@ -2049,40 +2049,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         </div>
       </div>
 
-      <div id="dine-in-content" class="hidden flex-grow flex flex-col min-h-0 px-3 pb-3">
-        <div class="order-board-wrap flex-grow min-h-0 flex flex-col">
-          <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
-            <div class="order-board-title mb-0"><i class="fas fa-qrcode mr-2 text-violet-600"></i>店內用餐</div>
-            <div class="flex flex-wrap items-center gap-2 text-sm">
-              <span class="text-gray-600">結帳模式</span>
-              <label class="inline-flex items-center gap-1 bg-white border border-gray-300 rounded-md px-2 py-1.5 cursor-pointer">
-                <input type="radio" name="dinein-settle" value="prepay" id="dinein-settle-prepay">
-                <span>先結帳</span>
-              </label>
-              <label class="inline-flex items-center gap-1 bg-white border border-gray-300 rounded-md px-2 py-1.5 cursor-pointer">
-                <input type="radio" name="dinein-settle" value="postpay" id="dinein-settle-postpay">
-                <span>後結帳</span>
-              </label>
-              <button type="button" id="dinein-qr-refresh-btn" class="px-3 py-1.5 text-sm font-semibold border border-violet-300 bg-violet-50 text-violet-800 rounded-md hover:bg-violet-100">
-                更新 QR 工作表
-              </button>
-              <button type="button" id="dinein-qr-auto-install-btn" class="px-3 py-1.5 text-sm font-semibold border border-emerald-300 bg-emerald-50 text-emerald-900 rounded-md hover:bg-emerald-100" title="依商家「營業時間」最早開店時段每日自動重算 QR（Google 約 ±15 分誤差）；手動「更新 QR 工作表」仍可用">
-                啟用每日自動 QR
-              </button>
-              <button type="button" id="dinein-qr-auto-remove-btn" class="px-3 py-1.5 text-sm font-semibold border border-slate-300 bg-slate-50 text-slate-700 rounded-md hover:bg-slate-100">
-                取消自動 QR
-              </button>
-            </div>
-          </div>
-          <p id="dinein-qr-auto-status" class="text-xs text-gray-600 mb-2 leading-snug" role="status"></p>
-          <p class="text-xs text-gray-500 mb-2 leading-relaxed">先結：白空閒→黃使用中→紅待結帳→點「結帳」後藍待出餐→綠完成出餐，加點再循環；後結：藍待出餐→綠→逾10秒紅待結帳→「結帳」後待清桌。空閒桌右上角可「佔桌」（黃使用中、QR不可點餐）；綠／待清桌請客人用完按「清桌」。桌號 1 與 01 視為同一桌。</p>
-          <div id="dinein-board-grid" class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(128px,1fr));"></div>
-        </div>
-      </div>
-
-     
-
-     <div id="stats-content" class="hidden flex-grow">
+      <div id="stats-content" class="hidden flex-grow">
  <div class="bg-white p-4 rounded-lg shadow mb-4">
   <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
     <div class="flex items-center flex-nowrap w-full">
@@ -19817,7 +19784,7 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _printerEmbedBoot_);
 } else {
   _printerEmbedBoot_();
-} 
+}
 
 </script>
 </body>
