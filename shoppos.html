@@ -2027,13 +2027,16 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             <div class="bg-white border border-gray-200 rounded-lg p-3 mb-3 flex flex-wrap items-end gap-x-4 gap-y-2">
               <div class="inline-flex rounded-md border border-gray-300 overflow-hidden">
                 <button type="button" id="resv-cal-prev" class="px-3 py-1.5 text-sm bg-white hover:bg-gray-100"><i class="fas fa-chevron-left"></i></button>
-                <button type="button" id="resv-cal-today" class="px-3 py-1.5 text-sm font-semibold bg-blue-50 text-blue-600 border-l border-r border-gray-300">今日</button>
-                <button type="button" id="resv-cal-next" class="px-3 py-1.5 text-sm bg-white hover:bg-gray-100"><i class="fas fa-chevron-right"></i></button>
+                <button type="button" id="resv-cal-sub-day" class="px-3 py-1.5 text-sm font-semibold bg-blue-600 text-white border-l border-gray-300">日</button>
+                <button type="button" id="resv-cal-sub-month" class="px-3 py-1.5 text-sm font-semibold bg-white text-gray-700 hover:bg-gray-100 border-l border-gray-300">月</button>
+                <button type="button" id="resv-cal-next" class="px-3 py-1.5 text-sm bg-white hover:bg-gray-100 border-l border-gray-300"><i class="fas fa-chevron-right"></i></button>
               </div>
-              <div>
+              <button type="button" id="resv-cal-today" class="px-3 py-1.5 text-sm font-semibold bg-blue-50 text-blue-600 border border-gray-300 rounded-md hover:bg-blue-100">今日</button>
+              <div id="resv-cal-date-wrap">
                 <label class="block text-xs text-gray-600 mb-1">日期</label>
                 <input type="date" id="resv-cal-date" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
               </div>
+              <div id="resv-cal-month-label" class="hidden text-base font-semibold text-gray-800 pb-0.5 self-end"></div>
               <label class="inline-flex items-center gap-2 cursor-pointer select-none pb-0.5">
                 <input type="checkbox" id="resv-cal-show-resv" checked class="rounded border-gray-300 text-blue-600 w-4 h-4">
                 <span class="text-sm font-medium text-gray-800">預約</span>
@@ -7376,14 +7379,309 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
           renderReservationCalendar_();
         }
         function resvCalShiftDate_(deltaDays) {
+          if (_reservationCalendarSubMode === 'month') {
+            resvCalShiftMonth_(deltaDays > 0 ? 1 : -1);
+            return;
+          }
           var d = new Date(_reservationCalendarDate + 'T00:00:00');
           if (isNaN(d.getTime())) d = new Date();
           d.setDate(d.getDate() + deltaDays);
           resvCalSetDate_(_resvCalLocalDateStr_(d));
         }
+        var _reservationCalendarSubMode = 'day'; /* 'day' | 'month' */
+        var _reservationCalendarMonth = (function () {
+          var d = new Date();
+          var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+          return d.getFullYear() + '-' + pad(d.getMonth() + 1);
+        })();
+        function resvCalParseYearMonth_(ym) {
+          var m = String(ym || '').match(/^(\d{4})-(\d{1,2})$/);
+          if (!m) return null;
+          return { year: parseInt(m[1], 10), month: parseInt(m[2], 10) };
+        }
+        function resvCalFormatYearMonth_(y, m) {
+          var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+          return y + '-' + pad(m);
+        }
+        function resvCalShiftMonth_(delta) {
+          var ym = resvCalParseYearMonth_(_reservationCalendarMonth);
+          if (!ym) return;
+          var y = ym.year, m = ym.month + delta;
+          while (m < 1) { m += 12; y -= 1; }
+          while (m > 12) { m -= 12; y += 1; }
+          _reservationCalendarMonth = resvCalFormatYearMonth_(y, m);
+          renderReservationMonthCalendar_();
+        }
+        function resvCalGotoCurrentMonth_() {
+          var d = new Date();
+          var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+          _reservationCalendarMonth = d.getFullYear() + '-' + pad(d.getMonth() + 1);
+          renderReservationMonthCalendar_();
+        }
+        function setReservationCalendarSubMode_(mode) {
+          _reservationCalendarSubMode = (mode === 'month') ? 'month' : 'day';
+          var btnD = document.getElementById('resv-cal-sub-day');
+          var btnM = document.getElementById('resv-cal-sub-month');
+          var dateWrap = document.getElementById('resv-cal-date-wrap');
+          var monthLabel = document.getElementById('resv-cal-month-label');
+          var summary = document.getElementById('resv-cal-summary');
+          if (_reservationCalendarSubMode === 'month') {
+            if (btnM) { btnM.classList.remove('bg-white', 'text-gray-700', 'hover:bg-gray-100'); btnM.classList.add('bg-blue-600', 'text-white'); }
+            if (btnD) { btnD.classList.remove('bg-blue-600', 'text-white'); btnD.classList.add('bg-white', 'text-gray-700', 'hover:bg-gray-100'); }
+            if (dateWrap) dateWrap.classList.add('hidden');
+            if (monthLabel) monthLabel.classList.remove('hidden');
+            if (summary) summary.classList.add('hidden');
+            renderReservationMonthCalendar_();
+          } else {
+            if (btnD) { btnD.classList.remove('bg-white', 'text-gray-700', 'hover:bg-gray-100'); btnD.classList.add('bg-blue-600', 'text-white'); }
+            if (btnM) { btnM.classList.remove('bg-blue-600', 'text-white'); btnM.classList.add('bg-white', 'text-gray-700', 'hover:bg-gray-100'); }
+            if (dateWrap) dateWrap.classList.remove('hidden');
+            if (monthLabel) monthLabel.classList.add('hidden');
+            if (summary) summary.classList.remove('hidden');
+            renderReservationCalendar_();
+          }
+        }
+        /* ===== 農曆換算（1900-2100，內嵌離線版） ===== */
+        var _LUNAR_INFO_ = [
+          0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
+          0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
+          0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
+          0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
+          0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
+          0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,
+          0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
+          0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,
+          0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
+          0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x055c0,0x0ab60,0x096d5,0x092e0,
+          0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
+          0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
+          0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
+          0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
+          0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,
+          0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,
+          0x0a2e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,
+          0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,
+          0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,
+          0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,0x0d520
+        ];
+        function _lunarYearDays_(y) {
+          var i, sum = 348;
+          for (i = 0x8000; i > 0x8; i >>= 1) sum += (_LUNAR_INFO_[y - 1900] & i) ? 1 : 0;
+          return sum + _leapDays_(y);
+        }
+        function _leapMonth_(y) { return _LUNAR_INFO_[y - 1900] & 0xf; }
+        function _leapDays_(y) {
+          if (_leapMonth_(y)) return (_LUNAR_INFO_[y - 1900] & 0x10000) ? 30 : 29;
+          return 0;
+        }
+        function _monthDays_(y, m) {
+          return (_LUNAR_INFO_[y - 1900] & (0x10000 >> m)) ? 30 : 29;
+        }
+        function solar2lunar_(y, m, d) {
+          if (y < 1900 || y > 2100) return null;
+          var baseDate = new Date(1900, 0, 31);
+          var objDate = new Date(y, m - 1, d);
+          var offset = Math.floor((objDate - baseDate) / 86400000);
+          var i, temp = 0, lunarYear = 1900;
+          for (i = 1900; i < 2101 && offset > 0; i++) {
+            temp = _lunarYearDays_(i);
+            offset -= temp;
+            lunarYear++;
+          }
+          if (offset < 0) { offset += temp; lunarYear--; }
+          var leap = _leapMonth_(lunarYear), isLeap = false;
+          var lunarMonth = 1;
+          for (i = 1; i < 13 && offset > 0; i++) {
+            if (leap > 0 && i === leap + 1 && !isLeap) {
+              --i; isLeap = true; temp = _leapDays_(lunarYear);
+            } else {
+              temp = _monthDays_(lunarYear, i);
+            }
+            if (isLeap && i === leap + 1) isLeap = false;
+            offset -= temp;
+            if (!isLeap) lunarMonth++;
+          }
+          if (offset === 0 && leap > 0 && i === leap + 1) {
+            if (isLeap) isLeap = false;
+            else { isLeap = true; --lunarMonth; }
+          }
+          if (offset < 0) { offset += temp; --lunarMonth; }
+          var lunarDay = offset + 1;
+          return { y: lunarYear, m: lunarMonth, d: lunarDay, isLeap: isLeap };
+        }
+        var _LUNAR_MONTH_CN_ = ['正','二','三','四','五','六','七','八','九','十','冬','臘'];
+        var _LUNAR_DAY_CN_ = ['','初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+        function _lunarShortLabel_(lun) {
+          if (!lun) return '';
+          if (lun.d === 1) return (lun.isLeap ? '閏' : '') + _LUNAR_MONTH_CN_[lun.m - 1] + '月';
+          return _LUNAR_DAY_CN_[lun.d] || '';
+        }
+        /* ===== 台灣國定假日（先用內建 2026-2027 作 fallback；啟動時從 GitHub 抓最新版覆蓋） ===== */
+        var _TW_HOLIDAYS_ = {
+          /* 2026 */
+          '2026-01-01':'元旦','2026-02-14':'小年夜','2026-02-16':'除夕','2026-02-17':'春節','2026-02-18':'春節',
+          '2026-02-19':'春節','2026-02-20':'和平紀念日補假','2026-02-27':'和平紀念日補假','2026-02-28':'和平紀念日',
+          '2026-04-03':'兒童節','2026-04-05':'清明節','2026-04-06':'清明節補假','2026-05-01':'勞動節',
+          '2026-05-19':'端午節','2026-09-25':'中秋節','2026-09-28':'教師節','2026-10-09':'國慶日補假',
+          '2026-10-10':'國慶日','2026-10-25':'光復節','2026-10-26':'光復節補假','2026-12-25':'行憲紀念日',
+          /* 2027 */
+          '2027-01-01':'元旦','2027-02-04':'小年夜','2027-02-06':'除夕','2027-02-07':'春節','2027-02-08':'春節',
+          '2027-02-09':'春節','2027-02-10':'春節補假','2027-02-26':'和平紀念日補假','2027-02-28':'和平紀念日',
+          '2027-04-02':'兒童節','2027-04-05':'清明節','2027-04-30':'勞動節補假','2027-05-01':'勞動節',
+          '2027-06-09':'端午節','2027-09-15':'中秋節','2027-09-28':'教師節','2027-10-08':'國慶日補假',
+          '2027-10-10':'國慶日','2027-10-25':'光復節','2027-12-24':'行憲紀念日補假','2027-12-25':'行憲紀念日'
+        };
+        var _TW_HOLIDAYS_REMOTE_URL_ = 'https://le5125.github.io/my-printer/holidays.json';
+        var _TW_HOLIDAYS_REMOTE_LOADED_ = false;
+        function _fetchRemoteHolidays_() {
+          if (_TW_HOLIDAYS_REMOTE_LOADED_) return;
+          _TW_HOLIDAYS_REMOTE_LOADED_ = true;
+          try {
+            fetch(_TW_HOLIDAYS_REMOTE_URL_ + '?_=' + Date.now(), { cache: 'no-store' })
+              .then(function (r) { return r.ok ? r.json() : null; })
+              .then(function (j) {
+                if (!j || !j.holidays || typeof j.holidays !== 'object') return;
+                _TW_HOLIDAYS_ = j.holidays;
+                if (_reservationBoardViewMode === 'calendar' && _reservationCalendarSubMode === 'month') {
+                  try { renderReservationMonthCalendar_(); } catch (e0) {}
+                }
+              })
+              .catch(function () { /* 抓不到就用內建保底 */ });
+          } catch (e) { /* 略 */ }
+        }
+        function renderReservationMonthCalendar_() {
+          _fetchRemoteHolidays_();
+          var wrap = document.getElementById('reservation-calendar-wrap');
+          if (!wrap) return;
+          var ym = resvCalParseYearMonth_(_reservationCalendarMonth);
+          if (!ym) return;
+          var year = ym.year, month = ym.month;
+          var label = document.getElementById('resv-cal-month-label');
+          if (label) label.textContent = year + '年 ' + month + '月';
+          var typeF = _resvBoardTypeFiltersReadActive_();
+          var showResv = typeF.showResv;
+          var showHd = typeF.showHd;
+          var rows = Array.isArray(_reservationBoardRows) ? _reservationBoardRows : [];
+          var phoneFilterEl = document.getElementById('reservation-filter-phone');
+          var phoneFilter = phoneFilterEl ? String(phoneFilterEl.value || '').trim() : '';
+          var countByDate = {};
+          rows.forEach(function (r) {
+            if (!r) return;
+            var d = String(r.reservationDate || '').trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+            if (phoneFilter && String(r.phone || '').indexOf(phoneFilter) < 0) return;
+            var isHd = r.boardKind === 'homeDelivery';
+            if (isHd && !showHd) return;
+            if (!isHd && !showResv) return;
+            if (!countByDate[d]) countByDate[d] = { pickup: 0, hd: 0 };
+            if (isHd) countByDate[d].hd++; else countByDate[d].pickup++;
+          });
+          var todayStr = _resvCalLocalDateStr_();
+          /* 週一開頭：把 getDay()(0=Sun) 轉成 0=Mon ~ 6=Sun */
+          var firstDayJs = new Date(year, month - 1, 1).getDay();
+          var firstWeekday = (firstDayJs + 6) % 7;
+          var daysInMonth = new Date(year, month, 0).getDate();
+          var prevDays = new Date(year, month - 1, 0).getDate();
+          var pad2 = function (n) { return n < 10 ? '0' + n : '' + n; };
+          var weekdays = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
+          var WEEKEND_BG = '#fce7f3'; /* 粉紅底（週六、週日） */
+          var html = '<div class="resv-month-cal" style="display:flex;flex-direction:column;height:100%;font-size:13px;">';
+          html += '<div class="resv-month-head" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid #e5e7eb;">';
+          for (var w = 0; w < 7; w++) {
+            var isWkend = (w === 5 || w === 6);
+            var headBg = isWkend ? WEEKEND_BG : '#f9fafb';
+            var wkColor = isWkend ? '#be185d' : '#374151';
+            html += '<div style="padding:6px 4px;text-align:center;font-weight:600;color:' + wkColor + ';font-size:12px;background:' + headBg + ';">' + weekdays[w] + '</div>';
+          }
+          html += '</div>';
+          html += '<div class="resv-month-grid" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:minmax(78px,1fr);flex:1;">';
+          var cells = [];
+          for (var i = 0; i < firstWeekday; i++) {
+            var dn = prevDays - firstWeekday + 1 + i;
+            var prevMonth = month - 1, prevYear = year;
+            if (prevMonth < 1) { prevMonth = 12; prevYear -= 1; }
+            cells.push({ inMonth: false, dateStr: '', dayNum: dn, y: prevYear, mo: prevMonth, d: dn });
+          }
+          for (var d = 1; d <= daysInMonth; d++) {
+            var ds = year + '-' + pad2(month) + '-' + pad2(d);
+            cells.push({ inMonth: true, dateStr: ds, dayNum: d, y: year, mo: month, d: d });
+          }
+          var remain = (7 - (cells.length % 7)) % 7;
+          var nextYear = year, nextMonth = month + 1;
+          if (nextMonth > 12) { nextMonth = 1; nextYear += 1; }
+          for (var k = 1; k <= remain; k++) {
+            cells.push({ inMonth: false, dateStr: '', dayNum: k, y: nextYear, mo: nextMonth, d: k });
+          }
+          cells.forEach(function (c, ix) {
+            var col = ix % 7;
+            var isWkendCell = (col === 5 || col === 6);
+            var isToday = c.inMonth && c.dateStr === todayStr;
+            var holidayName = c.inMonth ? _TW_HOLIDAYS_[c.dateStr] : '';
+            var lun = null;
+            try { lun = solar2lunar_(c.y, c.mo, c.d); } catch (eLu) { lun = null; }
+            var lunarText = _lunarShortLabel_(lun);
+            var dayColor;
+            if (!c.inMonth) {
+              dayColor = '#d1d5db';
+            } else if (holidayName) {
+              dayColor = '#dc2626';
+            } else if (col === 6) {
+              dayColor = '#dc2626';
+            } else if (col === 5) {
+              dayColor = '#be185d';
+            } else {
+              dayColor = '#111827';
+            }
+            var bg;
+            if (!c.inMonth) bg = '#fafafa';
+            else if (isWkendCell || holidayName) bg = WEEKEND_BG;
+            else bg = '#fff';
+            var cursor = c.inMonth ? 'cursor:pointer;' : '';
+            var clickAttr = c.inMonth ? ' data-date="' + c.dateStr + '"' : '';
+            var dayNumHtml;
+            if (isToday) {
+              dayNumHtml = '<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:9999px;background:#2563eb;color:#fff;font-weight:700;font-size:13px;">' + c.dayNum + '</span>';
+            } else {
+              dayNumHtml = '<span style="font-weight:600;font-size:13px;color:' + dayColor + ';">' + c.dayNum + '</span>';
+            }
+            var lunarColor = c.inMonth ? '#6b7280' : '#d1d5db';
+            var lunarHtml = lunarText ? '<span style="margin-left:4px;font-size:10px;color:' + lunarColor + ';">' + lunarText + '</span>' : '';
+            html += '<div class="resv-month-cell"' + clickAttr +
+              ' style="border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding:4px;background:' + bg + ';' + cursor +
+              'display:flex;flex-direction:column;min-width:0;overflow:hidden;">';
+            html += '<div style="display:flex;align-items:center;line-height:1;margin-bottom:2px;">' + dayNumHtml + lunarHtml + '</div>';
+            if (holidayName && c.inMonth) {
+              html += '<div style="font-size:10px;color:#b91c1c;font-weight:600;line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + holidayName + '</div>';
+            }
+            if (c.inMonth && countByDate[c.dateStr]) {
+              var cnt = countByDate[c.dateStr];
+              if (cnt.pickup > 0) {
+                html += '<div style="background:#dbeafe;color:#1e40af;border-radius:4px;padding:1px 4px;font-size:11px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">👜取貨' + cnt.pickup + '筆</div>';
+              }
+              if (cnt.hd > 0) {
+                html += '<div style="background:#e0f2fe;color:#075985;border-radius:4px;padding:1px 4px;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🚚宅配' + cnt.hd + '筆</div>';
+              }
+            }
+            html += '</div>';
+          });
+          html += '</div></div>';
+          wrap.innerHTML = html;
+          wrap.querySelectorAll('.resv-month-cell[data-date]').forEach(function (el) {
+            el.addEventListener('click', function () {
+              var ds = el.getAttribute('data-date');
+              if (!ds) return;
+              setReservationCalendarSubMode_('day');
+              resvCalSetDate_(ds);
+            });
+          });
+        }
         function renderReservationCalendar_() {
           var wrap = document.getElementById('reservation-calendar-wrap');
           if (!wrap) return;
+          if (_reservationCalendarSubMode === 'month') {
+            renderReservationMonthCalendar_();
+            return;
+          }
           var slotPackCal = resvCalGetReservationSlotsPack_();
           var slots = slotPackCal.slots;
           var slotMin = slotPackCal.slotMin;
@@ -7608,8 +7906,13 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
         document.getElementById('reservation-view-mode-calendar')?.addEventListener('click', function () { showReservationViewMode_('calendar'); });
         document.getElementById('resv-cal-prev')?.addEventListener('click', function () { resvCalShiftDate_(-1); });
         document.getElementById('resv-cal-next')?.addEventListener('click', function () { resvCalShiftDate_(1); });
-        document.getElementById('resv-cal-today')?.addEventListener('click', function () { resvCalSetDate_(_resvCalLocalDateStr_()); });
+        document.getElementById('resv-cal-today')?.addEventListener('click', function () {
+          if (_reservationCalendarSubMode === 'month') resvCalGotoCurrentMonth_();
+          else resvCalSetDate_(_resvCalLocalDateStr_());
+        });
         document.getElementById('resv-cal-date')?.addEventListener('change', function () { resvCalSetDate_(this.value); });
+        document.getElementById('resv-cal-sub-day')?.addEventListener('click', function () { setReservationCalendarSubMode_('day'); });
+        document.getElementById('resv-cal-sub-month')?.addEventListener('click', function () { setReservationCalendarSubMode_('month'); });
                 window._reservationSettings = { open: false, tables: [], totalSeats: 0, totalTables: 0, blockedSlots: {}, bookingHoldMin: 90 };
         window._reservationCapacityCache = {};
         function _resvSettingsRunGet_(act) {
