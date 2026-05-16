@@ -3369,8 +3369,8 @@ var ORDER_PROMO_AD_IMG_BLANK_SRC_ = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAA
 var ORDER_GUEST_SKIP_MEMBER_KEY = 'order_guest_no_member_v1';
 var ORDER_WEBAPP_URL_CACHE_KEY = 'order_webapp_url_cache_v1';
 var ORDER_MEMBER_CORNER_REFRESH_MS = 10000;
-try { window.__ORDER_MEMBER_SYSTEM_ENABLED__ = true; } catch (e) {}
-try { window.__ORDER_MEMBER_ACTIVITIES_ON__ = true; } catch (e) {}
+try { window.__ORDER_MEMBER_SYSTEM_ENABLED__ = false; } catch (e) {}
+try { window.__ORDER_MEMBER_ACTIVITIES_ON__ = false; } catch (e) {}
 try { window.__ORDER_LIFF_STUB_MEMBER__ = false; } catch (e) {}
 var ORDER_MEMBER_ENABLED_SESSION_KEY = 'order_member_enabled_cache_v1';
 var ORDER_MEMBER_PROFILE_CACHE_TTL_MS = 90000;
@@ -4107,8 +4107,8 @@ async function orderFetchMemberSystemEnabled_(forceRefresh) {
     return setGlobals_(en, act);
   }
   function applyPayload_(data) {
-    var en = true;
-    var act = true;
+    var en = false;
+    var act = false;
     if (data && data.result === 'success') {
       if (data.enabled !== undefined && data.enabled !== null) {
         var coerced = orderCoerceMemberSystemEnabled_(data.enabled);
@@ -4140,7 +4140,7 @@ async function orderFetchMemberSystemEnabled_(forceRefresh) {
     } catch (e4) {}
   }
   if (!currentWebAppUrl && !(typeof google !== 'undefined' && google.script && google.script.run)) {
-    return cacheAndApply_(true, true);
+    return cacheAndApply_(false, false);
   }
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     return new Promise(function (resolve) {
@@ -4149,18 +4149,18 @@ async function orderFetchMemberSystemEnabled_(forceRefresh) {
           resolve(applyPayload_(data));
         })
         .withFailureHandler(function () {
-          resolve(cacheAndApply_(true, true));
+          resolve(cacheAndApply_(false, false));
         })
         .getMemberSystemEnabledData();
     });
   }
-  if (!currentWebAppUrl) return cacheAndApply_(true, true);
+  if (!currentWebAppUrl) return cacheAndApply_(false, false);
   try {
     var res = await fetch(currentWebAppUrl + '?action=getMemberSystemEnabled');
     var j = await res.json();
     if (j && j.result === 'success') return applyPayload_(j);
   } catch (e) {}
-  return cacheAndApply_(true, true);
+  return cacheAndApply_(false, false);
 }
 
 async function orderFetchMemberProfile_(phone10) {
@@ -6428,7 +6428,7 @@ function renderMenu() {
   menuCategories = sortedNames.map(function (name, i) {
     return { id: i, name: name, kind: 'normal', items: catMap[name] || [] };
   });
-  if (redeemList.length > 0) {
+  if (redeemList.length > 0 && window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
     menuCategories.push({
       id: menuCategories.length,
       name: ORDER_REDEEM_TAB_NAME,
