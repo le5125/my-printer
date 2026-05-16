@@ -1770,20 +1770,26 @@
 
 </style>
 <style id="order-v2-design">
-  /* 1. 共用分頁背景（所有 sheet 用） */
-  #store-info-sheet, #order-lookup-sheet, #member-corner-sheet, 
-  #member-redeem-sheet, #member-hist-sheet, #member-guide-sheet, 
-  #merchant-promo-ad-sheet, #dinein-my-list-sheet {
+  /* 1. 統一所有面板背景 (包含預約面板) */
+  #store-info-sheet,
+  #order-lookup-sheet,
+  #member-corner-sheet,
+  #member-redeem-sheet,
+  #member-hist-sheet,
+  #member-guide-sheet,
+  #merchant-promo-ad-sheet,
+  #dinein-my-list-sheet,
+  #resv-drawer .resv-d-content {
     background: #fafbfc;
   }
 
-  /* 2. 統一 Hero Header 基礎樣式 (包含線上預約) */
-  .sheet-hero, 
+  /* 2. 統一 Hero Header 基礎結構 (縮小版) */
+  .sheet-hero,
   #resv-drawer .resv-d-header {
     position: relative;
     overflow: hidden;
     border-bottom: none !important;
-    padding: 12px 16px !important; /* 縮小高度與內距 */
+    padding: 12px 16px !important; /* 縮小內距 */
     color: #fff !important;
     display: flex !important;
     align-items: center !important;
@@ -1792,7 +1798,7 @@
     min-height: auto !important;
   }
 
-  /* 3. 加入漸層裝飾圓圈 (所有標題區塊通用) */
+  /* 3. 加入背景裝飾圓圈 (所有標題通用) */
   .sheet-hero::before, #resv-drawer .resv-d-header::before {
     content: "";
     position: absolute;
@@ -1812,44 +1818,41 @@
     z-index: 0;
   }
 
-  /* 4. 統一文字與標題樣式 */
-  .sheet-hero-text, .resv-d-title {
-    position: relative;
-    z-index: 2;
-    flex: 1;
-    min-width: 0;
+  /* 4. 標題文字縮小樣式 */
+  .sheet-hero .sheet-hero-title, 
+  #resv-drawer .resv-d-title {
     color: #fff !important;
-    text-shadow: 0 2px 8px rgba(0,0,0,.18);
-  }
-
-  .sheet-hero .sheet-hero-title, #resv-drawer .resv-d-title {
-    font-size: 20px !important; /* 調小後的字體 */
+    font-size: 20px !important; /* 同步縮小 */
     font-weight: 900 !important;
     line-height: 1.2 !important;
     margin: 0 !important;
+    text-shadow: 0 2px 8px rgba(0,0,0,.18);
+    position: relative;
+    z-index: 2;
     display: flex !important;
     align-items: center;
     gap: 6px;
   }
 
-  .sheet-hero-sub {
-    font-size: 13px;
-    color: rgba(255,255,255,.85);
-    font-weight: 500;
+  #resv-drawer .resv-d-title-icon {
+    width: 20px !important;
+    height: 20px !important;
+    filter: brightness(0) invert(1); /* 讓圖示變白色 */
   }
 
-  /* 5. 統一關閉按鈕樣式 (玻璃擬態) */
-  .sheet-hero .sheet-hero-close, #resv-drawer .resv-d-close {
+  /* 5. 統一關閉按鈕樣式 (白色玻璃質感) */
+  .sheet-hero .sheet-hero-close, 
+  #resv-drawer .resv-d-close {
     position: absolute !important;
     top: 50% !important;
     right: 16px !important;
-    transform: translateY(-50%) !important; /* 置中 */
+    transform: translateY(-50%) !important;
     z-index: 3;
     background: rgba(255,255,255,.18) !important;
     color: #fff !important;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
-    border: 1.5px solid rgba(255,255,255,.32);
+    border: 1.5px solid rgba(255,255,255,.32) !important;
     width: 32px !important;
     height: 32px !important;
     font-size: 18px !important;
@@ -1861,8 +1864,8 @@
     margin: 0 !important;
   }
 
-  /* 6. 各分頁的漸層顏色設定 (包含線上預約) */
-  #resv-drawer .resv-d-header { background: linear-gradient(135deg, #0f172a 0%, #334155 45%, #64748b 100%) !important; } /* 預約專用深灰藍漸層 */
+  /* 6. 各分頁漸層背景色設定 */
+  #resv-drawer .resv-d-header { background: linear-gradient(135deg, #0f172a 0%, #334155 45%, #64748b 100%) !important; } /* 預約專用深藍灰漸層 */
   .sheet-hero--store    { background: linear-gradient(135deg, #0c1f3f 0%, #1e3a8a 45%, #0ea5e9 100%) !important; }
   .sheet-hero--lookup   { background: linear-gradient(135deg, #0a1f1c 0%, #064e3b 45%, #10b981 100%) !important; }
   .sheet-hero--member   { background: linear-gradient(135deg, #3b0a0a 0%, #9a3412 45%, #f59e0b 100%) !important; }
