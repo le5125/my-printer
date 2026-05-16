@@ -3459,10 +3459,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       }
 
       function initSortMode() {
-        if (posIsGithubStaticPos_()) {
-          posSwalPleaseEditInBackend_();
-          return;
-        }
         if (_sortModeActive) return;
         var mh = document.getElementById('member-hub-content');
         if (mh) mh.classList.add('hidden');
@@ -3500,10 +3496,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       }
 
       function saveSortOrder() {
-        if (posIsGithubStaticPos_()) {
-          posSwalPleaseEditInBackend_();
-          return;
-        }
         var saveBtn = document.getElementById('sort-save-btn');
         var cards = document.querySelectorAll('#menu-items > [data-id]');
         var ids = Array.from(cards).map(function (el) { return el.getAttribute('data-id'); });
@@ -3562,10 +3554,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       }
 
       function initMenuTabSort() {
-        if (posIsGithubStaticPos_()) {
-          posSwalPleaseEditInBackend_();
-          return;
-        }
         _menuTabSortActive = true;
         _setSortTabUI('menus');
         var list = document.getElementById('menu-sort-list');
@@ -3624,10 +3612,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
       }
 
       function saveMenuTabOrder() {
-        if (posIsGithubStaticPos_()) {
-          posSwalPleaseEditInBackend_();
-          return;
-        }
         var els = document.querySelectorAll('#menu-sort-list > [data-menu-id]');
         var ids = Array.from(els).map(function (el) { return el.getAttribute('data-menu-id'); });
         if (ids.length === 0) {
@@ -5542,10 +5526,6 @@ function submitOrder() {
         window.posLoadDeliveryRulesFromServer_ = posLoadDeliveryRulesFromServer_;
 
         document.getElementById('delivery-rules-save-btn')?.addEventListener('click', function () {
-          if (typeof posIsGithubStaticPos_ === 'function' && posIsGithubStaticPos_()) {
-            posSwalPleaseEditInBackend_();
-            return;
-          }
           var payload = {
             shippingFee: parseInt((document.getElementById('delivery-rules-shipping-fee') || {}).value, 10) || 0,
             bankName: String((document.getElementById('delivery-rules-bank-name') || {}).value || '').trim(),
@@ -9131,10 +9111,6 @@ function switchToMenu(menuId) {
 }
 
 function openMenuEditModal(menuId) {
-  if (typeof posIsGithubStaticPos_ === 'function' && posIsGithubStaticPos_()) {
-    posSwalPleaseEditInBackend_();
-    return;
-  }
   editingMenuId = menuId;
   var nm = document.getElementById('menu-tab-edit-name');
   var cl = document.getElementById('menu-tab-edit-color');
@@ -9153,10 +9129,6 @@ function closeMenuEditModal() {
 }
 
 function saveMenuConfigFromModal() {
-  if (typeof posIsGithubStaticPos_ === 'function' && posIsGithubStaticPos_()) {
-    posSwalPleaseEditInBackend_();
-    return;
-  }
   if (!editingMenuId) return;
   var targetMenuId = editingMenuId;
   var oldName = getMenuNameById(targetMenuId);
@@ -9217,10 +9189,6 @@ function renameMenu(menuId) {
 }
 
 function addNewMenu() {
-  if (typeof posIsGithubStaticPos_ === 'function' && posIsGithubStaticPos_()) {
-    posSwalPleaseEditInBackend_();
-    return;
-  }
   var tempMenuId = 'temp-menu-' + Date.now();
   menuNames[tempMenuId] = '建立中...';
   menuTabs[tempMenuId] = [];
@@ -9262,10 +9230,6 @@ function addNewMenu() {
 }
 
 async function deleteMenuTab(menuId) {
-  if (typeof posIsGithubStaticPos_ === 'function' && posIsGithubStaticPos_()) {
-    posSwalPleaseEditInBackend_();
-    return;
-  }
   if (menuId === 'menu-1') {
     posSwalAlert('無法刪除預設菜單', 'warning');
     return;
@@ -9457,10 +9421,6 @@ function renderRedeemMenuItems() {
 
   grid.querySelectorAll('.redeem-sale-toggle').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
-      if (posIsGithubStaticPos_()) {
-        posSwalPleaseEditInBackend_();
-        return;
-      }
       e.stopPropagation();
       var itemId = this.getAttribute('data-id');
       var card = this.closest('.redeem-menu-item');
@@ -10608,7 +10568,7 @@ function mpRowItemDisc(r) {
             if (fin) {
               fin.addEventListener('change', function () {
                 if (!(typeof currentWebAppUrl === 'string' && currentWebAppUrl.trim())) {
-                  posSwalPleaseEditInBackend_();
+                  posSwalAlert('未設定後端網址，無法上傳圖片', 'warning');
                   fin.value = '';
                   return;
                 }
@@ -13818,10 +13778,6 @@ if (_sortModeActive) {
 
 document.querySelectorAll('#menu-items .sale-toggle-btn').forEach(btn => {
   btn.addEventListener('click', function (e) {
-    if (posIsGithubStaticPos_()) {
-      posSwalPleaseEditInBackend_();
-      return;
-    }
     e.stopPropagation();
 
     const itemId = this.getAttribute('data-id');
@@ -14149,10 +14105,6 @@ posBindPosOptionAddonSteppers_(optionList);
 }
 
         function showEditItemModal(item, ctx) {
-          if (posIsGithubStaticPos_()) {
-            posSwalPleaseEditInBackend_();
-            return;
-          }
           posItemEditorContext = ctx || 'menu';
           var isRedeem = posItemEditorContext === 'redeem';
           editingItem = item;
@@ -14199,10 +14151,6 @@ if (!isRedeem) {
         }
         
         function showAddItemModal(ctx) {
-  if (posIsGithubStaticPos_()) {
-    posSwalPleaseEditInBackend_();
-    return;
-  }
   posItemEditorContext = ctx || 'menu';
   var isRedeem = posItemEditorContext === 'redeem';
   editingItem = null;
@@ -14378,10 +14326,6 @@ if (!isRedeem) {
         }
 
         function openMerchantImagesModal() {
-          if (posIsGithubStaticPos_()) {
-            posSwalPleaseEditInBackend_();
-            return;
-          }
           var mhImg = document.getElementById('member-hub-content');
           if (mhImg) mhImg.classList.add('hidden');
           document.getElementById('merchant-images-modal').classList.remove('hidden');
@@ -14482,11 +14426,6 @@ if (!isRedeem) {
 
         function bindMerchantFilePick(inputId, mode, opts) {
           document.getElementById(inputId)?.addEventListener('change', function (e) {
-            if (posIsGithubStaticPos_()) {
-              posSwalPleaseEditInBackend_();
-              this.value = '';
-              return;
-            }
             const file = this.files[0];
             this.value = '';
             if (!file) return;
@@ -14544,11 +14483,6 @@ if (!isRedeem) {
         }
 
         document.getElementById('edit-item-image')?.addEventListener('change', function(e) {
-          if (posIsGithubStaticPos_()) {
-            posSwalPleaseEditInBackend_();
-            this.value = '';
-            return;
-          }
           const file = this.files[0];
           if (!file) return;
           this.value = '';
@@ -14672,10 +14606,6 @@ if (!isRedeem) {
         });
         
         function saveEditedItem() {
-          if (posIsGithubStaticPos_()) {
-            posSwalPleaseEditInBackend_();
-            return;
-          }
           const name = document.getElementById('edit-item-name').value;
           const price = parseInt(document.getElementById('edit-item-price').value);
           const color = document.getElementById('edit-item-color').value;
@@ -14921,10 +14851,6 @@ if (!isRedeemContext) {
         }
 
         function deleteCurrentItem() {
-          if (posIsGithubStaticPos_()) {
-            posSwalPleaseEditInBackend_();
-            return;
-          }
           if (!editingItem) return;
           var isRedeemDelete = posItemEditorContext === 'redeem';
           var delId = editingItem.id;
@@ -16838,6 +16764,11 @@ window.addEventListener('load', async function () {
       'member-hub-tab',
       'merchant-promotions-tab', 'merchant-images-btn', 'sort-mode-btn'
     ];
+    try {
+      if (typeof posIsGithubStaticPos_ === 'function' && posIsGithubStaticPos_()) {
+        lockedDropdownIds = ['merchant-promotions-tab'];
+      }
+    } catch (eGhLock) { /* 略 */ }
     function ensureVipBadgeOn(id) {
       var b = document.getElementById(id);
       if (!b) return;
