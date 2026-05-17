@@ -2056,22 +2056,41 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
       <div id="stats-content" class="hidden flex-grow">
  <div class="bg-white p-4 rounded-lg shadow mb-4">
-  <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
-    <div class="flex items-center flex-nowrap w-full">
-             <div class="flex gap-1 md:gap-2 flex-shrink-0">
-      <button id="stats-today" class="px-4 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-100">今天</button>
-      <button id="stats-this-week" class="px-4 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-100">本週</button>
-      <button id="stats-this-month" class="px-4 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-100">本月</button>
-     
-      <button id="stats-range-btn" class="px-4 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-100">區間</button>
+  <div class="flex flex-col gap-2">
+    <div class="flex items-center flex-wrap gap-2">
+      <div class="flex gap-1 md:gap-2 flex-shrink-0">
+        <button id="stats-today" class="px-4 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-100">今天</button>
+        <button id="stats-this-week" class="px-4 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-100">本週</button>
+        <button id="stats-this-month" class="px-4 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-100">本月</button>
+        <button id="stats-range-btn" class="px-4 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-100">區間</button>
+      </div>
+      <div class="flex items-center gap-2 ml-2 flex-wrap text-sm">
+        <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="stats-filter-pos" checked class="accent-green-600">POS</label>
+        <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="stats-filter-resv" checked class="accent-amber-600">預約</label>
+        <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="stats-filter-hd" checked class="accent-sky-600">宅配</label>
+      </div>
+      <button id="show-amount-chart" class="ml-auto px-4 py-1 border border-green-500 text-green-600 rounded-md hover:bg-green-100">金額圖表💰</button>
     </div>
-           <div id="stats-total-amount" class="ml-auto text-lg font-bold text-green-600">總金額：0</div>
-
-          <button id="show-amount-chart" class="ml-2 px-4 py-1 border border-green-500 text-green-600 rounded-md hover:bg-green-100">
-  金額圖表💰
-</button>
-
-</div>
+    <div id="stats-summary-row" class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1 text-sm">
+      <div class="bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+        <div class="text-xs text-emerald-700 font-semibold">總營收</div>
+        <div id="stats-revenue" class="text-lg font-bold text-emerald-700">0</div>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+        <div class="text-xs text-amber-700 font-semibold">商品淨額</div>
+        <div id="stats-product-net" class="text-lg font-bold text-amber-700">0</div>
+      </div>
+      <div class="bg-sky-50 border border-sky-200 rounded-md px-3 py-2">
+        <div class="text-xs text-sky-700 font-semibold">運費</div>
+        <div id="stats-shipping" class="text-lg font-bold text-sky-700">0</div>
+      </div>
+      <div class="bg-purple-50 border border-purple-200 rounded-md px-3 py-2">
+        <div class="text-xs text-purple-700 font-semibold">代收手續費</div>
+        <div id="stats-codfee" class="text-lg font-bold text-purple-700">0</div>
+      </div>
+    </div>
+    <div id="stats-total-amount" class="hidden"></div>
+  </div>
 </div>
     <div id="date-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center hidden z-50">
   <div class="bg-white rounded-lg shadow-lg p-6 w-80 relative">
@@ -8993,6 +9012,53 @@ function posOrderStatsProductTotal_(order) {
   return sum;
 }
 
+/* 將訂單金額拆解為：總營收 / 商品淨額 / 運費 / 手續費 */
+function posOrderStatsBreakdown_(order) {
+  var out = { revenue: 0, productNet: 0, shipping: 0, codFee: 0 };
+  if (!order) return out;
+  var items = Array.isArray(order.items) ? order.items : [];
+  if (!items.length) {
+    var t0 = parseInt(order.total, 10) || 0;
+    out.revenue = t0;
+    out.productNet = t0;
+    return out;
+  }
+  items.forEach(function (it) {
+    if (!it || !it.name) return;
+    var qty = parseInt(it.quantity, 10) || 0;
+    var price = parseInt(it.price, 10);
+    if (isNaN(price)) price = 0;
+    var lineTotal = price * (qty > 0 ? qty : 1);
+    var nm = String(it.name || '').trim();
+    var isShip = it.posShippingLine || String(it.id || '').trim() === '__pos_shipping_line__' ||
+      String(it.catalogProductId || '').trim() === '__pos_shipping__' ||
+      nm === '運費' || nm.indexOf('運費（') === 0;
+    var isCod = it.posCodFeeLine || String(it.id || '').trim() === '__pos_cod_fee_line__' ||
+      String(it.catalogProductId || '').trim() === '__pos_cod_fee__' ||
+      nm === '貨到付款手續費';
+    var isShipCod = nm.indexOf('運費+貨到付款') === 0;
+    if (isShipCod) {
+      out.shipping += Math.floor(lineTotal / 2);
+      out.codFee += lineTotal - Math.floor(lineTotal / 2);
+    } else if (isShip) {
+      out.shipping += lineTotal;
+    } else if (isCod) {
+      out.codFee += lineTotal;
+    } else if (nm !== '付款' && qty > 0) {
+      out.productNet += lineTotal;
+    }
+  });
+  out.revenue = out.productNet + out.shipping + out.codFee;
+  return out;
+}
+
+function posOrderStatsClassifyType_(order) {
+  if (!order) return 'pos';
+  if (typeof posQueryIsHomeDeliveryOrder_ === 'function' && posQueryIsHomeDeliveryOrder_(order)) return 'hd';
+  if (typeof posQueryIsReservationOrder_ === 'function' && posQueryIsReservationOrder_(order)) return 'resv';
+  return 'pos';
+}
+
 function posQueryOrderCardHtmlBoardLike_(order) {
   var src = posQueryNormalizeSourceForCard_(order);
   var isOnline = src === 'Online';
@@ -15829,6 +15895,25 @@ if (!isRedeemContext) {
           this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
           this.classList.remove('text-gray-500');
           setFeatureDropdownLabel('統計');
+          if (!window._lastStatsView_) window._lastStatsView_ = 'table';
+          if (!window.__posStatsFilterBound_) {
+            window.__posStatsFilterBound_ = true;
+            ['stats-filter-pos', 'stats-filter-resv', 'stats-filter-hd'].forEach(function (id) {
+              var el = document.getElementById(id);
+              if (!el) return;
+              el.addEventListener('change', function () {
+                var rdSpan = document.getElementById('stats-range-display');
+                var rdTxt = rdSpan ? String(rdSpan.textContent || '').trim() : '';
+                var m = rdTxt.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
+                if (m) {
+                  computeSummaryByPeriod(m[1], m[2], { force: true });
+                } else {
+                  var t0 = posMerchantPromoTodayYmdLocal_();
+                  if (t0) computeSummaryByPeriod(t0, t0, { force: true });
+                }
+              });
+            });
+          }
           try {
             var _stTodayGo = posMerchantPromoTodayYmdLocal_();
             if (_stTodayGo) computeSummaryByPeriod(_stTodayGo, _stTodayGo);
@@ -16319,18 +16404,45 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
   const totalAmountEl = document.getElementById('stats-total-amount');
   var forceStats = opts && opts.force === true;
   var prefetchSilent = opts && opts.prefetchSilent === true;
+  function _readStatsTypeFilter_() {
+    var p = document.getElementById('stats-filter-pos');
+    var r = document.getElementById('stats-filter-resv');
+    var h = document.getElementById('stats-filter-hd');
+    return {
+      pos: !p || p.checked,
+      resv: !r || r.checked,
+      hd: !h || h.checked
+    };
+  }
+  var tf = _readStatsTypeFilter_();
+  var tfKey = (tf.pos ? '1' : '0') + (tf.resv ? '1' : '0') + (tf.hd ? '1' : '0');
   var nowMs = Date.now();
-  var statsCacheKey = posTodayCacheKey_() + '|' + startDate + '|' + endDate;
+  var statsCacheKey = posTodayCacheKey_() + '|' + startDate + '|' + endDate + '|' + tfKey;
   if (!window.__posStatsCacheByKey_) window.__posStatsCacheByKey_ = {};
   var cachedEntry = !forceStats && window.__posStatsCacheByKey_[statsCacheKey];
   var cacheFresh = !!(cachedEntry && cachedEntry.cachedAtMs && (nowMs - cachedEntry.cachedAtMs <= 30000));
+  function _writeStatsBreakdownDom_(bk) {
+    var fmt = function (n) { return (n || 0).toLocaleString(); };
+    var re = document.getElementById('stats-revenue');
+    var pn = document.getElementById('stats-product-net');
+    var sh = document.getElementById('stats-shipping');
+    var cd = document.getElementById('stats-codfee');
+    if (re) re.textContent = fmt(bk.revenue);
+    if (pn) pn.textContent = fmt(bk.productNet);
+    if (sh) sh.textContent = fmt(bk.shipping);
+    if (cd) cd.textContent = fmt(bk.codFee);
+  }
   if (cachedEntry && cacheFresh && cachedEntry.originalStatsItems && cachedEntry.amountChartData) {
     if (prefetchSilent) return;
     if (rangeDisplay) rangeDisplay.textContent = cachedEntry.rangeText || `${startDate} ~ ${endDate}`;
     if (totalAmountEl) totalAmountEl.textContent = cachedEntry.totalText || '';
+    if (cachedEntry.breakdown) _writeStatsBreakdownDom_(cachedEntry.breakdown);
     window.amountChartData = JSON.parse(JSON.stringify(cachedEntry.amountChartData));
     originalStatsItems = JSON.parse(JSON.stringify(cachedEntry.originalStatsItems));
     renderFilteredStats('all');
+    if (window._lastStatsView_ === 'chart' && window.amountChartData && window.amountChartData.labels && window.amountChartData.labels.length) {
+      try { showAmountChart(); } catch (eSc) { /* 略 */ }
+    }
     loadingEl.classList.add('hidden');
     return;
   }
@@ -16426,6 +16538,7 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
           }
 
           let totalAmount = 0;
+          var breakdownAgg = { revenue: 0, productNet: 0, shipping: 0, codFee: 0 };
           const summaryAgg = {};
 
           function posOrderStatsDateKey_(order) {
@@ -16439,8 +16552,15 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
             const dateStr = posOrderStatsDateKey_(order);
             if (!dateStr) return false;
             if (!(dateStr >= startKey && dateStr <= endKey)) return false;
+            var t = typeof posOrderStatsClassifyType_ === 'function' ? posOrderStatsClassifyType_(order) : 'pos';
+            if (t === 'pos' && !tf.pos) return false;
+            if (t === 'resv' && !tf.resv) return false;
+            if (t === 'hd' && !tf.hd) return false;
             var totalN = posOrderStatsProductTotal_(order);
-            if (!(totalN > 0) && (!order.items || !order.items.length)) return false;
+            if (!(totalN > 0) && (!order.items || !order.items.length)) {
+              var t2 = parseInt(order.total, 10) || 0;
+              if (!(t2 > 0)) return false;
+            }
             return true;
           });
 
@@ -16448,6 +16568,11 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
             const orderDate = posOrderStatsDateKey_(order);
             const orderTotal = posOrderStatsProductTotal_(order);
             totalAmount += orderTotal;
+            var bk = typeof posOrderStatsBreakdown_ === 'function' ? posOrderStatsBreakdown_(order) : { revenue: orderTotal, productNet: orderTotal, shipping: 0, codFee: 0 };
+            breakdownAgg.revenue += bk.revenue;
+            breakdownAgg.productNet += bk.productNet;
+            breakdownAgg.shipping += bk.shipping;
+            breakdownAgg.codFee += bk.codFee;
 
             if (orderDate in allDaysMap) {
               allDaysMap[orderDate] += orderTotal;
@@ -16485,15 +16610,20 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
             totalText: totalTextVal,
             amountChartData: JSON.parse(JSON.stringify(chartPayload)),
             originalStatsItems: JSON.parse(JSON.stringify(summary)),
+            breakdown: { revenue: breakdownAgg.revenue, productNet: breakdownAgg.productNet, shipping: breakdownAgg.shipping, codFee: breakdownAgg.codFee },
             cachedAtMs: Date.now()
           };
 
           if (!prefetchSilent) {
             if (totalAmountEl) totalAmountEl.textContent = totalTextVal;
             if (rangeDisplay) rangeDisplay.textContent = rangeTextVal;
+            _writeStatsBreakdownDom_(breakdownAgg);
             window.amountChartData = chartPayload;
             originalStatsItems = summary;
             renderFilteredStats('all');
+            if (window._lastStatsView_ === 'chart' && chartPayload && chartPayload.labels && chartPayload.labels.length) {
+              try { showAmountChart(); } catch (eSc2) { /* 略 */ }
+            }
             loadingEl.classList.add('hidden');
           }
         })
@@ -16569,6 +16699,7 @@ document.getElementById('show-amount-chart')?.addEventListener('click', function
     posSwalAlert('尚無統計資料可顯示', 'info');
     return;
   }
+  window._lastStatsView_ = 'chart';
   showAmountChart();
 });
 
@@ -16770,9 +16901,11 @@ document.getElementById('toggle-stats-view')?.addEventListener('click', () => {
   if (chartBox.classList.contains('hidden')) {
     chartBox.classList.remove('hidden');
     tableBox.classList.add('hidden');
+    window._lastStatsView_ = 'chart';
   } else {
     chartBox.classList.add('hidden');
     tableBox.classList.remove('hidden');
+    window._lastStatsView_ = 'table';
   }
 });
 
