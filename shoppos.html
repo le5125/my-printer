@@ -2070,7 +2070,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="stats-filter-hd" checked class="accent-sky-600">宅配</label>
       </div>
       <button id="show-amount-chart" class="ml-auto px-4 py-1 text-sm border border-green-500 text-green-600 rounded-md hover:bg-green-100 whitespace-nowrap">金額圖表💰</button>
-      <button id="stats-sync-legacy" class="px-3 py-1 text-sm border border-orange-500 text-orange-600 rounded-md hover:bg-orange-50 whitespace-nowrap" title="補寫舊預約/宅配到訂單表，讓統計能抓到">🔄 補寫舊單</button>
+      <button id="stats-toggle-month" class="px-3 py-1 text-sm border border-purple-500 text-purple-600 rounded-md hover:bg-purple-50 whitespace-nowrap" title="切換月視圖 / 日視圖">📅 月視圖</button>
     </div>
     <div id="stats-summary-row" class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm w-full">
       <div class="bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
@@ -2123,7 +2123,21 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
     </div>
   </div>
 
-   <div id="stats-results" class="bg-white p-2 md:p-4 rounded-lg shadow flex flex-col min-h-[450px] max-h-[90vh]">
+  <!-- 月視圖容器 -->
+  <div id="stats-month-view" class="bg-white p-2 md:p-4 rounded-lg shadow flex flex-col min-h-[450px] max-h-[90vh]">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <div class="flex items-center gap-2">
+        <button id="stats-month-prev" type="button" class="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-100"><i class="fas fa-chevron-left"></i></button>
+        <button id="stats-month-today" type="button" class="px-3 py-1 text-sm font-semibold bg-blue-50 text-blue-600 border border-gray-300 rounded-md hover:bg-blue-100">本月</button>
+        <button id="stats-month-next" type="button" class="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-100"><i class="fas fa-chevron-right"></i></button>
+        <div id="stats-month-label" class="ml-2 text-base font-semibold text-gray-800"></div>
+      </div>
+      <div class="text-xs text-gray-500">點某天 → 進入該日統計</div>
+    </div>
+    <div id="stats-month-grid-wrap" class="flex-1 min-h-0 overflow-auto border border-gray-200 rounded-md"></div>
+  </div>
+
+   <div id="stats-results" class="hidden bg-white p-2 md:p-4 rounded-lg shadow flex flex-col min-h-[450px] max-h-[90vh]">
   <div class="flex flex-wrap md:flex-nowrap justify-between items-center gap-2 mb-4">
     <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0 flex-1">
       <h3 class="text-lg font-bold shrink-0 mb-0">統計結果</h3>
@@ -3165,7 +3179,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           <button type="button" id="reservation-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
         </div>
         <input type="hidden" id="reservation-people" value="1">
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1">預約日期</label>
             <input type="date" id="reservation-date" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm">
@@ -3182,11 +3196,11 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
               </select>
             </div>
           </div>
-          <div class="col-span-2 flex items-center justify-between gap-2">
+          <div class="col-span-1 md:col-span-2 flex items-center justify-between gap-2">
             <label class="block text-sm font-semibold text-gray-700 mb-0">電話</label>
             <span id="reservation-remaining-hint" class="text-xs font-bold text-slate-500 shrink-0"></span>
           </div>
-          <div class="col-span-2">
+          <div class="col-span-1 md:col-span-2">
             <input type="tel" id="reservation-phone" placeholder="09xxxxxxxx" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm">
           </div>
         </div>
@@ -7072,8 +7086,16 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
           var phoneFilterEl = document.getElementById('reservation-filter-phone');
           var dateFilter = dateFilterEl ? String(dateFilterEl.value || '').trim() : '';
           var phoneFilter = phoneFilterEl ? String(phoneFilterEl.value || '').trim() : '';
+          var _todayYmdForList_ = (function () {
+            var t = new Date();
+            return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+          })();
           var viewRows = _reservationBoardRows.filter(function (r) {
             if (dateFilter && String(r.reservationDate || '').trim() !== dateFilter) return false;
+            if (!dateFilter) {
+              var rd = String(r.reservationDate || '').trim();
+              if (rd && rd < _todayYmdForList_) return false;
+            }
             if (phoneFilter && String(r.phone || '').indexOf(phoneFilter) < 0) return false;
             if (r.boardKind === 'homeDelivery') {
               if (!_resvBoardShowHomeDelivery_()) return false;
@@ -8014,6 +8036,23 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
         })();
         function loadReservationBoard_() {
           var myGen = ++_reservationBoardLoadGen;
+          var _resvLoadingHtml_ = '<div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 16px;color:#6b7280;gap:8px;">' +
+            '<div style="width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:posResvSpin 0.9s linear infinite;"></div>' +
+            '<div style="font-size:14px;">預約資料載入中...</div></div>';
+          try {
+            var _resvCardGrid = document.getElementById('reservation-board-grid');
+            if (_resvCardGrid && _resvCardGrid.children.length === 0) _resvCardGrid.innerHTML = _resvLoadingHtml_;
+            if (!document.getElementById('pos-resv-spin-style')) {
+              var st = document.createElement('style');
+              st.id = 'pos-resv-spin-style';
+              st.textContent = '@keyframes posResvSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }';
+              document.head.appendChild(st);
+            }
+            var _resvCalWrap = document.getElementById('reservation-calendar-wrap');
+            if (_resvCalWrap && _reservationBoardViewMode === 'calendar') {
+              _resvCalWrap.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;color:#6b7280;gap:8px;height:100%;"><div style="width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:posResvSpin 0.9s linear infinite;"></div><div style="font-size:14px;">預約資料載入中...</div></div>';
+            }
+          } catch (_eLoadAnim) { /* 略 */ }
           var viaGet = function () {
             if (!currentWebAppUrl) return Promise.resolve({ result: 'error' });
             return fetch(currentWebAppUrl + '?action=getReservations&_=' + Date.now())
@@ -9016,13 +9055,16 @@ function posOrderStatsProductTotal_(order) {
 function posOrderStatsBreakdown_(order) {
   var out = { revenue: 0, productNet: 0, shipping: 0, codFee: 0 };
   if (!order) return out;
+  var orderTotal = parseInt(order.total, 10) || 0;
+  out.revenue = orderTotal;
   var items = Array.isArray(order.items) ? order.items : [];
   if (!items.length) {
-    var t0 = parseInt(order.total, 10) || 0;
-    out.revenue = t0;
-    out.productNet = t0;
+    out.productNet = orderTotal;
     return out;
   }
+  var hasShip = false, hasCod = false, hasShipCodCombo = false;
+  var productNet = 0;
+  var shipFromItems = 0, codFromItems = 0;
   items.forEach(function (it) {
     if (!it || !it.name) return;
     var qty = parseInt(it.quantity, 10) || 0;
@@ -9032,23 +9074,48 @@ function posOrderStatsBreakdown_(order) {
     var nm = String(it.name || '').trim();
     var isShip = it.posShippingLine || String(it.id || '').trim() === '__pos_shipping_line__' ||
       String(it.catalogProductId || '').trim() === '__pos_shipping__' ||
-      nm === '運費' || nm.indexOf('運費（') === 0;
+      nm === '運費' || nm.indexOf('運費(') === 0 || nm.indexOf('運費(') === 0;
     var isCod = it.posCodFeeLine || String(it.id || '').trim() === '__pos_cod_fee_line__' ||
       String(it.catalogProductId || '').trim() === '__pos_cod_fee__' ||
       nm === '貨到付款手續費';
     var isShipCod = nm.indexOf('運費+貨到付款') === 0;
     if (isShipCod) {
-      out.shipping += Math.floor(lineTotal / 2);
-      out.codFee += lineTotal - Math.floor(lineTotal / 2);
+      hasShipCodCombo = true;
+      if (lineTotal > 0) {
+        shipFromItems += Math.floor(lineTotal / 2);
+        codFromItems += lineTotal - Math.floor(lineTotal / 2);
+      }
     } else if (isShip) {
-      out.shipping += lineTotal;
+      hasShip = true;
+      if (lineTotal > 0) shipFromItems += lineTotal;
     } else if (isCod) {
-      out.codFee += lineTotal;
+      hasCod = true;
+      if (lineTotal > 0) codFromItems += lineTotal;
     } else if (nm !== '付款' && qty > 0) {
-      out.productNet += lineTotal;
+      productNet += lineTotal;
     }
   });
-  out.revenue = out.productNet + out.shipping + out.codFee;
+  out.productNet = productNet;
+  var extra = orderTotal - productNet;
+  if (extra < 0) extra = 0;
+  if (shipFromItems > 0 || codFromItems > 0) {
+    out.shipping = shipFromItems;
+    out.codFee = codFromItems;
+  } else if (extra > 0) {
+    if (hasShipCodCombo) {
+      out.shipping = Math.floor(extra / 2);
+      out.codFee = extra - out.shipping;
+    } else if (hasShip && hasCod) {
+      out.shipping = Math.floor(extra / 2);
+      out.codFee = extra - out.shipping;
+    } else if (hasShip) {
+      out.shipping = extra;
+    } else if (hasCod) {
+      out.codFee = extra;
+    } else {
+      out.shipping = extra;
+    }
+  }
   return out;
 }
 
@@ -15897,6 +15964,8 @@ if (!isRedeemContext) {
           this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
           this.classList.remove('text-gray-500');
           setFeatureDropdownLabel('統計');
+          /* 進統計頁預設顯示月視圖 */
+          try { _statsShowMonthView_(); } catch (_eSmv) { /* 略 */ }
           if (!window._lastStatsView_) window._lastStatsView_ = 'table';
           if (!window.__posStatsFilterBound_) {
             window.__posStatsFilterBound_ = true;
@@ -16716,76 +16785,238 @@ document.getElementById('show-amount-chart')?.addEventListener('click', function
   showAmountChart();
 });
 
-document.getElementById('stats-sync-legacy')?.addEventListener('click', function () {
-  function _callSync_(dryRun) {
-    if (posIsGasEmbed_()) {
-      return callGas('syncLegacyReservationsToOrderSheetFromPosClient', { dryRun: dryRun });
-    }
-    if (!currentWebAppUrl) {
-      return Promise.reject(new Error('缺少後端網址'));
-    }
-    return fetch(String(currentWebAppUrl).trim().replace(/\?+$/, ''), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'syncLegacyReservationsToOrderSheet',
-        dryRun: dryRun
-      })
-    }).then(function (r) { return r.json(); });
+/* ===== 統計月視圖 ===== */
+var _statsMonthViewState_ = { ym: '', cachedOrders: null, cachedAtMs: 0 };
+
+function _statsMonthCurrentYmDefault_() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function _statsMonthShift_(ym, delta) {
+  var m = String(ym || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return _statsMonthCurrentYmDefault_();
+  var y = parseInt(m[1], 10), mo = parseInt(m[2], 10) + delta;
+  while (mo < 1) { mo += 12; y -= 1; }
+  while (mo > 12) { mo -= 12; y += 1; }
+  return y + '-' + String(mo).padStart(2, '0');
+}
+function _statsMonthIsActive_() {
+  var el = document.getElementById('stats-month-view');
+  return el && !el.classList.contains('hidden');
+}
+function _statsShowMonthView_() {
+  var mv = document.getElementById('stats-month-view');
+  var sr = document.getElementById('stats-results');
+  if (mv) mv.classList.remove('hidden');
+  if (sr) sr.classList.add('hidden');
+  var btn = document.getElementById('stats-toggle-month');
+  if (btn) {
+    btn.textContent = '📊 統計表';
+    btn.classList.remove('border-purple-500', 'text-purple-600', 'hover:bg-purple-50');
+    btn.classList.add('border-blue-500', 'text-blue-600', 'hover:bg-blue-50');
   }
-  posSwalToastSuccess('掃描中...', 1000);
-  _callSync_(true).then(function (preview) {
-    if (!preview || preview.result !== 'success') {
-      posSwalAlert('掃描失敗：' + ((preview && preview.message) || '未知'), 'error');
-      return;
+  if (!_statsMonthViewState_.ym) _statsMonthViewState_.ym = _statsMonthCurrentYmDefault_();
+  _renderStatsMonthView_();
+}
+function _statsShowDayView_() {
+  var mv = document.getElementById('stats-month-view');
+  var sr = document.getElementById('stats-results');
+  if (mv) mv.classList.add('hidden');
+  if (sr) sr.classList.remove('hidden');
+  var btn = document.getElementById('stats-toggle-month');
+  if (btn) {
+    btn.textContent = '📅 月視圖';
+    btn.classList.remove('border-blue-500', 'text-blue-600', 'hover:bg-blue-50');
+    btn.classList.add('border-purple-500', 'text-purple-600', 'hover:bg-purple-50');
+  }
+}
+
+function _fetchOrdersForStatsMonth_() {
+  var now = Date.now();
+  if (_statsMonthViewState_.cachedOrders && (now - _statsMonthViewState_.cachedAtMs) < 30000) {
+    return Promise.resolve(_statsMonthViewState_.cachedOrders);
+  }
+  var loader;
+  if (posIsGasEmbed_()) {
+    loader = callGas('getOrdersData');
+  } else {
+    if (!currentWebAppUrl) return Promise.reject(new Error('缺少後端網址'));
+    loader = posFetchJsonSafe_(
+      String(currentWebAppUrl).trim().replace(/\?+$/, '') + '?action=getOrders',
+      'stats month getOrders'
+    );
+  }
+  return loader.then(function (data) {
+    if (!data || data.result !== 'success') throw new Error((data && data.message) || '讀取訂單失敗');
+    var orders = Array.isArray(data.orders) ? data.orders : [];
+    _statsMonthViewState_.cachedOrders = orders;
+    _statsMonthViewState_.cachedAtMs = Date.now();
+    return orders;
+  });
+}
+
+function _renderStatsMonthView_() {
+  var wrap = document.getElementById('stats-month-grid-wrap');
+  var label = document.getElementById('stats-month-label');
+  if (!wrap) return;
+  var ym = _statsMonthViewState_.ym || _statsMonthCurrentYmDefault_();
+  var m = ym.match(/^(\d{4})-(\d{2})$/);
+  if (!m) { ym = _statsMonthCurrentYmDefault_(); m = ym.match(/^(\d{4})-(\d{2})$/); }
+  var year = parseInt(m[1], 10), month = parseInt(m[2], 10);
+  if (label) label.textContent = year + '年 ' + month + '月';
+  wrap.innerHTML = '<div style="padding:24px;text-align:center;color:#6b7280;">載入中...</div>';
+  var tfPos = document.getElementById('stats-filter-pos');
+  var tfResv = document.getElementById('stats-filter-resv');
+  var tfHd = document.getElementById('stats-filter-hd');
+  var showPos = !tfPos || tfPos.checked;
+  var showResv = !tfResv || tfResv.checked;
+  var showHd = !tfHd || tfHd.checked;
+  _fetchOrdersForStatsMonth_().then(function (orders) {
+    var countByDate = {};
+    function _dateKeyForOrder_(o) {
+      var t = posOrderStatsClassifyType_(o);
+      var primary = '';
+      if (t === 'hd') primary = String(o.homeDeliveryDate || '').replace(/^'/, '').trim();
+      else if (t === 'resv') primary = String(o.reservationDate || '').replace(/^'/, '').trim();
+      if (primary) {
+        var dm0 = primary.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (dm0) return dm0[1];
+      }
+      var pt = String(o.pickupTime || o.homeDeliveryDate || o.reservationDate || '').replace(/^'/, '').trim();
+      var dm = pt.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (dm) return dm[1];
+      var dStr = String(o.date || '').replace(/^'/, '').trim();
+      var dm2 = dStr.match(/^(\d{4}-\d{2}-\d{2})/);
+      return dm2 ? dm2[1] : '';
     }
-    if (preview.added <= 0) {
-      posSwalAlert('沒有需要補寫的單。\n已存在於訂單表：' + preview.skipped + ' 筆。', 'info');
-      return;
+    orders.forEach(function (o) {
+      var dk = _dateKeyForOrder_(o);
+      if (!dk) return;
+      var t = posOrderStatsClassifyType_(o);
+      if (t === 'pos' && !showPos) return;
+      if (t === 'resv' && !showResv) return;
+      if (t === 'hd' && !showHd) return;
+      if (!countByDate[dk]) countByDate[dk] = { pos: 0, resv: 0, hd: 0 };
+      countByDate[dk][t]++;
+    });
+    var firstDayJs = new Date(year, month - 1, 1).getDay();
+    var firstWeekday = (firstDayJs + 6) % 7;
+    var daysInMonth = new Date(year, month, 0).getDate();
+    var prevDays = new Date(year, month - 1, 0).getDate();
+    var pad2 = function (n) { return n < 10 ? '0' + n : '' + n; };
+    var weekdays = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
+    var WEEKEND_BG = '#fce7f3';
+    var todayY = new Date().getFullYear(), todayM = new Date().getMonth() + 1, todayD = new Date().getDate();
+    var todayStr = todayY + '-' + pad2(todayM) + '-' + pad2(todayD);
+    var html = '<div style="display:flex;flex-direction:column;height:100%;font-size:13px;">';
+    html += '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid #e5e7eb;">';
+    for (var w = 0; w < 7; w++) {
+      var isWk = (w === 5 || w === 6);
+      var hbg = isWk ? WEEKEND_BG : '#f9fafb';
+      var wkc = isWk ? '#be185d' : '#374151';
+      html += '<div style="padding:6px 4px;text-align:center;font-weight:600;color:' + wkc + ';font-size:12px;background:' + hbg + ';">' + weekdays[w] + '</div>';
     }
-    var sampleHtml = '';
-    if (preview.addedSamples && preview.addedSamples.length) {
-      sampleHtml = '<div style="font-size:12px;color:#555;margin-top:8px;text-align:left;">範例：<br>' +
-        preview.addedSamples.map(function (s) {
-          return '・ ' + (s.kind === 'hd' ? '🚚' : '👜') + ' ' + s.orderId + ' （' + (s.date || '無日期') + '，$' + (s.total || 0) + '）';
-        }).join('<br>') + '</div>';
+    html += '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:minmax(88px,1fr);flex:1;">';
+    var cells = [];
+    for (var i = 0; i < firstWeekday; i++) {
+      var dn = prevDays - firstWeekday + 1 + i;
+      var pm = month - 1, py = year;
+      if (pm < 1) { pm = 12; py -= 1; }
+      cells.push({ inMonth: false, dateStr: '', dayNum: dn, y: py, mo: pm, d: dn });
     }
-    posSwalConfirm(
-      '將補寫 ' + preview.added + ' 筆舊預約/宅配到「訂單」工作表。\n' +
-      '已存在於訂單表：' + preview.skipped + ' 筆（會跳過）。\n' +
-      '無法處理：' + preview.failed + ' 筆。\n\n要繼續嗎？' + sampleHtml,
-      '確認補寫'
-    ).then(function (res) {
-      if (!res || !res.isConfirmed) return;
-      _callSync_(false).then(function (ret) {
-        if (!ret || ret.result !== 'success') {
-          posSwalAlert('補寫失敗：' + ((ret && ret.message) || '未知'), 'error');
-          return;
+    for (var d = 1; d <= daysInMonth; d++) {
+      var ds = year + '-' + pad2(month) + '-' + pad2(d);
+      cells.push({ inMonth: true, dateStr: ds, dayNum: d, y: year, mo: month, d: d });
+    }
+    var remain = (7 - (cells.length % 7)) % 7;
+    var ny = year, nm = month + 1;
+    if (nm > 12) { nm = 1; ny += 1; }
+    for (var k = 1; k <= remain; k++) {
+      cells.push({ inMonth: false, dateStr: '', dayNum: k, y: ny, mo: nm, d: k });
+    }
+    cells.forEach(function (c, ix) {
+      var col = ix % 7;
+      var isWkc = (col === 5 || col === 6);
+      var isToday = c.inMonth && c.dateStr === todayStr;
+      var holidayName = c.inMonth && typeof _TW_HOLIDAYS_ !== 'undefined' ? _TW_HOLIDAYS_[c.dateStr] : '';
+      var lun = null;
+      try { if (typeof solar2lunar_ === 'function') lun = solar2lunar_(c.y, c.mo, c.d); } catch (eL) { lun = null; }
+      var lunarText = (typeof _lunarShortLabel_ === 'function' && lun) ? _lunarShortLabel_(lun) : '';
+      var dayColor;
+      if (!c.inMonth) dayColor = '#d1d5db';
+      else if (holidayName) dayColor = '#dc2626';
+      else if (col === 6) dayColor = '#dc2626';
+      else if (col === 5) dayColor = '#be185d';
+      else dayColor = '#111827';
+      var bg;
+      if (!c.inMonth) bg = '#fafafa';
+      else if (isWkc || holidayName) bg = WEEKEND_BG;
+      else bg = '#fff';
+      var cursor = c.inMonth ? 'cursor:pointer;' : '';
+      var clickAttr = c.inMonth ? ' data-date="' + c.dateStr + '"' : '';
+      var dayNumHtml;
+      if (isToday) {
+        dayNumHtml = '<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:9999px;background:#2563eb;color:#fff;font-weight:700;font-size:13px;">' + c.dayNum + '</span>';
+      } else {
+        dayNumHtml = '<span style="font-weight:600;font-size:13px;color:' + dayColor + ';">' + c.dayNum + '</span>';
+      }
+      var lunarColor = c.inMonth ? '#6b7280' : '#d1d5db';
+      var lunarHtml = lunarText ? '<span style="margin-left:4px;font-size:10px;color:' + lunarColor + ';">' + lunarText + '</span>' : '';
+      html += '<div class="stats-month-cell"' + clickAttr +
+        ' style="border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding:4px;background:' + bg + ';' + cursor +
+        'display:flex;flex-direction:column;min-width:0;overflow:hidden;">';
+      html += '<div style="display:flex;align-items:center;line-height:1;margin-bottom:2px;">' + dayNumHtml + lunarHtml + '</div>';
+      if (holidayName && c.inMonth) {
+        html += '<div style="font-size:10px;color:#b91c1c;font-weight:600;line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + holidayName + '</div>';
+      }
+      if (c.inMonth && countByDate[c.dateStr]) {
+        var cnt = countByDate[c.dateStr];
+        if (cnt.resv > 0) {
+          html += '<div style="background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 4px;font-size:11px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">👜預約' + cnt.resv + '筆</div>';
         }
-        posSwalAlert(
-          '✅ 補寫完成\n\n' +
-          '新增：' + ret.added + ' 筆\n' +
-          '跳過：' + ret.skipped + ' 筆\n' +
-          '失敗：' + ret.failed + ' 筆',
-          'success'
-        );
-        window.__posStatsCacheByKey_ = {};
-        var rdSpan = document.getElementById('stats-range-display');
-        var rdTxt = rdSpan ? String(rdSpan.textContent || '').trim() : '';
-        var mm = rdTxt.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
-        if (mm) {
-          computeSummaryByPeriod(mm[1], mm[2], { force: true });
-        } else {
-          var t0 = posMerchantPromoTodayYmdLocal_();
-          if (t0) computeSummaryByPeriod(t0, t0, { force: true });
+        if (cnt.hd > 0) {
+          html += '<div style="background:#e0f2fe;color:#075985;border-radius:4px;padding:1px 4px;font-size:11px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🚚宅配' + cnt.hd + '筆</div>';
         }
-      }).catch(function (e) {
-        posSwalAlert('補寫失敗：' + (e && e.message ? e.message : e), 'error');
+        if (cnt.pos > 0) {
+          html += '<div style="background:#dcfce7;color:#166534;border-radius:4px;padding:1px 4px;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍POS' + cnt.pos + '筆</div>';
+        }
+      }
+      html += '</div>';
+    });
+    html += '</div></div>';
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.stats-month-cell[data-date]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var ds = el.getAttribute('data-date');
+        if (!ds) return;
+        _statsShowDayView_();
+        computeSummaryByPeriod(ds, ds, { force: true });
       });
     });
   }).catch(function (e) {
-    posSwalAlert('掃描失敗：' + (e && e.message ? e.message : e), 'error');
+    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:#dc2626;">載入失敗：' + (e && e.message ? e.message : e) + '</div>';
   });
+}
+
+document.getElementById('stats-toggle-month')?.addEventListener('click', function () {
+  if (_statsMonthIsActive_()) {
+    _statsShowDayView_();
+  } else {
+    _statsShowMonthView_();
+  }
+});
+document.getElementById('stats-month-prev')?.addEventListener('click', function () {
+  _statsMonthViewState_.ym = _statsMonthShift_(_statsMonthViewState_.ym, -1);
+  _renderStatsMonthView_();
+});
+document.getElementById('stats-month-next')?.addEventListener('click', function () {
+  _statsMonthViewState_.ym = _statsMonthShift_(_statsMonthViewState_.ym, 1);
+  _renderStatsMonthView_();
+});
+document.getElementById('stats-month-today')?.addEventListener('click', function () {
+  _statsMonthViewState_.ym = _statsMonthCurrentYmDefault_();
+  _renderStatsMonthView_();
 });
 
 async function showAmountChart() {
