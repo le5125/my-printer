@@ -16544,7 +16544,18 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
           const summaryAgg = {};
 
           function posOrderStatsDateKey_(order) {
-            var pt = String(order.pickupTime || order.homeDeliveryDate || '').replace(/^'/, '').trim();
+            var t = typeof posOrderStatsClassifyType_ === 'function' ? posOrderStatsClassifyType_(order) : 'pos';
+            var primary = '';
+            if (t === 'hd') {
+              primary = String(order.homeDeliveryDate || '').replace(/^'/, '').trim();
+            } else if (t === 'resv') {
+              primary = String(order.reservationDate || '').replace(/^'/, '').trim();
+            }
+            if (primary) {
+              var dm0 = primary.match(/^(\d{4}-\d{2}-\d{2})/);
+              if (dm0) return normalizeDateKey_(dm0[1]);
+            }
+            var pt = String(order.pickupTime || order.homeDeliveryDate || order.reservationDate || '').replace(/^'/, '').trim();
             var dm = pt.match(/^(\d{4}-\d{2}-\d{2})/);
             if (dm) return normalizeDateKey_(dm[1]);
             return normalizeDateKey_(order.date);
