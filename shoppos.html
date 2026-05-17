@@ -2070,6 +2070,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="stats-filter-hd" checked class="accent-sky-600">宅配</label>
       </div>
       <button id="show-amount-chart" class="ml-auto px-4 py-1 text-sm border border-green-500 text-green-600 rounded-md hover:bg-green-100 whitespace-nowrap">金額圖表💰</button>
+      <button id="stats-sync-legacy" class="px-3 py-1 text-sm border border-orange-500 text-orange-600 rounded-md hover:bg-orange-50 whitespace-nowrap" title="補寫舊預約/宅配到訂單表，讓統計能抓到">🔄 補寫舊單</button>
     </div>
     <div id="stats-summary-row" class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm w-full">
       <div class="bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
@@ -15861,6 +15862,8 @@ if (!isRedeemContext) {
         }
 
         statsTab.addEventListener('click', function () {
+          /* 第一行就設標籤，避免後續 throw 中斷 */
+          try { setFeatureDropdownLabel('統計'); } catch (_eLb0) { /* 略 */ }
           if (typeof closeReservationModal_ === 'function') closeReservationModal_();
           document.getElementById('menu-content').classList.add('hidden');
           document.getElementById('orders-content').classList.add('hidden');
@@ -16700,6 +16703,78 @@ document.getElementById('show-amount-chart')?.addEventListener('click', function
   }
   window._lastStatsView_ = 'chart';
   showAmountChart();
+});
+
+document.getElementById('stats-sync-legacy')?.addEventListener('click', function () {
+  function _callSync_(dryRun) {
+    if (posIsGasEmbed_()) {
+      return callGas('syncLegacyReservationsToOrderSheetFromPosClient', { dryRun: dryRun });
+    }
+    if (!currentWebAppUrl) {
+      return Promise.reject(new Error('缺少後端網址'));
+    }
+    return fetch(String(currentWebAppUrl).trim().replace(/\?+$/, ''), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'syncLegacyReservationsToOrderSheet',
+        dryRun: dryRun
+      })
+    }).then(function (r) { return r.json(); });
+  }
+  posSwalToastSuccess('掃描中...', 1000);
+  _callSync_(true).then(function (preview) {
+    if (!preview || preview.result !== 'success') {
+      posSwalAlert('掃描失敗：' + ((preview && preview.message) || '未知'), 'error');
+      return;
+    }
+    if (preview.added <= 0) {
+      posSwalAlert('沒有需要補寫的單。\n已存在於訂單表：' + preview.skipped + ' 筆。', 'info');
+      return;
+    }
+    var sampleHtml = '';
+    if (preview.addedSamples && preview.addedSamples.length) {
+      sampleHtml = '<div style="font-size:12px;color:#555;margin-top:8px;text-align:left;">範例：<br>' +
+        preview.addedSamples.map(function (s) {
+          return '・ ' + (s.kind === 'hd' ? '🚚' : '👜') + ' ' + s.orderId + ' （' + (s.date || '無日期') + '，$' + (s.total || 0) + '）';
+        }).join('<br>') + '</div>';
+    }
+    posSwalConfirm(
+      '將補寫 ' + preview.added + ' 筆舊預約/宅配到「訂單」工作表。\n' +
+      '已存在於訂單表：' + preview.skipped + ' 筆（會跳過）。\n' +
+      '無法處理：' + preview.failed + ' 筆。\n\n要繼續嗎？' + sampleHtml,
+      '確認補寫'
+    ).then(function (res) {
+      if (!res || !res.isConfirmed) return;
+      _callSync_(false).then(function (ret) {
+        if (!ret || ret.result !== 'success') {
+          posSwalAlert('補寫失敗：' + ((ret && ret.message) || '未知'), 'error');
+          return;
+        }
+        posSwalAlert(
+          '✅ 補寫完成\n\n' +
+          '新增：' + ret.added + ' 筆\n' +
+          '跳過：' + ret.skipped + ' 筆\n' +
+          '失敗：' + ret.failed + ' 筆',
+          'success'
+        );
+        window.__posStatsCacheByKey_ = {};
+        var rdSpan = document.getElementById('stats-range-display');
+        var rdTxt = rdSpan ? String(rdSpan.textContent || '').trim() : '';
+        var mm = rdTxt.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
+        if (mm) {
+          computeSummaryByPeriod(mm[1], mm[2], { force: true });
+        } else {
+          var t0 = posMerchantPromoTodayYmdLocal_();
+          if (t0) computeSummaryByPeriod(t0, t0, { force: true });
+        }
+      }).catch(function (e) {
+        posSwalAlert('補寫失敗：' + (e && e.message ? e.message : e), 'error');
+      });
+    });
+  }).catch(function (e) {
+    posSwalAlert('掃描失敗：' + (e && e.message ? e.message : e), 'error');
+  });
 });
 
 async function showAmountChart() {
