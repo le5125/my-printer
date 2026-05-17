@@ -6939,7 +6939,7 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
                 (isHd ? x.boardKind === 'homeDelivery' : x.boardKind !== 'homeDelivery');
             });
           };
-          var doComplete = function () {
+          var doComplete = function (trackingNo) {
             var targetRow = findTarget();
             if (targetRow) _resvSuppressMark_(targetRow);
             _reservationBoardRows = (_reservationBoardRows || []).filter(function (x) {
@@ -6954,8 +6954,8 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
             var mut = isHd
               ? {
                 gasMethod: 'completeHomeDeliveryFromPosClient',
-                gasArgs: [{ rowNo: rnInt }],
-                postBody: { action: 'completeHomeDelivery', rowNo: rnInt }
+                gasArgs: [{ rowNo: rnInt, trackingNo: trackingNo || '' }],
+                postBody: { action: 'completeHomeDelivery', rowNo: rnInt, trackingNo: trackingNo || '' }
               }
               : {
                 gasMethod: 'completeReservationFromPosClient',
@@ -6978,17 +6978,42 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
           };
           var qTitle = isHd ? '確定完成這筆宅配？' : '確定完成這筆預約？';
           if (typeof Swal !== 'undefined') {
-            Swal.fire({
-              icon: 'question',
-              title: qTitle,
-              showCancelButton: true,
-              confirmButtonText: '確定完成',
-              cancelButtonText: '先不要'
-            }).then(function (res) {
-              if (res && res.isConfirmed) doComplete();
-            });
+            if (isHd) {
+              Swal.fire({
+                icon: 'question',
+                title: qTitle,
+                html: '<div style="text-align:left;margin-top:8px;">' +
+                      '<label style="font-size:13px;color:#374151;font-weight:600;">宅配貨號（可空白）</label>' +
+                      '<input id="swal-tracking-no" class="swal2-input" placeholder="輸入物流追蹤號碼" style="margin-top:6px;">' +
+                      '<div style="font-size:11px;color:#6b7280;margin-top:4px;">填入後，顧客查詢訂單時能看到貨號</div>' +
+                      '</div>',
+                showCancelButton: true,
+                confirmButtonText: '確定完成',
+                cancelButtonText: '先不要',
+                focusConfirm: false,
+                preConfirm: function () {
+                  var el = document.getElementById('swal-tracking-no');
+                  return el ? String(el.value || '').trim() : '';
+                }
+              }).then(function (res) {
+                if (res && res.isConfirmed) doComplete(res.value || '');
+              });
+            } else {
+              Swal.fire({
+                icon: 'question',
+                title: qTitle,
+                showCancelButton: true,
+                confirmButtonText: '確定完成',
+                cancelButtonText: '先不要'
+              }).then(function (res) {
+                if (res && res.isConfirmed) doComplete('');
+              });
+            }
           } else {
-            if (confirm(qTitle)) doComplete();
+            if (confirm(qTitle)) {
+              var t = isHd ? (prompt('宅配貨號（可空白）') || '') : '';
+              doComplete(t);
+            }
           }
         }
         function _resvSuppressFilter_(rows) {
@@ -9057,6 +9082,15 @@ function posOrderStatsBreakdown_(order) {
   if (!order) return out;
   var orderTotal = parseInt(order.total, 10) || 0;
   out.revenue = orderTotal;
+  if (order.snapProductNet != null || order.snapShipping != null || order.snapCodFee != null) {
+    out.productNet = parseFloat(order.snapProductNet) || 0;
+    out.shipping = parseFloat(order.snapShipping) || 0;
+    out.codFee = parseFloat(order.snapCodFee) || 0;
+    var sumSnap = out.productNet + out.shipping + out.codFee;
+    if (sumSnap > 0 && Math.abs(sumSnap - orderTotal) < 2) {
+      return out;
+    }
+  }
   var items = Array.isArray(order.items) ? order.items : [];
   if (!items.length) {
     out.productNet = orderTotal;
@@ -15964,8 +15998,10 @@ if (!isRedeemContext) {
           this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
           this.classList.remove('text-gray-500');
           setFeatureDropdownLabel('統計');
-          /* 進統計頁預設顯示月視圖 */
+          /* 進統計頁預設顯示月視圖 + active period = today */
+          window._statsActivePeriod_ = 'today';
           try { _statsShowMonthView_(); } catch (_eSmv) { /* 略 */ }
+          if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
           if (!window._lastStatsView_) window._lastStatsView_ = 'table';
           if (!window.__posStatsFilterBound_) {
             window.__posStatsFilterBound_ = true;
@@ -15973,6 +16009,10 @@ if (!isRedeemContext) {
               var el = document.getElementById(id);
               if (!el) return;
               el.addEventListener('change', function () {
+                if (typeof _statsMonthIsActive_ === 'function' && _statsMonthIsActive_()) {
+                  try { _renderStatsMonthView_(); } catch (_eRm) { /* 略 */ }
+                  return;
+                }
                 var rdSpan = document.getElementById('stats-range-display');
                 var rdTxt = rdSpan ? String(rdSpan.textContent || '').trim() : '';
                 var m = rdTxt.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
@@ -16230,12 +16270,60 @@ if (!isRedeemContext) {
           setTimeout(function () { posForceMenuTopLayer_(); }, 0);
         });
 
+/* ===== 統計頁按鈕高亮 ===== */
+function _paintStatsButtons_() {
+  function _setActive_(el, isActive, baseColor) {
+    if (!el) return;
+    var col = baseColor || 'blue';
+    el.classList.remove('bg-blue-600', 'text-white', 'bg-green-600', 'bg-purple-600');
+    el.classList.remove('text-blue-600', 'text-green-600', 'text-purple-600');
+    if (isActive) {
+      if (col === 'green') {
+        el.classList.add('bg-green-600', 'text-white');
+        el.classList.remove('text-green-600', 'hover:bg-green-100');
+      } else if (col === 'purple') {
+        el.classList.add('bg-purple-600', 'text-white');
+        el.classList.remove('text-purple-600', 'hover:bg-purple-50');
+      } else {
+        el.classList.add('bg-blue-600', 'text-white');
+        el.classList.remove('text-blue-600', 'hover:bg-blue-100');
+      }
+    } else {
+      if (col === 'green') {
+        el.classList.add('text-green-600', 'hover:bg-green-100');
+      } else if (col === 'purple') {
+        el.classList.add('text-purple-600', 'hover:bg-purple-50');
+      } else {
+        el.classList.add('text-blue-600', 'hover:bg-blue-100');
+      }
+    }
+  }
+  var period = window._statsActivePeriod_ || '';
+  _setActive_(document.getElementById('stats-today'), period === 'today', 'blue');
+  _setActive_(document.getElementById('stats-this-week'), period === 'week', 'blue');
+  _setActive_(document.getElementById('stats-this-month'), period === 'month', 'blue');
+  _setActive_(document.getElementById('stats-range-btn'), period === 'range', 'blue');
+  var monthActive = (typeof _statsMonthIsActive_ === 'function') && _statsMonthIsActive_();
+  _setActive_(document.getElementById('stats-toggle-month'), monthActive, 'purple');
+  var chartActive = (window._lastStatsView_ === 'chart') && !monthActive;
+  _setActive_(document.getElementById('show-amount-chart'), chartActive, 'green');
+}
+
 document.getElementById('stats-today')?.addEventListener('click', () => {
+  window._statsActivePeriod_ = 'today';
+  if (typeof _statsMonthIsActive_ === 'function' && _statsMonthIsActive_()) {
+    if (typeof _statsShowDayView_ === 'function') _statsShowDayView_();
+  }
   const today = posMerchantPromoTodayYmdLocal_();
   computeSummaryByPeriod(today, today);
+  _paintStatsButtons_();
 });
 
 document.getElementById('stats-this-week')?.addEventListener('click', () => {
+  window._statsActivePeriod_ = 'week';
+  if (typeof _statsMonthIsActive_ === 'function' && _statsMonthIsActive_()) {
+    if (typeof _statsShowDayView_ === 'function') _statsShowDayView_();
+  }
   const today = new Date();
   const day = today.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
@@ -16247,9 +16335,14 @@ document.getElementById('stats-this-week')?.addEventListener('click', () => {
     posFormatYmdLocal_(monday),
     posFormatYmdLocal_(sunday)
   );
+  _paintStatsButtons_();
 });
 
 document.getElementById('stats-this-month')?.addEventListener('click', () => {
+  window._statsActivePeriod_ = 'month';
+  if (typeof _statsMonthIsActive_ === 'function' && _statsMonthIsActive_()) {
+    if (typeof _statsShowDayView_ === 'function') _statsShowDayView_();
+  }
   const today = new Date();
 
   const start = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -16259,6 +16352,7 @@ document.getElementById('stats-this-month')?.addEventListener('click', () => {
   const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
 
   computeSummaryByPeriod(startStr, endStr, { force: true });
+  _paintStatsButtons_();
 });
 
 flatpickr('#single-date', {
@@ -16783,6 +16877,7 @@ document.getElementById('show-amount-chart')?.addEventListener('click', function
   }
   window._lastStatsView_ = 'chart';
   showAmountChart();
+  if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
 });
 
 /* ===== 統計月視圖 ===== */
@@ -16990,8 +17085,16 @@ function _renderStatsMonthView_() {
       el.addEventListener('click', function () {
         var ds = el.getAttribute('data-date');
         if (!ds) return;
+        window._lastStatsView_ = 'table';
+        var todayCheck = posMerchantPromoTodayYmdLocal_();
+        window._statsActivePeriod_ = (ds === todayCheck) ? 'today' : 'range';
+        var chartBox = document.getElementById('stats-chart-box');
+        var tableBox = document.getElementById('stats-table-box');
+        if (chartBox) chartBox.classList.add('hidden');
+        if (tableBox) tableBox.classList.remove('hidden');
         _statsShowDayView_();
         computeSummaryByPeriod(ds, ds, { force: true });
+        if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
       });
     });
   }).catch(function (e) {
@@ -17005,6 +17108,7 @@ document.getElementById('stats-toggle-month')?.addEventListener('click', functio
   } else {
     _statsShowMonthView_();
   }
+  if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
 });
 document.getElementById('stats-month-prev')?.addEventListener('click', function () {
   _statsMonthViewState_.ym = _statsMonthShift_(_statsMonthViewState_.ym, -1);
@@ -17223,6 +17327,7 @@ document.getElementById('toggle-stats-view')?.addEventListener('click', () => {
     tableBox.classList.remove('hidden');
     window._lastStatsView_ = 'table';
   }
+  if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
 });
 
 function renderFilteredStats(type) {
