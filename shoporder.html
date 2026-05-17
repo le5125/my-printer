@@ -1637,6 +1637,36 @@
   }
   .si-nav-btn:active { transform:scale(.95); }
 
+  .si-line-btn-wrap {
+    padding: 0.65rem 0 0.85rem;
+    border-bottom: 1px solid #f2f2f2;
+  }
+  .si-line-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    width: 100%;
+    box-sizing: border-box;
+    background: #06C755;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 800;
+    padding: 0.65rem 1rem;
+    border-radius: 999px;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 0.25rem 0.65rem rgba(6, 199, 85, 0.38);
+    transition: transform 0.15s, box-shadow 0.15s;
+    user-select: none;
+  }
+  .si-line-btn .si-line-icon {
+    flex-shrink: 0;
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+  .si-line-btn:active { transform: scale(0.97); }
+
     #order-lookup-overlay {
     position:fixed; inset:0; background:rgba(0,0,0,.5);
     z-index:120; opacity:0; pointer-events:none; transition:opacity .3s;
@@ -2495,6 +2525,10 @@
     margin: 0 0 9px !important;
     border-radius: 9px !important;
     box-shadow: 0 6px 10px rgba(215,4,100,.18) !important;
+  }
+  .si-card .si-line-btn-wrap {
+    padding: 0.85rem 0 0.25rem;
+    border-bottom: none;
   }
 
   /* ============================================================
@@ -9266,9 +9300,12 @@ function renderStoreInfo() {
 
   var lineUrl = orderNormalizeLineUrl_(s.lineUrl);
   if (lineUrl) {
+    var lineIconSvg = '<svg class="si-line-icon" viewBox="0 0 24 24" aria-hidden="true">'
+      + '<path fill="currentColor" d="M19.365 9.864h.011s.148.006.148.006c.003 0 .116.005.116.005a.966.966 0 0 1 .902.998 9.51 9.51 0 0 1-.435 2.705c-.66 2.314-2.647 4.064-4.876 4.877-.576.2-1.185.35-1.81.442-1.278.19-2.6.19-3.878 0a9.86 9.86 0 0 1-1.81-.442c-2.23-.813-4.216-2.563-4.876-4.877a9.51 9.51 0 0 1-.435-2.705.966.966 0 0 1 .902-.998s.113-.005.116-.005c0 0 .137-.006.148-.006.01 0 1.67-.098 3.217-.606.553-.182 1.034-.45 1.494-.784.623-.443 1.17-.98 1.718-1.516.92-.893 1.84-1.786 2.99-2.278 1.06-.448 2.214-.606 3.368-.606z"/>'
+      + '</svg>';
     cardInner += '<div class="si-line-btn-wrap">'
       + '<a class="si-line-btn" href="' + escHtml(lineUrl) + '" target="_blank" rel="noopener noreferrer">'
-      + '💬 加入 LINE</a></div>';
+      + lineIconSvg + '<span> LINE </span></a></div>';
   }
 
   if (s.fixedClosedDays) {
@@ -9713,17 +9750,17 @@ async function init() {
   const cartBar = document.getElementById('cart-bar');
   let _cbOnBar = false, _cbStartY = 0, _cbMoved = false;
 
-  cartBar.addEventListener('touchstart', e => {
+  if (cartBar) cartBar.addEventListener('touchstart', e => {
     _cbOnBar  = true;
     _cbStartY = e.touches[0].clientY;
     _cbMoved  = false;
   }, { passive: true });
 
-  cartBar.addEventListener('touchmove', e => {
+  if (cartBar) cartBar.addEventListener('touchmove', e => {
     if (Math.abs(e.touches[0].clientY - _cbStartY) > 5) _cbMoved = true;
   }, { passive: true });
 
-  cartBar.addEventListener('touchend', e => {
+  if (cartBar) cartBar.addEventListener('touchend', e => {
     const ok = _cbOnBar && !_cbMoved && !_pageScrolling && !_programScroll;
     _cbOnBar = false;
     _cbMoved = false;
@@ -9734,7 +9771,7 @@ async function init() {
 
   let _lastTouchMs = 0;
   document.addEventListener('touchstart', () => { _lastTouchMs = Date.now(); }, { passive: true, capture: true });
-  cartBar.addEventListener('mouseup', e => {
+  if (cartBar) cartBar.addEventListener('mouseup', e => {
     if (e.button !== 0) return;
     if (Date.now() - _lastTouchMs < 500) return; // 手機 touch 合成的 mouseup，略過
     if (!_pageScrolling && !_programScroll) openCartDrawer();
@@ -9806,15 +9843,8 @@ async function bootstrapOrder() {
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
   setTimeout(function () { orderInitMiniGame_(); }, 200);
-  var swalOk = await orderEnsureSwalReady_();
-  if (!swalOk) {
-    try {
-      orderShowBootstrapMaintenance_('介面元件載入逾時，請重新整理頁面或檢查網路後再試。');
-    } catch (eM) {
-      try { alert('介面載入逾時，請重新整理頁面。'); } catch (eA) {}
-    }
-    return;
-  }
+  // SweetAlert2 背景載入（與參考版一致）：不擋 boot，避免 CDN 慢時菜單永遠載不入
+  void orderEnsureSwalReady_();
   var _orderUrlQ = new URLSearchParams(window.location.search);
   var _orderBossId = (_orderUrlQ.get('mid') || _orderUrlQ.get('Mid') || _orderUrlQ.get('id') || _orderUrlQ.get('Id') || '').trim();
   var _orderUrlPinnedByQuery = !!_orderBossId;
