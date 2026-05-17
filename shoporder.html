@@ -1797,6 +1797,13 @@
 
   .cart-hd-block { margin-bottom: 0.65rem; }
   .cart-hd-block .form-input { margin-bottom: 0.45rem; }
+  .cart-hd-field-label {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #555;
+    display: block;
+    margin-bottom: 0.35rem;
+  }
   .cart-hd-pay-bar {
     display: flex;
     flex-wrap: wrap;
@@ -3257,9 +3264,9 @@
 <body>
 
 <div id="closed-overlay">
-  <div style="font-size:24px;">🚫</div>
-  <div id="closed-title" style="font-size:17px;font-weight:900;color:white;margin-top:9px;">今日公休</div>
-  <div id="closed-sub" style="font-size:15px;color:rgba(255,255,255,.65);margin-top:6px;max-width:106px;line-height:1.6;white-space:pre-line;"></div>
+  <div style="font-size: 3.29144rem;">🚫</div>
+  <div id="closed-title" style="font-size: 2.37712rem;font-weight:900;color:white;margin-top:1.1429rem;">今日公休</div>
+  <div id="closed-sub" style="font-size: 2.01144rem;color:rgba(255,255,255,.65);margin-top:0.7143rem;max-width:20rem;line-height:1.6;white-space:pre-line;"></div>
 </div>
 
 <div id="hero-banner">
@@ -3614,16 +3621,15 @@
 
             <div id="sheet-options"></div>
 
-            <div style="padding:9px 0 5px;border-top:1px solid #f5f5f5;margin-top:5px;">
-        <label style="font-size:15px;font-weight:700;color:#1a1a1a;display:block;margin-bottom:5px;">品項備註</label>
-        <textarea id="sheet-note" placeholder="" rows="2"
-          style="width:100%;border:2px solid #e2e8f0;border-radius:8px;padding:10px;font-size:15px;font-family:inherit;font-weight:600;color:#0f172a;background:#f8fafc;outline:none;resize:vertical;min-height:46px;line-height:1.5;box-sizing:border-box;"
+            <div class="sheet-note-block">
+        <label class="sheet-note-label">品項備註</label>
+        <textarea id="sheet-note" placeholder="" rows="2" class="form-input sheet-note-input"
           onfocus="this.style.borderColor='#D70464';this.style.background='#fff';"
           onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';"></textarea>
       </div>
 
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-top:1px solid #f5f5f5;margin-top:5px;">
-        <span style="font-size:17px;font-weight:700;color:#1a1a1a;">數量</span>
+            <div class="sheet-qty-row">
+        <span class="sheet-qty-label">數量</span>
         <div class="qty-control">
           <div class="qty-btn" onclick="changeQty(-1)">−</div>
           <div class="qty-val" id="sheet-qty">1</div>
@@ -3715,18 +3721,18 @@
           <span>自取資訊</span>
         </div>
         <div class="cart-order-phone-block" style="margin-bottom:9px;">
-          <label style="font-size:15px;font-weight:700;color:#555;display:block;margin-bottom:5px;">自取日期 <span style="color:var(--panda);">*必填</span></label>
+          <label class="cart-hd-field-label">自取日期 <span style="color:var(--panda);">*必填</span></label>
           <input id="order-pickup-date" type="date" class="form-input" oninput="this.classList.remove('error')">
         </div>
         <div class="cart-order-phone-block" style="margin-bottom:9px;">
-          <label style="font-size:15px;font-weight:700;color:#555;display:block;margin-bottom:5px;">
+          <label class="cart-hd-field-label">
             聯絡電話 <span style="color:var(--panda);">*必填</span>
           </label>
           <input id="order-phone" type="tel" placeholder="輸入電話號碼" class="form-input"
                  oninput="this.classList.remove('error')">
         </div>
         <div style="margin-bottom:0;">
-          <label style="font-size:15px;font-weight:700;color:#555;display:block;margin-bottom:5px;">整筆訂單備註（選填）</label>
+          <label class="cart-hd-field-label">整筆訂單備註（選填）</label>
           <input id="order-notes" type="text" placeholder="特殊要求..." class="form-input">
         </div>
       </div>
@@ -3737,16 +3743,16 @@
           <span class="cart-group-title-icon is-blue">🚚</span>
           <span>宅配資訊</span>
         </div>
-        <label style="font-size:15px;font-weight:700;color:#555;display:block;margin-bottom:5px;">配送日期 <span style="color:var(--panda);">*必填</span></label>
+        <label class="cart-hd-field-label">配送日期 <span style="color:var(--panda);">*必填</span></label>
         <input id="order-hd-date" type="date" class="form-input" oninput="this.classList.remove('error')">
-        <label style="font-size:15px;font-weight:700;color:#555;display:block;margin-bottom:5px;">姓名 <span style="color:var(--panda);">*必填</span></label>
+        <label class="cart-hd-field-label">姓名 <span style="color:var(--panda);">*必填</span></label>
         <input id="order-hd-name" type="text" placeholder="收件人姓名" class="form-input" oninput="this.classList.remove('error')">
-        <label style="font-size:15px;font-weight:700;color:#555;display:block;margin-bottom:5px;">電話 <span style="color:var(--panda);">*必填</span></label>
+        <label class="cart-hd-field-label">電話 <span style="color:var(--panda);">*必填</span></label>
         <input id="order-hd-phone" type="tel" placeholder="輸入電話號碼" class="form-input"
                oninput="this.classList.remove('error')">
-        <label style="font-size:15px;font-weight:700;color:#555;display:block;margin-bottom:5px;">地址 <span style="color:var(--panda);">*必填</span></label>
+        <label class="cart-hd-field-label">地址 <span style="color:var(--panda);">*必填</span></label>
         <input id="order-hd-address" type="text" placeholder="完整配送地址" class="form-input" oninput="this.classList.remove('error')">
-        <label style="font-size:15px;font-weight:700;color:#555;display:block;margin-bottom:5px;">備註（選填）</label>
+        <label class="cart-hd-field-label">備註（選填）</label>
         <input id="order-hd-notes" type="text" placeholder="特殊要求..." class="form-input">
       </div>
     </div>
