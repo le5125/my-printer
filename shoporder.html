@@ -577,7 +577,8 @@
     .qty-control { display:flex; align-items:center; border:2px solid var(--panda); border-radius:999px; overflow:hidden; }
   .qty-btn { width:2.5rem; height:2.5rem; display:flex; align-items:center; justify-content:center; font-size: 1.15rem; font-weight:300; color:var(--panda); background:transparent; cursor:pointer; transition:background .15s; }
   .qty-btn:active { background:var(--panda-light); }
-  .qty-val { font-size: 1rem; font-weight:700; width:2.25rem; text-align:center; color:#1a1a1a; }
+  .qty-val { font-size: 1rem; font-weight:700; width:2.25rem; min-width:2.25rem; text-align:center; color:#1a1a1a; border:none; background:transparent; padding:0; outline:none; appearance:textfield; -moz-appearance:textfield; }
+  .qty-val::-webkit-outer-spin-button, .qty-val::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
     .sheet-footer { padding:0.85rem 1rem 1.25rem; border-top:1px solid #f0f0f0; background:#fff; flex-shrink:0; }
   .add-to-cart-btn {
     width: 100%;
@@ -785,7 +786,8 @@
     font-size: 1.85rem; font-weight:300; color:var(--panda);    background:transparent; cursor:pointer; transition:background .15s;
   }
   .cart-qty-btn:active { background:var(--panda-light); }
-  .cart-qty-num { font-size: 1.65rem; font-weight:700; width:48px; text-align:center; color:#1a1a1a; }
+  .cart-qty-num { font-size: 1.65rem; font-weight:700; width:48px; min-width:48px; text-align:center; color:#1a1a1a; border:none; background:transparent; padding:0; outline:none; appearance:textfield; -moz-appearance:textfield; }
+  .cart-qty-num::-webkit-outer-spin-button, .cart-qty-num::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
     .cart-item-trash {
     width:72px; height:72px; border-radius:50%;
     background:#fee2e2; color:#ef4444;
@@ -3668,7 +3670,8 @@
         <span class="sheet-qty-label">數量</span>
         <div class="qty-control">
           <div class="qty-btn" onclick="changeQty(-1)">−</div>
-          <div class="qty-val" id="sheet-qty">1</div>
+          <input type="number" class="qty-val" id="sheet-qty" value="1" min="1" max="99" inputmode="numeric" aria-label="數量"
+            onclick="event.stopPropagation()" onfocus="this.select()" oninput="orderSyncSheetQtyFromInput_()" onblur="orderSyncSheetQtyFromInput_()">
           <div class="qty-btn" onclick="changeQty(1)">+</div>
         </div>
       </div>
@@ -4597,11 +4600,19 @@ function orderGetStoredMemberPhone10_() {
   return '';
 }
 
+function orderShouldPrefillCartContactPhone_(p) {
+  if (!p) return false;
+  if (orderIsLineStubMemberPhone_(p)) return false;
+  return true;
+}
+
 function orderApplyMemberPhoneLockToForm_() {
   var el = document.getElementById('order-phone');
   var hdEl = document.getElementById('order-hd-phone');
   var p = orderGetStoredMemberPhone10_();
-  if (p && window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
+  var canPrefill = orderShouldPrefillCartContactPhone_(p);
+
+  if (canPrefill && p && window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
     if (el) {
       el.value = p;
       el.readOnly = true;
@@ -4614,15 +4625,19 @@ function orderApplyMemberPhoneLockToForm_() {
     }
   } else {
     if (el) {
-      if (p && !window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
+      if (canPrefill && p && !window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
         el.value = p;
+      } else if (!canPrefill && orderIsLineStubMemberPhone_(el.value)) {
+        el.value = '';
       }
       el.readOnly = false;
       el.classList.remove('order-phone-locked');
     }
     if (hdEl) {
-      if (p && !window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
+      if (canPrefill && p && !window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
         hdEl.value = p;
+      } else if (!canPrefill && orderIsLineStubMemberPhone_(hdEl.value)) {
+        hdEl.value = '';
       }
       hdEl.readOnly = false;
       hdEl.classList.remove('order-phone-locked');
@@ -7377,7 +7392,8 @@ function openSheet(productId) {
   document.getElementById('sheet-options').innerHTML = html;
 
   document.getElementById('sheet-note').value = '';
-  document.getElementById('sheet-qty').textContent = 1;
+  var sheetQtyEl = document.getElementById('sheet-qty');
+  if (sheetQtyEl) sheetQtyEl.value = 1;
   updateCartBtn();
 
   document.getElementById('sheet-overlay').classList.add('show');
@@ -7433,9 +7449,25 @@ function toggleExtra(ei) {
   updateCartBtn();
 }
 
+function orderNormCartQty_(v) {
+  var n = parseInt(v, 10);
+  if (!isFinite(n) || n < 1) return 1;
+  if (n > 99) return 99;
+  return n;
+}
+
+function orderSyncSheetQtyFromInput_() {
+  var el = document.getElementById('sheet-qty');
+  if (!el) return;
+  currentQty = orderNormCartQty_(el.value);
+  el.value = currentQty;
+  updateCartBtn();
+}
+
 function changeQty(delta) {
-  currentQty = Math.max(1, currentQty + delta);
-  document.getElementById('sheet-qty').textContent = currentQty;
+  currentQty = orderNormCartQty_(currentQty + delta);
+  var el = document.getElementById('sheet-qty');
+  if (el) el.value = currentQty;
   updateCartBtn();
 }
 
@@ -7460,6 +7492,7 @@ function updateCartBtn() {
 }
 
 function addToCart() {
+  orderSyncSheetQtyFromInput_();
   if (!currentProduct) return;
   var cfg = orderGetMerchantPromoCfg_();
   var pp = orderMerchantPromoUnitPriceForMenuCard_(currentProduct.id, currentProduct.price, cfg);
@@ -7806,22 +7839,38 @@ function adjustCartItemQty(idx, delta) {
     void orderAdjustRedeemCartQtyMaybe_(idx, delta);
     return;
   }
-  ci.qty += delta;
-  if (ci.qty <= 0) {
+  setCartItemQty(idx, ci.qty + delta);
+}
+
+function setCartItemQty(idx, rawVal) {
+  var ci = cartItems[idx];
+  if (!ci) return;
+  if (orderIsShippingCartLine_(ci)) return;
+  var qty = orderNormCartQty_(rawVal);
+  if (qty === ci.qty) {
+    renderCartItems();
+    return;
+  }
+  if (ci.isRedeem && qty > ci.qty) {
+    void orderAdjustRedeemCartQtyMaybe_(idx, qty - ci.qty);
+    return;
+  }
+  if (qty <= 0) {
     cartItems.splice(idx, 1);
     updateCartBar();
     renderCartItems();
     if (cartItems.length === 0) closeCartDrawer();
-  } else {
-    if (ci.isRedeem) {
-      ci.lineTotal = 0;
-      ci.redeemPoints = (ci.pointsCost || 0) * ci.qty;
-    } else {
-      ci.lineTotal = ci.unitPrice * ci.qty;
-    }
-    updateCartBar();
-    renderCartItems();
+    return;
   }
+  ci.qty = qty;
+  if (ci.isRedeem) {
+    ci.lineTotal = 0;
+    ci.redeemPoints = (ci.pointsCost || 0) * ci.qty;
+  } else {
+    ci.lineTotal = ci.unitPrice * ci.qty;
+  }
+  updateCartBar();
+  renderCartItems();
 }
 
 async function orderAdjustRedeemCartQtyMaybe_(idx, delta) {
@@ -7937,7 +7986,9 @@ function renderCartItems() {
       <div class="cart-item-bottom">
         <div class="cart-qty-ctrl">
           <div class="cart-qty-btn" onclick="adjustCartItemQty(${idx}, -1)">−</div>
-          <span class="cart-qty-num">${ci.qty}</span>
+          ${orderIsShippingCartLine_(ci)
+            ? '<span class="cart-qty-num">' + ci.qty + '</span>'
+            : '<input type="number" class="cart-qty-num" value="' + ci.qty + '" min="1" max="99" inputmode="numeric" aria-label="數量" onclick="event.stopPropagation()" onfocus="this.select()" onchange="setCartItemQty(' + idx + ', this.value)" onblur="setCartItemQty(' + idx + ', this.value)">'}
           <div class="cart-qty-btn" onclick="adjustCartItemQty(${idx}, 1)">+</div>
         </div>
         <span class="cart-item-price">${priceInner}</span>
