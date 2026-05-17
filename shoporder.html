@@ -519,7 +519,7 @@
   .sheet-cart-hint-left  { font-size: 0.92rem; font-weight:700; color:var(--panda); }
   .sheet-cart-hint-right { font-size: 0.85rem; font-weight:700; color:var(--panda); display:flex; align-items:center; gap:0.25rem; white-space:nowrap; }
   .sheet-item-name  { font-size: 1.15rem; font-weight:900; color:#1a1a1a; line-height:1.35; }
-  .sheet-item-desc  { font-size: 0.88rem; color:#888; margin-top:0.45rem; line-height:1.45; }
+  .sheet-item-desc  { font-size: 0.88rem; color:#888; margin-top:0.45rem; line-height:1.45; white-space: pre-line; word-break: break-word; }
   .sheet-item-price { font-size: 1.1rem; font-weight:900; color:var(--panda); margin-top:0.5rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:0.25rem 0.65rem; }
   .sheet-item-price .sh-price-orig { font-size: 0.95rem; color:#9ca3af; text-decoration:line-through; text-decoration-color:#dc2626; font-weight:800; }
   .sheet-item-price .sh-price-sale { font-size: 1.1rem; color:#7c3aed; font-weight:900; }
@@ -7328,7 +7328,7 @@ function openSheet(productId) {
 
   document.getElementById('sheet-info-area').innerHTML = `
     <div class="sheet-item-name">${item.name}</div>
-    ${item.description ? `<div class="sheet-item-desc">${item.description}</div>` : ''}
+    ${item.description ? `<div class="sheet-item-desc">${orderDescHtml_(item.description)}</div>` : ''}
     ${sheetPriceHtml}`;
 
   const hintEl   = document.getElementById('sheet-cart-hint');
@@ -8714,6 +8714,10 @@ function escHtml(str) {
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#39;');
+}
+
+function orderDescHtml_(str) {
+  return escHtml(str).replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '<br>');
 }
 
 function orderApplyMemberCornerPrefetch_(profJson, redeemJson) {
