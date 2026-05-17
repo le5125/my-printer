@@ -3709,11 +3709,11 @@
       <div class="cart-group-card">
         <div class="cart-group-title">
           <span class="cart-group-title-icon">🛍</span>
-          <span>取餐方式</span>
+          <span>取貨方式</span>
           <span class="cart-group-required">*必填</span>
         </div>
             <div class="fulfill-mode-bar" style="margin-top:0;">
-        <span class="fulfill-mode-title">取餐方式</span>
+        <span class="fulfill-mode-title">取貨方式</span>
         <div class="fulfill-mode-options" id="fulfill-mode-options">
           <label class="fulfill-radio-label fulfill-radio-on" id="fulfill-label-pickup">
             <input type="radio" name="order-fulfill-mode" id="order-fulfill-pickup" value="pickup" checked>
@@ -9703,7 +9703,7 @@ function renderOrderResults(orders) {
       + '<div>'
       + '<div class="ol-card-date">' + escHtml(order.date || '') + '</div>'
       + (order.pickupTime && String(order.pickupTime).trim()
-          ? '<div class="ol-card-time"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + escHtml(order.pickupTime) + ' 取餐</div>'
+          ? '<div class="ol-card-time"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + escHtml(order.pickupTime) + ' 取貨</div>'
           : (order.fulfillmentMode === 'delivery'
             ? '<div class="ol-card-time">📦 宅配</div>'
             : ''))
