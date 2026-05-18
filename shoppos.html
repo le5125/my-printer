@@ -1879,7 +1879,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
           
                     <div id="features-dropdown-menu" class="absolute top-full right-0 z-40 mt-1 bg-white border border-gray-200 rounded-md shadow-lg hidden min-w-[min(calc(100vw-24px),10rem)] w-max max-w-[min(calc(100vw-24px),22rem)]">
             <button id="orders-tab" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-3 border-b border-gray-100 last:border-b-0">
-              <i class="fas fa-search shrink-0 w-5 text-center"></i><span class="min-w-0 flex-1">訂單查詢</span>
+              <i class="fas fa-search shrink-0 w-5 text-center"></i><span class="min-w-0 flex-1">現場訂單</span>
             </button>
             <button id="reservation-view-tab" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-3 border-b border-gray-100 last:border-b-0">
               <i class="fas fa-calendar-check shrink-0 w-5 text-center"></i><span class="min-w-0 flex-1">預約查看</span>
@@ -1973,7 +1973,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
             <div id="orders-content" class="hidden flex-grow flex flex-col min-h-0 px-3 pb-3">
         <div class="order-board-wrap flex-grow min-h-0">
-          <div class="order-board-title"><i class="fas fa-search mr-2 text-indigo-600"></i>訂單查詢</div>
+          <div class="order-board-title"><i class="fas fa-search mr-2 text-indigo-600"></i>現場訂單</div>
           <div class="bg-white border border-gray-200 rounded-lg p-3 mb-3 flex flex-wrap items-end gap-3">
             <div>
               <label class="block text-xs text-gray-600 mb-1">日期篩選</label>
@@ -8773,6 +8773,9 @@ function posOrdersFilterAndSort_(ordersList) {
   var phoneFilter = phoneEl ? String(phoneEl.value || '').trim() : '';
 
   var filtered = list.filter(function (order) {
+    /* 此頁只顯示「現場單」（pos）。預約 / 宅配請去「預約查看」 */
+    var t = typeof posOrderStatsClassifyType_ === 'function' ? posOrderStatsClassifyType_(order) : 'pos';
+    if (t !== 'pos') return false;
     var od = posOrdersQueryEffectiveDate_(order);
     if (dateFilter && od !== dateFilter) return false;
     if (phoneFilter && (order.phone || '').toString().indexOf(phoneFilter) < 0) return false;
@@ -9283,7 +9286,7 @@ function loadOrders(forceRefresh) {
     Promise.resolve(callGas('getServedOrdersDataFromPosClient')).then(applyServerOrders_).catch(function (error) {
       console.error('loadOrders:', error);
       if (force && grid) {
-        grid.innerHTML = '<div class="order-board-empty text-sm">訂單列表背景更新失敗，請稍後再開啟「訂單查詢」。</div>';
+        grid.innerHTML = '<div class="order-board-empty text-sm">訂單列表背景更新失敗，請稍後再開啟「現場訂單」。</div>';
         return;
       }
       posSwalAlert('無法連線，請稍後再試', 'error');
@@ -9297,7 +9300,7 @@ function loadOrders(forceRefresh) {
     .catch(error => {
       console.error('loadOrders:', error);
       if (force && grid) {
-        grid.innerHTML = '<div class="order-board-empty text-sm">訂單列表背景更新失敗，請稍後再開啟「訂單查詢」。</div>';
+        grid.innerHTML = '<div class="order-board-empty text-sm">訂單列表背景更新失敗，請稍後再開啟「現場訂單」。</div>';
         return;
       }
       posSwalAlert('無法連線，請稍後再試', 'error');
@@ -16307,7 +16310,7 @@ if (!isRedeemContext) {
           });
           this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
           this.classList.remove('text-gray-500');
-            setFeatureDropdownLabel('查詢訂單');
+            setFeatureDropdownLabel('現場訂單');
           posEnsureOrdersFilterDefaultDate_();
           posBindBoardGridWheelScroll_();
           loadOrders();
