@@ -16062,23 +16062,10 @@ if (!isRedeemContext) {
             ['stats-filter-pos', 'stats-filter-resv', 'stats-filter-hd'].forEach(function (id) {
               var el = document.getElementById(id);
               if (!el) return;
-              el.addEventListener('change', function () {
-                /* 篩選器變動：在月視圖只需重畫月格 + 重算當月 summary；在日視圖則沿用上次查詢區間 */
-                if (typeof _statsMonthIsActive_ === 'function' && _statsMonthIsActive_()) {
-                  try { _renderStatsMonthView_(); } catch (_eRm) { /* 略 */ }
-                  try { _updateStatsSummaryForCurrentMonth_({ force: true }); } catch (_eRs) { /* 略 */ }
-                  return;
-                }
-                var rdSpan = document.getElementById('stats-range-display');
-                var rdTxt = rdSpan ? String(rdSpan.textContent || '').trim() : '';
-                var m = rdTxt.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
-                if (m) {
-                  computeSummaryByPeriod(m[1], m[2], { force: true });
-                } else {
-                  var t0 = posMerchantPromoTodayYmdLocal_();
-                  if (t0) computeSummaryByPeriod(t0, t0, { force: true });
-                }
-              });
+              var onTf = function () {
+                if (typeof posApplyStatsTypeFiltersNow_ === 'function') posApplyStatsTypeFiltersNow_();
+              };
+              el.addEventListener('change', onTf);
             });
           }
           /* 顯示月視圖 → 同步以「本月」的 summary 寫入 4 個方格 */
@@ -17009,6 +16996,50 @@ function _updateStatsSummaryForCurrentMonth_(opts) {
       monthSummaryOnly: true
     });
   } catch (e) { /* 略 */ }
+}
+
+/* 統計「現場／預約／宅配」勾選變動時：依目前視圖立即重算（與預約日曆勾選行為一致，不必按重新整理） */
+function posApplyStatsTypeFiltersNow_() {
+  if (typeof _statsMonthIsActive_ === 'function' && _statsMonthIsActive_()) {
+    try { _renderStatsMonthView_(); } catch (_eRm) { /* 略 */ }
+    try { _updateStatsSummaryForCurrentMonth_({ force: true }); } catch (_eRs) { /* 略 */ }
+    return;
+  }
+  var period = window._statsActivePeriod_ || 'today';
+  if (period === 'today') {
+    var t0 = typeof posMerchantPromoTodayYmdLocal_ === 'function' ? posMerchantPromoTodayYmdLocal_() : '';
+    if (t0) computeSummaryByPeriod(t0, t0, { force: true });
+    return;
+  }
+  if (period === 'week') {
+    var today = new Date();
+    var day = today.getDay();
+    var diffToMonday = day === 0 ? -6 : 1 - day;
+    var monday = new Date(today);
+    monday.setDate(today.getDate() + diffToMonday);
+    var sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    var wsStr = posFormatYmdLocal_(monday);
+    var weStr = posFormatYmdLocal_(sunday);
+    computeSummaryByPeriod(wsStr, weStr, { force: true });
+    return;
+  }
+  if (period === 'month') {
+    var _mr = typeof posDefaultStatsMonthRangeStrings_ === 'function' ? posDefaultStatsMonthRangeStrings_() : null;
+    if (_mr && _mr.startStr && _mr.endStr) {
+      computeSummaryByPeriod(_mr.startStr, _mr.endStr, { force: true });
+    }
+    return;
+  }
+  var rdSpan = document.getElementById('stats-range-display');
+  var rdTxt = rdSpan ? String(rdSpan.textContent || '').trim() : '';
+  var rm = rdTxt.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
+  if (rm) {
+    computeSummaryByPeriod(rm[1], rm[2], { force: true });
+    return;
+  }
+  var t1 = typeof posMerchantPromoTodayYmdLocal_ === 'function' ? posMerchantPromoTodayYmdLocal_() : '';
+  if (t1) computeSummaryByPeriod(t1, t1, { force: true });
 }
 
 function _statsMonthCurrentYmDefault_() {
