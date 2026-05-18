@@ -577,7 +577,21 @@
     .qty-control { display:flex; align-items:center; border:2px solid var(--panda); border-radius:999px; overflow:hidden; }
   .qty-btn { width:2.5rem; height:2.5rem; display:flex; align-items:center; justify-content:center; font-size: 1.15rem; font-weight:300; color:var(--panda); background:transparent; cursor:pointer; transition:background .15s; }
   .qty-btn:active { background:var(--panda-light); }
-  .qty-val { font-size: 1rem; font-weight:700; width:2.25rem; text-align:center; color:#1a1a1a; }
+  .qty-val { font-size: 1.15rem; font-weight:700; width:3.25rem; text-align:center; color:#1a1a1a; }
+  /* sheet 內數量輸入框：去除 spinner、保持與原本視覺一致 */
+  input.qty-val {
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0;
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  input.qty-val::-webkit-outer-spin-button,
+  input.qty-val::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
     .sheet-footer { padding:0.85rem 1rem 1.25rem; border-top:1px solid #f0f0f0; background:#fff; flex-shrink:0; }
   .add-to-cart-btn {
     width: 100%;
@@ -2348,7 +2362,7 @@
     flex-shrink: 0;
   }
 
-  /* --- 取餐方式 segmented control 升級（字級保留 15px） --- */
+  /* --- 取貨方式 segmented control 升級（字級保留 15px） --- */
   .cart-group-card .fulfill-mode-bar {
     background: transparent !important;
     padding: 0 !important;
@@ -3755,7 +3769,11 @@
         <span class="sheet-qty-label">數量</span>
         <div class="qty-control">
           <div class="qty-btn" onclick="changeQty(-1)">−</div>
-          <div class="qty-val" id="sheet-qty">1</div>
+          <input class="qty-val" id="sheet-qty" type="number" inputmode="numeric"
+                 min="1" max="999" value="1"
+                 onfocus="this.select()"
+                 onchange="setSheetQty(this.value)"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
           <div class="qty-btn" onclick="changeQty(1)">+</div>
         </div>
       </div>
@@ -3792,15 +3810,15 @@
         <div id="cart-point-discount-hint" class="cart-point-discount-hint"></div>
       </div>
 
-      <!-- 取餐方式 -->
+      <!-- 取貨方式 -->
       <div class="cart-group-card">
         <div class="cart-group-title">
           <span class="cart-group-title-icon">🛍</span>
-          <span>取餐方式</span>
+          <span>取貨方式</span>
           <span class="cart-group-required">*必填</span>
         </div>
             <div class="fulfill-mode-bar" style="margin-top:0;">
-        <span class="fulfill-mode-title">取餐方式</span>
+        <span class="fulfill-mode-title">取貨方式</span>
         <div class="fulfill-mode-options" id="fulfill-mode-options">
           <label class="fulfill-radio-label fulfill-radio-on" id="fulfill-label-pickup">
             <input type="radio" name="order-fulfill-mode" id="order-fulfill-pickup" value="pickup" checked>
@@ -3856,7 +3874,7 @@
         </div>
         <div style="margin-bottom:0;">
           <label class="cart-hd-field-label">整筆訂單備註（選填）</label>
-          <input id="order-notes" type="text" placeholder="特殊要求..." class="form-input">
+          <input id="order-notes" type="text" placeholder="" class="form-input">
         </div>
       </div>
 
@@ -3876,7 +3894,7 @@
         <label class="cart-hd-field-label">地址 <span style="color:var(--panda);">*必填</span></label>
         <input id="order-hd-address" type="text" placeholder="完整配送地址" class="form-input" oninput="this.classList.remove('error')">
         <label class="cart-hd-field-label">備註（選填）</label>
-        <input id="order-hd-notes" type="text" placeholder="特殊要求..." class="form-input">
+        <input id="order-hd-notes" type="text" placeholder="" class="form-input">
       </div>
     </div>
   </div>
@@ -7447,7 +7465,7 @@ function openSheet(productId) {
   document.getElementById('sheet-options').innerHTML = html;
 
   document.getElementById('sheet-note').value = '';
-  document.getElementById('sheet-qty').textContent = 1;
+  orderSyncSheetQtyUi_(1);
   updateCartBtn();
 
   document.getElementById('sheet-overlay').classList.add('show');
@@ -7504,9 +7522,27 @@ function toggleExtra(ei) {
 }
 
 function changeQty(delta) {
-  currentQty = Math.max(1, currentQty + delta);
-  document.getElementById('sheet-qty').textContent = currentQty;
+  currentQty = Math.max(1, Math.min(999, currentQty + delta));
+  orderSyncSheetQtyUi_(currentQty);
   updateCartBtn();
+}
+
+/* 商品 sheet 數量直接輸入時呼叫 */
+function setSheetQty(value) {
+  let n = parseInt(String(value).replace(/\D/g, ''), 10);
+  if (!Number.isFinite(n) || n < 1) n = 1;
+  if (n > 999) n = 999;
+  currentQty = n;
+  orderSyncSheetQtyUi_(currentQty);
+  updateCartBtn();
+}
+
+/* 統一寫入 sheet-qty 的顯示值（兼容 input 與舊版 div） */
+function orderSyncSheetQtyUi_(v) {
+  var el = document.getElementById('sheet-qty');
+  if (!el) return;
+  if (el.tagName === 'INPUT') el.value = v;
+  else el.textContent = v;
 }
 
 function calcSheetPrice() {
@@ -8700,7 +8736,7 @@ function renderDeliveryRulesContent_() {
           '<span class="dr-hero-num-value">' + fee + '</span>' +
           '<span class="dr-hero-num-suffix">/ 單</span>' +
         '</div>' +
-        '<div class="dr-hero-hint">一般宅配運費（每筆訂單收取）</div>' +
+        '<div class="dr-hero-hint">宅配運費（每筆訂單收取）</div>' +
       '</div>'
     );
   } else {
@@ -9840,7 +9876,7 @@ function renderOrderResults(orders) {
       + '<div>'
       + '<div class="ol-card-date">' + escHtml(order.date || '') + '</div>'
       + (order.pickupTime && String(order.pickupTime).trim()
-          ? '<div class="ol-card-time"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + escHtml(order.pickupTime) + ' 取餐</div>'
+          ? '<div class="ol-card-time"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + escHtml(order.pickupTime) + ' 取貨</div>'
           : (order.fulfillmentMode === 'delivery'
             ? '<div class="ol-card-time">📦 宅配</div>'
             : ''))
