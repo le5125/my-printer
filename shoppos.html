@@ -17001,7 +17001,8 @@ function _updateStatsSummaryForCurrentMonth_(opts) {
 /* 統計「現場／預約／宅配」勾選變動時：依目前視圖立即重算（與預約日曆勾選行為一致，不必按重新整理） */
 function posApplyStatsTypeFiltersNow_() {
   if (typeof _statsMonthIsActive_ === 'function' && _statsMonthIsActive_()) {
-    try { _renderStatsMonthView_(); } catch (_eRm) { /* 略 */ }
+    /* 已快取訂單時只重算月格標籤（立即反映勾選），避免舊 request 回傳覆蓋畫面 */
+    try { _renderStatsMonthView_({ filterPaintOnly: true }); } catch (_eRm) { /* 略 */ }
     try { _updateStatsSummaryForCurrentMonth_({ force: true }); } catch (_eRs) { /* 略 */ }
     return;
   }
@@ -17118,29 +17119,39 @@ function _renderStatsMonthView_(opts) {
   if (!m) { ym = _statsMonthCurrentYmDefault_(); m = ym.match(/^(\d{4})-(\d{2})$/); }
   var year = parseInt(m[1], 10), month = parseInt(m[2], 10);
   if (label) label.textContent = year + '年 ' + month + '月';
+  window._statsMonthPaintGen_ = (window._statsMonthPaintGen_ || 0) + 1;
+  var _statsPaintGenLocal_ = window._statsMonthPaintGen_;
+  var filterPaintOnly = !!(opts && opts.filterPaintOnly);
   var existingOverlay = wrap.querySelector('._stats_loading_overlay_');
   if (existingOverlay) existingOverlay.remove();
-  var loadingOverlay = document.createElement('div');
-  loadingOverlay.className = '_stats_loading_overlay_';
-  loadingOverlay.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:10;pointer-events:auto;';
-  loadingOverlay.innerHTML = '<div style="width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:posResvSpin 0.9s linear infinite;"></div><div style="font-size:14px;color:#374151;font-weight:600;">統計資料載入中...</div>';
-  if (!wrap.firstElementChild) {
-    wrap.innerHTML = '<div style="padding:48px;text-align:center;color:#9ca3af;">準備中...</div>';
+  var ordersPromise;
+  if (filterPaintOnly && _statsMonthViewState_.cachedOrders != null) {
+    ordersPromise = Promise.resolve(_statsMonthViewState_.cachedOrders);
+  } else {
+    var loadingOverlay = document.createElement('div');
+    loadingOverlay.className = '_stats_loading_overlay_';
+    loadingOverlay.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:10;pointer-events:auto;';
+    loadingOverlay.innerHTML = '<div style="width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:posResvSpin 0.9s linear infinite;"></div><div style="font-size:14px;color:#374151;font-weight:600;">統計資料載入中...</div>';
+    if (!wrap.firstElementChild) {
+      wrap.innerHTML = '<div style="padding:48px;text-align:center;color:#9ca3af;">準備中...</div>';
+    }
+    wrap.appendChild(loadingOverlay);
+    ordersPromise = _fetchOrdersForStatsMonth_(opts);
   }
-  wrap.appendChild(loadingOverlay);
   if (!document.getElementById('pos-resv-spin-style')) {
     var st = document.createElement('style');
     st.id = 'pos-resv-spin-style';
     st.textContent = '@keyframes posResvSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }';
     document.head.appendChild(st);
   }
-  var tfPos = document.getElementById('stats-filter-pos');
-  var tfResv = document.getElementById('stats-filter-resv');
-  var tfHd = document.getElementById('stats-filter-hd');
-  var showPos = !tfPos || tfPos.checked;
-  var showResv = !tfResv || tfResv.checked;
-  var showHd = !tfHd || tfHd.checked;
-  _fetchOrdersForStatsMonth_(opts).then(function (orders) {
+  ordersPromise.then(function (orders) {
+    if (_statsPaintGenLocal_ !== window._statsMonthPaintGen_) return;
+    var tfPos = document.getElementById('stats-filter-pos');
+    var tfResv = document.getElementById('stats-filter-resv');
+    var tfHd = document.getElementById('stats-filter-hd');
+    var showPos = !tfPos || tfPos.checked;
+    var showResv = !tfResv || tfResv.checked;
+    var showHd = !tfHd || tfHd.checked;
     var countByDate = {};
     function _dateKeyForOrder_(o) {
       var t = posOrderStatsClassifyType_(o);
@@ -17254,6 +17265,7 @@ function _renderStatsMonthView_(opts) {
       html += '</div>';
     });
     html += '</div></div>';
+    if (_statsPaintGenLocal_ !== window._statsMonthPaintGen_) return;
     wrap.innerHTML = html;
     wrap.querySelectorAll('.stats-month-cell[data-date]').forEach(function (el) {
       el.addEventListener('click', function () {
@@ -17275,8 +17287,10 @@ function _renderStatsMonthView_(opts) {
       });
     });
   }).catch(function (e) {
+    if (_statsPaintGenLocal_ !== window._statsMonthPaintGen_) return;
     wrap.innerHTML = '<div style="padding:24px;text-align:center;color:#dc2626;">載入失敗：' + (e && e.message ? e.message : e) + '</div>';
   }).then(function () {
+    if (_statsPaintGenLocal_ !== window._statsMonthPaintGen_) return;
     var ov = wrap.querySelector('._stats_loading_overlay_');
     if (ov) ov.remove();
   });
