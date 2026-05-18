@@ -2066,12 +2066,16 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <button id="stats-range-btn" class="px-4 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-100">區間</button>
       </div>
       <div class="flex items-center gap-3 flex-wrap text-sm">
-        <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="stats-filter-pos" checked class="accent-green-600">POS</label>
+        <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="stats-filter-pos" checked class="accent-green-600">現場</label>
         <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="stats-filter-resv" checked class="accent-amber-600">預約</label>
         <label class="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" id="stats-filter-hd" checked class="accent-sky-600">宅配</label>
       </div>
       <button id="show-amount-chart" class="ml-auto px-4 py-1 text-sm border border-green-500 text-green-600 rounded-md hover:bg-green-100 whitespace-nowrap">金額圖表💰</button>
       <button id="stats-toggle-month" class="px-3 py-1 text-sm border border-purple-500 text-purple-600 rounded-md hover:bg-purple-50 whitespace-nowrap" title="切換月視圖 / 日視圖">📅 月視圖</button>
+    </div>
+    <div id="stats-summary-period-hint" class="w-full text-xs md:text-sm font-medium text-gray-600 flex items-center gap-2">
+      <span class="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 border border-gray-200">統計區間</span>
+      <span id="stats-summary-period-label" class="text-blue-700 font-semibold">—</span>
     </div>
     <div id="stats-summary-row" class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm w-full">
       <div class="bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
@@ -9055,6 +9059,9 @@ function posQueryIsReservationOrder_(order) {
   if (String(order.source || '') === 'ReservationCompleted') return true;
   var ks = String(order.kdsSource || '').trim().toLowerCase();
   if (ks === 'reservation') return true;
+  /* 訂單表已寫入「預約日期」欄位即視為預約單（避免舊資料缺 orderType 被誤判為現場） */
+  var rd = String(order.reservationDate || '').replace(/^'/, '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(rd) && !posQueryIsHomeDeliveryOrder_(order)) return true;
   var pt = String(order.pickupTime || '').replace(/^'/, '').trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(pt) && !posQueryIsHomeDeliveryOrder_(order)) return true;
   return false;
@@ -9166,10 +9173,17 @@ function posOrderStatsBreakdown_(order) {
 
 function posOrderStatsClassifyType_(order) {
   if (!order) return 'pos';
+  /* 1) 後端訂單類型欄位（最高優先） */
   var ot = String(order.orderType || '').trim();
   if (ot === '宅配') return 'hd';
   if (ot === '預約') return 'resv';
   if (ot === 'POS') return 'pos';
+  /* 2) 依「宅配日期」/「預約日期」欄位 fallback（涵蓋舊資料） */
+  var hdDate = String(order.homeDeliveryDate || '').replace(/^'/, '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(hdDate)) return 'hd';
+  var rdDate = String(order.reservationDate || '').replace(/^'/, '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(rdDate)) return 'resv';
+  /* 3) 依宅配/預約屬性 fallback */
   if (typeof posQueryIsHomeDeliveryOrder_ === 'function' && posQueryIsHomeDeliveryOrder_(order)) return 'hd';
   if (typeof posQueryIsReservationOrder_ === 'function' && posQueryIsReservationOrder_(order)) return 'resv';
   return 'pos';
@@ -16060,19 +16074,26 @@ if (!isRedeemContext) {
           this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
           this.classList.remove('text-gray-500');
           setFeatureDropdownLabel('統計');
-          /* 進統計頁預設月視圖 + 預設今天；有快取就用，無快取會自動 fetch */
-          window._statsActivePeriod_ = 'today';
-          try { _statsShowMonthView_(); } catch (_eSmv) { /* 略 */ }
-          if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
-          if (!window._lastStatsView_) window._lastStatsView_ = 'table';
+          /* 進統計頁預設「月視圖」+「本月區間」的 summary。
+             所有金額/筆數均以「本月」為主，避免進場閃出單日數字造成誤會。 */
+          window._statsActivePeriod_ = 'month';
+          window._lastStatsView_ = 'table';
+          /* 每次重新進入統計頁，月視圖一律回到「本月」 */
+          try {
+            if (typeof _statsMonthCurrentYmDefault_ === 'function') {
+              _statsMonthViewState_.ym = _statsMonthCurrentYmDefault_();
+            }
+          } catch (_eYm) { /* 略 */ }
           if (!window.__posStatsFilterBound_) {
             window.__posStatsFilterBound_ = true;
             ['stats-filter-pos', 'stats-filter-resv', 'stats-filter-hd'].forEach(function (id) {
               var el = document.getElementById(id);
               if (!el) return;
               el.addEventListener('change', function () {
+                /* 篩選器變動：在月視圖只需重畫月格 + 重算當月 summary；在日視圖則沿用上次查詢區間 */
                 if (typeof _statsMonthIsActive_ === 'function' && _statsMonthIsActive_()) {
                   try { _renderStatsMonthView_(); } catch (_eRm) { /* 略 */ }
+                  try { _updateStatsSummaryForCurrentMonth_({ force: true }); } catch (_eRs) { /* 略 */ }
                   return;
                 }
                 var rdSpan = document.getElementById('stats-range-display');
@@ -16087,14 +16108,10 @@ if (!isRedeemContext) {
               });
             });
           }
-          try {
-            var _stTodayGo = posMerchantPromoTodayYmdLocal_();
-            if (_stTodayGo) computeSummaryByPeriod(_stTodayGo, _stTodayGo);
-          } catch (_eStGo) {
-            try {
-              document.getElementById('stats-today')?.click();
-            } catch (_eStClick) { /* 略 */ }
-          }
+          /* 顯示月視圖 → 同步以「本月」的 summary 寫入 4 個方格 */
+          try { _statsShowMonthView_(); } catch (_eSmv) { /* 略 */ }
+          try { _updateStatsSummaryForCurrentMonth_(); } catch (_eSmS) { /* 略 */ }
+          if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
           try {
             var qm = (typeof queueMicrotask === 'function')
               ? queueMicrotask
@@ -16377,6 +16394,9 @@ document.getElementById('stats-today')?.addEventListener('click', () => {
     if (typeof _statsShowDayView_ === 'function') _statsShowDayView_();
   }
   const today = posMerchantPromoTodayYmdLocal_();
+  if (typeof _setStatsSummaryPeriodLabel_ === 'function') {
+    _setStatsSummaryPeriodLabel_('今天 [' + today + ']');
+  }
   computeSummaryByPeriod(today, today);
   _paintStatsButtons_();
 });
@@ -16393,10 +16413,12 @@ document.getElementById('stats-this-week')?.addEventListener('click', () => {
   monday.setDate(today.getDate() + diffToMonday);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  computeSummaryByPeriod(
-    posFormatYmdLocal_(monday),
-    posFormatYmdLocal_(sunday)
-  );
+  var weekStartStr = posFormatYmdLocal_(monday);
+  var weekEndStr = posFormatYmdLocal_(sunday);
+  if (typeof _setStatsSummaryPeriodLabel_ === 'function') {
+    _setStatsSummaryPeriodLabel_('本週 [' + weekStartStr + ' ~ ' + weekEndStr + ']');
+  }
+  computeSummaryByPeriod(weekStartStr, weekEndStr);
   _paintStatsButtons_();
 });
 
@@ -16413,6 +16435,9 @@ document.getElementById('stats-this-month')?.addEventListener('click', () => {
   const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
   const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
 
+  if (typeof _setStatsSummaryPeriodLabel_ === 'function') {
+    _setStatsSummaryPeriodLabel_('本月 [' + startStr + ' ~ ' + endStr + ']');
+  }
   computeSummaryByPeriod(startStr, endStr, { force: true });
   _paintStatsButtons_();
 });
@@ -16481,7 +16506,15 @@ window.addEventListener('load', initRangeDatePickers);
       return;
     }
     document.getElementById('range-modal')?.classList.add('hidden');
+    window._statsActivePeriod_ = 'range';
+    if (typeof _statsMonthIsActive_ === 'function' && _statsMonthIsActive_()) {
+      if (typeof _statsShowDayView_ === 'function') _statsShowDayView_();
+    }
+    if (typeof _setStatsSummaryPeriodLabel_ === 'function') {
+      _setStatsSummaryPeriodLabel_('區間 [' + rs + ' ~ ' + re + ']');
+    }
     computeSummaryByPeriod(rs, re, { force: true });
+    if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
   });
 })();
 
@@ -16631,6 +16664,8 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
   const totalAmountEl = document.getElementById('stats-total-amount');
   var forceStats = opts && opts.force === true;
   var prefetchSilent = opts && opts.prefetchSilent === true;
+  /* 「月視圖底下」呼叫此函式時，只需要更新 4 個 summary 方格，不需要動到日視圖的表格/圖表 */
+  var monthSummaryOnly = opts && opts.monthSummaryOnly === true;
   function _readStatsTypeFilter_() {
     var p = document.getElementById('stats-filter-pos');
     var r = document.getElementById('stats-filter-resv');
@@ -16661,6 +16696,11 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
   }
   if (cachedEntry && cacheFresh && cachedEntry.originalStatsItems && cachedEntry.amountChartData) {
     if (prefetchSilent) return;
+    if (monthSummaryOnly) {
+      /* 月視圖只需要 4 個 summary 數字 */
+      if (cachedEntry.breakdown) _writeStatsBreakdownDom_(cachedEntry.breakdown);
+      return;
+    }
     if (rangeDisplay) rangeDisplay.textContent = cachedEntry.rangeText || `${startDate} ~ ${endDate}`;
     if (totalAmountEl) totalAmountEl.textContent = cachedEntry.totalText || '';
     if (cachedEntry.breakdown) _writeStatsBreakdownDom_(cachedEntry.breakdown);
@@ -16674,7 +16714,7 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
     return;
   }
 
-  if (!prefetchSilent) {
+  if (!prefetchSilent && !monthSummaryOnly) {
     loadingEl.classList.remove('hidden');
     if (rangeDisplay) {
       rangeDisplay.textContent = `${startDate} ~ ${endDate}`;
@@ -16864,7 +16904,9 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
             cachedAtMs: Date.now()
           };
 
-          if (!prefetchSilent) {
+          if (monthSummaryOnly) {
+            _writeStatsBreakdownDom_(breakdownAgg);
+          } else if (!prefetchSilent) {
             if (totalAmountEl) totalAmountEl.textContent = totalTextVal;
             if (rangeDisplay) rangeDisplay.textContent = rangeTextVal;
             _writeStatsBreakdownDom_(breakdownAgg);
@@ -16879,7 +16921,7 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
         })
         .catch(function (err) {
           console.error('[POS] getOrders for stats failed', err);
-          if (!prefetchSilent) {
+          if (!prefetchSilent && !monthSummaryOnly) {
             loadingEl.classList.add('hidden');
             posSwalAlert('讀取訂單失敗，請稍後再試', 'error');
           }
@@ -16887,7 +16929,7 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
     })
     .catch(function (err) {
       console.error('[POS] getProducts for stats failed', err);
-      if (!prefetchSilent) {
+      if (!prefetchSilent && !monthSummaryOnly) {
         loadingEl.classList.add('hidden');
         posSwalAlert('讀取商品失敗，請稍後再試', 'error');
       }
@@ -16965,6 +17007,36 @@ window.invalidateStatsMonthCache_ = function () {
     }
   } catch (e) {}
 };
+
+/* 設定 stats-summary-row 上方的「統計區間」提示文字 */
+function _setStatsSummaryPeriodLabel_(text) {
+  var el = document.getElementById('stats-summary-period-label');
+  if (el) el.textContent = text || '—';
+}
+
+/* 根據目前月視圖所在月份 (_statsMonthViewState_.ym)，更新「總營收/商品淨額/運費/代收手續費」4 個 summary 方格。
+   會自動套用目前的篩選器（現場/預約/宅配）。 */
+function _updateStatsSummaryForCurrentMonth_(opts) {
+  var ym = _statsMonthViewState_.ym || _statsMonthCurrentYmDefault_();
+  var m = ym.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return;
+  var year = parseInt(m[1], 10), month = parseInt(m[2], 10);
+  var start = new Date(year, month - 1, 1);
+  var end = new Date(year, month, 0);
+  var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+  var startStr = start.getFullYear() + '-' + pad(start.getMonth() + 1) + '-' + pad(start.getDate());
+  var endStr = end.getFullYear() + '-' + pad(end.getMonth() + 1) + '-' + pad(end.getDate());
+  var rangeDisplay = document.getElementById('stats-range-display');
+  if (rangeDisplay) rangeDisplay.textContent = startStr + ' ~ ' + endStr;
+  /* 統計區間提示：本月顯示為「YYYY年 M月（整月）」 */
+  _setStatsSummaryPeriodLabel_(year + '年 ' + month + '月（整月）' + ' [' + startStr + ' ~ ' + endStr + ']');
+  try {
+    computeSummaryByPeriod(startStr, endStr, {
+      force: !!(opts && opts.force),
+      monthSummaryOnly: true
+    });
+  } catch (e) { /* 略 */ }
+}
 
 function _statsMonthCurrentYmDefault_() {
   var d = new Date();
@@ -17191,6 +17263,9 @@ function _renderStatsMonthView_(opts) {
         if (chartBox) chartBox.classList.add('hidden');
         if (tableBox) tableBox.classList.remove('hidden');
         _statsShowDayView_();
+        if (typeof _setStatsSummaryPeriodLabel_ === 'function') {
+          _setStatsSummaryPeriodLabel_((ds === todayCheck ? '今天 [' : '單日 [') + ds + ']');
+        }
         computeSummaryByPeriod(ds, ds, { force: true });
         if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
       });
@@ -17205,26 +17280,71 @@ function _renderStatsMonthView_(opts) {
 
 document.getElementById('stats-toggle-month')?.addEventListener('click', function () {
   if (_statsMonthIsActive_()) {
+    /* 從月視圖切回日視圖：依目前 _statsActivePeriod_ 重新計算對應區間，避免「空白」 */
     _statsShowDayView_();
+    var period = window._statsActivePeriod_ || 'today';
+    if (period === 'today') {
+      var t0 = posMerchantPromoTodayYmdLocal_();
+      if (t0) {
+        if (typeof _setStatsSummaryPeriodLabel_ === 'function') _setStatsSummaryPeriodLabel_('今天 [' + t0 + ']');
+        computeSummaryByPeriod(t0, t0);
+      }
+    } else if (period === 'week') {
+      var today = new Date();
+      var day = today.getDay();
+      var diffToMonday = day === 0 ? -6 : 1 - day;
+      var monday = new Date(today);
+      monday.setDate(today.getDate() + diffToMonday);
+      var sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      var wsStr = posFormatYmdLocal_(monday), weStr = posFormatYmdLocal_(sunday);
+      if (typeof _setStatsSummaryPeriodLabel_ === 'function') _setStatsSummaryPeriodLabel_('本週 [' + wsStr + ' ~ ' + weStr + ']');
+      computeSummaryByPeriod(wsStr, weStr);
+    } else if (period === 'month') {
+      var _mr = posDefaultStatsMonthRangeStrings_();
+      if (typeof _setStatsSummaryPeriodLabel_ === 'function') _setStatsSummaryPeriodLabel_('本月 [' + _mr.startStr + ' ~ ' + _mr.endStr + ']');
+      computeSummaryByPeriod(_mr.startStr, _mr.endStr);
+    } else {
+      /* range 或其他：沿用既有的 range-display 字串 */
+      var rdSpan = document.getElementById('stats-range-display');
+      var rdTxt = rdSpan ? String(rdSpan.textContent || '').trim() : '';
+      var rm = rdTxt.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
+      if (rm) {
+        if (typeof _setStatsSummaryPeriodLabel_ === 'function') _setStatsSummaryPeriodLabel_('區間 [' + rm[1] + ' ~ ' + rm[2] + ']');
+        computeSummaryByPeriod(rm[1], rm[2]);
+      } else {
+        var t1 = posMerchantPromoTodayYmdLocal_();
+        if (t1) {
+          if (typeof _setStatsSummaryPeriodLabel_ === 'function') _setStatsSummaryPeriodLabel_('今天 [' + t1 + ']');
+          computeSummaryByPeriod(t1, t1);
+        }
+      }
+    }
   } else {
     _statsShowMonthView_();
+    /* 切回月視圖時，把 summary 同步成「月視圖所在月份」的數據 */
+    try { _updateStatsSummaryForCurrentMonth_(); } catch (_eMs) { /* 略 */ }
   }
   if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
 });
 document.getElementById('stats-month-prev')?.addEventListener('click', function () {
   _statsMonthViewState_.ym = _statsMonthShift_(_statsMonthViewState_.ym, -1);
   _renderStatsMonthView_();
+  try { _updateStatsSummaryForCurrentMonth_(); } catch (_e) { /* 略 */ }
 });
 document.getElementById('stats-month-next')?.addEventListener('click', function () {
   _statsMonthViewState_.ym = _statsMonthShift_(_statsMonthViewState_.ym, 1);
   _renderStatsMonthView_();
+  try { _updateStatsSummaryForCurrentMonth_(); } catch (_e) { /* 略 */ }
 });
 document.getElementById('stats-month-today')?.addEventListener('click', function () {
   _statsMonthViewState_.ym = _statsMonthCurrentYmDefault_();
   _renderStatsMonthView_();
+  try { _updateStatsSummaryForCurrentMonth_(); } catch (_e) { /* 略 */ }
 });
 document.getElementById('stats-month-refresh')?.addEventListener('click', function () {
   _renderStatsMonthView_({ forceRefresh: true });
+  try { _updateStatsSummaryForCurrentMonth_({ force: true }); } catch (_e) { /* 略 */ }
 });
 
 async function showAmountChart() {
