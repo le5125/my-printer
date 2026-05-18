@@ -2021,6 +2021,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
                 <span class="text-sm font-medium text-gray-800">宅配</span>
               </label>
               <button type="button" id="reservation-filter-reset" class="border border-gray-300 bg-white hover:bg-gray-50 rounded-md px-3 py-1.5 text-sm font-semibold">清除篩選</button>
+              <button type="button" id="reservation-board-refresh" class="border border-blue-500 text-blue-600 hover:bg-blue-50 rounded-md px-3 py-1.5 text-sm font-semibold whitespace-nowrap">🔄 重新整理</button>
             </div>
             <div id="reservation-board-grid" class="order-board-grid"></div>
           </div>
@@ -2132,9 +2133,12 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         <button id="stats-month-next" type="button" class="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-100"><i class="fas fa-chevron-right"></i></button>
         <div id="stats-month-label" class="ml-2 text-base font-semibold text-gray-800"></div>
       </div>
-      <div class="text-xs text-gray-500">點某天 → 進入該日統計</div>
+      <div class="flex items-center gap-2">
+        <button id="stats-month-refresh" type="button" class="px-3 py-1 text-sm border border-blue-500 text-blue-600 rounded-md hover:bg-blue-50 whitespace-nowrap">🔄 重新整理</button>
+        <div class="text-xs text-gray-500 hidden md:block">點某天 → 進入該日統計</div>
+      </div>
     </div>
-    <div id="stats-month-grid-wrap" class="flex-1 min-h-0 overflow-auto border border-gray-200 rounded-md"></div>
+    <div id="stats-month-grid-wrap" class="flex-1 min-h-0 overflow-auto border border-gray-200 rounded-md" style="position:relative;"></div>
   </div>
 
    <div id="stats-results" class="hidden bg-white p-2 md:p-4 rounded-lg shadow flex flex-col min-h-[450px] max-h-[90vh]">
@@ -7321,6 +7325,9 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
           if (p) p.value = '';
           applyReservationBoardFilter_();
         });
+        document.getElementById('reservation-board-refresh')?.addEventListener('click', function () {
+          loadReservationBoard_();
+        });
         document.getElementById('resv-board-show-resv')?.addEventListener('change', _resvBoardTypeFilterChanged_);
         document.getElementById('resv-board-show-hd')?.addEventListener('change', _resvBoardTypeFilterChanged_);
         document.getElementById('resv-cal-show-resv')?.addEventListener('change', _resvBoardTypeFilterChanged_);
@@ -8142,11 +8149,7 @@ document.getElementById('reservation-modal')?.addEventListener('click', function
         var _reservationBoardLoadGen = 0;
         var _reservationPollTimer = null;
         function startReservationPolling_() {
-          if (_reservationPollTimer) clearInterval(_reservationPollTimer);
-          _reservationPollTimer = setInterval(function () {
-            if (!reservationBoardContent || reservationBoardContent.classList.contains('hidden')) return;
-            loadReservationBoard_();
-          }, 30000);
+          if (_reservationPollTimer) { clearInterval(_reservationPollTimer); _reservationPollTimer = null; }
         }
         function stopReservationPolling_() {
           if (_reservationPollTimer) { clearInterval(_reservationPollTimer); _reservationPollTimer = null; }
@@ -16057,14 +16060,8 @@ if (!isRedeemContext) {
           this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
           this.classList.remove('text-gray-500');
           setFeatureDropdownLabel('統計');
-          /* 進統計頁預設顯示月視圖 + active period = today；強制立刻 fetch */
+          /* 進統計頁預設月視圖 + 預設今天；有快取就用，無快取會自動 fetch */
           window._statsActivePeriod_ = 'today';
-          try {
-            if (typeof _statsMonthViewState_ !== 'undefined') {
-              _statsMonthViewState_.cachedOrders = null;
-              _statsMonthViewState_.cachedAtMs = 0;
-            }
-          } catch (_eClr) {}
           try { _statsShowMonthView_(); } catch (_eSmv) { /* 略 */ }
           if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
           if (!window._lastStatsView_) window._lastStatsView_ = 'table';
@@ -16948,6 +16945,15 @@ document.getElementById('show-amount-chart')?.addEventListener('click', function
 /* ===== 統計月視圖 ===== */
 var _statsMonthViewState_ = { ym: '', cachedOrders: null, cachedAtMs: 0 };
 
+window.invalidateStatsMonthCache_ = function () {
+  try {
+    if (typeof _statsMonthViewState_ !== 'undefined') {
+      _statsMonthViewState_.cachedOrders = null;
+      _statsMonthViewState_.cachedAtMs = 0;
+    }
+  } catch (e) {}
+};
+
 function _statsMonthCurrentYmDefault_() {
   var d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
@@ -16991,9 +16997,9 @@ function _statsShowDayView_() {
   }
 }
 
-function _fetchOrdersForStatsMonth_() {
-  var now = Date.now();
-  if (_statsMonthViewState_.cachedOrders && (now - _statsMonthViewState_.cachedAtMs) < 30000) {
+function _fetchOrdersForStatsMonth_(opts) {
+  var force = !!(opts && opts.forceRefresh);
+  if (!force && _statsMonthViewState_.cachedOrders) {
     return Promise.resolve(_statsMonthViewState_.cachedOrders);
   }
   var loader;
@@ -17015,7 +17021,7 @@ function _fetchOrdersForStatsMonth_() {
   });
 }
 
-function _renderStatsMonthView_() {
+function _renderStatsMonthView_(opts) {
   var wrap = document.getElementById('stats-month-grid-wrap');
   var label = document.getElementById('stats-month-label');
   if (!wrap) return;
@@ -17024,14 +17030,29 @@ function _renderStatsMonthView_() {
   if (!m) { ym = _statsMonthCurrentYmDefault_(); m = ym.match(/^(\d{4})-(\d{2})$/); }
   var year = parseInt(m[1], 10), month = parseInt(m[2], 10);
   if (label) label.textContent = year + '年 ' + month + '月';
-  wrap.innerHTML = '<div style="padding:24px;text-align:center;color:#6b7280;">載入中...</div>';
+  var existingOverlay = wrap.querySelector('._stats_loading_overlay_');
+  if (existingOverlay) existingOverlay.remove();
+  var loadingOverlay = document.createElement('div');
+  loadingOverlay.className = '_stats_loading_overlay_';
+  loadingOverlay.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:10;pointer-events:auto;';
+  loadingOverlay.innerHTML = '<div style="width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;animation:posResvSpin 0.9s linear infinite;"></div><div style="font-size:14px;color:#374151;font-weight:600;">統計資料載入中...</div>';
+  if (!wrap.firstElementChild) {
+    wrap.innerHTML = '<div style="padding:48px;text-align:center;color:#9ca3af;">準備中...</div>';
+  }
+  wrap.appendChild(loadingOverlay);
+  if (!document.getElementById('pos-resv-spin-style')) {
+    var st = document.createElement('style');
+    st.id = 'pos-resv-spin-style';
+    st.textContent = '@keyframes posResvSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }';
+    document.head.appendChild(st);
+  }
   var tfPos = document.getElementById('stats-filter-pos');
   var tfResv = document.getElementById('stats-filter-resv');
   var tfHd = document.getElementById('stats-filter-hd');
   var showPos = !tfPos || tfPos.checked;
   var showResv = !tfResv || tfResv.checked;
   var showHd = !tfHd || tfHd.checked;
-  _fetchOrdersForStatsMonth_().then(function (orders) {
+  _fetchOrdersForStatsMonth_(opts).then(function (orders) {
     var countByDate = {};
     function _dateKeyForOrder_(o) {
       var t = posOrderStatsClassifyType_(o);
@@ -17164,6 +17185,9 @@ function _renderStatsMonthView_() {
     });
   }).catch(function (e) {
     wrap.innerHTML = '<div style="padding:24px;text-align:center;color:#dc2626;">載入失敗：' + (e && e.message ? e.message : e) + '</div>';
+  }).then(function () {
+    var ov = wrap.querySelector('._stats_loading_overlay_');
+    if (ov) ov.remove();
   });
 }
 
@@ -17186,6 +17210,9 @@ document.getElementById('stats-month-next')?.addEventListener('click', function 
 document.getElementById('stats-month-today')?.addEventListener('click', function () {
   _statsMonthViewState_.ym = _statsMonthCurrentYmDefault_();
   _renderStatsMonthView_();
+});
+document.getElementById('stats-month-refresh')?.addEventListener('click', function () {
+  _renderStatsMonthView_({ forceRefresh: true });
 });
 
 async function showAmountChart() {
