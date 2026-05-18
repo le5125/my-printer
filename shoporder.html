@@ -622,7 +622,7 @@
   }
   .drawer-close-btn:active { background:rgba(0,0,0,.14); }
 
-    #cart-drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:110; opacity:0; pointer-events:none; transition:opacity .3s; }
+    #cart-drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:110; opacity:0; pointer-events:none; transition:opacity .3s; touch-action:pan-y; }
   #cart-drawer-overlay.show { opacity:1; pointer-events:all; }
   #cart-drawer {
     position:fixed; top:3.1429rem; bottom:0; left:0; right:0;
@@ -632,8 +632,18 @@
     display:flex; flex-direction:column;
     box-shadow:0 -8px 40px rgba(0,0,0,.2);
     overflow:hidden; will-change:transform;
+    /* 鎖定觸控只允許垂直方向，避免顧客滑動時購物車跟著左右晃 */
+    touch-action:pan-y;
+    overscroll-behavior:contain;
+    overflow-x:hidden;
   }
   #cart-drawer.show { transform:translateY(0); }
+  #cart-drawer .cart-scroll,
+  #cart-drawer #cart-scroll-area {
+    touch-action:pan-y;
+    overscroll-behavior:contain;
+    overflow-x:hidden;
+  }
 
     #cart-drawer .cart-header {
     padding: 0.85rem 1rem 0.65rem;
@@ -9744,6 +9754,32 @@ function renderOrderResults(orders) {
     var displayTotal = order.total || calcTotal;
     var shortId      = order.orderId ? order.orderId.toString().slice(-6) : '------';
 
+    /* ---- 宅配狀態區塊 ---- */
+    var statusBlockHtml = '';
+    if (order.fulfillmentMode === 'delivery') {
+      var hdDone = String(order.hdStatus || '').trim() === '已完成';
+      if (hdDone) {
+        var trackTxt = order.trackingNo && String(order.trackingNo).trim()
+          ? '<div style="margin-top:4px;font-size:14px;font-weight:600;color:#0e7490;">寄貨號碼：' + escHtml(order.trackingNo) + '</div>'
+          : '';
+        statusBlockHtml = '<div class="ol-tracking" style="margin-top:8px;padding:8px 10px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;color:#047857;font-size:14px;font-weight:700;">'
+          + '🚚 已寄出'
+          + trackTxt
+          + '</div>';
+      } else {
+        statusBlockHtml = '<div class="ol-tracking" style="margin-top:8px;padding:8px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;color:#92400e;font-size:14px;font-weight:700;">'
+          + '📦 尚未寄出'
+          + '</div>';
+      }
+    } else if (order.fulfillmentMode === 'reservation') {
+      var rDone = String(order.reservationStatus || '').trim() === '已完成';
+      if (rDone) {
+        statusBlockHtml = '<div class="ol-tracking" style="margin-top:8px;padding:8px 10px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;color:#047857;font-size:14px;font-weight:700;">✅ 預約已完成</div>';
+      } else {
+        statusBlockHtml = '<div class="ol-tracking" style="margin-top:8px;padding:8px 10px;background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;color:#1d4ed8;font-size:14px;font-weight:700;">📅 預約已成立</div>';
+      }
+    }
+
     html += '<div class="ol-card">'
       + '<div class="ol-card-header">'
       + '<div>'
@@ -9761,9 +9797,7 @@ function renderOrderResults(orders) {
       + '<span class="ol-total-label">總金額</span>'
       + '<span class="ol-total-amount">NT$ ' + displayTotal + '</span>'
       + '</div>'
-      + (order.trackingNo && String(order.trackingNo).trim()
-          ? '<div class="ol-tracking" style="margin-top:8px;padding:8px 10px;background:#ecfeff;border:1px solid #67e8f9;border-radius:8px;color:#0e7490;font-size:14px;font-weight:600;">🚚 宅配貨號：' + escHtml(order.trackingNo) + (order.hdStatus === '已完成' ? '（已出貨）' : '') + '</div>'
-          : '')
+      + statusBlockHtml
       + (order.notes && order.notes.toString().trim()
           ? '<div class="ol-order-notes">備註：' + escHtml(order.notes) + '</div>'
           : '')
