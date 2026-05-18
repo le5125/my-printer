@@ -6596,7 +6596,9 @@ async function orderBootstrapVacationGateAfterAuth_() {
       holidayList = [];
     }
     fixedClosedDays = normalizeFixedClosedDays(__mer.fixedClosedDays);
-    if (!orderIsVacationOrFixedClosedToday_(new Date())) return out;
+    /* ORDER 端不再依「假日 / 固定公休 / 營業時間」自動阻擋；
+       只有 POS 端把營業狀態手動切到「休息中」時才會在最開始就顯示遮罩。 */
+    if (String(__mer.status || '').trim() !== '休息中') return out;
     try { window.__ORDER_VACATION_BLOCK__ = true; } catch (eVB) {}
     try { if (typeof Swal !== 'undefined') Swal.close(); } catch (eS) {}
     merchantInfo = __mer;
@@ -6713,28 +6715,9 @@ async function loadMerchantInfo(preloaded) {
 }
 
 function checkBusinessStatus() {
-  const today = new Date();
-  if (orderIsVacationOrFixedClosedToday_(today)) return true;
-
-  const rawHours = (merchantInfo.businessHours || '')
-    .replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30))
-    .replace(/[：﹕]/g, ':')
-    .replace(/[～~－–—‒−﹣]/g, '-');
-
-  if (rawHours && rawHours.includes('-')) {
-    const [openStr, closeStr] = rawHours.split('-').map(t => t.trim());
-    if (openStr && closeStr) {
-      const [oH, oM = 0] = openStr.split(':').map(Number);
-      const [cH, cM = 0] = closeStr.split(':').map(Number);
-      const now   = today.getHours() * 60 + today.getMinutes();
-      const open  = oH * 60 + oM;
-      const close = cH * 60 + cM;
-      if (now < open || now >= close) return true;
-    }
-  }
-
-  if (merchantInfo.status === '休息中') return true;
-  return false;
+  /* ORDER 端 24 小時開放：不再依「營業時間 / 公休日 / 固定休」自動關閉。
+     只有 POS 端手動把營業狀態切換成「休息中」才會被視為關閉。 */
+  return !!(merchantInfo && merchantInfo.status === '休息中');
 }
 
 function updateStatusDisplay() {
@@ -6750,21 +6733,9 @@ function updateStatusDisplay() {
 
 function showClosedOverlay() {
   try { if (typeof Swal !== 'undefined') Swal.close(); } catch (eSw) {}
-  const today = new Date();
-  const todayWeekLabel = getTodayWeekLabel(today);
-
-  const isHolidayClosed = orderIsHolidayDateMatchToday_(today);
-  const isFixedClosed   = orderIsFixedClosedToday_(today);
-
-  if (isHolidayClosed || isFixedClosed) {
-    document.getElementById('closed-title').textContent = '今日公休';
-    document.getElementById('closed-sub').textContent   = isFixedClosed
-      ? `每${todayWeekLabel}固定公休`
-      : '今日為指定公休日';
-  } else {
-    document.getElementById('closed-title').textContent = '休息中';
-    document.getElementById('closed-sub').textContent   = `營業時間\n${merchantInfo.businessHours || '--'}`;
-  }
+  /* 顧客端遮罩只在 POS 端手動切到「休息中」時觸發；統一文案 */
+  document.getElementById('closed-title').textContent = '暫不接單';
+  document.getElementById('closed-sub').textContent   = '謝謝光臨';
   document.getElementById('closed-overlay').classList.add('show');
 }
 
