@@ -2594,7 +2594,84 @@
   /* 第一條 line 緊接 h2，視覺接近 */
   #member-guide-sheet .order-guide-h2 + .order-guide-line {
     padding-top: 6px !important;
-  }</style>
+  }
+
+  /* ============================================================
+     購物車 & 宅配規則 內文字級提升
+     需求：把購物車與宅配規則內文字 → 拉到跟「購物車」標題同級（1.15rem ≈ 18px）
+     ============================================================ */
+  #cart-drawer .cart-item-name,
+  #cart-drawer .cart-item-opts,
+  #cart-drawer .cart-item-price,
+  #cart-drawer .cart-hd-field-label,
+  #cart-drawer .cart-group-title,
+  #cart-drawer .form-input,
+  #cart-drawer .pickup-time-label,
+  #cart-drawer .time-select,
+  #cart-drawer .time-colon,
+  #cart-drawer .submit-qty,
+  #cart-drawer .submit-price,
+  #cart-drawer .cart-qty-num,
+  #cart-drawer .cart-qty-btn,
+  #cart-drawer .cart-point-discount-block .cpd-label,
+  #cart-drawer #cart-point-discount-input,
+  #cart-drawer .cart-point-discount-hint,
+  #cart-drawer .cart-promo-gift-title,
+  #cart-drawer .cart-promo-gift-qty,
+  #cart-drawer .cart-promo-gift-note,
+  #cart-drawer .cart-promo-footer {
+    font-size: 1.15rem !important;
+    line-height: 1.45 !important;
+  }
+  /* 購物車數量輸入框的視覺微調 */
+  #cart-drawer input.cart-qty-num {
+    width: 3.5rem !important;
+    text-align: center;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-weight: 700;
+    color: #1a1a1a;
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  #cart-drawer input.cart-qty-num::-webkit-outer-spin-button,
+  #cart-drawer input.cart-qty-num::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  /* +/- 按鈕也跟著放大 hit area */
+  #cart-drawer .cart-qty-btn {
+    width: 2.4rem !important;
+    height: 2.4rem !important;
+  }
+
+  /* 宅配規則 sheet 內文字也統一放大 */
+  #delivery-rules-sheet .dr-card-title {
+    font-size: 1.25rem !important;
+  }
+  #delivery-rules-sheet .dr-card-body,
+  #delivery-rules-sheet .dr-card-body p,
+  #delivery-rules-sheet .dr-hero-num-prefix,
+  #delivery-rules-sheet .dr-hero-num-suffix,
+  #delivery-rules-sheet .dr-hero-hint,
+  #delivery-rules-sheet .dr-empty-hint,
+  #delivery-rules-sheet .dr-bank-label,
+  #delivery-rules-sheet .dr-bank-value,
+  #delivery-rules-sheet .dr-bank-copy,
+  #delivery-rules-sheet .dr-note-text {
+    font-size: 1.15rem !important;
+    line-height: 1.55 !important;
+  }
+  #delivery-rules-sheet .dr-hero-num-value {
+    font-size: 1.9rem !important;
+  }
+  #delivery-rules-sheet .dr-card-icon {
+    width: 1.85rem !important;
+    height: 1.85rem !important;
+    font-size: 1rem !important;
+  }
+</style>
 
 <style id="order-synth-inline">
 #order-wait-panel-synth {
@@ -4608,35 +4685,17 @@ function orderGetStoredMemberPhone10_() {
 }
 
 function orderApplyMemberPhoneLockToForm_() {
+  /* 取消「自動預填電話」需求：
+     每次進入購物車不再帶入會員/上次留下的電話，請顧客每次手動輸入。 */
   var el = document.getElementById('order-phone');
   var hdEl = document.getElementById('order-hd-phone');
-  var p = orderGetStoredMemberPhone10_();
-  if (p && window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
-    if (el) {
-      el.value = p;
-      el.readOnly = true;
-      el.classList.add('order-phone-locked');
-    }
-    if (hdEl) {
-      hdEl.value = p;
-      hdEl.readOnly = true;
-      hdEl.classList.add('order-phone-locked');
-    }
-  } else {
-    if (el) {
-      if (p && !window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
-        el.value = p;
-      }
-      el.readOnly = false;
-      el.classList.remove('order-phone-locked');
-    }
-    if (hdEl) {
-      if (p && !window.__ORDER_MEMBER_SYSTEM_ENABLED__) {
-        hdEl.value = p;
-      }
-      hdEl.readOnly = false;
-      hdEl.classList.remove('order-phone-locked');
-    }
+  if (el) {
+    el.readOnly = false;
+    el.classList.remove('order-phone-locked');
+  }
+  if (hdEl) {
+    hdEl.readOnly = false;
+    hdEl.classList.remove('order-phone-locked');
   }
 }
 
@@ -7825,6 +7884,27 @@ function removeFromCart(idx) {
   if (cartItems.length === 0) closeCartDrawer();
 }
 
+/* 將購物車某一列數量直接設為指定值（從輸入框觸發） */
+function setCartItemQty(idx, value) {
+  const ci = cartItems[idx];
+  if (!ci) return;
+  if (orderIsShippingCartLine_(ci)) {
+    renderCartItems();
+    return;
+  }
+  let n = parseInt(String(value).replace(/\D/g, ''), 10);
+  if (!Number.isFinite(n) || n < 1) n = 1;
+  if (n > 999) n = 999;
+  const cur = parseInt(ci.qty, 10) || 1;
+  const delta = n - cur;
+  if (delta === 0) {
+    renderCartItems();
+    return;
+  }
+  /* 借用既有 adjustCartItemQty 的所有規則（兌換點數、刪除空列等） */
+  adjustCartItemQty(idx, delta);
+}
+
 function adjustCartItemQty(idx, delta) {
   const ci = cartItems[idx];
   if (!ci) return;
@@ -7964,7 +8044,11 @@ function renderCartItems() {
       <div class="cart-item-bottom">
         <div class="cart-qty-ctrl">
           <div class="cart-qty-btn" onclick="adjustCartItemQty(${idx}, -1)">−</div>
-          <span class="cart-qty-num">${ci.qty}</span>
+          <input class="cart-qty-num" type="number" inputmode="numeric" min="1" max="999"
+                 value="${ci.qty}"
+                 onfocus="this.select()"
+                 onchange="setCartItemQty(${idx}, this.value)"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
           <div class="cart-qty-btn" onclick="adjustCartItemQty(${idx}, 1)">+</div>
         </div>
         <span class="cart-item-price">${priceInner}</span>
