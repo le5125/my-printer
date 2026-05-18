@@ -2989,11 +2989,19 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             </div>
             <p class="text-gray-400" style="font-size: 13px; margin-top: 4px;">僅勾選「印商品標籤」的品項會出標籤；一般菜單適用，兌換品不使用。</p>
           </div>
-          <div id="edit-item-hide-row">
+          <div id="edit-item-hide-row" class="flex flex-wrap items-center gap-x-6 gap-y-2">
             <label class="inline-flex items-center gap-2 cursor-pointer select-none">
               <input type="checkbox" id="edit-item-hide" class="rounded border-gray-300 text-gray-900 focus:ring-gray-700" style="width: 18px; height: 18px;">
-              <span class="font-medium text-gray-700" style="font-size: 15px;">隱藏（不顯示於點餐頁）</span>
+              <span class="font-medium text-gray-700" style="font-size: 15px;">隱藏(不顯示於餐點)</span>
             </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" id="edit-item-stock-enabled" class="rounded border-gray-300 text-green-600 focus:ring-green-500" style="width: 18px; height: 18px;">
+              <span class="font-medium text-gray-700" style="font-size: 15px;">啟用庫存</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <span class="text-gray-700" style="font-size:14px;">商品數量</span>
+              <input type="number" id="edit-item-stock-qty" min="0" placeholder="不限" class="border border-gray-300 rounded-md px-2 py-1 text-sm w-24">
+            </div>
           </div>
 
 <div id="edit-item-options">
@@ -9155,6 +9163,10 @@ function posOrderStatsBreakdown_(order) {
 
 function posOrderStatsClassifyType_(order) {
   if (!order) return 'pos';
+  var ot = String(order.orderType || '').trim();
+  if (ot === '宅配') return 'hd';
+  if (ot === '預約') return 'resv';
+  if (ot === 'POS') return 'pos';
   if (typeof posQueryIsHomeDeliveryOrder_ === 'function' && posQueryIsHomeDeliveryOrder_(order)) return 'hd';
   if (typeof posQueryIsReservationOrder_ === 'function' && posQueryIsReservationOrder_(order)) return 'resv';
   return 'pos';
@@ -14165,11 +14177,24 @@ const overlayClass = item.saleStatus === '否' ? '' : 'hidden';
   } else if (_pp.hasDiscount && !item.image) {
     _imgCornerBadge = '<div class="pos-menu-promo-price-badge" style="bottom: 8px;"><span style="text-decoration: line-through; text-decoration-color: #dc2626; color: rgba(255,255,255,0.9); margin-right: 4px;">$' + _pp.orig + '</span><span style="color: #fff; font-weight: 700;">$' + _pp.sale + '</span></div>';
   }
+  /* 庫存徽章 + 售完蒙版 */
+  var _stockBadgeHtml = '';
+  var _soldOutOverlay = '';
+  var _isSoldOut = false;
+  if (item.stockEnabled) {
+    var _qty = (item.stockQty != null && item.stockQty !== '') ? (parseInt(item.stockQty, 10) || 0) : 0;
+    _isSoldOut = (_qty <= 0);
+    var _badgeBg = _isSoldOut ? '#9ca3af' : '#059669';
+    _stockBadgeHtml = '<div style="position:absolute;right:6px;bottom:6px;background:' + _badgeBg + ';color:#fff;font-size:12px;font-weight:700;border-radius:9999px;padding:2px 8px;box-shadow:0 1px 2px rgba(0,0,0,0.25);z-index:3;">' + (_isSoldOut ? '售完' : '庫存 ' + _qty) + '</div>';
+    if (_isSoldOut) {
+      _soldOutOverlay = '<div style="position:absolute;inset:0;background:rgba(255,255,255,0.55);display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none;"><span style="background:#dc2626;color:#fff;font-weight:700;padding:4px 14px;border-radius:9999px;font-size:14px;">售完</span></div>';
+    }
+  }
 
 menuItemsHTML += `
   <div class="menu-item menu-item-container bg-white rounded-lg overflow-hidden shadow-md cursor-pointer transition-all duration-200 relative" 
-       style="min-height: 220px; display: flex; flex-direction: column;" 
-       data-id="${item.id}" data-name="${item.name}" data-price="${item.price}" data-label-name="${String(item.labelName != null ? item.labelName : '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" data-print-label="${(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0') ? '0' : '1'}">
+       style="min-height: 220px; display: flex; flex-direction: column;${_isSoldOut ? ' opacity:0.85;' : ''}" 
+       data-id="${item.id}" data-name="${item.name}" data-price="${item.price}" data-sold-out="${_isSoldOut ? '1' : '0'}" data-label-name="${String(item.labelName != null ? item.labelName : '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" data-print-label="${(item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0') ? '0' : '1'}">
     
     <div class="menu-label-print-btn" data-id="${item.id}" title="快速列印標籤">
       <i class="fas fa-tag" aria-hidden="true"></i>
@@ -14182,8 +14207,10 @@ menuItemsHTML += `
       `<div class="relative w-full" style="height: 140px;">
         <img class="pos-menu-lazy-img" src="${POS_MENU_LAZY_PLACEHOLDER}" data-src="${item.image}" alt="${item.name}" loading="lazy" decoding="async" style="width: 100%; height: 140px; object-fit: cover;">
         ${_imgCornerBadge}
+        ${_stockBadgeHtml}
+        ${_soldOutOverlay}
       </div>` : 
-      `<div class="no-image-item w-full relative" style="background-color: ${item.color}; height: 140px; display: flex; align-items: center; justify-content: center; color: white;">${item.name}${_imgCornerBadge}</div>`
+      `<div class="no-image-item w-full relative" style="background-color: ${item.color}; height: 140px; display: flex; align-items: center; justify-content: center; color: white;">${item.name}${_imgCornerBadge}${_stockBadgeHtml}${_soldOutOverlay}</div>`
     }
 
     <div style="padding: 8px; flex-grow: 1; display: flex; flex-direction: column;">
@@ -14358,6 +14385,11 @@ document.querySelectorAll('#menu-items .menu-item').forEach(item => {
       posSwalAlert('此商品目前已售完，無法點選', 'warning');
       return;
     }
+    /* 庫存售完阻擋 */
+    if (this.getAttribute('data-sold-out') === '1') {
+      posSwalAlert('此商品庫存不足，無法加入購物車', 'warning');
+      return;
+    }
 
     const itemId = this.getAttribute('data-id');
     const itemName = this.getAttribute('data-name');
@@ -14375,6 +14407,12 @@ document.addEventListener('click', function (e) {
     e.stopPropagation();
     const btn = e.target.closest('.option-btn');
     const itemId = btn.getAttribute('data-id');
+    /* 庫存售完阻擋 */
+    var _card = btn.closest('.menu-item-container');
+    if (_card && _card.getAttribute('data-sold-out') === '1') {
+      posSwalAlert('此商品庫存不足，無法加入購物車', 'warning');
+      return;
+    }
     if (btn.closest('.redeem-menu-item')) {
       const item = (redeemMenuItems || []).find(i => String(i.id) === String(itemId));
       if (item) showOptionModal(item, { previewOnly: true });
@@ -14593,6 +14631,20 @@ posBindPosOptionAddonSteppers_(optionList);
           if (lnInp) lnInp.value = (!isRedeem && item.labelName != null) ? String(item.labelName) : '';
           var hideCb = document.getElementById('edit-item-hide');
           if (hideCb) hideCb.checked = !isRedeem && (item.hideStatus === '是' || item.hidden === true);
+          var stockEnCb = document.getElementById('edit-item-stock-enabled');
+          if (stockEnCb) stockEnCb.checked = !isRedeem && !!item.stockEnabled;
+          var stockQtyInp = document.getElementById('edit-item-stock-qty');
+          if (stockQtyInp) {
+            stockQtyInp.value = (!isRedeem && item.stockQty != null && item.stockQty !== '') ? item.stockQty : '';
+            stockQtyInp.disabled = !(stockEnCb && stockEnCb.checked);
+          }
+          if (stockEnCb && !stockEnCb._posBound_) {
+            stockEnCb._posBound_ = true;
+            stockEnCb.addEventListener('change', function () {
+              var q = document.getElementById('edit-item-stock-qty');
+              if (q) q.disabled = !stockEnCb.checked;
+            });
+          }
           var printLb = document.getElementById('edit-item-print-label');
           if (printLb) {
             var pOff = item.printLabel === false || String(item.printLabel || '').trim() === '否' || item.printLabel === 0 || item.printLabel === '0';
@@ -15084,6 +15136,9 @@ if (!isRedeem) {
           const labelName = isRedeemContext ? '' : ((document.getElementById('edit-item-label-name') && document.getElementById('edit-item-label-name').value) || '').trim();
           const printLabel = isRedeemContext ? true : !!(document.getElementById('edit-item-print-label') && document.getElementById('edit-item-print-label').checked);
           const hideStatus = isRedeemContext ? '否' : ((document.getElementById('edit-item-hide') && document.getElementById('edit-item-hide').checked) ? '是' : '否');
+          const stockEnabled = isRedeemContext ? false : !!(document.getElementById('edit-item-stock-enabled') && document.getElementById('edit-item-stock-enabled').checked);
+          const _stockQtyInput = document.getElementById('edit-item-stock-qty');
+          const stockQty = (!isRedeemContext && _stockQtyInput && _stockQtyInput.value !== '') ? (parseInt(_stockQtyInput.value, 10) || 0) : '';
 
           if (!name || !price) {
             posSwalAlert(isRedeemContext ? '請填寫商品名稱和點數' : '請填寫商品名稱和價格', 'warning');
@@ -15149,6 +15204,10 @@ if (!isRedeem) {
               updatePayload.labelName = labelName;
               updatePayload.printLabel = printLabel;
               updatePayload.hideStatus = hideStatus;
+              updatePayload.stockEnabled = stockEnabled;
+              updatePayload.stockQty = stockQty;
+              editingItem.stockEnabled = stockEnabled;
+              editingItem.stockQty = stockQty === '' ? null : stockQty;
             }
 
             if (isRedeemContext) {
@@ -15998,8 +16057,14 @@ if (!isRedeemContext) {
           this.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
           this.classList.remove('text-gray-500');
           setFeatureDropdownLabel('統計');
-          /* 進統計頁預設顯示月視圖 + active period = today */
+          /* 進統計頁預設顯示月視圖 + active period = today；強制立刻 fetch */
           window._statsActivePeriod_ = 'today';
+          try {
+            if (typeof _statsMonthViewState_ !== 'undefined') {
+              _statsMonthViewState_.cachedOrders = null;
+              _statsMonthViewState_.cachedAtMs = 0;
+            }
+          } catch (_eClr) {}
           try { _statsShowMonthView_(); } catch (_eSmv) { /* 略 */ }
           if (typeof _paintStatsButtons_ === 'function') _paintStatsButtons_();
           if (!window._lastStatsView_) window._lastStatsView_ = 'table';
