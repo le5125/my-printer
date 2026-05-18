@@ -16820,7 +16820,19 @@ function computeSummaryByPeriod(startDate, endDate, opts) {
               if (!item.name || item.name === '付款' ) return;
               if (typeof posIsVirtualFeeOrderLine_ === 'function' && posIsVirtualFeeOrderLine_(item)) return;
 
-              const keyword = productKeywords.find(k => item.name.includes(k));
+              /* 商品聚合：先精準匹配，避免子字串誤撞（鹼粽 vs 紅豆鹼粽） */
+              var itName = String(item.name || '').trim();
+              var keyword = productKeywords.find(k => k === itName);
+              if (!keyword) {
+                var mainNm = itName.replace(/^([\s\S]+?)（[\s\S]*）$/, '$1').trim();
+                keyword = productKeywords.find(k => k === mainNm);
+              }
+              if (!keyword) {
+                var candidates = productKeywords
+                  .filter(function (k) { return itName.indexOf(k) >= 0; })
+                  .sort(function (a, b) { return b.length - a.length; });
+                if (candidates.length) keyword = candidates[0];
+              }
               if (!keyword) return;
 
               var aggKey = keyword + '\x00' + String(order.type == null ? '' : order.type);
