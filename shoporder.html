@@ -6835,6 +6835,10 @@ function orderMapProductsFromPayload_(prodData) {
   if (!prodData || prodData.result !== 'success') return;
   allProducts = (prodData.products || []).map(function (p) {
     var hidden = (p && (p.hideStatus === '是' || p.hidden === true));
+    var stockEnabled = !!p.stockEnabled;
+    var stockQty = (p.stockQty != null && p.stockQty !== '') ? (parseInt(p.stockQty, 10) || 0) : null;
+    var isSaleOff = p.saleStatus === '否';
+    var isStockOut = stockEnabled && stockQty != null && stockQty <= 0;
     return {
       id: p.id.toString(),
       name: p.name,
@@ -6844,8 +6848,10 @@ function orderMapProductsFromPayload_(prodData) {
       description: p.description || '',
       options: buildProductOptions(p),
       category: p.menuCategory || '菜單',
-      isSoldOut: p.saleStatus === '否',
-      isHidden: hidden
+      isSoldOut: isSaleOff || isStockOut,
+      isHidden: hidden,
+      stockEnabled: stockEnabled,
+      stockQty: stockQty
     };
   }).filter(function (p) { return !p.isHidden; });
 }
@@ -6862,6 +6868,10 @@ function tryRestoreOrderMenuFromCache_() {
     _menuCategoryOrder = ord.menuCategoryOrder || [];
     allProducts = (ord.products || []).map(function (p) {
       var hidden = (p && (p.hideStatus === '是' || p.hidden === true));
+      var stockEnabled = !!p.stockEnabled;
+      var stockQty = (p.stockQty != null && p.stockQty !== '') ? (parseInt(p.stockQty, 10) || 0) : null;
+      var isSaleOff = p.saleStatus === '否';
+      var isStockOut = stockEnabled && stockQty != null && stockQty <= 0;
       return {
         id: p.id.toString(),
         name: p.name,
@@ -6871,8 +6881,10 @@ function tryRestoreOrderMenuFromCache_() {
         description: p.description || '',
         options: buildProductOptions(p),
         category: p.menuCategory || '菜單',
-        isSoldOut: p.saleStatus === '否',
-        isHidden: hidden
+        isSoldOut: isSaleOff || isStockOut,
+        isHidden: hidden,
+        stockEnabled: stockEnabled,
+        stockQty: stockQty
       };
     }).filter(function (p) { return !p.isHidden; });
     renderMenu();
@@ -7259,9 +7271,17 @@ function renderMenu() {
 function renderMenuCard(item) {
   const cfg = orderGetMerchantPromoCfg_();
   const pp = orderMerchantPromoUnitPriceForMenuCard_(item.id, item.price, cfg);
+  /* 庫存角標（右上） */
+  var stockBadgeHTML = '';
+  if (item.stockEnabled && item.stockQty != null) {
+    var isOut = item.stockQty <= 0;
+    var bg = isOut ? '#9ca3af' : '#059669';
+    var text = isOut ? '售完' : '剩 ' + item.stockQty;
+    stockBadgeHTML = '<div style="position:absolute;right:6px;top:6px;background:' + bg + ';color:#fff;font-size:11px;font-weight:700;border-radius:9999px;padding:2px 8px;box-shadow:0 1px 2px rgba(0,0,0,0.25);z-index:3;">' + text + '</div>';
+  }
   const imgHTML = item.image
-    ? `<img class="menu-card-img" src="${item.image}" alt="${item.name}" loading="eager">`
-    : `<div class="menu-card-no-img" style="background-color:${item.color};">${item.name}</div>`;
+    ? `<div style="position:relative;"><img class="menu-card-img" src="${item.image}" alt="${item.name}" loading="eager">${stockBadgeHTML}</div>`
+    : `<div class="menu-card-no-img" style="background-color:${item.color};position:relative;">${item.name}${stockBadgeHTML}</div>`;
 
   let footerHTML;
   if (item.isSoldOut) {
@@ -7326,8 +7346,18 @@ function openSheet(productId) {
     ? '<div class="sheet-item-price"><span class="sh-price-orig">' + formatPrice(pp.orig) + '</span><span class="sh-price-sale">' + formatPrice(pp.sale) + '</span><span style="font-size:12px;font-weight:600;color:#888;margin-left:6px;">（單價，不含加購）</span></div>'
     : `<div class="sheet-item-price">${formatPrice(item.price)}</div>`;
 
+  /* 庫存顯示 */
+  var stockInfoHtml = '';
+  if (item.stockEnabled && item.stockQty != null) {
+    var isOut2 = item.stockQty <= 0;
+    var bg2 = isOut2 ? '#dc2626' : '#059669';
+    var text2 = isOut2 ? '已售完' : '剩餘 ' + item.stockQty + ' 件';
+    stockInfoHtml = '<div style="margin-top:4px;display:inline-block;background:' + bg2 + ';color:#fff;font-size:13px;font-weight:600;border-radius:9999px;padding:3px 12px;">' + text2 + '</div>';
+  }
+
   document.getElementById('sheet-info-area').innerHTML = `
     <div class="sheet-item-name">${item.name}</div>
+    ${stockInfoHtml}
     ${item.description ? `<div class="sheet-item-desc">${orderDescHtml_(item.description)}</div>` : ''}
     ${sheetPriceHtml}`;
 
@@ -7461,6 +7491,14 @@ function updateCartBtn() {
 
 function addToCart() {
   if (!currentProduct) return;
+  /* 庫存超量阻擋 */
+  if (currentProduct.stockEnabled && currentProduct.stockQty != null) {
+    var _alreadyInCart2 = cartItems.filter(function (ci) { return ci.id === currentProduct.id; }).reduce(function (s, ci) { return s + (parseInt(ci.qty, 10) || 0); }, 0);
+    if (_alreadyInCart2 + currentQty > currentProduct.stockQty) {
+      showToast('庫存不足（剩 ' + currentProduct.stockQty + '，購物車已有 ' + _alreadyInCart2 + '）');
+      return;
+    }
+  }
   var cfg = orderGetMerchantPromoCfg_();
   var pp = orderMerchantPromoUnitPriceForMenuCard_(currentProduct.id, currentProduct.price, cfg);
   const sheetOptsRoot = document.getElementById('sheet-options');
@@ -7503,6 +7541,14 @@ function addToCart() {
 function quickAdd(productId) {
   const item = allProducts.find(p => p.id === productId);
   if (!item || item.isSoldOut) return;
+  /* 庫存超量阻擋 */
+  if (item.stockEnabled && item.stockQty != null) {
+    var _alreadyInCart = cartItems.filter(function (ci) { return ci.id === item.id; }).reduce(function (s, ci) { return s + (parseInt(ci.qty, 10) || 0); }, 0);
+    if (_alreadyInCart + 1 > item.stockQty) {
+      showToast('庫存不足（剩 ' + item.stockQty + '，購物車已有 ' + _alreadyInCart + '）');
+      return;
+    }
+  }
   var cfg = orderGetMerchantPromoCfg_();
   var pp = orderMerchantPromoUnitPriceForMenuCard_(item.id, item.price, cfg);
 
