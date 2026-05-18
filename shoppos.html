@@ -5152,25 +5152,10 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
 
             renderHolidayList();
 
-            var today = new Date();
-            var todayStr = today.toISOString().split('T')[0];
-            var localStr = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().split('T')[0];
-
-            var todayWeekLabel = getTodayWeekLabel(today);
-            var isHolidayClosed = holidayList.indexOf(todayStr) >= 0 || holidayList.indexOf(localStr) >= 0;
-            var isFixedClosed = fixedClosedDays.indexOf(todayWeekLabel) >= 0;
-            var shouldAutoClose = isHolidayClosed || isFixedClosed;
-
-            if (merchantHours && !shouldAutoClose) {
-              var ranges = parseOpenCloseRangesFromHoursStr(merchantHours);
-              var nowMin = today.getHours() * 60 + today.getMinutes();
-              var inAnyRange = ranges.some(function (r) { return nowMin >= r.openMin && nowMin < r.closeMin; });
-              if (!inAnyRange) {
-                shouldAutoClose = true;
-              }
-            }
-
-            var displayStatus = shouldAutoClose ? '休息中' : '營業中';
+            /* 營業狀態完全由後端「商家資訊.status」決定（只在使用者手動點擊
+               「營業中 / 休息中」切換按鈕時才會被改寫），不再依營業時間 /
+               公休日 / 固定休 自動關閉，也不會自動回寫後端。 */
+            var displayStatus = (merchant.status === '休息中') ? '休息中' : '營業中';
 
             var statusBtn = document.getElementById('business-status-toggle');
             if (statusBtn) {
@@ -5187,7 +5172,7 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             if (menuMask) {
               menuMask.classList.toggle('hidden', displayStatus === '營業中');
               if (displayStatus !== '營業中') {
-                menuMask.textContent = (isHolidayClosed || isFixedClosed) ? '今日公休' : '目前休息中，暫停點餐';
+                menuMask.textContent = '目前休息中，暫停點餐';
               }
             }
 
@@ -5197,21 +5182,6 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             try {
               if (typeof updatePickupTime === 'function') updatePickupTime();
             } catch (ePt) { /* 略 */ }
-
-            if (currentWebAppUrl) {
-              var autoUpdateQuery = new URLSearchParams({
-                action: 'saveMerchantInfo',
-                name: merchant.name,
-                phone: merchant.phone,
-                hours: merchantHours,
-                address: merchant.address,
-                description: merchant.description,
-                status: displayStatus,
-                holidays: holidayList.join(','),
-                fixedClosedDays: fixedClosedDays.join(',')
-              }).toString();
-              fetch(currentWebAppUrl + '?' + autoUpdateQuery).catch(function () { /* 略 */ });
-            }
           });
         } catch (eMi) {
           console.error('[POS] loadMerchantInfo', eMi);
