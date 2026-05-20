@@ -4125,13 +4125,38 @@ function orderSyncFreeTrialBannerFromPlanType_() {
   else orderRemoveFreeTrialBanner_();
 }
 
-async function orderVerifyClientKeyOrFail_v2_() {
-  if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
-  var ck = orderGetClientKey_();
-  if (!ck) return { ok: false, reason: 'no_client_key' };
-  try {
-    var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
-    var res = await fetch(u2, {
+function orderNormalizePlanTypeFromServer_(raw) {
+  return String(raw || '').trim().toLowerCase() === 'free' ? 'free' : 'paid';
+}
+
+async function orderFetchCheckClientKeyJson_(ck) {
+  ck = String(ck || '').trim();
+  if (!ck || !currentWebAppUrl) return { ok: false, reason: 'no_url' };
+  var uBase = String(currentWebAppUrl).trim().replace(/\?+$/, '');
+
+  async function tryGet_() {
+    var sep = uBase.indexOf('?') >= 0 ? '&' : '?';
+    var url = uBase + sep + 'action=checkClientKey&clientKey=' + encodeURIComponent(ck) + '&_=' + Date.now();
+    var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
+    var text = await res.text();
+    var data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (pe) {
+      return { ok: false, reason: 'bad_response', raw: null };
+    }
+    if (data && data.result === 'success') {
+      return { ok: true, planType: orderNormalizePlanTypeFromServer_(data.planType), raw: data };
+    }
+    return {
+      ok: false,
+      reason: (data && data.reason) ? String(data.reason) : 'forbidden',
+      raw: data
+    };
+  }
+
+  async function tryPost_() {
+    var res = await fetch(uBase, {
       method: 'POST',
       mode: 'cors',
       credentials: 'omit',
@@ -4143,19 +4168,52 @@ async function orderVerifyClientKeyOrFail_v2_() {
     try {
       data = text ? JSON.parse(text) : null;
     } catch (pe) {
-      console.error('[order] checkClientKey POST 非 JSON', { status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
       return { ok: false, reason: 'bad_response', raw: null };
     }
     if (data && data.result === 'success') {
-      try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
-      return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
+      return { ok: true, planType: orderNormalizePlanTypeFromServer_(data.planType), raw: data };
     }
-    console.error('[order] checkClientKey 未通過', { status: res.status, response: data });
-    return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
-  } catch (err) {
-    console.error('[order] checkClientKey POST 失敗', err);
-    return { ok: false, reason: 'network', raw: null };
+    return {
+      ok: false,
+      reason: (data && data.reason) ? String(data.reason) : 'forbidden',
+      raw: data
+    };
   }
+
+  var last = { ok: false, reason: 'network', raw: null };
+  for (var attempt = 0; attempt < 2; attempt++) {
+    try {
+      var got = await tryGet_();
+      if (got.ok) return got;
+      last = got;
+      if (got.reason !== 'bad_response' && got.reason !== 'network') return got;
+    } catch (eG) {
+      last = { ok: false, reason: 'network', raw: null };
+    }
+    if (attempt === 0) {
+      await new Promise(function (r) { setTimeout(r, 280); });
+    }
+  }
+  try {
+    var post = await tryPost_();
+    if (post.ok) return post;
+    last = post;
+    if (post.reason !== 'bad_response' && post.reason !== 'network') return post;
+  } catch (eP) {
+    last = { ok: false, reason: 'network', raw: null };
+  }
+  return last;
+}
+
+async function orderVerifyClientKeyOrFail_v2_() {
+  var ck = orderGetClientKey_();
+  if (!ck) return { ok: false, reason: 'no_client_key' };
+  var fresh = await orderFetchCheckClientKeyJson_(ck);
+  if (fresh.ok) {
+    try { window.__ORDER_PLAN_TYPE__ = fresh.planType; } catch (eP) {}
+    return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
+  }
+  return fresh;
 }
 
 async function orderVerifyClientKeyOrFail_() {
@@ -4164,51 +4222,30 @@ async function orderVerifyClientKeyOrFail_() {
   if (!ck) return { ok: false, reason: 'no_client_key' };
   var depId = orderExtractGasDeploymentId_(currentWebAppUrl);
   var ksig = orderClientKeySessionSig_(ck);
-  var sessHit = orderReadSessClientKeyVerify_();
-  var sessAuthOk = !!(sessHit && sessHit.depId === depId && sessHit.ksig === ksig && (Date.now() - sessHit.t) < ORDER_CK_SESS_VERIFY_TTL_MS);
 
-  /* 方案（VIP／試用）以伺服器 checkClientKey 為準，避免 session 快取仍為 free 而誤判 */
-  var v2 = await orderVerifyClientKeyOrFail_v2_();
-  if (v2.ok) {
+  var fresh = await orderFetchCheckClientKeyJson_(ck);
+  if (fresh.ok) {
+    try { window.__ORDER_PLAN_TYPE__ = fresh.planType; } catch (eP) {}
     orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
-    return v2;
-  }
-  if (sessAuthOk) {
-    try { window.__ORDER_PLAN_TYPE__ = (sessHit.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
     return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
   }
-  if (v2.reason !== 'bad_response' && v2.reason !== 'network') {
+
+  if (fresh.reason !== 'bad_response' && fresh.reason !== 'network') {
     orderClearSessClientKeyVerify_();
-    return v2;
+    return fresh;
   }
 
-  if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
-  if (!orderGetClientKey_()) return { ok: false, reason: 'no_client_key' };
-  try {
-    var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
-    var sep2 = u2.indexOf('?') >= 0 ? '&' : '?';
-    var url = u2 + sep2 + 'action=checkClientKey&clientKey=' + encodeURIComponent(ck) + '&_=' + Date.now();
-    var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
-    var text = await res.text();
-    var data;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch (pe) {
-      console.error('[order] checkClientKey GET 非 JSON', { url: url, status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
-      return { ok: false, reason: 'bad_response', raw: null };
-    }
-    if (data && data.result === 'success') {
-      try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
-      orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
-      return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
-    }
-    console.error('[order] checkClientKey GET 未通過', { url: url, status: res.status, response: data });
-    orderClearSessClientKeyVerify_();
-    return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
-  } catch (err) {
-    console.error('[order] clientKey 驗證失敗（完整）', err, err && err.message, err && err.stack);
-    return { ok: false, reason: 'network', raw: null };
+  var sessHit = orderReadSessClientKeyVerify_();
+  var sessAuthOk = !!(sessHit && sessHit.depId === depId && sessHit.ksig === ksig
+    && (Date.now() - sessHit.t) < ORDER_CK_SESS_VERIFY_TTL_MS);
+  /* 網路異常：只信任 session 裡「伺服器曾確認過的 paid」；free 必須本次連線成功才能顯示試用 */
+  if (sessAuthOk && sessHit.planType === 'paid') {
+    try { window.__ORDER_PLAN_TYPE__ = 'paid'; } catch (eP) {}
+    return { ok: true, planType: 'paid' };
   }
+
+  orderClearSessClientKeyVerify_();
+  return fresh;
 }
 
 var ORDER_MEMBER_PHONE_STORAGE_KEY = 'order_member_phone_v1';
@@ -10272,6 +10309,7 @@ async function bootstrapOrder() {
     window.__ORDER_VACATION_BLOCK__ = false;
     delete window.__ORDER_PLAN_TYPE__;
   } catch (eResetLiff) {}
+  orderClearSessClientKeyVerify_();
   orderRemoveFreeTrialBanner_();
   orderWaitShowTruck_('資料載入中…', { force: true });
   setTimeout(function () { orderInitMiniGame_(); }, 200);
