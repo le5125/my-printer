@@ -6674,6 +6674,152 @@ window.addEventListener('scroll', () => {
   });
 }, { passive: true });
 
+var ORDER_MERCHANT_VISUAL_CACHE_KEY = 'order_merchant_visual_v1';
+var __orderMerchantInfoPrefetchPromise__ = null;
+var __orderLastAppliedMerchantVisualSig__ = '';
+
+function orderMerchantVisualSig_(mer) {
+  if (!mer) return '';
+  var logo = String(mer.logoImage || '').trim();
+  var cover = String(mer.coverImage || '').trim();
+  if (logo.length > 96) logo = logo.slice(0, 48) + '…' + logo.length;
+  if (cover.length > 96) cover = cover.slice(0, 48) + '…' + cover.length;
+  return [
+    String(mer.name || '').trim(),
+    logo,
+    cover,
+    String(mer.coverColor || '').trim(),
+    String(mer.logoColor || '').trim()
+  ].join('\u0001');
+}
+
+function orderPersistMerchantVisualCache_(mer) {
+  try {
+    var depId = orderExtractGasDeploymentId_(currentWebAppUrl);
+    if (!depId || !mer) return;
+    localStorage.setItem(ORDER_MERCHANT_VISUAL_CACHE_KEY, JSON.stringify({
+      depId: depId,
+      t: Date.now(),
+      name: String(mer.name || '').trim(),
+      logoImage: String(mer.logoImage || '').trim(),
+      coverImage: String(mer.coverImage || '').trim(),
+      logoColor: String(mer.logoColor || '').trim(),
+      coverColor: String(mer.coverColor || '').trim()
+    }));
+  } catch (e) { /* 配額或無痕 */ }
+}
+
+function orderRestoreMerchantVisualFromCache_() {
+  try {
+    var depId = orderExtractGasDeploymentId_(currentWebAppUrl);
+    if (!depId) return false;
+    var raw = localStorage.getItem(ORDER_MERCHANT_VISUAL_CACHE_KEY);
+    if (!raw) return false;
+    var o = JSON.parse(raw);
+    if (!o || o.depId !== depId) return false;
+    orderApplyMerchantHeroVisual_(o, { force: true });
+    if (o.name) {
+      try { window.__ORDER_SHOP_NAME_CACHE__ = String(o.name).trim(); } catch (eN) {}
+      orderSyncSynthBumperShopName_();
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function orderApplyMerchantHeroVisual_(mer, opt) {
+  opt = opt || {};
+  if (!mer) return;
+  var sig = orderMerchantVisualSig_(mer);
+  if (!opt.force && sig && sig === __orderLastAppliedMerchantVisualSig__) return;
+
+  function applyNow_() {
+    var shopName = String(mer.name || '線上點餐').trim() || '線上點餐';
+    var heroName = document.getElementById('hero-shop-name');
+    if (heroName) heroName.textContent = shopName;
+    document.title = shopName;
+    try { window.__ORDER_SHOP_NAME_CACHE__ = shopName; } catch (eSn) {}
+    orderSyncSynthBumperShopName_();
+
+    var logoWrap = document.getElementById('hero-logo-wrap');
+    var logoImg = document.getElementById('hero-shop-logo');
+    var heroImgEl = document.getElementById('hero-img');
+    var heroBanner = document.getElementById('hero-banner');
+    var heroColorLayer = document.getElementById('hero-color-layer');
+    if (!logoWrap || !logoImg || !heroImgEl || !heroBanner) return false;
+
+    var logoSrc = String(mer.logoImage || '').trim();
+    if (logoSrc) {
+      if (logoImg.getAttribute('src') !== logoSrc) {
+        try { logoImg.decoding = 'async'; logoImg.loading = 'eager'; } catch (eLd) {}
+        logoImg.src = logoSrc;
+      }
+      logoImg.alt = shopName;
+      logoWrap.style.display = '';
+      logoWrap.setAttribute('aria-hidden', 'false');
+    } else {
+      logoImg.removeAttribute('src');
+      logoWrap.style.display = 'none';
+      logoWrap.setAttribute('aria-hidden', 'true');
+    }
+
+    var coverSrc = String(mer.coverImage || '').trim();
+    var coverColorRaw = String(mer.coverColor || '').trim();
+    var validCoverColor = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(coverColorRaw);
+    if (coverSrc) {
+      heroBanner.classList.add('hero-has-cover');
+      heroBanner.classList.remove('hero-has-color');
+      if (heroColorLayer) heroColorLayer.style.background = '';
+      if (heroImgEl.getAttribute('src') !== coverSrc) {
+        try { heroImgEl.decoding = 'async'; heroImgEl.loading = 'eager'; } catch (eLc) {}
+        heroImgEl.src = coverSrc;
+      }
+      heroImgEl.alt = shopName;
+      heroImgEl.style.display = '';
+    } else if (validCoverColor) {
+      heroBanner.classList.remove('hero-has-cover');
+      heroBanner.classList.add('hero-has-color');
+      heroImgEl.removeAttribute('src');
+      heroImgEl.style.display = 'none';
+      if (heroColorLayer) {
+        var g = coverGradientFromHex(coverColorRaw);
+        heroColorLayer.style.background = g || coverColorRaw;
+      }
+    } else {
+      heroBanner.classList.remove('hero-has-cover', 'hero-has-color');
+      heroImgEl.removeAttribute('src');
+      heroImgEl.style.display = 'none';
+      if (heroColorLayer) heroColorLayer.style.background = '';
+    }
+
+    __orderLastAppliedMerchantVisualSig__ = sig;
+    orderMarkMerchantVisualReady_(coverSrc);
+    return true;
+  }
+
+  if (opt.skipDomRetry) {
+    applyNow_();
+    return;
+  }
+  orderRetryDomApply('orderApplyMerchantHeroVisual', function () {
+    return !!(document.getElementById('hero-shop-name') && document.getElementById('hero-banner'));
+  }, applyNow_);
+}
+
+function orderEnsureMerchantInfoPrefetch_() {
+  if (__orderMerchantInfoPrefetchPromise__) return __orderMerchantInfoPrefetchPromise__;
+  __orderMerchantInfoPrefetchPromise__ = (async function () {
+    var data = await orderFetchMerchantInfoJsonOnly_();
+    if (data && data.result === 'success' && data.merchant) {
+      orderPersistMerchantVisualCache_(data.merchant);
+      orderApplyMerchantHeroVisual_(data.merchant);
+    }
+    return data;
+  })();
+  return __orderMerchantInfoPrefetchPromise__;
+}
+
 async function orderFetchMerchantInfoJsonOnly_() {
   try {
     if (!currentWebAppUrl) return null;
@@ -6694,7 +6840,12 @@ async function orderFetchMerchantInfoJsonOnly_() {
 async function orderBootstrapVacationGateAfterAuth_() {
   var out = { blocked: false, preload: null };
   try {
-    var data = await orderFetchMerchantInfoJsonOnly_();
+    var data = null;
+    if (__orderMerchantInfoPrefetchPromise__) {
+      data = await __orderMerchantInfoPrefetchPromise_;
+    } else {
+      data = await orderFetchMerchantInfoJsonOnly_();
+    }
     out.preload = data;
     if (!data || data.result !== 'success') return out;
     var __mer = data.merchant || {};
@@ -6735,6 +6886,9 @@ async function loadMerchantInfo(preloaded) {
       return;
     }
     var data = (preloaded && preloaded.result === 'success') ? preloaded : null;
+    if (!data && __orderMerchantInfoPrefetchPromise__) {
+      data = await __orderMerchantInfoPrefetchPromise_;
+    }
     if (!data) {
       const res  = await fetch(`${currentWebAppUrl}?action=getMerchantInfo&_=${Date.now()}`);
       try {
@@ -6744,14 +6898,10 @@ async function loadMerchantInfo(preloaded) {
       }
     }
     if (!data || data.result !== 'success') return;
-    try {
-      window.__ORDER_SHOP_NAME_CACHE__ = String((data.merchant && data.merchant.name) || '線上點餐').trim();
-    } catch (eCache) {}
 
-    orderRetryDomApply('loadMerchantInfo', function () {
-      return !!(document.getElementById('hero-shop-name') && document.getElementById('hero-banner'));
-    }, function () {
     merchantInfo = data.merchant || {};
+    orderPersistMerchantVisualCache_(merchantInfo);
+    orderApplyMerchantHeroVisual_(merchantInfo);
 
     if (merchantInfo.holidays) {
       holidayList = Array.isArray(merchantInfo.holidays)
@@ -6760,65 +6910,12 @@ async function loadMerchantInfo(preloaded) {
     }
     fixedClosedDays = normalizeFixedClosedDays(merchantInfo.fixedClosedDays);
 
-    const shopName = merchantInfo.name || '線上點餐';
-    document.getElementById('hero-shop-name').textContent = shopName;
-    document.title = shopName;
-    orderSyncSynthBumperShopName_();
-
-    const logoWrap = document.getElementById('hero-logo-wrap');
-    const logoImg  = document.getElementById('hero-shop-logo');
-    const heroImgEl = document.getElementById('hero-img');
-    const logoSrc = (merchantInfo.logoImage || '').toString().trim();
-    if (logoSrc) {
-      logoImg.src = logoSrc;
-      logoImg.alt = shopName;
-      logoWrap.style.display = '';
-      logoWrap.setAttribute('aria-hidden', 'false');
-    } else {
-      logoImg.removeAttribute('src');
-      logoWrap.style.display = 'none';
-      logoWrap.setAttribute('aria-hidden', 'true');
-    }
-    const coverSrc = (merchantInfo.coverImage || '').toString().trim();
-    const coverColorRaw = (merchantInfo.coverColor || '').toString().trim();
-    const heroBanner = document.getElementById('hero-banner');
-    const heroColorLayer = document.getElementById('hero-color-layer');
-    const validCoverColor = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(coverColorRaw);
-    if (coverSrc) {
-      heroBanner.classList.add('hero-has-cover');
-      heroBanner.classList.remove('hero-has-color');
-      if (heroColorLayer) {
-        heroColorLayer.style.background = '';
-      }
-      heroImgEl.src = coverSrc;
-      heroImgEl.alt = shopName;
-      heroImgEl.style.display = '';
-    } else if (validCoverColor) {
-      heroBanner.classList.remove('hero-has-cover');
-      heroBanner.classList.add('hero-has-color');
-      heroImgEl.removeAttribute('src');
-      heroImgEl.style.display = 'none';
-      if (heroColorLayer) {
-        var g = coverGradientFromHex(coverColorRaw);
-        heroColorLayer.style.background = g || coverColorRaw;
-      }
-    } else {
-      heroBanner.classList.remove('hero-has-cover', 'hero-has-color');
-      heroImgEl.removeAttribute('src');
-      heroImgEl.style.display = 'none';
-      if (heroColorLayer) {
-        heroColorLayer.style.background = '';
-      }
-    }
-    orderMarkMerchantVisualReady_(coverSrc);
-
     isBusinessClosed = checkBusinessStatus();
     updateStatusDisplay();
     if (isBusinessClosed) showClosedOverlay();
 
     storeData = merchantInfo;
     try { void orderEnsureStorePromotionsFetchedAtLeastOnce_(); } catch (eSp) { /* 略 */ }
-    });
   } catch (err) {
     console.error('❌ loadMerchantInfo 失敗:', err);
   }
@@ -10215,6 +10312,11 @@ async function bootstrapOrder() {
   orderInitialReadyState_.coverReady = false;
   window.__ORDER_BOOT_PREFETCH__ = null;
   window.__orderLoadMenuPromise__ = null;
+  __orderMerchantInfoPrefetchPromise__ = null;
+  __orderLastAppliedMerchantVisualSig__ = '';
+
+  orderRestoreMerchantVisualFromCache_();
+  void orderEnsureMerchantInfoPrefetch_();
 
   var cacheHitEarly = tryRestoreOrderMenuFromCache_();
   if (!cacheHitEarly || !allProducts || !allProducts.length) {
@@ -10240,7 +10342,10 @@ async function bootstrapOrder() {
   orderSyncFreeTrialBannerFromPlanType_();
   void loadMerchantInfo(authRes.preload).catch(function (e) { console.error(e); });
 
-  await menuPromise;
+  await Promise.all([
+    menuPromise,
+    __orderMerchantInfoPrefetchPromise__ || Promise.resolve()
+  ]);
 
   if (allProducts && allProducts.length > 0) {
     orderInitialReadyState_.menuReady = true;
