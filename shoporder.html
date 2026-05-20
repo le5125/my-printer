@@ -862,7 +862,7 @@
     z-index: 1040;
     box-sizing: border-box;
     overflow: hidden;
-    background: transparent;
+    background: #f6f7fb;
   }
   #menu-loading .order-wait-title {
     font-size: clamp(28px, 5.5vw, 56px);
@@ -7220,6 +7220,7 @@ function orderFinishMenuLoadingUi_() {
 }
 
 function orderRevealMenuContent_() {
+  if (!orderInitialReadyState_.loadingClosed) return;
   var _ml = document.getElementById('menu-loading');
   var _mc = document.getElementById('menu-content');
   if (_ml) {
@@ -7451,7 +7452,9 @@ function renderMenu() {
     }
   } catch (eRm) {}
 
-  orderRevealMenuContent_();
+  if (orderInitialReadyState_.loadingClosed) {
+    orderRevealMenuContent_();
+  }
 
   _cacheScrollRefs();
 }
