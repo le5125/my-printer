@@ -4099,6 +4099,32 @@ function orderClearSessClientKeyVerify_() {
   try { sessionStorage.removeItem(ORDER_CK_SESS_VERIFY_KEY); } catch (e) {}
 }
 
+function orderRemoveFreeTrialBanner_() {
+  var b = document.getElementById('order-free-trial-banner');
+  if (b) b.remove();
+  try { document.body.classList.remove('order-free-mode'); } catch (e) {}
+}
+
+function orderEnsureFreeTrialBanner_() {
+  if (window.__ORDER_PLAN_TYPE__ !== 'free') {
+    orderRemoveFreeTrialBanner_();
+    return;
+  }
+  if (document.getElementById('order-free-trial-banner')) return;
+  var b = document.createElement('div');
+  b.id = 'order-free-trial-banner';
+  b.innerHTML = '<span class="free-tag">試用版</span>'
+    + '<span>老闆試用模式：可完整瀏覽會員、訂餐流程，但無法送出線上訂單；資料 3 分鐘後自動清除、且不發送 Telegram 通知</span>';
+  document.body.insertBefore(b, document.body.firstChild);
+  try { document.body.classList.add('order-free-mode'); } catch (e) {}
+}
+
+function orderSyncFreeTrialBannerFromPlanType_() {
+  if (typeof window.__ORDER_PLAN_TYPE__ === 'undefined') return;
+  if (window.__ORDER_PLAN_TYPE__ === 'free') orderEnsureFreeTrialBanner_();
+  else orderRemoveFreeTrialBanner_();
+}
+
 async function orderVerifyClientKeyOrFail_v2_() {
   if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
   var ck = orderGetClientKey_();
@@ -4139,15 +4165,17 @@ async function orderVerifyClientKeyOrFail_() {
   var depId = orderExtractGasDeploymentId_(currentWebAppUrl);
   var ksig = orderClientKeySessionSig_(ck);
   var sessHit = orderReadSessClientKeyVerify_();
-  if (sessHit && sessHit.depId === depId && sessHit.ksig === ksig && (Date.now() - sessHit.t) < ORDER_CK_SESS_VERIFY_TTL_MS) {
-    try { window.__ORDER_PLAN_TYPE__ = (sessHit.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
-    return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
-  }
+  var sessAuthOk = !!(sessHit && sessHit.depId === depId && sessHit.ksig === ksig && (Date.now() - sessHit.t) < ORDER_CK_SESS_VERIFY_TTL_MS);
 
+  /* 方案（VIP／試用）以伺服器 checkClientKey 為準，避免 session 快取仍為 free 而誤判 */
   var v2 = await orderVerifyClientKeyOrFail_v2_();
   if (v2.ok) {
     orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
     return v2;
+  }
+  if (sessAuthOk) {
+    try { window.__ORDER_PLAN_TYPE__ = (sessHit.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+    return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
   }
   if (v2.reason !== 'bad_response' && v2.reason !== 'network') {
     orderClearSessClientKeyVerify_();
@@ -7149,6 +7177,7 @@ function orderKickMemberGateBackgroundOnce_() {
       orderApplyMemberPhoneLockToForm_();
       void orderPrefetchMemberCornerData_().catch(function () {});
       void orderPrefetchMemberPointsForDiscount_().catch(function () {});
+      try { orderPromoAdUiAfterPromotionsPayload_(); } catch (ePromo) { /* 略 */ }
     } catch (e2) { /* 略 */ }
   })();
 }
@@ -10141,7 +10170,9 @@ async function bootstrapOrder() {
     window.__ORDER_LINE_USER_ID__ = '';
     window.__ORDER_MEMBER_GATE_BG_STARTED__ = false;
     window.__ORDER_VACATION_BLOCK__ = false;
+    delete window.__ORDER_PLAN_TYPE__;
   } catch (eResetLiff) {}
+  orderRemoveFreeTrialBanner_();
   orderWaitShowTruck_('資料載入中…', { force: true });
   setTimeout(function () { orderInitMiniGame_(); }, 200);
   // SweetAlert2 背景載入（與參考版一致）：不擋 boot，避免 CDN 慢時菜單永遠載不入
@@ -10186,38 +10217,41 @@ async function bootstrapOrder() {
   window.__orderLoadMenuPromise__ = null;
 
   var cacheHitEarly = tryRestoreOrderMenuFromCache_();
-  if (cacheHitEarly && allProducts && allProducts.length > 0) {
-    orderInitialReadyState_.menuReady = true;
-  } else {
+  if (!cacheHitEarly || !allProducts || !allProducts.length) {
     orderRenderMenuSkeleton_();
   }
-
-  void orderBootstrapAuthPipeline_(freshUrlPromise, _orderUrlPinnedByQuery).then(function (authRes) {
-    if (!authRes || !authRes.ok) {
-      orderShowBootstrapMaintenance_();
-      return;
-    }
-    if (authRes.blocked) return;
-    void loadMerchantInfo(authRes.preload).catch(function (e) { console.error(e); });
-  });
-
-  void loadMenuData_().catch(function (err) {
-    console.error('[ordergit] 菜單載入', err);
-  }).finally(function () {
-    if (allProducts && allProducts.length > 0) {
-      orderInitialReadyState_.menuReady = true;
-      orderTryCloseInitialLoading_();
-      if (orderInitialReadyState_.loadingClosed) {
-        orderRevealMenuContent_();
-      }
-    }
-  });
 
   void orderGetStorePromotionsFetchOnce_().catch(function (e) {
     console.error('[ordergit] 商家活動背景載入', e);
   });
 
+  var authPromise = orderBootstrapAuthPipeline_(freshUrlPromise, _orderUrlPinnedByQuery);
+  var menuPromise = loadMenuData_().catch(function (err) {
+    console.error('[ordergit] 菜單載入', err);
+  });
+
+  var authRes = await authPromise;
+  if (!authRes || !authRes.ok) {
+    orderShowBootstrapMaintenance_();
+    return;
+  }
+  if (authRes.blocked) return;
+
+  orderSyncFreeTrialBannerFromPlanType_();
+  void loadMerchantInfo(authRes.preload).catch(function (e) { console.error(e); });
+
+  await menuPromise;
+
+  if (allProducts && allProducts.length > 0) {
+    orderInitialReadyState_.menuReady = true;
+  }
+
   await init();
+
+  orderTryCloseInitialLoading_();
+  if (orderInitialReadyState_.loadingClosed && allProducts && allProducts.length > 0) {
+    orderRevealMenuContent_();
+  }
 }
 (function ordergitKickBootstrapOnDomReady_() {
   function kick() {
@@ -10262,28 +10296,13 @@ async function bootstrapOrder() {
 <script>
 (function () {
   'use strict';
-  function isFreePlan() {
-    try { return window.__ORDER_PLAN_TYPE__ === 'free'; } catch (e) { return false; }
-  }
-  function ensureBanner() {
-    if (!isFreePlan()) return;
-    if (document.getElementById('order-free-trial-banner')) return;
-    var b = document.createElement('div');
-    b.id = 'order-free-trial-banner';
-    b.innerHTML = '<span class="free-tag">試用版</span>'
-      + '<span>老闆試用模式：可完整瀏覽會員、訂餐流程，但無法送出線上訂單；資料 3 分鐘後自動清除、且不發送 Telegram 通知</span>';
-    document.body.insertBefore(b, document.body.firstChild);
-    document.body.classList.add('order-free-mode');
-  }
-  function startFreeWatcher() {
-    if (!isFreePlan()) return;
-    ensureBanner();
-  }
   var tries = 0;
   function tryInit() {
     tries++;
     if (typeof window.__ORDER_PLAN_TYPE__ !== 'undefined') {
-      startFreeWatcher();
+      if (typeof orderSyncFreeTrialBannerFromPlanType_ === 'function') {
+        orderSyncFreeTrialBannerFromPlanType_();
+      }
       return;
     }
     if (tries < 30) setTimeout(tryInit, 500);
