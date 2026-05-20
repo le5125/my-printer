@@ -4099,64 +4099,13 @@ function orderClearSessClientKeyVerify_() {
   try { sessionStorage.removeItem(ORDER_CK_SESS_VERIFY_KEY); } catch (e) {}
 }
 
-function orderRemoveFreeTrialBanner_() {
-  var b = document.getElementById('order-free-trial-banner');
-  if (b) b.remove();
-  try { document.body.classList.remove('order-free-mode'); } catch (e) {}
-}
-
-function orderEnsureFreeTrialBanner_() {
-  if (window.__ORDER_PLAN_TYPE__ !== 'free') {
-    orderRemoveFreeTrialBanner_();
-    return;
-  }
-  if (document.getElementById('order-free-trial-banner')) return;
-  var b = document.createElement('div');
-  b.id = 'order-free-trial-banner';
-  b.innerHTML = '<span class="free-tag">試用版</span>'
-    + '<span>老闆試用模式：可完整瀏覽會員、訂餐流程，但無法送出線上訂單；資料 3 分鐘後自動清除、且不發送 Telegram 通知</span>';
-  document.body.insertBefore(b, document.body.firstChild);
-  try { document.body.classList.add('order-free-mode'); } catch (e) {}
-}
-
-function orderSyncFreeTrialBannerFromPlanType_() {
-  if (typeof window.__ORDER_PLAN_TYPE__ === 'undefined') return;
-  if (window.__ORDER_PLAN_TYPE__ === 'free') orderEnsureFreeTrialBanner_();
-  else orderRemoveFreeTrialBanner_();
-}
-
-function orderNormalizePlanTypeFromServer_(raw) {
-  return String(raw || '').trim().toLowerCase() === 'free' ? 'free' : 'paid';
-}
-
-async function orderFetchCheckClientKeyJson_(ck) {
-  ck = String(ck || '').trim();
-  if (!ck || !currentWebAppUrl) return { ok: false, reason: 'no_url' };
-  var uBase = String(currentWebAppUrl).trim().replace(/\?+$/, '');
-
-  async function tryGet_() {
-    var sep = uBase.indexOf('?') >= 0 ? '&' : '?';
-    var url = uBase + sep + 'action=checkClientKey&clientKey=' + encodeURIComponent(ck) + '&_=' + Date.now();
-    var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
-    var text = await res.text();
-    var data;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch (pe) {
-      return { ok: false, reason: 'bad_response', raw: null };
-    }
-    if (data && data.result === 'success') {
-      return { ok: true, planType: orderNormalizePlanTypeFromServer_(data.planType), raw: data };
-    }
-    return {
-      ok: false,
-      reason: (data && data.reason) ? String(data.reason) : 'forbidden',
-      raw: data
-    };
-  }
-
-  async function tryPost_() {
-    var res = await fetch(uBase, {
+async function orderVerifyClientKeyOrFail_v2_() {
+  if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
+  var ck = orderGetClientKey_();
+  if (!ck) return { ok: false, reason: 'no_client_key' };
+  try {
+    var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
+    var res = await fetch(u2, {
       method: 'POST',
       mode: 'cors',
       credentials: 'omit',
@@ -4168,52 +4117,19 @@ async function orderFetchCheckClientKeyJson_(ck) {
     try {
       data = text ? JSON.parse(text) : null;
     } catch (pe) {
+      console.error('[order] checkClientKey POST 非 JSON', { status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
       return { ok: false, reason: 'bad_response', raw: null };
     }
     if (data && data.result === 'success') {
-      return { ok: true, planType: orderNormalizePlanTypeFromServer_(data.planType), raw: data };
+      try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+      return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
     }
-    return {
-      ok: false,
-      reason: (data && data.reason) ? String(data.reason) : 'forbidden',
-      raw: data
-    };
+    console.error('[order] checkClientKey 未通過', { status: res.status, response: data });
+    return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
+  } catch (err) {
+    console.error('[order] checkClientKey POST 失敗', err);
+    return { ok: false, reason: 'network', raw: null };
   }
-
-  var last = { ok: false, reason: 'network', raw: null };
-  for (var attempt = 0; attempt < 2; attempt++) {
-    try {
-      var got = await tryGet_();
-      if (got.ok) return got;
-      last = got;
-      if (got.reason !== 'bad_response' && got.reason !== 'network') return got;
-    } catch (eG) {
-      last = { ok: false, reason: 'network', raw: null };
-    }
-    if (attempt === 0) {
-      await new Promise(function (r) { setTimeout(r, 280); });
-    }
-  }
-  try {
-    var post = await tryPost_();
-    if (post.ok) return post;
-    last = post;
-    if (post.reason !== 'bad_response' && post.reason !== 'network') return post;
-  } catch (eP) {
-    last = { ok: false, reason: 'network', raw: null };
-  }
-  return last;
-}
-
-async function orderVerifyClientKeyOrFail_v2_() {
-  var ck = orderGetClientKey_();
-  if (!ck) return { ok: false, reason: 'no_client_key' };
-  var fresh = await orderFetchCheckClientKeyJson_(ck);
-  if (fresh.ok) {
-    try { window.__ORDER_PLAN_TYPE__ = fresh.planType; } catch (eP) {}
-    return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
-  }
-  return fresh;
 }
 
 async function orderVerifyClientKeyOrFail_() {
@@ -4222,30 +4138,49 @@ async function orderVerifyClientKeyOrFail_() {
   if (!ck) return { ok: false, reason: 'no_client_key' };
   var depId = orderExtractGasDeploymentId_(currentWebAppUrl);
   var ksig = orderClientKeySessionSig_(ck);
-
-  var fresh = await orderFetchCheckClientKeyJson_(ck);
-  if (fresh.ok) {
-    try { window.__ORDER_PLAN_TYPE__ = fresh.planType; } catch (eP) {}
-    orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
+  var sessHit = orderReadSessClientKeyVerify_();
+  if (sessHit && sessHit.depId === depId && sessHit.ksig === ksig && (Date.now() - sessHit.t) < ORDER_CK_SESS_VERIFY_TTL_MS) {
+    try { window.__ORDER_PLAN_TYPE__ = (sessHit.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
     return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
   }
 
-  if (fresh.reason !== 'bad_response' && fresh.reason !== 'network') {
+  var v2 = await orderVerifyClientKeyOrFail_v2_();
+  if (v2.ok) {
+    orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
+    return v2;
+  }
+  if (v2.reason !== 'bad_response' && v2.reason !== 'network') {
     orderClearSessClientKeyVerify_();
-    return fresh;
+    return v2;
   }
 
-  var sessHit = orderReadSessClientKeyVerify_();
-  var sessAuthOk = !!(sessHit && sessHit.depId === depId && sessHit.ksig === ksig
-    && (Date.now() - sessHit.t) < ORDER_CK_SESS_VERIFY_TTL_MS);
-  /* 網路異常：只信任 session 裡「伺服器曾確認過的 paid」；free 必須本次連線成功才能顯示試用 */
-  if (sessAuthOk && sessHit.planType === 'paid') {
-    try { window.__ORDER_PLAN_TYPE__ = 'paid'; } catch (eP) {}
-    return { ok: true, planType: 'paid' };
+  if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
+  if (!orderGetClientKey_()) return { ok: false, reason: 'no_client_key' };
+  try {
+    var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
+    var sep2 = u2.indexOf('?') >= 0 ? '&' : '?';
+    var url = u2 + sep2 + 'action=checkClientKey&clientKey=' + encodeURIComponent(ck) + '&_=' + Date.now();
+    var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
+    var text = await res.text();
+    var data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (pe) {
+      console.error('[order] checkClientKey GET 非 JSON', { url: url, status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
+      return { ok: false, reason: 'bad_response', raw: null };
+    }
+    if (data && data.result === 'success') {
+      try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+      orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
+      return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
+    }
+    console.error('[order] checkClientKey GET 未通過', { url: url, status: res.status, response: data });
+    orderClearSessClientKeyVerify_();
+    return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
+  } catch (err) {
+    console.error('[order] clientKey 驗證失敗（完整）', err, err && err.message, err && err.stack);
+    return { ok: false, reason: 'network', raw: null };
   }
-
-  orderClearSessClientKeyVerify_();
-  return fresh;
 }
 
 var ORDER_MEMBER_PHONE_STORAGE_KEY = 'order_member_phone_v1';
@@ -4440,7 +4375,6 @@ function orderSyncSynthBumperShopName_() {
 }
 
 function orderWaitShowSynthwave_(hintText) {
-  if (orderInitialReadyState_.loadingClosed) return;
   try {
     // 切到車尾合成波動畫時，主動關閉「接食物」mini game
     // 不然 mini game (z-index 1060) 會一直蓋住車尾 (z-index 2)，看不到轉場
@@ -4471,9 +4405,7 @@ function orderWaitShowSynthwave_(hintText) {
   } catch (e2) {}
 }
 
-/** 舊名保留：會員閘道等待；菜單已顯示時不再蓋回全屏 loading */
 function orderWaitShowCapybara_() {
-  if (orderInitialReadyState_.loadingClosed) return;
   orderWaitShowTruck_('資料載入中…');
 }
 
@@ -4727,9 +4659,7 @@ function orderTruckStopProgress_(done) {
   if (done) orderTruckSetProgress_(100);
 }
 
-function orderWaitShowTruck_(hintText, opts) {
-  opts = opts || {};
-  if (opts.force !== true && orderInitialReadyState_.loadingClosed) return;
+function orderWaitShowTruck_(hintText) {
   try {
     var synth = document.getElementById('order-wait-panel-synth');
     var truck = document.getElementById('order-wait-panel-truck');
@@ -6711,152 +6641,6 @@ window.addEventListener('scroll', () => {
   });
 }, { passive: true });
 
-var ORDER_MERCHANT_VISUAL_CACHE_KEY = 'order_merchant_visual_v1';
-var __orderMerchantInfoPrefetchPromise__ = null;
-var __orderLastAppliedMerchantVisualSig__ = '';
-
-function orderMerchantVisualSig_(mer) {
-  if (!mer) return '';
-  var logo = String(mer.logoImage || '').trim();
-  var cover = String(mer.coverImage || '').trim();
-  if (logo.length > 96) logo = logo.slice(0, 48) + '…' + logo.length;
-  if (cover.length > 96) cover = cover.slice(0, 48) + '…' + cover.length;
-  return [
-    String(mer.name || '').trim(),
-    logo,
-    cover,
-    String(mer.coverColor || '').trim(),
-    String(mer.logoColor || '').trim()
-  ].join('\u0001');
-}
-
-function orderPersistMerchantVisualCache_(mer) {
-  try {
-    var depId = orderExtractGasDeploymentId_(currentWebAppUrl);
-    if (!depId || !mer) return;
-    localStorage.setItem(ORDER_MERCHANT_VISUAL_CACHE_KEY, JSON.stringify({
-      depId: depId,
-      t: Date.now(),
-      name: String(mer.name || '').trim(),
-      logoImage: String(mer.logoImage || '').trim(),
-      coverImage: String(mer.coverImage || '').trim(),
-      logoColor: String(mer.logoColor || '').trim(),
-      coverColor: String(mer.coverColor || '').trim()
-    }));
-  } catch (e) { /* 配額或無痕 */ }
-}
-
-function orderRestoreMerchantVisualFromCache_() {
-  try {
-    var depId = orderExtractGasDeploymentId_(currentWebAppUrl);
-    if (!depId) return false;
-    var raw = localStorage.getItem(ORDER_MERCHANT_VISUAL_CACHE_KEY);
-    if (!raw) return false;
-    var o = JSON.parse(raw);
-    if (!o || o.depId !== depId) return false;
-    orderApplyMerchantHeroVisual_(o, { force: true });
-    if (o.name) {
-      try { window.__ORDER_SHOP_NAME_CACHE__ = String(o.name).trim(); } catch (eN) {}
-      orderSyncSynthBumperShopName_();
-    }
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-function orderApplyMerchantHeroVisual_(mer, opt) {
-  opt = opt || {};
-  if (!mer) return;
-  var sig = orderMerchantVisualSig_(mer);
-  if (!opt.force && sig && sig === __orderLastAppliedMerchantVisualSig__) return;
-
-  function applyNow_() {
-    var shopName = String(mer.name || '線上點餐').trim() || '線上點餐';
-    var heroName = document.getElementById('hero-shop-name');
-    if (heroName) heroName.textContent = shopName;
-    document.title = shopName;
-    try { window.__ORDER_SHOP_NAME_CACHE__ = shopName; } catch (eSn) {}
-    orderSyncSynthBumperShopName_();
-
-    var logoWrap = document.getElementById('hero-logo-wrap');
-    var logoImg = document.getElementById('hero-shop-logo');
-    var heroImgEl = document.getElementById('hero-img');
-    var heroBanner = document.getElementById('hero-banner');
-    var heroColorLayer = document.getElementById('hero-color-layer');
-    if (!logoWrap || !logoImg || !heroImgEl || !heroBanner) return false;
-
-    var logoSrc = String(mer.logoImage || '').trim();
-    if (logoSrc) {
-      if (logoImg.getAttribute('src') !== logoSrc) {
-        try { logoImg.decoding = 'async'; logoImg.loading = 'eager'; } catch (eLd) {}
-        logoImg.src = logoSrc;
-      }
-      logoImg.alt = shopName;
-      logoWrap.style.display = '';
-      logoWrap.setAttribute('aria-hidden', 'false');
-    } else {
-      logoImg.removeAttribute('src');
-      logoWrap.style.display = 'none';
-      logoWrap.setAttribute('aria-hidden', 'true');
-    }
-
-    var coverSrc = String(mer.coverImage || '').trim();
-    var coverColorRaw = String(mer.coverColor || '').trim();
-    var validCoverColor = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(coverColorRaw);
-    if (coverSrc) {
-      heroBanner.classList.add('hero-has-cover');
-      heroBanner.classList.remove('hero-has-color');
-      if (heroColorLayer) heroColorLayer.style.background = '';
-      if (heroImgEl.getAttribute('src') !== coverSrc) {
-        try { heroImgEl.decoding = 'async'; heroImgEl.loading = 'eager'; } catch (eLc) {}
-        heroImgEl.src = coverSrc;
-      }
-      heroImgEl.alt = shopName;
-      heroImgEl.style.display = '';
-    } else if (validCoverColor) {
-      heroBanner.classList.remove('hero-has-cover');
-      heroBanner.classList.add('hero-has-color');
-      heroImgEl.removeAttribute('src');
-      heroImgEl.style.display = 'none';
-      if (heroColorLayer) {
-        var g = coverGradientFromHex(coverColorRaw);
-        heroColorLayer.style.background = g || coverColorRaw;
-      }
-    } else {
-      heroBanner.classList.remove('hero-has-cover', 'hero-has-color');
-      heroImgEl.removeAttribute('src');
-      heroImgEl.style.display = 'none';
-      if (heroColorLayer) heroColorLayer.style.background = '';
-    }
-
-    __orderLastAppliedMerchantVisualSig__ = sig;
-    orderMarkMerchantVisualReady_(coverSrc);
-    return true;
-  }
-
-  if (opt.skipDomRetry) {
-    applyNow_();
-    return;
-  }
-  orderRetryDomApply('orderApplyMerchantHeroVisual', function () {
-    return !!(document.getElementById('hero-shop-name') && document.getElementById('hero-banner'));
-  }, applyNow_);
-}
-
-function orderEnsureMerchantInfoPrefetch_() {
-  if (__orderMerchantInfoPrefetchPromise__) return __orderMerchantInfoPrefetchPromise__;
-  __orderMerchantInfoPrefetchPromise__ = (async function () {
-    var data = await orderFetchMerchantInfoJsonOnly_();
-    if (data && data.result === 'success' && data.merchant) {
-      orderPersistMerchantVisualCache_(data.merchant);
-      orderApplyMerchantHeroVisual_(data.merchant);
-    }
-    return data;
-  })();
-  return __orderMerchantInfoPrefetchPromise__;
-}
-
 async function orderFetchMerchantInfoJsonOnly_() {
   try {
     if (!currentWebAppUrl) return null;
@@ -6877,12 +6661,7 @@ async function orderFetchMerchantInfoJsonOnly_() {
 async function orderBootstrapVacationGateAfterAuth_() {
   var out = { blocked: false, preload: null };
   try {
-    var data = null;
-    if (__orderMerchantInfoPrefetchPromise__) {
-      data = await __orderMerchantInfoPrefetchPromise_;
-    } else {
-      data = await orderFetchMerchantInfoJsonOnly_();
-    }
+    var data = await orderFetchMerchantInfoJsonOnly_();
     out.preload = data;
     if (!data || data.result !== 'success') return out;
     var __mer = data.merchant || {};
@@ -6923,9 +6702,6 @@ async function loadMerchantInfo(preloaded) {
       return;
     }
     var data = (preloaded && preloaded.result === 'success') ? preloaded : null;
-    if (!data && __orderMerchantInfoPrefetchPromise__) {
-      data = await __orderMerchantInfoPrefetchPromise_;
-    }
     if (!data) {
       const res  = await fetch(`${currentWebAppUrl}?action=getMerchantInfo&_=${Date.now()}`);
       try {
@@ -6935,10 +6711,14 @@ async function loadMerchantInfo(preloaded) {
       }
     }
     if (!data || data.result !== 'success') return;
+    try {
+      window.__ORDER_SHOP_NAME_CACHE__ = String((data.merchant && data.merchant.name) || '線上點餐').trim();
+    } catch (eCache) {}
 
+    orderRetryDomApply('loadMerchantInfo', function () {
+      return !!(document.getElementById('hero-shop-name') && document.getElementById('hero-banner'));
+    }, function () {
     merchantInfo = data.merchant || {};
-    orderPersistMerchantVisualCache_(merchantInfo);
-    orderApplyMerchantHeroVisual_(merchantInfo);
 
     if (merchantInfo.holidays) {
       holidayList = Array.isArray(merchantInfo.holidays)
@@ -6947,12 +6727,65 @@ async function loadMerchantInfo(preloaded) {
     }
     fixedClosedDays = normalizeFixedClosedDays(merchantInfo.fixedClosedDays);
 
+    const shopName = merchantInfo.name || '線上點餐';
+    document.getElementById('hero-shop-name').textContent = shopName;
+    document.title = shopName;
+    orderSyncSynthBumperShopName_();
+
+    const logoWrap = document.getElementById('hero-logo-wrap');
+    const logoImg  = document.getElementById('hero-shop-logo');
+    const heroImgEl = document.getElementById('hero-img');
+    const logoSrc = (merchantInfo.logoImage || '').toString().trim();
+    if (logoSrc) {
+      logoImg.src = logoSrc;
+      logoImg.alt = shopName;
+      logoWrap.style.display = '';
+      logoWrap.setAttribute('aria-hidden', 'false');
+    } else {
+      logoImg.removeAttribute('src');
+      logoWrap.style.display = 'none';
+      logoWrap.setAttribute('aria-hidden', 'true');
+    }
+    const coverSrc = (merchantInfo.coverImage || '').toString().trim();
+    const coverColorRaw = (merchantInfo.coverColor || '').toString().trim();
+    const heroBanner = document.getElementById('hero-banner');
+    const heroColorLayer = document.getElementById('hero-color-layer');
+    const validCoverColor = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(coverColorRaw);
+    if (coverSrc) {
+      heroBanner.classList.add('hero-has-cover');
+      heroBanner.classList.remove('hero-has-color');
+      if (heroColorLayer) {
+        heroColorLayer.style.background = '';
+      }
+      heroImgEl.src = coverSrc;
+      heroImgEl.alt = shopName;
+      heroImgEl.style.display = '';
+    } else if (validCoverColor) {
+      heroBanner.classList.remove('hero-has-cover');
+      heroBanner.classList.add('hero-has-color');
+      heroImgEl.removeAttribute('src');
+      heroImgEl.style.display = 'none';
+      if (heroColorLayer) {
+        var g = coverGradientFromHex(coverColorRaw);
+        heroColorLayer.style.background = g || coverColorRaw;
+      }
+    } else {
+      heroBanner.classList.remove('hero-has-cover', 'hero-has-color');
+      heroImgEl.removeAttribute('src');
+      heroImgEl.style.display = 'none';
+      if (heroColorLayer) {
+        heroColorLayer.style.background = '';
+      }
+    }
+    orderMarkMerchantVisualReady_(coverSrc);
+
     isBusinessClosed = checkBusinessStatus();
     updateStatusDisplay();
     if (isBusinessClosed) showClosedOverlay();
 
     storeData = merchantInfo;
     try { void orderEnsureStorePromotionsFetchedAtLeastOnce_(); } catch (eSp) { /* 略 */ }
+    });
   } catch (err) {
     console.error('❌ loadMerchantInfo 失敗:', err);
   }
@@ -7257,7 +7090,6 @@ function orderFinishMenuLoadingUi_() {
 }
 
 function orderRevealMenuContent_() {
-  if (!orderInitialReadyState_.loadingClosed) return;
   var _ml = document.getElementById('menu-loading');
   var _mc = document.getElementById('menu-content');
   if (_ml) {
@@ -7281,17 +7113,45 @@ var orderInitialReadyState_ = {
   menuReady: false,
   storeNameReady: false,
   coverReady: false,
-  promoBootReady: false,
+  promoBootReady: true,
   memberGateDone: false,
   homeReady: false,
   loadingClosed: false
 };
 
+var ORDER_BOOT_LOAD_MAX_MS_ = 8000;
+var orderBootLoadDeadlineTimer_ = null;
+
+function orderStartBootLoadingTimer_() {
+  orderStopBootLoadingTimer_();
+  orderBootLoadDeadlineTimer_ = setTimeout(function () {
+    orderForceCloseInitialLoading_();
+  }, ORDER_BOOT_LOAD_MAX_MS_);
+}
+
+function orderStopBootLoadingTimer_() {
+  if (orderBootLoadDeadlineTimer_) {
+    clearTimeout(orderBootLoadDeadlineTimer_);
+    orderBootLoadDeadlineTimer_ = null;
+  }
+}
+
+function orderIsHomepageBootReady_() {
+  return !!(orderInitialReadyState_.homeReady && orderInitialReadyState_.menuReady);
+}
+
+function orderForceCloseInitialLoading_() {
+  if (orderInitialReadyState_.loadingClosed) return;
+  orderInitialReadyState_.loadingClosed = true;
+  orderStopBootLoadingTimer_();
+  orderFinishMenuLoadingUi_();
+}
+
 function orderTryCloseInitialLoading_() {
   if (orderInitialReadyState_.loadingClosed) return;
-  if (!orderInitialReadyState_.homeReady) return;
-  if (!orderInitialReadyState_.menuReady) return;
+  if (!orderIsHomepageBootReady_()) return;
   orderInitialReadyState_.loadingClosed = true;
+  orderStopBootLoadingTimer_();
   orderFinishMenuLoadingUi_();
 }
 
@@ -7312,7 +7172,6 @@ function orderKickMemberGateBackgroundOnce_() {
       orderApplyMemberPhoneLockToForm_();
       void orderPrefetchMemberCornerData_().catch(function () {});
       void orderPrefetchMemberPointsForDiscount_().catch(function () {});
-      try { orderPromoAdUiAfterPromotionsPayload_(); } catch (ePromo) { /* 略 */ }
     } catch (e2) { /* 略 */ }
   })();
 }
@@ -10254,49 +10113,6 @@ function orderEnsureSwalReady_() {
   });
 }
 
-async function orderBootstrapAuthPipeline_(freshUrlPromise, urlPinnedByQuery) {
-  var isOrderGas = false;
-  if (!(typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__)) {
-    try {
-      isOrderGas = typeof google !== 'undefined' && google.script && typeof google.script.run !== 'undefined';
-    } catch (eG) { isOrderGas = false; }
-  }
-  var orderKeyFetch;
-  try {
-    if (urlPinnedByQuery) {
-      orderKeyFetch = isOrderGas ? await orderHydrateBuiltInKeyFromGas_() : await orderFetchBuiltInClientKey_();
-    } else {
-      var _bootPair = await Promise.all([
-        freshUrlPromise,
-        isOrderGas ? orderHydrateBuiltInKeyFromGas_() : orderFetchBuiltInClientKey_()
-      ]);
-      orderKeyFetch = _bootPair[1];
-    }
-  } catch (eBootParallel) {
-    console.error('[order] bootstrap 並行階段失敗', eBootParallel);
-    return { ok: false, reason: 'bootstrap_parallel' };
-  }
-  if (!orderKeyFetch.ok) {
-    console.error('[order] getBuiltInClientKey 失敗（消費者端僅顯示系統維修中）', orderKeyFetch.reason || '');
-    return { ok: false, reason: orderKeyFetch.reason || 'key_fetch' };
-  }
-  var orderClientKeyRes = await orderVerifyClientKeyOrFail_();
-  if (!orderClientKeyRes.ok) {
-    var _vr = orderClientKeyRes.reason || '';
-    console.error('[order] 授權／金鑰驗證未通過（消費者端僅顯示系統維修中）', _vr, orderClientKeyRes.raw);
-    return { ok: false, reason: _vr || 'verify_fail' };
-  }
-  var _vacGate = await orderBootstrapVacationGateAfterAuth_();
-  try {
-    currentWebAppUrl = String(currentWebAppUrl || '').trim().replace(/\?+$/, '');
-  } catch (eNormU) { /* 略 */ }
-  return {
-    ok: true,
-    blocked: !!(_vacGate && _vacGate.blocked),
-    preload: _vacGate ? _vacGate.preload : null
-  };
-}
-
 async function bootstrapOrder() {
   if (document.readyState === 'loading') {
     await new Promise(function (r) { document.addEventListener('DOMContentLoaded', r, { once: true }); });
@@ -10307,11 +10123,9 @@ async function bootstrapOrder() {
     window.__ORDER_LINE_USER_ID__ = '';
     window.__ORDER_MEMBER_GATE_BG_STARTED__ = false;
     window.__ORDER_VACATION_BLOCK__ = false;
-    delete window.__ORDER_PLAN_TYPE__;
   } catch (eResetLiff) {}
-  orderClearSessClientKeyVerify_();
-  orderRemoveFreeTrialBanner_();
-  orderWaitShowTruck_('資料載入中…', { force: true });
+  orderWaitShowTruck_('資料載入中…');
+  orderStartBootLoadingTimer_();
   setTimeout(function () { orderInitMiniGame_(); }, 200);
   // SweetAlert2 背景載入（與參考版一致）：不擋 boot，避免 CDN 慢時菜單永遠載不入
   void orderEnsureSwalReady_();
@@ -10344,60 +10158,70 @@ async function bootstrapOrder() {
     }
     return;
   }
+
   orderInitialReadyState_.memberGateDone = false;
   orderInitialReadyState_.homeReady = false;
   orderInitialReadyState_.promoBootReady = true;
   orderInitialReadyState_.menuReady = false;
   orderInitialReadyState_.loadingClosed = false;
-  orderInitialReadyState_.storeNameReady = false;
-  orderInitialReadyState_.coverReady = false;
   window.__ORDER_BOOT_PREFETCH__ = null;
   window.__orderLoadMenuPromise__ = null;
-  __orderMerchantInfoPrefetchPromise__ = null;
-  __orderLastAppliedMerchantVisualSig__ = '';
-
-  orderRestoreMerchantVisualFromCache_();
-  void orderEnsureMerchantInfoPrefetch_();
-
-  var cacheHitEarly = tryRestoreOrderMenuFromCache_();
-  if (!cacheHitEarly || !allProducts || !allProducts.length) {
-    orderRenderMenuSkeleton_();
-  }
+  orderRenderMenuSkeleton_();
 
   void orderGetStorePromotionsFetchOnce_().catch(function (e) {
     console.error('[ordergit] 商家活動背景載入', e);
   });
-
-  var authPromise = orderBootstrapAuthPipeline_(freshUrlPromise, _orderUrlPinnedByQuery);
-  var menuPromise = loadMenuData_().catch(function (err) {
+  void loadMenuData_().catch(function (err) {
     console.error('[ordergit] 菜單載入', err);
   });
 
-  var authRes = await authPromise;
-  if (!authRes || !authRes.ok) {
-    orderShowBootstrapMaintenance_();
-    return;
-  }
-  if (authRes.blocked) return;
-
-  orderSyncFreeTrialBannerFromPlanType_();
-  void loadMerchantInfo(authRes.preload).catch(function (e) { console.error(e); });
-
-  await Promise.all([
-    menuPromise,
-    __orderMerchantInfoPrefetchPromise__ || Promise.resolve()
-  ]);
-
-  if (allProducts && allProducts.length > 0) {
-    orderInitialReadyState_.menuReady = true;
-  }
+  var authBootstrapPromise = (async function () {
+    var isOrderGas = false;
+    if (!(typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__)) {
+      try {
+        isOrderGas = typeof google !== 'undefined' && google.script && typeof google.script.run !== 'undefined';
+      } catch (eG) { isOrderGas = false; }
+    }
+    var orderKeyFetch;
+    try {
+      if (_orderUrlPinnedByQuery) {
+        orderKeyFetch = isOrderGas ? await orderHydrateBuiltInKeyFromGas_() : await orderFetchBuiltInClientKey_();
+      } else {
+        var _bootPair = await Promise.all([
+          freshUrlPromise,
+          isOrderGas ? orderHydrateBuiltInKeyFromGas_() : orderFetchBuiltInClientKey_()
+        ]);
+        orderKeyFetch = _bootPair[1];
+      }
+    } catch (eBootParallel) {
+      console.error('[order] bootstrap 並行階段失敗', eBootParallel);
+      orderKeyFetch = { ok: false, reason: 'bootstrap_parallel' };
+    }
+    if (!orderKeyFetch.ok) {
+      console.error('[order] getBuiltInClientKey 失敗（消費者端僅顯示系統維修中）', orderKeyFetch.reason || '');
+      orderShowBootstrapMaintenance_();
+      return { ok: false };
+    }
+    var orderClientKeyRes = await orderVerifyClientKeyOrFail_();
+    if (!orderClientKeyRes.ok) {
+      var _vr = orderClientKeyRes.reason || '';
+      console.error('[order] 授權／金鑰驗證未通過（消費者端僅顯示系統維修中）', _vr, orderClientKeyRes.raw);
+      orderShowBootstrapMaintenance_();
+      return { ok: false };
+    }
+    var _vacGate = await orderBootstrapVacationGateAfterAuth_();
+    if (_vacGate.blocked) return { ok: false, blocked: true };
+    try {
+      currentWebAppUrl = String(currentWebAppUrl || '').trim().replace(/\?+$/, '');
+    } catch (eNormU) { /* 略 */ }
+    return { ok: true, vacGate: _vacGate };
+  })();
 
   await init();
 
-  orderTryCloseInitialLoading_();
-  if (orderInitialReadyState_.loadingClosed && allProducts && allProducts.length > 0) {
-    orderRevealMenuContent_();
-  }
+  var authResult = await authBootstrapPromise;
+  if (!authResult || !authResult.ok) return;
+  void loadMerchantInfo(authResult.vacGate.preload).catch(function (e) { console.error(e); });
 }
 (function ordergitKickBootstrapOnDomReady_() {
   function kick() {
@@ -10442,13 +10266,28 @@ async function bootstrapOrder() {
 <script>
 (function () {
   'use strict';
+  function isFreePlan() {
+    try { return window.__ORDER_PLAN_TYPE__ === 'free'; } catch (e) { return false; }
+  }
+  function ensureBanner() {
+    if (!isFreePlan()) return;
+    if (document.getElementById('order-free-trial-banner')) return;
+    var b = document.createElement('div');
+    b.id = 'order-free-trial-banner';
+    b.innerHTML = '<span class="free-tag">試用版</span>'
+      + '<span>老闆試用模式：可完整瀏覽會員、訂餐流程，但無法送出線上訂單；資料 3 分鐘後自動清除、且不發送 Telegram 通知</span>';
+    document.body.insertBefore(b, document.body.firstChild);
+    document.body.classList.add('order-free-mode');
+  }
+  function startFreeWatcher() {
+    if (!isFreePlan()) return;
+    ensureBanner();
+  }
   var tries = 0;
   function tryInit() {
     tries++;
     if (typeof window.__ORDER_PLAN_TYPE__ !== 'undefined') {
-      if (typeof orderSyncFreeTrialBannerFromPlanType_ === 'function') {
-        orderSyncFreeTrialBannerFromPlanType_();
-      }
+      startFreeWatcher();
       return;
     }
     if (tries < 30) setTimeout(tryInit, 500);
