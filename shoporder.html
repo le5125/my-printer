@@ -4375,6 +4375,7 @@ function orderSyncSynthBumperShopName_() {
 }
 
 function orderWaitShowSynthwave_(hintText) {
+  if (orderInitialReadyState_.loadingClosed) return;
   try {
     // 切到車尾合成波動畫時，主動關閉「接食物」mini game
     // 不然 mini game (z-index 1060) 會一直蓋住車尾 (z-index 2)，看不到轉場
@@ -4405,7 +4406,9 @@ function orderWaitShowSynthwave_(hintText) {
   } catch (e2) {}
 }
 
+/** 舊名保留：會員閘道等待；菜單已顯示時不再蓋回全屏 loading */
 function orderWaitShowCapybara_() {
+  if (orderInitialReadyState_.loadingClosed) return;
   orderWaitShowTruck_('資料載入中…');
 }
 
@@ -4659,7 +4662,9 @@ function orderTruckStopProgress_(done) {
   if (done) orderTruckSetProgress_(100);
 }
 
-function orderWaitShowTruck_(hintText) {
+function orderWaitShowTruck_(hintText, opts) {
+  opts = opts || {};
+  if (opts.force !== true && orderInitialReadyState_.loadingClosed) return;
   try {
     var synth = document.getElementById('order-wait-panel-synth');
     var truck = document.getElementById('order-wait-panel-truck');
@@ -7122,7 +7127,6 @@ var orderInitialReadyState_ = {
 function orderTryCloseInitialLoading_() {
   if (orderInitialReadyState_.loadingClosed) return;
   if (!orderInitialReadyState_.homeReady) return;
-  if (!orderInitialReadyState_.promoBootReady) return;
   if (!orderInitialReadyState_.menuReady) return;
   orderInitialReadyState_.loadingClosed = true;
   orderFinishMenuLoadingUi_();
@@ -10084,6 +10088,49 @@ function orderEnsureSwalReady_() {
   });
 }
 
+async function orderBootstrapAuthPipeline_(freshUrlPromise, urlPinnedByQuery) {
+  var isOrderGas = false;
+  if (!(typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__)) {
+    try {
+      isOrderGas = typeof google !== 'undefined' && google.script && typeof google.script.run !== 'undefined';
+    } catch (eG) { isOrderGas = false; }
+  }
+  var orderKeyFetch;
+  try {
+    if (urlPinnedByQuery) {
+      orderKeyFetch = isOrderGas ? await orderHydrateBuiltInKeyFromGas_() : await orderFetchBuiltInClientKey_();
+    } else {
+      var _bootPair = await Promise.all([
+        freshUrlPromise,
+        isOrderGas ? orderHydrateBuiltInKeyFromGas_() : orderFetchBuiltInClientKey_()
+      ]);
+      orderKeyFetch = _bootPair[1];
+    }
+  } catch (eBootParallel) {
+    console.error('[order] bootstrap 並行階段失敗', eBootParallel);
+    return { ok: false, reason: 'bootstrap_parallel' };
+  }
+  if (!orderKeyFetch.ok) {
+    console.error('[order] getBuiltInClientKey 失敗（消費者端僅顯示系統維修中）', orderKeyFetch.reason || '');
+    return { ok: false, reason: orderKeyFetch.reason || 'key_fetch' };
+  }
+  var orderClientKeyRes = await orderVerifyClientKeyOrFail_();
+  if (!orderClientKeyRes.ok) {
+    var _vr = orderClientKeyRes.reason || '';
+    console.error('[order] 授權／金鑰驗證未通過（消費者端僅顯示系統維修中）', _vr, orderClientKeyRes.raw);
+    return { ok: false, reason: _vr || 'verify_fail' };
+  }
+  var _vacGate = await orderBootstrapVacationGateAfterAuth_();
+  try {
+    currentWebAppUrl = String(currentWebAppUrl || '').trim().replace(/\?+$/, '');
+  } catch (eNormU) { /* 略 */ }
+  return {
+    ok: true,
+    blocked: !!(_vacGate && _vacGate.blocked),
+    preload: _vacGate ? _vacGate.preload : null
+  };
+}
+
 async function bootstrapOrder() {
   if (document.readyState === 'loading') {
     await new Promise(function (r) { document.addEventListener('DOMContentLoaded', r, { once: true }); });
@@ -10095,7 +10142,7 @@ async function bootstrapOrder() {
     window.__ORDER_MEMBER_GATE_BG_STARTED__ = false;
     window.__ORDER_VACATION_BLOCK__ = false;
   } catch (eResetLiff) {}
-  orderWaitShowTruck_('資料載入中…');
+  orderWaitShowTruck_('資料載入中…', { force: true });
   setTimeout(function () { orderInitMiniGame_(); }, 200);
   // SweetAlert2 背景載入（與參考版一致）：不擋 boot，避免 CDN 慢時菜單永遠載不入
   void orderEnsureSwalReady_();
@@ -10128,71 +10175,46 @@ async function bootstrapOrder() {
     }
     return;
   }
-  var isOrderGas = false;
-  if (!(typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__)) {
-    try {
-      isOrderGas = typeof google !== 'undefined' && google.script && typeof google.script.run !== 'undefined';
-    } catch (eG) { isOrderGas = false; }
-  }
-  var orderKeyFetch;
-  try {
-    if (_orderUrlPinnedByQuery) {
-      orderKeyFetch = isOrderGas ? await orderHydrateBuiltInKeyFromGas_() : await orderFetchBuiltInClientKey_();
-    } else {
-      var _bootPair = await Promise.all([
-        freshUrlPromise,
-        isOrderGas ? orderHydrateBuiltInKeyFromGas_() : orderFetchBuiltInClientKey_()
-      ]);
-      orderKeyFetch = _bootPair[1];
-    }
-  } catch (eBootParallel) {
-    console.error('[order] bootstrap 並行階段失敗', eBootParallel);
-    orderKeyFetch = { ok: false, reason: 'bootstrap_parallel' };
-  }
-  if (!orderKeyFetch.ok) {
-    console.error('[order] getBuiltInClientKey 失敗（消費者端僅顯示系統維修中）', orderKeyFetch.reason || '');
-    orderShowBootstrapMaintenance_();
-    return;
-  }
-  var orderClientKeyRes = await orderVerifyClientKeyOrFail_();
-  if (!orderClientKeyRes.ok) {
-    var _vr = orderClientKeyRes.reason || '';
-    console.error('[order] 授權／金鑰驗證未通過（消費者端僅顯示系統維修中）', _vr, orderClientKeyRes.raw);
-    orderShowBootstrapMaintenance_();
-    return;
-  }
-  var _vacGate = await orderBootstrapVacationGateAfterAuth_();
-  if (_vacGate.blocked) return;
-  try {
-    currentWebAppUrl = String(currentWebAppUrl || '').trim().replace(/\?+$/, '');
-  } catch (eNormU) { /* 略 */ }
-
-  void loadMerchantInfo(_vacGate.preload).catch(function (e) { console.error(e); });
-
   orderInitialReadyState_.memberGateDone = false;
   orderInitialReadyState_.homeReady = false;
-  orderInitialReadyState_.promoBootReady = false;
+  orderInitialReadyState_.promoBootReady = true;
   orderInitialReadyState_.menuReady = false;
   orderInitialReadyState_.loadingClosed = false;
+  orderInitialReadyState_.storeNameReady = false;
+  orderInitialReadyState_.coverReady = false;
   window.__ORDER_BOOT_PREFETCH__ = null;
   window.__orderLoadMenuPromise__ = null;
 
-  orderRenderMenuSkeleton_();
+  var cacheHitEarly = tryRestoreOrderMenuFromCache_();
+  if (cacheHitEarly && allProducts && allProducts.length > 0) {
+    orderInitialReadyState_.menuReady = true;
+  } else {
+    orderRenderMenuSkeleton_();
+  }
 
-  void Promise.all([
-    loadMenuData_(),
-    orderGetStorePromotionsFetchOnce_()
-  ]).catch(function (err) {
-    console.error('[ordergit] 首屏菜單／商家活動並行載入', err);
+  void orderBootstrapAuthPipeline_(freshUrlPromise, _orderUrlPinnedByQuery).then(function (authRes) {
+    if (!authRes || !authRes.ok) {
+      orderShowBootstrapMaintenance_();
+      return;
+    }
+    if (authRes.blocked) return;
+    void loadMerchantInfo(authRes.preload).catch(function (e) { console.error(e); });
+  });
+
+  void loadMenuData_().catch(function (err) {
+    console.error('[ordergit] 菜單載入', err);
   }).finally(function () {
-    orderInitialReadyState_.promoBootReady = true;
     if (allProducts && allProducts.length > 0) {
       orderInitialReadyState_.menuReady = true;
+      orderTryCloseInitialLoading_();
+      if (orderInitialReadyState_.loadingClosed) {
+        orderRevealMenuContent_();
+      }
     }
-    orderTryCloseInitialLoading_();
-    if (allProducts && allProducts.length > 0) {
-      orderRevealMenuContent_();
-    }
+  });
+
+  void orderGetStorePromotionsFetchOnce_().catch(function (e) {
+    console.error('[ordergit] 商家活動背景載入', e);
   });
 
   await init();
