@@ -11988,6 +11988,9 @@ function openPrinterPageWithSettings_() {
   isPrinterReady = true;
   try { window.postMessage({ type: 'PRINTER_PING' }, '*'); } catch (e1) {}
   try { _setPrinterLinkStatus_(false); } catch (e2) {}
+  try {
+    if (typeof window.posApplyFreeBleLock_ === 'function') window.posApplyFreeBleLock_();
+  } catch (eL) { /* 略 */ }
   return window;
 }
 
@@ -17851,6 +17854,8 @@ window.addEventListener('load', async function () {
     try { return window.__POS_PLAN_TYPE__ === 'free'; } catch (e) { return false; }
   }
 
+  window.posShowVipUpgradeAlert_ = showVipUpgradeAlert;
+
   function showVipUpgradeAlert(featureLabel) {
     try {
       if (window.Swal && typeof Swal.fire === 'function') {
@@ -17888,7 +17893,8 @@ window.addEventListener('load', async function () {
 
     var lockedDropdownIds = [
       'member-hub-tab',
-      'merchant-promotions-tab', 'merchant-images-btn', 'sort-mode-btn'
+      'merchant-promotions-tab', 'merchant-images-btn', 'sort-mode-btn',
+      'pos-open-printer-panel-btn'
     ];
     function ensureVipBadgeOn(id) {
       var b = document.getElementById(id);
@@ -17923,6 +17929,10 @@ window.addEventListener('load', async function () {
         setTimeout(function () { injectTrialBannerInto(document.getElementById(panelId)); }, 60);
       });
     });
+
+    try {
+      if (typeof window.posApplyFreeBleLock_ === 'function') window.posApplyFreeBleLock_();
+    } catch (eBleLock) { /* 略 */ }
   }
 
     var __setupFreeDone = false;
@@ -17998,6 +18008,60 @@ const btnPollClearHist = null; // 已移除「清除已列印紀錄」按鈕
 const historyDisp      = document.getElementById('history-display');
 const btnClearHistory  = document.getElementById('btn-clear-history');
 
+function posBleLockedByFreePlan_() {
+  try { return window.__POS_PLAN_TYPE__ === 'free'; } catch (e) { return false; }
+}
+
+function posBleFreeLockBlocked_(featureLabel) {
+  if (!posBleLockedByFreePlan_()) return false;
+  try {
+    if (typeof window.posShowVipUpgradeAlert_ === 'function') {
+      window.posShowVipUpgradeAlert_(featureLabel || '藍牙列印');
+    } else {
+      alert('「' + (featureLabel || '藍牙列印') + '」為 VIP 專屬，升級後可使用。');
+    }
+  } catch (eA) { /* 略 */ }
+  return true;
+}
+
+function posApplyFreeBleLock_() {
+  if (!posBleLockedByFreePlan_()) return;
+  if (btnConnect) {
+    btnConnect.disabled = true;
+    btnConnect.classList.add('pos-free-disabled', 'free-vip-locked-btn');
+    btnConnect.title = '試用版須升級 VIP 後才能連線打印';
+  }
+  if (btnPollStart) {
+    btnPollStart.disabled = true;
+    btnPollStart.classList.add('pos-free-disabled');
+    btnPollStart.title = '試用版須升級 VIP 後才能使用';
+  }
+  try {
+    var bleCard = btnConnect && btnConnect.closest('.card.compact');
+    if (bleCard && !bleCard.querySelector('.free-trial-banner')) {
+      var b = document.createElement('div');
+      b.className = 'free-trial-banner';
+      b.style.marginBottom = '8px';
+      b.innerHTML = '<i class="fas fa-info-circle"></i><span>試用版：藍牙列印為 VIP 專屬，升級後可連線打印機</span>';
+      var titleEl = bleCard.querySelector('.card-title');
+      if (titleEl && titleEl.nextSibling) bleCard.insertBefore(b, titleEl.nextSibling);
+      else bleCard.insertBefore(b, bleCard.firstChild);
+    }
+  } catch (eBan) { /* 略 */ }
+  try {
+    if (typeof stopPolling_ === 'function' && pollTimer) stopPolling_();
+  } catch (eP) { /* 略 */ }
+  try {
+    if (bleDevice && bleDevice.gatt && bleDevice.gatt.connected) {
+      bleDevice.gatt.disconnect();
+      setBleState('disconnected');
+      log('試用版已停用藍牙列印，連線已中斷', 'warn');
+    }
+  } catch (eD) { /* 略 */ }
+}
+window.posApplyFreeBleLock_ = posApplyFreeBleLock_;
+window.posBleLockedByFreePlan_ = posBleLockedByFreePlan_;
+
 function log(msg, type = '') {
   const el = document.createElement('div');
   el.className = 'log-line ' + type;
@@ -18015,7 +18079,7 @@ function setBleState(state) {
     deviceName.textContent = '--';
     btnConnect.style.display = '';
     btnDisconn.style.display = 'none';
-    btnConnect.disabled = false;
+    btnConnect.disabled = posBleLockedByFreePlan_();
     isConnected = false;
     bleChar = null;
     btnTest.disabled = true;
@@ -18028,7 +18092,7 @@ function setBleState(state) {
     btnConnect.style.display = 'none';
     btnDisconn.style.display = '';
     isConnected = true;
-    btnTest.disabled = false;
+    btnTest.disabled = posBleLockedByFreePlan_();
   }
   try { renderPrintHistory_(); } catch (e) { /* 略 */ }
   try { _notifyPosBleLinkStatus_(); } catch (eN) { /* 略 */ }
@@ -18064,6 +18128,10 @@ function disconnectGattDevice_(d) {
 }
 
 async function connectGattFromDevice_(device) {
+  if (posBleLockedByFreePlan_()) {
+    log('試用版無法連線打印機（VIP 專屬）', 'warn');
+    throw new Error('試用版無法使用藍牙列印');
+  }
   const prev = bleDevice;
   if (prev && prev !== device) disconnectGattDevice_(prev);
 
@@ -18145,6 +18213,7 @@ async function connectGattFromDevice_(device) {
 }
 
 async function tryAutoReconnectBle_() {
+  if (posBleLockedByFreePlan_()) return;
   if (!navigator.bluetooth || isConnected || _bleAutoReconnectBusy) return;
   if (isIosLikeWebBluetoothClient_()) return;
   let id = '';
@@ -18176,6 +18245,7 @@ async function tryAutoReconnectBle_() {
 }
 
 btnConnect.addEventListener('click', async () => {
+  if (posBleFreeLockBlocked_('藍牙列印')) return;
   if (!navigator.bluetooth) {
     log('此瀏覽器不支援 Web Bluetooth', 'err');
     alert('此瀏覽器不支援 Web Bluetooth。\n\n桌機請使用 Chrome 或 Edge（建議最新版）。\niPhone／iPad 的 Safari 不支援，可改用 Bluefy 等支援 Web Bluetooth 的瀏覽器開啟本頁。');
@@ -19043,6 +19113,7 @@ function renderPrintHistory_() {
 }
 
 async function reprintHistoryEntry_(historyId) {
+  if (posBleFreeLockBlocked_('藍牙列印')) return;
   const arr = _loadPrintHistory_();
   const entry = arr.find(function (e) { return e.id === historyId; });
   if (!entry) { log('找不到歷史紀錄', 'err'); return; }
@@ -19406,6 +19477,7 @@ window.addEventListener('hashchange', () => {
 });
 
 btnManual.addEventListener('click', async () => {
+  if (posBleFreeLockBlocked_('藍牙列印')) return;
   if (!isConnected || !bleChar) {
     log('請先按「連線打印機」完成藍牙連線後再列印', 'err');
     return;
@@ -19454,6 +19526,7 @@ btnManual.addEventListener('click', async () => {
 })();
 
 btnTest.addEventListener('click', async () => {
+  if (posBleFreeLockBlocked_('藍牙列印')) return;
   if (!isConnected || !bleChar) {
     log('測試打印失敗：請先連線打印機', 'err');
     return;
@@ -20648,6 +20721,7 @@ async function processBackendOrders_(orders) {
 }
 
 function startPolling_() {
+  if (posBleFreeLockBlocked_('後端備援列印')) return;
   const url = (cfgBackendUrl && cfgBackendUrl.value || '').trim();
   if (!url) {
     setPollStatus_('請先填入 Web App URL', 'err');
@@ -20686,6 +20760,7 @@ function loadBackendUrlFromStorage_() {
 }
 
 function maybeAutoStartPolling_() {
+  if (posBleLockedByFreePlan_()) return;
   try {
     const enabled = localStorage.getItem(LS_POLL_ENABLED) === '1';
     const url = cfgBackendUrl && cfgBackendUrl.value;
@@ -20830,6 +20905,7 @@ function init() {
   _broadcastReadyToOpener_();
 
   handleIncomingData();
+  try { posApplyFreeBleLock_(); } catch (eFl) { /* 略 */ }
   tryAutoReconnectBle_().catch(function () { /* 略 */ });
 
   loadBackendUrlFromStorage_();
