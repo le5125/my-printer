@@ -3922,7 +3922,6 @@
 
 <script>
 var __ORDERGIT_STANDALONE__ = true;
-try { window.__ORDER_PLAN_TYPE__ = 'paid'; } catch (eInitPlan) {}
 let currentWebAppUrl = '';
 var ORDER_PUBLIC_MAINTENANCE_MESSAGE_ = '系統維修中';
 var orderBuiltInClientKeyCache_ = '';
@@ -4091,101 +4090,13 @@ function orderWriteSessClientKeyVerify_(depId, ksig, planType) {
     sessionStorage.setItem(ORDER_CK_SESS_VERIFY_KEY, JSON.stringify({
       depId: String(depId || ''),
       ksig: String(ksig || ''),
-      planType: planType === 'free' ? 'free' : 'paid',
+      planType: planType === 'paid' ? 'paid' : 'free',
       t: Date.now()
     }));
   } catch (e) { /* 配額或無痕 */ }
 }
 function orderClearSessClientKeyVerify_() {
   try { sessionStorage.removeItem(ORDER_CK_SESS_VERIFY_KEY); } catch (e) {}
-}
-
-function orderParseGasJsonText_(text) {
-  var t = String(text || '').trim();
-  if (t.indexOf(')]}\'') === 0) t = t.slice(5).trim();
-  if (!t) return null;
-  try { return JSON.parse(t); } catch (e) { return null; }
-}
-
-function orderApplyPlanTypeUi_(planType) {
-  try {
-    window.__ORDER_PLAN_TYPE__ = (planType === 'free' ? 'free' : 'paid');
-  } catch (eP) {}
-  try {
-    if (window.__ORDER_PLAN_TYPE__ !== 'free') {
-      var b = document.getElementById('order-free-trial-banner');
-      if (b) b.remove();
-      document.body.classList.remove('order-free-mode');
-    } else if (orderIsGitStandalone_()) {
-      var b2 = document.getElementById('order-free-trial-banner');
-      if (!b2) {
-        b2 = document.createElement('div');
-        b2.id = 'order-free-trial-banner';
-        b2.innerHTML = '<span class="free-tag">試用版</span>'
-          + '<span>老闆試用模式：可完整瀏覽會員、訂餐流程，但無法送出線上訂單；資料 3 分鐘後自動清除、且不發送 Telegram 通知</span>';
-        document.body.insertBefore(b2, document.body.firstChild);
-      }
-      document.body.classList.add('order-free-mode');
-    }
-    window.dispatchEvent(new CustomEvent('order-plan-type-updated'));
-  } catch (eUi) {}
-}
-
-function orderIsGitStandalone_() {
-  return (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__);
-}
-
-/** GitHub 獨立版：以 getSubscriptionInfo 為準；預設 paid，僅明確 free 才顯示試用 */
-async function orderRefreshPlanTypeForGitHub_() {
-  if (!currentWebAppUrl) return 'paid';
-  try {
-    var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
-    var sep2 = u2.indexOf('?') >= 0 ? '&' : '?';
-    var url = u2 + sep2 + 'action=getSubscriptionInfo&_=' + Date.now();
-    var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
-    var data = orderParseGasJsonText_(await res.text());
-    if (data && data.result === 'success' && data.subscription) {
-      var pt = data.subscription.planType === 'free' ? 'free' : 'paid';
-      orderApplyPlanTypeUi_(pt);
-      return pt;
-    }
-    console.warn('[ordergit] getSubscriptionInfo 回傳異常', data);
-  } catch (e) {
-    console.warn('[ordergit] getSubscriptionInfo 失敗，維持 paid', e);
-  }
-  orderApplyPlanTypeUi_('paid');
-  return 'paid';
-}
-
-async function orderVerifyClientKeyViaGet_() {
-  if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
-  var ck = orderGetClientKey_();
-  if (!ck) return { ok: false, reason: 'no_client_key' };
-  try {
-    var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
-    var sep2 = u2.indexOf('?') >= 0 ? '&' : '?';
-    var url = u2 + sep2 + 'action=checkClientKey&clientKey=' + encodeURIComponent(ck) + '&_=' + Date.now();
-    var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
-    var text = await res.text();
-    var data;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch (pe) {
-      console.error('[order] checkClientKey GET 非 JSON', { url: url, status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
-      return { ok: false, reason: 'bad_response', raw: null };
-    }
-    if (data && data.result === 'success') {
-      if (!orderIsGitStandalone_()) {
-        orderApplyPlanTypeUi_(data.planType);
-      }
-      return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
-    }
-    console.error('[order] checkClientKey GET 未通過', { url: url, status: res.status, response: data });
-    return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
-  } catch (err) {
-    console.error('[order] checkClientKey GET 失敗', err);
-    return { ok: false, reason: 'network', raw: null };
-  }
 }
 
 async function orderVerifyClientKeyOrFail_v2_() {
@@ -4210,9 +4121,7 @@ async function orderVerifyClientKeyOrFail_v2_() {
       return { ok: false, reason: 'bad_response', raw: null };
     }
     if (data && data.result === 'success') {
-      if (!orderIsGitStandalone_()) {
-        orderApplyPlanTypeUi_(data.planType);
-      }
+      try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
       return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
     }
     console.error('[order] checkClientKey 未通過', { status: res.status, response: data });
@@ -4229,46 +4138,49 @@ async function orderVerifyClientKeyOrFail_() {
   if (!ck) return { ok: false, reason: 'no_client_key' };
   var depId = orderExtractGasDeploymentId_(currentWebAppUrl);
   var ksig = orderClientKeySessionSig_(ck);
-  var isGitStandalone = orderIsGitStandalone_();
+  var sessHit = orderReadSessClientKeyVerify_();
+  if (sessHit && sessHit.depId === depId && sessHit.ksig === ksig && (Date.now() - sessHit.t) < ORDER_CK_SESS_VERIFY_TTL_MS) {
+    try { window.__ORDER_PLAN_TYPE__ = (sessHit.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+    return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
+  }
 
-  if (!isGitStandalone) {
-    var sessHit = orderReadSessClientKeyVerify_();
-    if (sessHit && sessHit.depId === depId && sessHit.ksig === ksig && (Date.now() - sessHit.t) < ORDER_CK_SESS_VERIFY_TTL_MS) {
-      orderApplyPlanTypeUi_(sessHit.planType);
+  var v2 = await orderVerifyClientKeyOrFail_v2_();
+  if (v2.ok) {
+    orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
+    return v2;
+  }
+  if (v2.reason !== 'bad_response' && v2.reason !== 'network') {
+    orderClearSessClientKeyVerify_();
+    return v2;
+  }
+
+  if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
+  if (!orderGetClientKey_()) return { ok: false, reason: 'no_client_key' };
+  try {
+    var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
+    var sep2 = u2.indexOf('?') >= 0 ? '&' : '?';
+    var url = u2 + sep2 + 'action=checkClientKey&clientKey=' + encodeURIComponent(ck) + '&_=' + Date.now();
+    var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
+    var text = await res.text();
+    var data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (pe) {
+      console.error('[order] checkClientKey GET 非 JSON', { url: url, status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
+      return { ok: false, reason: 'bad_response', raw: null };
+    }
+    if (data && data.result === 'success') {
+      try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+      orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
       return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
     }
-  }
-
-  var authRes;
-  if (isGitStandalone) {
-    authRes = await orderVerifyClientKeyViaGet_();
-    if (!authRes.ok && authRes.reason !== 'bad_response' && authRes.reason !== 'network') {
-      return authRes;
-    }
-    if (!authRes.ok) {
-      authRes = await orderVerifyClientKeyOrFail_v2_();
-    }
-  } else {
-    authRes = await orderVerifyClientKeyOrFail_v2_();
-    if (!authRes.ok && authRes.reason !== 'bad_response' && authRes.reason !== 'network') {
-      orderClearSessClientKeyVerify_();
-      return authRes;
-    }
-    if (!authRes.ok) {
-      authRes = await orderVerifyClientKeyViaGet_();
-    }
-  }
-
-  if (!authRes.ok) {
+    console.error('[order] checkClientKey GET 未通過', { url: url, status: res.status, response: data });
     orderClearSessClientKeyVerify_();
-    return authRes;
+    return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
+  } catch (err) {
+    console.error('[order] clientKey 驗證失敗（完整）', err, err && err.message, err && err.stack);
+    return { ok: false, reason: 'network', raw: null };
   }
-
-  if (isGitStandalone) {
-    await orderRefreshPlanTypeForGitHub_();
-  }
-  orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
-  return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
 }
 
 var ORDER_MEMBER_PHONE_STORAGE_KEY = 'order_member_phone_v1';
@@ -7087,7 +6999,7 @@ async function loadMenuData_() {
     try {
       restoredFromCache = tryRestoreOrderMenuFromCache_();
       if (restoredFromCache && allProducts && allProducts.length > 0) {
-        try { renderMenu(); } catch (eCacheRm) { /* 略 */ }
+        orderMarkMenuReady_();
       }
 
       if (!orderCanUseScriptRun_() && !currentWebAppUrl) {
@@ -7128,8 +7040,8 @@ async function loadMenuData_() {
       console.error('❌ loadMenu 失敗:', err);
     } finally {
       if (allProducts && allProducts.length > 0) {
-        try { renderMenu(); } catch (eRm) { /* 略 */ }
         orderMarkMenuReady_();
+        try { renderMenu(); } catch (eRm) { /* 略 */ }
       }
     }
   })();
@@ -7173,9 +7085,6 @@ function orderFinishMenuLoadingUi_() {
     _mc.style.display = '';
     _mc.classList.add('menu-content--visible');
   }
-  if (allProducts && allProducts.length > 0) {
-    try { renderMenu(); } catch (eRmFin) { /* 略 */ }
-  }
   try { orderResumePromoAdAfterHomepageVisible_(); } catch (ePromo) { /* 略 */ }
   try { orderKickMemberGateBackgroundOnce_(); } catch (eKick) { /* 略 */ }
 }
@@ -7210,42 +7119,12 @@ var orderInitialReadyState_ = {
   loadingClosed: false
 };
 
-var ORDER_BOOT_LOAD_MAX_MS_ = 8000;
-var orderBootLoadDeadlineTimer_ = null;
-
-function orderStartBootLoadingTimer_() {
-  orderStopBootLoadingTimer_();
-  orderBootLoadDeadlineTimer_ = setTimeout(function () {
-    orderForceCloseInitialLoading_();
-  }, ORDER_BOOT_LOAD_MAX_MS_);
-}
-
-function orderStopBootLoadingTimer_() {
-  if (orderBootLoadDeadlineTimer_) {
-    clearTimeout(orderBootLoadDeadlineTimer_);
-    orderBootLoadDeadlineTimer_ = null;
-  }
-}
-
-function orderForceCloseInitialLoading_() {
-  if (orderInitialReadyState_.loadingClosed) return;
-  orderInitialReadyState_.loadingClosed = true;
-  orderStopBootLoadingTimer_();
-  orderFinishMenuLoadingUi_();
-}
-
 function orderTryCloseInitialLoading_() {
   if (orderInitialReadyState_.loadingClosed) return;
   if (!orderInitialReadyState_.homeReady) return;
   if (!orderInitialReadyState_.promoBootReady) return;
   if (!orderInitialReadyState_.menuReady) return;
-  if (!orderMenuIsPainted_()) {
-    orderInitialReadyState_.menuReady = false;
-    try { renderMenu(); orderMarkMenuReady_(); } catch (eRepaint) { /* 略 */ }
-    if (!orderMenuIsPainted_()) return;
-  }
   orderInitialReadyState_.loadingClosed = true;
-  orderStopBootLoadingTimer_();
   orderFinishMenuLoadingUi_();
 }
 
@@ -7270,18 +7149,7 @@ function orderKickMemberGateBackgroundOnce_() {
   })();
 }
 
-function orderMenuIsPainted_() {
-  var mc = document.getElementById('menu-content');
-  var tabs = document.getElementById('cat-tabs');
-  return !!(mc && mc.querySelector('.menu-section') && tabs && tabs.children.length > 0);
-}
-
 function orderMarkMenuReady_() {
-  if (!(allProducts && allProducts.length > 0)) return;
-  if (!orderMenuIsPainted_()) {
-    try { renderMenu(); } catch (eRm) { /* 略 */ }
-  }
-  if (!orderMenuIsPainted_()) return;
   orderInitialReadyState_.menuReady = true;
   orderTryCloseInitialLoading_();
 }
@@ -7453,9 +7321,7 @@ function renderMenu() {
     }
   } catch (eRm) {}
 
-  if (orderInitialReadyState_.loadingClosed) {
-    orderRevealMenuContent_();
-  }
+  orderRevealMenuContent_();
 
   _cacheScrollRefs();
 }
@@ -10166,6 +10032,8 @@ async function init() {
   });
 
   orderRefreshMemberCornerVisibility_();
+  orderInitialReadyState_.homeReady = true;
+  orderTryCloseInitialLoading_();
 }
 
 function orderShowBootstrapMaintenance_() {
@@ -10260,9 +10128,6 @@ async function bootstrapOrder() {
     }
     return;
   }
-  if (orderIsGitStandalone_()) {
-    void orderRefreshPlanTypeForGitHub_();
-  }
   var isOrderGas = false;
   if (!(typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__)) {
     try {
@@ -10270,14 +10135,13 @@ async function bootstrapOrder() {
     } catch (eG) { isOrderGas = false; }
   }
   var orderKeyFetch;
-  var _orderKeyFetchOpts = (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) ? { force: true } : undefined;
   try {
     if (_orderUrlPinnedByQuery) {
-      orderKeyFetch = isOrderGas ? await orderHydrateBuiltInKeyFromGas_() : await orderFetchBuiltInClientKey_(_orderKeyFetchOpts);
+      orderKeyFetch = isOrderGas ? await orderHydrateBuiltInKeyFromGas_() : await orderFetchBuiltInClientKey_();
     } else {
       var _bootPair = await Promise.all([
         freshUrlPromise,
-        isOrderGas ? orderHydrateBuiltInKeyFromGas_() : orderFetchBuiltInClientKey_(_orderKeyFetchOpts)
+        isOrderGas ? orderHydrateBuiltInKeyFromGas_() : orderFetchBuiltInClientKey_()
       ]);
       orderKeyFetch = _bootPair[1];
     }
@@ -10290,7 +10154,6 @@ async function bootstrapOrder() {
     orderShowBootstrapMaintenance_();
     return;
   }
-  orderClearSessClientKeyVerify_();
   var orderClientKeyRes = await orderVerifyClientKeyOrFail_();
   if (!orderClientKeyRes.ok) {
     var _vr = orderClientKeyRes.reason || '';
@@ -10315,25 +10178,24 @@ async function bootstrapOrder() {
   window.__orderLoadMenuPromise__ = null;
 
   orderRenderMenuSkeleton_();
-  orderStartBootLoadingTimer_();
 
-  try {
-    await Promise.all([
-      loadMenuData_(),
-      orderGetStorePromotionsFetchOnce_()
-    ]);
-  } catch (err) {
+  void Promise.all([
+    loadMenuData_(),
+    orderGetStorePromotionsFetchOnce_()
+  ]).catch(function (err) {
     console.error('[ordergit] 首屏菜單／商家活動並行載入', err);
-  }
-  orderInitialReadyState_.promoBootReady = true;
-  window.__ORDER_BOOT_PREFETCH__ = Promise.resolve();
+  }).finally(function () {
+    orderInitialReadyState_.promoBootReady = true;
+    if (allProducts && allProducts.length > 0) {
+      orderInitialReadyState_.menuReady = true;
+    }
+    orderTryCloseInitialLoading_();
+    if (allProducts && allProducts.length > 0) {
+      orderRevealMenuContent_();
+    }
+  });
 
   await init();
-  orderInitialReadyState_.homeReady = true;
-  if (orderIsGitStandalone_()) {
-    await orderRefreshPlanTypeForGitHub_();
-  }
-  orderTryCloseInitialLoading_();
 }
 (function ordergitKickBootstrapOnDomReady_() {
   function kick() {
@@ -10378,18 +10240,6 @@ async function bootstrapOrder() {
 <script>
 (function () {
   'use strict';
-  if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) {
-    window.addEventListener('order-plan-type-updated', function () {
-      try {
-        if (window.__ORDER_PLAN_TYPE__ !== 'free') {
-          var b = document.getElementById('order-free-trial-banner');
-          if (b) b.remove();
-          document.body.classList.remove('order-free-mode');
-        }
-      } catch (e) {}
-    });
-    return;
-  }
   function isFreePlan() {
     try { return window.__ORDER_PLAN_TYPE__ === 'free'; } catch (e) { return false; }
   }
@@ -10403,26 +10253,19 @@ async function bootstrapOrder() {
     document.body.insertBefore(b, document.body.firstChild);
     document.body.classList.add('order-free-mode');
   }
-  function syncFreeBanner_() {
-    if (!isFreePlan()) {
-      var b = document.getElementById('order-free-trial-banner');
-      if (b) b.remove();
-      document.body.classList.remove('order-free-mode');
-      return;
-    }
-    ensureBanner();
-  }
   function startFreeWatcher() {
-    syncFreeBanner_();
+    if (!isFreePlan()) return;
+    ensureBanner();
   }
   var tries = 0;
   function tryInit() {
     tries++;
-    syncFreeBanner_();
-    if (typeof window.__ORDER_PLAN_TYPE__ !== 'undefined') return;
+    if (typeof window.__ORDER_PLAN_TYPE__ !== 'undefined') {
+      startFreeWatcher();
+      return;
+    }
     if (tries < 30) setTimeout(tryInit, 500);
   }
-  window.addEventListener('order-plan-type-updated', syncFreeBanner_);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', tryInit);
   } else {
