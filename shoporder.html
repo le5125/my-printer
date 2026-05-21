@@ -4099,48 +4099,6 @@ function orderClearSessClientKeyVerify_() {
   try { sessionStorage.removeItem(ORDER_CK_SESS_VERIFY_KEY); } catch (e) {}
 }
 
-function orderApplyPlanTypeFromServer_(planType) {
-  try {
-    window.__ORDER_PLAN_TYPE__ = (planType === 'free' ? 'free' : 'paid');
-  } catch (eP) {}
-  try {
-    if (window.__ORDER_PLAN_TYPE__ !== 'free') {
-      var b = document.getElementById('order-free-trial-banner');
-      if (b) b.remove();
-      document.body.classList.remove('order-free-mode');
-    }
-  } catch (eUi) {}
-}
-
-async function orderVerifyClientKeyViaGet_() {
-  if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
-  var ck = orderGetClientKey_();
-  if (!ck) return { ok: false, reason: 'no_client_key' };
-  try {
-    var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
-    var sep2 = u2.indexOf('?') >= 0 ? '&' : '?';
-    var url = u2 + sep2 + 'action=checkClientKey&clientKey=' + encodeURIComponent(ck) + '&_=' + Date.now();
-    var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
-    var text = await res.text();
-    var data;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch (pe) {
-      console.error('[order] checkClientKey GET 非 JSON', { url: url, status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
-      return { ok: false, reason: 'bad_response', raw: null };
-    }
-    if (data && data.result === 'success') {
-      orderApplyPlanTypeFromServer_(data.planType);
-      return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
-    }
-    console.error('[order] checkClientKey GET 未通過', { url: url, status: res.status, response: data });
-    return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
-  } catch (err) {
-    console.error('[order] checkClientKey GET 失敗', err);
-    return { ok: false, reason: 'network', raw: null };
-  }
-}
-
 async function orderVerifyClientKeyOrFail_v2_() {
   if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
   var ck = orderGetClientKey_();
@@ -4163,7 +4121,7 @@ async function orderVerifyClientKeyOrFail_v2_() {
       return { ok: false, reason: 'bad_response', raw: null };
     }
     if (data && data.result === 'success') {
-      orderApplyPlanTypeFromServer_(data.planType);
+      try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
       return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
     }
     console.error('[order] checkClientKey 未通過', { status: res.status, response: data });
@@ -4180,15 +4138,10 @@ async function orderVerifyClientKeyOrFail_() {
   if (!ck) return { ok: false, reason: 'no_client_key' };
   var depId = orderExtractGasDeploymentId_(currentWebAppUrl);
   var ksig = orderClientKeySessionSig_(ck);
-  orderClearSessClientKeyVerify_();
-
-  var getRes = await orderVerifyClientKeyViaGet_();
-  if (getRes.ok) {
-    orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
-    return getRes;
-  }
-  if (getRes.reason !== 'bad_response' && getRes.reason !== 'network') {
-    return getRes;
+  var sessHit = orderReadSessClientKeyVerify_();
+  if (sessHit && sessHit.depId === depId && sessHit.ksig === ksig && (Date.now() - sessHit.t) < ORDER_CK_SESS_VERIFY_TTL_MS) {
+    try { window.__ORDER_PLAN_TYPE__ = (sessHit.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+    return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
   }
 
   var v2 = await orderVerifyClientKeyOrFail_v2_();
@@ -4201,15 +4154,33 @@ async function orderVerifyClientKeyOrFail_() {
     return v2;
   }
 
-  var getRetry = await orderVerifyClientKeyViaGet_();
-  if (getRetry.ok) {
-    orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
-    return getRetry;
+  if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
+  if (!orderGetClientKey_()) return { ok: false, reason: 'no_client_key' };
+  try {
+    var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
+    var sep2 = u2.indexOf('?') >= 0 ? '&' : '?';
+    var url = u2 + sep2 + 'action=checkClientKey&clientKey=' + encodeURIComponent(ck) + '&_=' + Date.now();
+    var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
+    var text = await res.text();
+    var data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (pe) {
+      console.error('[order] checkClientKey GET 非 JSON', { url: url, status: res.status, bodyPreview: (text || '').slice(0, 600), pe: pe });
+      return { ok: false, reason: 'bad_response', raw: null };
+    }
+    if (data && data.result === 'success') {
+      try { window.__ORDER_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) {}
+      orderWriteSessClientKeyVerify_(depId, ksig, window.__ORDER_PLAN_TYPE__);
+      return { ok: true, planType: window.__ORDER_PLAN_TYPE__ };
+    }
+    console.error('[order] checkClientKey GET 未通過', { url: url, status: res.status, response: data });
+    orderClearSessClientKeyVerify_();
+    return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
+  } catch (err) {
+    console.error('[order] clientKey 驗證失敗（完整）', err, err && err.message, err && err.stack);
+    return { ok: false, reason: 'network', raw: null };
   }
-  orderClearSessClientKeyVerify_();
-  return getRetry.reason === 'forbidden' || getRetry.reason === 'client_key_mismatch'
-    ? getRetry
-    : v2;
 }
 
 var ORDER_MEMBER_PHONE_STORAGE_KEY = 'order_member_phone_v1';
@@ -7148,37 +7119,12 @@ var orderInitialReadyState_ = {
   loadingClosed: false
 };
 
-var ORDER_BOOT_LOAD_MAX_MS_ = 8000;
-var orderBootLoadDeadlineTimer_ = null;
-
-function orderStartBootLoadingTimer_() {
-  orderStopBootLoadingTimer_();
-  orderBootLoadDeadlineTimer_ = setTimeout(function () {
-    orderForceCloseInitialLoading_();
-  }, ORDER_BOOT_LOAD_MAX_MS_);
-}
-
-function orderStopBootLoadingTimer_() {
-  if (orderBootLoadDeadlineTimer_) {
-    clearTimeout(orderBootLoadDeadlineTimer_);
-    orderBootLoadDeadlineTimer_ = null;
-  }
-}
-
-function orderForceCloseInitialLoading_() {
-  if (orderInitialReadyState_.loadingClosed) return;
-  orderInitialReadyState_.loadingClosed = true;
-  orderStopBootLoadingTimer_();
-  orderFinishMenuLoadingUi_();
-}
-
 function orderTryCloseInitialLoading_() {
   if (orderInitialReadyState_.loadingClosed) return;
   if (!orderInitialReadyState_.homeReady) return;
   if (!orderInitialReadyState_.promoBootReady) return;
   if (!orderInitialReadyState_.menuReady) return;
   orderInitialReadyState_.loadingClosed = true;
-  orderStopBootLoadingTimer_();
   orderFinishMenuLoadingUi_();
 }
 
@@ -10150,7 +10096,6 @@ async function bootstrapOrder() {
     window.__ORDER_VACATION_BLOCK__ = false;
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
-  orderStartBootLoadingTimer_();
   setTimeout(function () { orderInitMiniGame_(); }, 200);
   // SweetAlert2 背景載入（與參考版一致）：不擋 boot，避免 CDN 慢時菜單永遠載不入
   void orderEnsureSwalReady_();
