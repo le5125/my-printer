@@ -3922,6 +3922,7 @@
 
 <script>
 var __ORDERGIT_STANDALONE__ = true;
+try { window.__ORDER_PLAN_TYPE__ = 'paid'; } catch (eInitPlan) {}
 let currentWebAppUrl = '';
 var ORDER_PUBLIC_MAINTENANCE_MESSAGE_ = '系統維修中';
 var orderBuiltInClientKeyCache_ = '';
@@ -4099,6 +4100,13 @@ function orderClearSessClientKeyVerify_() {
   try { sessionStorage.removeItem(ORDER_CK_SESS_VERIFY_KEY); } catch (e) {}
 }
 
+function orderParseGasJsonText_(text) {
+  var t = String(text || '').trim();
+  if (t.indexOf(')]}\'') === 0) t = t.slice(5).trim();
+  if (!t) return null;
+  try { return JSON.parse(t); } catch (e) { return null; }
+}
+
 function orderApplyPlanTypeUi_(planType) {
   try {
     window.__ORDER_PLAN_TYPE__ = (planType === 'free' ? 'free' : 'paid');
@@ -4108,6 +4116,16 @@ function orderApplyPlanTypeUi_(planType) {
       var b = document.getElementById('order-free-trial-banner');
       if (b) b.remove();
       document.body.classList.remove('order-free-mode');
+    } else if (orderIsGitStandalone_()) {
+      var b2 = document.getElementById('order-free-trial-banner');
+      if (!b2) {
+        b2 = document.createElement('div');
+        b2.id = 'order-free-trial-banner';
+        b2.innerHTML = '<span class="free-tag">試用版</span>'
+          + '<span>老闆試用模式：可完整瀏覽會員、訂餐流程，但無法送出線上訂單；資料 3 分鐘後自動清除、且不發送 Telegram 通知</span>';
+        document.body.insertBefore(b2, document.body.firstChild);
+      }
+      document.body.classList.add('order-free-mode');
     }
     window.dispatchEvent(new CustomEvent('order-plan-type-updated'));
   } catch (eUi) {}
@@ -4117,19 +4135,15 @@ function orderIsGitStandalone_() {
   return (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__);
 }
 
-/** GitHub 獨立版：以 POS 同款 getSubscriptionInfo 為準（checkClientKey 的 planType 不可靠） */
+/** GitHub 獨立版：以 getSubscriptionInfo 為準；預設 paid，僅明確 free 才顯示試用 */
 async function orderRefreshPlanTypeForGitHub_() {
-  if (!currentWebAppUrl) {
-    orderApplyPlanTypeUi_('paid');
-    return 'paid';
-  }
+  if (!currentWebAppUrl) return 'paid';
   try {
     var u2 = String(currentWebAppUrl).trim().replace(/\?+$/, '');
     var sep2 = u2.indexOf('?') >= 0 ? '&' : '?';
     var url = u2 + sep2 + 'action=getSubscriptionInfo&_=' + Date.now();
     var res = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'omit' });
-    var text = await res.text();
-    var data = text ? JSON.parse(text) : null;
+    var data = orderParseGasJsonText_(await res.text());
     if (data && data.result === 'success' && data.subscription) {
       var pt = data.subscription.planType === 'free' ? 'free' : 'paid';
       orderApplyPlanTypeUi_(pt);
@@ -4137,7 +4151,7 @@ async function orderRefreshPlanTypeForGitHub_() {
     }
     console.warn('[ordergit] getSubscriptionInfo 回傳異常', data);
   } catch (e) {
-    console.warn('[ordergit] getSubscriptionInfo 失敗', e);
+    console.warn('[ordergit] getSubscriptionInfo 失敗，維持 paid', e);
   }
   orderApplyPlanTypeUi_('paid');
   return 'paid';
@@ -10246,6 +10260,9 @@ async function bootstrapOrder() {
     }
     return;
   }
+  if (orderIsGitStandalone_()) {
+    void orderRefreshPlanTypeForGitHub_();
+  }
   var isOrderGas = false;
   if (!(typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__)) {
     try {
@@ -10361,6 +10378,18 @@ async function bootstrapOrder() {
 <script>
 (function () {
   'use strict';
+  if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) {
+    window.addEventListener('order-plan-type-updated', function () {
+      try {
+        if (window.__ORDER_PLAN_TYPE__ !== 'free') {
+          var b = document.getElementById('order-free-trial-banner');
+          if (b) b.remove();
+          document.body.classList.remove('order-free-mode');
+        }
+      } catch (e) {}
+    });
+    return;
+  }
   function isFreePlan() {
     try { return window.__ORDER_PLAN_TYPE__ === 'free'; } catch (e) { return false; }
   }
