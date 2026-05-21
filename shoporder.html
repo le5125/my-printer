@@ -7119,12 +7119,37 @@ var orderInitialReadyState_ = {
   loadingClosed: false
 };
 
+var ORDER_BOOT_LOAD_MAX_MS_ = 8000;
+var orderBootLoadDeadlineTimer_ = null;
+
+function orderStartBootLoadingTimer_() {
+  orderStopBootLoadingTimer_();
+  orderBootLoadDeadlineTimer_ = setTimeout(function () {
+    orderForceCloseInitialLoading_();
+  }, ORDER_BOOT_LOAD_MAX_MS_);
+}
+
+function orderStopBootLoadingTimer_() {
+  if (orderBootLoadDeadlineTimer_) {
+    clearTimeout(orderBootLoadDeadlineTimer_);
+    orderBootLoadDeadlineTimer_ = null;
+  }
+}
+
+function orderForceCloseInitialLoading_() {
+  if (orderInitialReadyState_.loadingClosed) return;
+  orderInitialReadyState_.loadingClosed = true;
+  orderStopBootLoadingTimer_();
+  orderFinishMenuLoadingUi_();
+}
+
 function orderTryCloseInitialLoading_() {
   if (orderInitialReadyState_.loadingClosed) return;
   if (!orderInitialReadyState_.homeReady) return;
   if (!orderInitialReadyState_.promoBootReady) return;
   if (!orderInitialReadyState_.menuReady) return;
   orderInitialReadyState_.loadingClosed = true;
+  orderStopBootLoadingTimer_();
   orderFinishMenuLoadingUi_();
 }
 
@@ -10096,6 +10121,7 @@ async function bootstrapOrder() {
     window.__ORDER_VACATION_BLOCK__ = false;
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
+  orderStartBootLoadingTimer_();
   setTimeout(function () { orderInitMiniGame_(); }, 200);
   // SweetAlert2 背景載入（與參考版一致）：不擋 boot，避免 CDN 慢時菜單永遠載不入
   void orderEnsureSwalReady_();
