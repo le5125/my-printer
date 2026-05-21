@@ -7002,7 +7002,7 @@ async function loadMenuData_() {
     try {
       restoredFromCache = tryRestoreOrderMenuFromCache_();
       if (restoredFromCache && allProducts && allProducts.length > 0) {
-        orderMarkMenuReady_();
+        try { renderMenu(); } catch (eCacheRm) { /* 略 */ }
       }
 
       if (!orderCanUseScriptRun_() && !currentWebAppUrl) {
@@ -7043,8 +7043,8 @@ async function loadMenuData_() {
       console.error('❌ loadMenu 失敗:', err);
     } finally {
       if (allProducts && allProducts.length > 0) {
-        orderMarkMenuReady_();
         try { renderMenu(); } catch (eRm) { /* 略 */ }
+        orderMarkMenuReady_();
       }
     }
   })();
@@ -7087,6 +7087,9 @@ function orderFinishMenuLoadingUi_() {
   if (_mc) {
     _mc.style.display = '';
     _mc.classList.add('menu-content--visible');
+  }
+  if (allProducts && allProducts.length > 0) {
+    try { renderMenu(); } catch (eRmFin) { /* 略 */ }
   }
   try { orderResumePromoAdAfterHomepageVisible_(); } catch (ePromo) { /* 略 */ }
   try { orderKickMemberGateBackgroundOnce_(); } catch (eKick) { /* 略 */ }
@@ -7178,6 +7181,13 @@ function orderKickMemberGateBackgroundOnce_() {
 }
 
 function orderMarkMenuReady_() {
+  if (!(allProducts && allProducts.length > 0)) return;
+  var mc = document.getElementById('menu-content');
+  if (!mc || !mc.querySelector('.menu-section')) {
+    try { renderMenu(); } catch (eRm) { /* 略 */ }
+  }
+  mc = document.getElementById('menu-content');
+  if (!mc || !mc.querySelector('.menu-section')) return;
   orderInitialReadyState_.menuReady = true;
   orderTryCloseInitialLoading_();
 }
@@ -7349,7 +7359,9 @@ function renderMenu() {
     }
   } catch (eRm) {}
 
-  orderRevealMenuContent_();
+  if (orderInitialReadyState_.loadingClosed) {
+    orderRevealMenuContent_();
+  }
 
   _cacheScrollRefs();
 }
@@ -10217,13 +10229,7 @@ async function bootstrapOrder() {
     console.error('[ordergit] 首屏菜單／商家活動並行載入', err);
   }).finally(function () {
     orderInitialReadyState_.promoBootReady = true;
-    if (allProducts && allProducts.length > 0) {
-      orderInitialReadyState_.menuReady = true;
-    }
     orderTryCloseInitialLoading_();
-    if (allProducts && allProducts.length > 0) {
-      orderRevealMenuContent_();
-    }
   });
 
   await init();
