@@ -4147,6 +4147,35 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         try { sessionStorage.removeItem(POS_CK_SESS_VERIFY_KEY); } catch (e) { /* 略 */ }
       }
 
+      async function posRefreshPlanTypeFromServer_() {
+        if (!currentWebAppUrl) return null;
+        try {
+          var u = String(currentWebAppUrl).trim().replace(/\?+$/, '');
+          var res = await fetch(u + '?action=getSubscriptionInfo&_=' + Date.now(), { credentials: 'omit', cache: 'no-store' });
+          var t = await res.text();
+          var j = t ? JSON.parse(t) : null;
+          if (!j || j.result !== 'success' || !j.subscription) return null;
+          var pt = j.subscription.planType === 'free' ? 'free' : 'paid';
+          try { window.__POS_PLAN_TYPE__ = pt; } catch (eP) { /* 略 */ }
+          try {
+            var depId = posExtractGasDeploymentId_(currentWebAppUrl);
+            var ksig = posClientKeySessionSig_(posGetClientKey_());
+            if (depId && ksig) posWriteSessClientKeyVerify_(depId, ksig, pt);
+          } catch (eW) { /* 略 */ }
+          try {
+            document.dispatchEvent(new CustomEvent('pos-plan-type-ready', { detail: { planType: pt } }));
+          } catch (eEv) { /* 略 */ }
+          try {
+            if (typeof window.posSyncFreeModeUi_ === 'function') window.posSyncFreeModeUi_();
+          } catch (eUi) { /* 略 */ }
+          return pt;
+        } catch (e) {
+          console.warn('[POS] posRefreshPlanTypeFromServer_', e);
+          return null;
+        }
+      }
+      window.posRefreshPlanTypeFromServer_ = posRefreshPlanTypeFromServer_;
+
       async function posVerifyClientKeyOrFail_v2_() {
         if (!currentWebAppUrl) return { ok: false, reason: 'no_url' };
         var ck = posGetClientKey_();
@@ -4185,12 +4214,20 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
         var ksig = posClientKeySessionSig_(ck);
         var sessHit = posReadSessClientKeyVerify_();
         if (sessHit && sessHit.depId === depId && sessHit.ksig === ksig && (Date.now() - sessHit.t) < POS_CK_SESS_VERIFY_TTL_MS) {
-          try { window.__POS_PLAN_TYPE__ = (sessHit.planType === 'free' ? 'free' : 'paid'); } catch (eP) { /* 略 */ }
-          return { ok: true, planType: window.__POS_PLAN_TYPE__ };
+          if (!posIsGithubStaticPos_()) {
+            try { window.__POS_PLAN_TYPE__ = (sessHit.planType === 'free' ? 'free' : 'paid'); } catch (eP) { /* 略 */ }
+          } else {
+            await posRefreshPlanTypeFromServer_();
+          }
+          return { ok: true, planType: window.__POS_PLAN_TYPE__ || 'paid' };
         }
         var v2 = await posVerifyClientKeyOrFail_v2_();
         if (v2.ok) {
-          posWriteSessClientKeyVerify_(depId, ksig, window.__POS_PLAN_TYPE__);
+          if (posIsGithubStaticPos_()) {
+            await posRefreshPlanTypeFromServer_();
+          } else {
+            posWriteSessClientKeyVerify_(depId, ksig, window.__POS_PLAN_TYPE__);
+          }
           return v2;
         }
         if (v2.reason !== 'bad_response' && v2.reason !== 'network') {
@@ -4210,9 +4247,13 @@ h78.747C231.693,100.736,232.77,106.162,232.77,111.694z"
             return { ok: false, reason: 'bad_response', raw: null };
           }
           if (data && data.result === 'success') {
-            try { window.__POS_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) { /* 略 */ }
-            posWriteSessClientKeyVerify_(depId, ksig, window.__POS_PLAN_TYPE__);
-            return { ok: true, planType: window.__POS_PLAN_TYPE__ };
+            if (!posIsGithubStaticPos_()) {
+              try { window.__POS_PLAN_TYPE__ = (data.planType === 'free' ? 'free' : 'paid'); } catch (eP) { /* 略 */ }
+              posWriteSessClientKeyVerify_(depId, ksig, window.__POS_PLAN_TYPE__);
+            } else {
+              await posRefreshPlanTypeFromServer_();
+            }
+            return { ok: true, planType: window.__POS_PLAN_TYPE__ || 'paid' };
           }
           posClearSessClientKeyVerify_();
           return { ok: false, reason: (data && data.reason) ? String(data.reason) : 'forbidden', raw: data };
@@ -15856,6 +15897,10 @@ if (!isRedeemContext) {
               posApplySubscriptionBannerUi_(null, false);
               return;
             }
+            try {
+              window.__POS_PLAN_TYPE__ = j.subscription.planType === 'free' ? 'free' : 'paid';
+              if (typeof window.posSyncFreeModeUi_ === 'function') window.posSyncFreeModeUi_();
+            } catch (ePt) { /* 略 */ }
             posApplySubscriptionBannerUi_(j.subscription, !!j.subscription.showExpiryWarning);
           };
           window.posLoadSubscriptionPanelUi_ = async function () {
@@ -15882,6 +15927,10 @@ if (!isRedeemContext) {
               return;
             }
             var sub = j.subscription;
+            try {
+              window.__POS_PLAN_TYPE__ = sub.planType === 'free' ? 'free' : 'paid';
+              if (typeof window.posSyncFreeModeUi_ === 'function') window.posSyncFreeModeUi_();
+            } catch (ePt2) { /* 略 */ }
             if (st) {
               var label = sub.statusLabel || sub.status || '—';
               if (sub.showExpiryWarning && sub.daysUntilExpiry != null) {
@@ -17757,6 +17806,11 @@ window.addEventListener('load', async function () {
         } else {
           posBootCheckClientKeyPassed_ = true;
           try {
+            if (posIsGithubStaticPos_() && typeof posRefreshPlanTypeFromServer_ === 'function') {
+              await posRefreshPlanTypeFromServer_();
+            }
+          } catch (ePt) { /* 略 */ }
+          try {
             if (typeof posBootPrefetchBoardsData_ === 'function') {
               setTimeout(posBootPrefetchBoardsData_, 0);
             }
@@ -17889,7 +17943,8 @@ window.addEventListener('load', async function () {
   }
 
   function setupFreeMode() {
-    if (!isFreePlan()) return;
+    if (typeof window.__POS_PLAN_TYPE__ === 'undefined') return;
+    var isFree = isFreePlan();
 
     var lockedDropdownIds = [
       'member-hub-tab',
@@ -17899,7 +17954,12 @@ window.addEventListener('load', async function () {
     function ensureVipBadgeOn(id) {
       var b = document.getElementById(id);
       if (!b) return;
-      if (b.querySelector('.free-vip-badge')) return;
+      var existing = b.querySelector('.free-vip-badge');
+      if (!isFree) {
+        if (existing) existing.remove();
+        return;
+      }
+      if (existing) return;
       var s = document.createElement('span');
       s.className = 'free-vip-badge';
       s.innerHTML = '<i class="fas fa-lock" aria-hidden="true" title="試用版須升級 VIP 後永久解鎖"></i>';
@@ -17921,9 +17981,17 @@ window.addEventListener('load', async function () {
       'merchant-promotions-tab': 'merchant-promotions-content'
     };
     Object.keys(trialPanelMap).forEach(function (tabId) {
-      var tab = document.getElementById(tabId);
       var panelId = trialPanelMap[tabId];
+      var panel = panelId ? document.getElementById(panelId) : null;
+      if (panel) {
+        var oldBan = panel.querySelector(':scope > .free-trial-banner');
+        if (!isFree && oldBan) oldBan.remove();
+      }
+      if (!isFree) return;
+      var tab = document.getElementById(tabId);
       if (!tab) return;
+      if (tab.__posTrialBannerBound__) return;
+      tab.__posTrialBannerBound__ = true;
       tab.addEventListener('click', function () {
         if (!panelId) return;
         setTimeout(function () { injectTrialBannerInto(document.getElementById(panelId)); }, 60);
@@ -17934,22 +18002,16 @@ window.addEventListener('load', async function () {
       if (typeof window.posApplyFreeBleLock_ === 'function') window.posApplyFreeBleLock_();
     } catch (eBleLock) { /* 略 */ }
   }
+  window.posSyncFreeModeUi_ = setupFreeMode;
 
-    var __setupFreeDone = false;
-  function runFreeSetupOnce() {
-    if (__setupFreeDone) return;
+    function runFreeSetupOnce() {
     if (typeof window.__POS_PLAN_TYPE__ === 'undefined') return;
     setupFreeMode();
-    var anchor = document.getElementById('member-hub-tab');
-    if (anchor && anchor.querySelector('.free-vip-badge')) {
-      __setupFreeDone = true;
-    }
   }
   document.addEventListener('pos-plan-type-ready', runFreeSetupOnce);
   function pollFreeSetup() {
-    if (__setupFreeDone) return;
     runFreeSetupOnce();
-    if (__setupFreeDone) return;
+    if (typeof window.__POS_PLAN_TYPE__ !== 'undefined') return;
     setTimeout(pollFreeSetup, 500);
   }
   if (document.readyState === 'loading') {
@@ -18024,8 +18086,29 @@ function posBleFreeLockBlocked_(featureLabel) {
   return true;
 }
 
+function posClearFreeBleLock_() {
+  if (btnConnect) {
+    btnConnect.disabled = false;
+    btnConnect.classList.remove('pos-free-disabled', 'free-vip-locked-btn');
+    btnConnect.removeAttribute('title');
+  }
+  if (btnPollStart) {
+    btnPollStart.disabled = false;
+    btnPollStart.classList.remove('pos-free-disabled');
+    btnPollStart.removeAttribute('title');
+  }
+  try {
+    var bleCard = btnConnect && btnConnect.closest('.card.compact');
+    var ban = bleCard && bleCard.querySelector('.free-trial-banner');
+    if (ban) ban.remove();
+  } catch (eBan) { /* 略 */ }
+}
+
 function posApplyFreeBleLock_() {
-  if (!posBleLockedByFreePlan_()) return;
+  if (!posBleLockedByFreePlan_()) {
+    posClearFreeBleLock_();
+    return;
+  }
   if (btnConnect) {
     btnConnect.disabled = true;
     btnConnect.classList.add('pos-free-disabled', 'free-vip-locked-btn');
@@ -18060,6 +18143,7 @@ function posApplyFreeBleLock_() {
   } catch (eD) { /* 略 */ }
 }
 window.posApplyFreeBleLock_ = posApplyFreeBleLock_;
+window.posClearFreeBleLock_ = posClearFreeBleLock_;
 window.posBleLockedByFreePlan_ = posBleLockedByFreePlan_;
 
 function log(msg, type = '') {
