@@ -17890,11 +17890,6 @@ window.addEventListener('load', async function () {
       'member-hub-tab',
       'merchant-promotions-tab', 'merchant-images-btn', 'sort-mode-btn'
     ];
-    try {
-      if (typeof posIsGithubStaticPos_ === 'function' && posIsGithubStaticPos_()) {
-        lockedDropdownIds = ['merchant-promotions-tab'];
-      }
-    } catch (eGhLock) { /* 略 */ }
     function ensureVipBadgeOn(id) {
       var b = document.getElementById(id);
       if (!b) return;
