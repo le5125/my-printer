@@ -5396,6 +5396,8 @@ async function loadMenuData_() {
       orderMarkMenuReady_();
     } catch (err) {
       console.error('❌ loadMenu 失敗:', err);
+    } finally {
+      if (!orderInitialReadyState_.menuReady) orderMarkMenuReady_();
     }
   })();
   window.__orderLoadMenuPromise__ = p.finally(function () {
@@ -5450,7 +5452,6 @@ var orderInitialReadyState_ = {
   menuReady: false,
   storeNameReady: false,
   coverReady: false,
-  promoBootReady: false,
   memberGateDone: false,
   homeReady: false,
   loadingClosed: false
@@ -5459,7 +5460,6 @@ var orderInitialReadyState_ = {
 function orderTryCloseInitialLoading_() {
   if (orderInitialReadyState_.loadingClosed) return;
   if (!orderInitialReadyState_.homeReady) return;
-    if (!orderInitialReadyState_.promoBootReady && !window.__ORDER_TABLE_MODE_ACTIVE__) return;
   if (!orderInitialReadyState_.menuReady && !window.__ORDER_TABLE_MODE_ACTIVE__) return;
   orderInitialReadyState_.loadingClosed = true;
   orderFinishMenuLoadingUi_();
@@ -8337,6 +8337,38 @@ function orderEnsureSwalReady_() {
   });
 }
 
+function orderBackgroundClientKeyVerifyOnce_() {
+  if (window.__ORDER_BG_KEY_VERIFY_STARTED__) return;
+  window.__ORDER_BG_KEY_VERIFY_STARTED__ = true;
+  void (async function () {
+    var isOrderGas = false;
+    try {
+      if (!(typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__)) {
+        isOrderGas = typeof google !== 'undefined' && google.script && typeof google.script.run !== 'undefined';
+      }
+    } catch (eG) { isOrderGas = false; }
+    try {
+      var orderKeyFetch = isOrderGas
+        ? await orderHydrateBuiltInKeyFromGas_()
+        : await orderFetchBuiltInClientKey_();
+      if (!orderKeyFetch.ok) {
+        console.error('[order] getBuiltInClientKey 背景驗證失敗', orderKeyFetch.reason || '');
+        orderShowBootstrapMaintenance_();
+        return;
+      }
+      var orderClientKeyRes = await orderVerifyClientKeyOrFail_();
+      if (!orderClientKeyRes.ok) {
+        var _vr = orderClientKeyRes.reason || '';
+        console.error('[order] 授權／金鑰背景驗證未通過', _vr, orderClientKeyRes.raw);
+        orderShowBootstrapMaintenance_();
+      }
+    } catch (eBg) {
+      console.error('[order] 背景金鑰驗證', eBg);
+      orderShowBootstrapMaintenance_();
+    }
+  })();
+}
+
 async function bootstrapOrder() {
   if (document.readyState === 'loading') {
     await new Promise(function (r) { document.addEventListener('DOMContentLoaded', r, { once: true }); });
@@ -8346,17 +8378,14 @@ async function bootstrapOrder() {
     window.__ORDER_LIFF_INIT_PROMISE__ = null;
     window.__ORDER_LINE_USER_ID__ = '';
     window.__ORDER_MEMBER_GATE_BG_STARTED__ = false;
+    window.__ORDER_BG_KEY_VERIFY_STARTED__ = false;
     window.__ORDER_VACATION_BLOCK__ = false;
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
   setTimeout(function () { orderInitMiniGame_(); }, 200);
-  // SweetAlert2 改成背景載入（不擋 boot 流程）
-  // 用到 Swal 的地方都有 typeof Swal !== 'undefined' 的自我檢查
-  // 即使 CDN 慢、Swal 還沒到，也只會略過該提示視窗，不影響核心功能
   void orderEnsureSwalReady_();
   var _orderUrlQ = new URLSearchParams(window.location.search);
-    var _orderBossId = (_orderUrlQ.get('mid') || _orderUrlQ.get('Mid') || _orderUrlQ.get('id') || _orderUrlQ.get('Id') || '').trim();
-  var _orderUrlPinnedByQuery = !!_orderBossId;
+  var _orderBossId = (_orderUrlQ.get('mid') || _orderUrlQ.get('Mid') || _orderUrlQ.get('id') || _orderUrlQ.get('Id') || '').trim();
   if (_orderBossId) {
     currentWebAppUrl = 'https://script.google.com/macros/s/' + _orderBossId + '/exec';
   } else if (typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__) {
@@ -8373,6 +8402,8 @@ async function bootstrapOrder() {
   });
   if (!currentWebAppUrl) {
     currentWebAppUrl = await freshUrlPromise;
+  } else {
+    void freshUrlPromise;
   }
   if (!currentWebAppUrl) {
     console.error('[ordergit] 無後端網址（GitHub 版請在網址加上 ?id= 或 ?mid=GAS部署ID）');
@@ -8383,76 +8414,30 @@ async function bootstrapOrder() {
     }
     return;
   }
-  var isOrderGas = false;
-  if (!(typeof __ORDERGIT_STANDALONE__ !== 'undefined' && __ORDERGIT_STANDALONE__)) {
-    try {
-      isOrderGas = typeof google !== 'undefined' && google.script && typeof google.script.run !== 'undefined';
-    } catch (eG) { isOrderGas = false; }
-  }
-  var orderKeyFetch;
-  try {
-    if (_orderUrlPinnedByQuery) {
-      orderKeyFetch = isOrderGas ? await orderHydrateBuiltInKeyFromGas_() : await orderFetchBuiltInClientKey_();
-    } else {
-      var _bootPair = await Promise.all([
-        freshUrlPromise,
-        isOrderGas ? orderHydrateBuiltInKeyFromGas_() : orderFetchBuiltInClientKey_()
-      ]);
-      orderKeyFetch = _bootPair[1];
-    }
-  } catch (eBootParallel) {
-    console.error('[order] bootstrap 並行階段失敗', eBootParallel);
-    orderKeyFetch = { ok: false, reason: 'bootstrap_parallel' };
-  }
-  if (!orderKeyFetch.ok) {
-    console.error('[order] getBuiltInClientKey 失敗（消費者端僅顯示系統維修中）', orderKeyFetch.reason || '');
-    orderShowBootstrapMaintenance_();
-    return;
-  }
-  var orderClientKeyRes = await orderVerifyClientKeyOrFail_();
-  if (!orderClientKeyRes.ok) {
-    var _vr = orderClientKeyRes.reason || '';
-    console.error('[order] 授權／金鑰驗證未通過（消費者端僅顯示系統維修中）', _vr, orderClientKeyRes.raw);
-    orderShowBootstrapMaintenance_();
-    return;
-  }
   try {
     currentWebAppUrl = String(currentWebAppUrl || '').trim().replace(/\?+$/, '');
   } catch (eNormU) { /* 略 */ }
+
   var _vacGate = await orderBootstrapVacationGateAfterAuth_();
   if (_vacGate.blocked) return;
-  void loadMerchantInfo(_vacGate.preload).catch(function (e) { console.error(e); });
 
-    var _dipEarly = orderParseDineInUrlParams_();
-  if (_dipEarly && String(_dipEarly.table || '').trim() && String(_dipEarly.key || '').trim()) {
-    orderRenderMenuSkeleton_();
-    void loadMenuData_().catch(function () {});
-  }
-  var _dineInOk = await orderDineInClaimFlow_();
-  if (!_dineInOk) return;
   orderInitialReadyState_.memberGateDone = false;
   orderInitialReadyState_.homeReady = false;
-  orderInitialReadyState_.promoBootReady = false;
+  orderInitialReadyState_.menuReady = false;
   if (!window.__ORDER_TABLE_MODE_ACTIVE__) {
     window.__ORDER_BOOT_PREFETCH__ = null;
   }
 
   orderRenderMenuSkeleton_();
+  void loadMerchantInfo(_vacGate.preload).catch(function (e) { console.error(e); });
+  void loadMenuData_().catch(function (e) { console.error('[ordergit] 菜單載入', e); });
+  void orderGetStorePromotionsFetchOnce_().catch(function (e) { console.error('[ordergit] 商家活動載入', e); });
+  void orderFetchMemberSettings_().catch(function () {});
+  orderBackgroundClientKeyVerifyOnce_();
 
-  if (window.__ORDER_TABLE_MODE_ACTIVE__) {
-    orderInitialReadyState_.promoBootReady = true;
-    orderEnsureBootPrefetch_();
-        void orderGetStorePromotionsFetchOnce_().catch(function () {});
-  } else {
-    void Promise.all([
-      loadMenuData_(),
-      orderGetStorePromotionsFetchOnce_()
-    ]).catch(function (err) {
-      console.error('[ordergit] 首屏菜單／商家活動並行載入', err);
-    }).finally(function () {
-      orderInitialReadyState_.promoBootReady = true;
-      orderTryCloseInitialLoading_();
-    });
+  var _dipEarly = orderParseDineInUrlParams_();
+  if (_dipEarly && String(_dipEarly.table || '').trim()) {
+    void orderDineInClaimFlow_().catch(function (e) { console.error('[ordergit] 內用入座', e); });
   }
 
   await init();
