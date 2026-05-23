@@ -4445,7 +4445,7 @@ function orderWaitShowCapybara_() {
 }
 
 // === Mini Game Start ===
-window.__ORDER_GAME_ENABLED__ = true; // 設 false 即可一鍵關閉遊戲
+window.__ORDER_GAME_ENABLED__ = false;
 
 function orderInitMiniGame_() {
   try {
@@ -10131,7 +10131,6 @@ async function bootstrapOrder() {
     window.__ORDER_AUTH_BG_STARTED__ = false;
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
-  setTimeout(function () { orderInitMiniGame_(); }, 200);
   // SweetAlert2 背景載入（與參考版一致）：不擋 boot，避免 CDN 慢時菜單永遠載不入
   void orderEnsureSwalReady_();
   var _orderUrlQ = new URLSearchParams(window.location.search);
