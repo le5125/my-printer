@@ -987,7 +987,13 @@
     100% { transform: translateX(-350px); }
   }
 /* === Mini Game CSS Start === */
-#order-mini-game-canvas {
+#order-mini-game-canvas,
+  #order-mini-game-canvas.omg-active {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+  #order-mini-game-canvas {
     position: fixed;
     inset: 0;
     overflow: hidden;
@@ -1178,73 +1184,6 @@
     border-radius: 999px;
     background: linear-gradient(90deg, #fb7185 0%, #ef4444 45%, #f97316 100%);
     transition: width .25s ease;
-  }
-
-    .order-wait-game--hidden { display: none !important; }
-  #order-wait-game-root {
-    width: min(calc(var(--order-truck-base-width) * var(--order-truck-scale)), 86vw);
-    margin-top: 10px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    box-sizing: border-box;
-  }
-  #order-wait-game-slogan {
-    margin: 0;
-    text-align: center;
-    font-size: clamp(14px, 3.6vw, 18px);
-    font-weight: 800;
-    color: #374151;
-    line-height: 1.35;
-  }
-  #order-wait-game-track {
-    position: relative;
-    width: 100%;
-    height: 44px;
-    border-radius: 999px;
-    background: #e5e7eb;
-    overflow: hidden;
-    box-shadow: inset 0 2px 6px rgba(0,0,0,.08);
-    touch-action: manipulation;
-  }
-  #order-wait-game-target {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 30%;
-    width: 18%;
-    border-radius: 999px;
-    opacity: 0.42;
-    box-sizing: border-box;
-    border: 2px solid rgba(255,255,255,.85);
-    pointer-events: none;
-  }
-  #order-wait-game-cursor {
-    position: absolute;
-    top: 2px;
-    bottom: 2px;
-    left: 0%;
-    width: 4%;
-    min-width: 6px;
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.25);
-    pointer-events: none;
-  }
-  #order-wait-game-feedback {
-    margin: 0;
-    min-height: 1.4em;
-    text-align: center;
-    font-size: clamp(15px, 4vw, 20px);
-    font-weight: 900;
-    color: #059669;
-  }
-  #order-wait-game-hint {
-    margin: 0;
-    text-align: center;
-    font-size: clamp(12px, 3.2vw, 15px);
-    font-weight: 700;
-    color: #6b7280;
   }
 
     .form-input { width:100%; border:2px solid #e0e0e0; border-radius:12px; padding:16px; font-size: 2.37712rem; font-family:inherit; outline:none; transition:border-color .2s; background:#fafafa; }  .form-input:focus { border-color:var(--panda); background:#fff; }
@@ -2129,15 +2068,6 @@
       <div class="order-truck-progress-label" id="order-truck-progress-label">0%</div>
       <div class="order-truck-progress-bar"><div class="order-truck-progress-fill" id="order-truck-progress-fill"></div></div>
     </div>
-    <div id="order-wait-game-root" class="order-wait-game--hidden" aria-hidden="true">
-      <p id="order-wait-game-slogan"></p>
-      <div id="order-wait-game-track" role="presentation">
-        <div id="order-wait-game-target"></div>
-        <div id="order-wait-game-cursor"></div>
-      </div>
-      <p id="order-wait-game-feedback"></p>
-      <p id="order-wait-game-hint">點擊灰色橫條區或全螢幕等待畫面試試準度</p>
-    </div>
   </div>
   <div id="order-mini-game-canvas" aria-hidden="true">
     <div class="omg-title">接食物（小心 💣）</div>
@@ -2542,10 +2472,6 @@ var orderMemberCornerRefreshTimer_ = null;
 var orderMemberCornerRefreshInFlight_ = false;
 var orderTruckProgressTimer_ = null;
 var orderTruckProgressValue_ = 0;
-var orderWaitGameRafId_ = null;
-var orderWaitGameRunning_ = false;
-var orderWaitGamePointerBound_ = false;
-var orderWaitGameState_ = { cursorLeftPct: 0, dir: 1, lastTs: 0, targetLeftPct: 25, tapLock: false, cursorW: 4 };
 var orderMemberEnabledForcedOnce_ = false;
 try { window.__ORDER_LIFF_ID_RESOLVED__ = ''; } catch (e) {}
 
@@ -2708,7 +2634,7 @@ function orderWaitShowCapybara_() {
 }
 
 // === Mini Game Start ===
-window.__ORDER_GAME_ENABLED__ = true; // 設 false 即可一鍵關閉遊戲
+window.__ORDER_GAME_ENABLED__ = false; // 接食物小遊戲暫時關閉
 
 function orderInitMiniGame_() {
   try {
@@ -2925,7 +2851,6 @@ function orderInitMiniGame_() {
 // === Mini Game End ===
 
 function orderTruckSetProgress_(v) {
-  if (orderWaitGameIsEnabled_()) return;
   var safe = Math.max(0, Math.min(100, parseInt(v, 10) || 0));
   orderTruckProgressValue_ = safe;
   var fill = document.getElementById('order-truck-progress-fill');
@@ -2935,7 +2860,6 @@ function orderTruckSetProgress_(v) {
 }
 
 function orderTruckStartProgress_() {
-  if (orderWaitGameIsEnabled_()) return;
   if (orderTruckProgressTimer_) return;
   orderTruckStopProgress_(false);
   orderTruckSetProgress_(0);
@@ -2957,221 +2881,6 @@ function orderTruckStopProgress_(done) {
   if (done) orderTruckSetProgress_(100);
 }
 
-function orderNormalizeWaitGameClient_(wg) {
-  var o = wg && typeof wg === 'object' ? wg : {};
-  var speed = parseFloat(o.speed);
-  if (!(speed > 0) || isNaN(speed)) speed = 1;
-  if (speed > 5) speed = 5;
-  if (speed < 0.15) speed = 0.15;
-  var targetSize = parseFloat(o.targetSize != null ? o.targetSize : o.targetSizePct);
-  if (!(targetSize > 0) || isNaN(targetSize)) targetSize = 18;
-  if (targetSize > 45) targetSize = 45;
-  if (targetSize < 5) targetSize = 5;
-  var bonusPoints = parseInt(o.bonusPoints, 10);
-  if (isNaN(bonusPoints)) bonusPoints = 10;
-  if (bonusPoints < 0) bonusPoints = 0;
-  var slogan = String(o.slogan != null ? o.slogan : '準確點擊，領取點數！').trim().slice(0, 120);
-  var themeColor = String(o.themeColor != null ? o.themeColor : '#ec4899').trim().slice(0, 32);
-  if (!/^#[0-9A-Fa-f]{3,8}$/.test(themeColor)) themeColor = '#ec4899';
-  return {
-    enabled: !!o.enabled,
-    speed: speed,
-    targetSize: targetSize,
-    bonusPoints: bonusPoints,
-    slogan: slogan,
-    themeColor: themeColor
-  };
-}
-
-function orderApplyWaitGameFromMerchant_(wg) {
-  window.__ORDER_WAIT_GAME_CFG__ = orderNormalizeWaitGameClient_(wg);
-  window.__ORDER_WAIT_GAME_ENABLED__ = !!window.__ORDER_WAIT_GAME_CFG__.enabled;
-  try {
-    window.isGameEnabled = window.__ORDER_WAIT_GAME_ENABLED__;
-  } catch (e1) {}
-  try {
-    var truck0 = document.getElementById('order-wait-panel-truck');
-    var wv0 = !!(truck0 && truck0.classList.contains('order-wait-truck--on') && !truck0.hidden);
-    orderWaitApplyProgressVsGameUi_(wv0);
-  } catch (eSync) {}
-}
-
-function orderWaitGameIsEnabled_() {
-  return !!(window.__ORDER_WAIT_GAME_CFG__ && window.__ORDER_WAIT_GAME_CFG__.enabled);
-}
-
-function orderWaitLoadingLayerVisibleForGame_() {
-  var ml = document.getElementById('menu-loading');
-  if (!ml) return false;
-  try {
-    if (ml.style.display === 'none') return false;
-    var cs = window.getComputedStyle(ml);
-    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
-  } catch (e0) {
-    return false;
-  }
-  var truck = document.getElementById('order-wait-panel-truck');
-  return !!(truck && !truck.hidden && truck.classList.contains('order-wait-truck--on'));
-}
-
-function orderWaitApplyProgressVsGameUi_(wasTruckAlreadyVisible) {
-  var truck = document.getElementById('order-wait-panel-truck');
-  var truckOn = !!(truck && !truck.hidden && truck.classList.contains('order-wait-truck--on'));
-  var prog = truck ? truck.querySelector('.order-truck-progress') : null;
-  var gameroot = document.getElementById('order-wait-game-root');
-  if (!truckOn) {
-    orderWaitGameStop_();
-    if (gameroot) {
-      gameroot.classList.add('order-wait-game--hidden');
-      gameroot.setAttribute('aria-hidden', 'true');
-    }
-    return;
-  }
-  var useGame = orderWaitGameIsEnabled_();
-  if (useGame) {
-    orderTruckStopProgress_(false);
-    if (prog) prog.classList.add('order-wait-game--hidden');
-    if (gameroot) {
-      gameroot.classList.remove('order-wait-game--hidden');
-      gameroot.setAttribute('aria-hidden', 'false');
-    }
-    if (!wasTruckAlreadyVisible || !orderWaitGameRunning_) orderWaitGameStart_();
-  } else {
-    orderWaitGameStop_();
-    if (prog) prog.classList.remove('order-wait-game--hidden');
-    if (gameroot) {
-      gameroot.classList.add('order-wait-game--hidden');
-      gameroot.setAttribute('aria-hidden', 'true');
-    }
-    orderTruckStartProgress_();
-  }
-}
-
-function orderWaitGameApplyDomTheme_() {
-  var cfg = window.__ORDER_WAIT_GAME_CFG__ || {};
-  var c = cfg.themeColor || '#ec4899';
-  var tg = document.getElementById('order-wait-game-target');
-  var cur = document.getElementById('order-wait-game-cursor');
-  if (tg) tg.style.background = c;
-  if (cur) cur.style.background = c;
-  var slog = document.getElementById('order-wait-game-slogan');
-  if (slog) slog.textContent = cfg.slogan || '';
-}
-
-function orderWaitGamePickTarget_() {
-  var cfg = window.__ORDER_WAIT_GAME_CFG__ || {};
-  var tw = Math.min(45, Math.max(5, parseFloat(cfg.targetSize) || 18));
-  var margin = 4;
-  var maxL = 100 - tw - margin;
-  var minL = margin;
-  orderWaitGameState_.targetLeftPct = maxL <= minL ? margin : minL + Math.random() * (maxL - minL);
-  var el = document.getElementById('order-wait-game-target');
-  if (el) {
-    el.style.left = orderWaitGameState_.targetLeftPct + '%';
-    el.style.width = tw + '%';
-  }
-}
-
-function orderWaitGameStop_() {
-  orderWaitGameRunning_ = false;
-  if (orderWaitGameRafId_) {
-    cancelAnimationFrame(orderWaitGameRafId_);
-    orderWaitGameRafId_ = null;
-  }
-  if (orderWaitGamePointerBound_) {
-    try {
-      document.removeEventListener('pointerdown', orderWaitGameOnPointerDown_, true);
-    } catch (eR) {}
-    orderWaitGamePointerBound_ = false;
-  }
-}
-
-function orderWaitGameResetRound_() {
-  orderWaitGameState_.cursorLeftPct = 0;
-  orderWaitGameState_.dir = 1;
-  orderWaitGameState_.lastTs = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  orderWaitGamePickTarget_();
-  var cur = document.getElementById('order-wait-game-cursor');
-  if (cur) cur.style.left = '0%';
-  var fb = document.getElementById('order-wait-game-feedback');
-  if (fb) fb.textContent = '';
-}
-
-function orderWaitGameLoop_(now) {
-  if (!orderWaitGameRunning_) return;
-  if (!orderWaitLoadingLayerVisibleForGame_()) {
-    orderWaitGameStop_();
-    return;
-  }
-  var cfg = window.__ORDER_WAIT_GAME_CFG__ || {};
-  var spdMul = parseFloat(cfg.speed) || 1;
-  var base = 62;
-  var dt = Math.min(0.048, Math.max(0, (now - orderWaitGameState_.lastTs) / 1000));
-  orderWaitGameState_.lastTs = now;
-  var spd = base * spdMul;
-  var curW = orderWaitGameState_.cursorW;
-  orderWaitGameState_.cursorLeftPct += orderWaitGameState_.dir * spd * dt;
-  if (orderWaitGameState_.cursorLeftPct >= 100 - curW) {
-    orderWaitGameState_.cursorLeftPct = 100 - curW;
-    orderWaitGameState_.dir = -1;
-  } else if (orderWaitGameState_.cursorLeftPct <= 0) {
-    orderWaitGameState_.cursorLeftPct = 0;
-    orderWaitGameState_.dir = 1;
-  }
-  var cEl = document.getElementById('order-wait-game-cursor');
-  if (cEl) cEl.style.left = orderWaitGameState_.cursorLeftPct + '%';
-  orderWaitGameRafId_ = requestAnimationFrame(orderWaitGameLoop_);
-}
-
-function orderWaitGameOnPointerDown_(ev) {
-  if (!orderWaitGameRunning_ || orderWaitGameState_.tapLock) return;
-  if (!orderWaitLoadingLayerVisibleForGame_()) return;
-  if (!orderWaitGameIsEnabled_()) return;
-  var t = ev.target;
-  if (t && t.closest && !t.closest('#menu-loading')) return;
-
-  orderWaitGameState_.tapLock = true;
-  var cfg = window.__ORDER_WAIT_GAME_CFG__ || {};
-  var tw = Math.min(45, Math.max(5, parseFloat(cfg.targetSize) || 18));
-  var curW = orderWaitGameState_.cursorW;
-  var center = orderWaitGameState_.cursorLeftPct + curW / 2;
-  var t0 = orderWaitGameState_.targetLeftPct;
-  var t1 = t0 + tw;
-  var hit = center >= t0 && center <= t1;
-  var fb = document.getElementById('order-wait-game-feedback');
-  if (hit) {
-    var pts = parseInt(cfg.bonusPoints, 10);
-    if (isNaN(pts)) pts = 10;
-    if (fb) {
-      fb.style.color = '#059669';
-      fb.textContent = '恭喜命中！獲得 ' + pts + ' 點（示意）';
-    }
-  } else {
-    if (fb) {
-      fb.style.color = '#dc2626';
-      fb.textContent = '差一點，再試一次！';
-    }
-  }
-  setTimeout(function () {
-    orderWaitGameState_.tapLock = false;
-    if (orderWaitGameRunning_) orderWaitGameResetRound_();
-  }, 520);
-}
-
-function orderWaitGameStart_() {
-  orderWaitGameStop_();
-  if (!orderWaitLoadingLayerVisibleForGame_()) return;
-  orderWaitGameApplyDomTheme_();
-  orderWaitGameResetRound_();
-  orderWaitGameRunning_ = true;
-  orderWaitGameState_.lastTs = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  if (!orderWaitGamePointerBound_) {
-    document.addEventListener('pointerdown', orderWaitGameOnPointerDown_, true);
-    orderWaitGamePointerBound_ = true;
-  }
-  orderWaitGameRafId_ = requestAnimationFrame(orderWaitGameLoop_);
-}
-
 function orderWaitShowTruck_(hintText) {
   try {
     var truck = document.getElementById('order-wait-panel-truck');
@@ -3183,10 +2892,9 @@ function orderWaitShowTruck_(hintText) {
     }
     var h = document.getElementById('order-wait-hint-truck');
     if (h && hintText) h.textContent = hintText;
-    orderWaitApplyProgressVsGameUi_(alreadyOn);
+    if (!alreadyOn) orderTruckStartProgress_();
   } catch (e) {}
 }
-orderApplyWaitGameFromMerchant_(null);
 
 function orderEnsureBootPrefetch_() {
   if (window.__ORDER_BOOT_PREFETCH__) return window.__ORDER_BOOT_PREFETCH__;
@@ -4841,10 +4549,9 @@ function orderNormalizeHolidayDateStr_(raw) {
 }
 function orderIsHolidayDateMatchToday_(today) {
   var localY = orderLocalYmd_(today);
-  var utcY = today.toISOString().split('T')[0];
   for (var i = 0; i < holidayList.length; i++) {
     var k = orderNormalizeHolidayDateStr_(holidayList[i]);
-    if (k && (k === localY || k === utcY)) return true;
+    if (k && k === localY) return true;
   }
   return false;
 }
@@ -4961,7 +4668,6 @@ async function orderBootstrapVacationGateAfterAuth_() {
         _ml.setAttribute('aria-busy', 'false');
       }
       orderTruckStopProgress_(true);
-      if (typeof orderWaitGameStop_ === 'function') orderWaitGameStop_();
     } catch (eH) {}
     showClosedOverlay();
     out.blocked = true;
@@ -4994,10 +4700,6 @@ async function loadMerchantInfo(preloaded) {
     try {
       window.__ORDER_SHOP_NAME_CACHE__ = String((data.merchant && data.merchant.name) || '線上點餐').trim();
     } catch (eCache) {}
-
-    try {
-      orderApplyWaitGameFromMerchant_(data.merchant && data.merchant.waitGame);
-    } catch (eWGFast) {}
 
     orderRetryDomApply('loadMerchantInfo', function () {
       return !!(document.getElementById('hero-shop-name') && document.getElementById('hero-banner'));
@@ -5064,7 +4766,11 @@ async function loadMerchantInfo(preloaded) {
 
     isBusinessClosed = checkBusinessStatus();
     updateStatusDisplay();
-    if (isBusinessClosed) showClosedOverlay();
+    if (orderIsVacationOrFixedClosedToday_(new Date())) {
+      showClosedOverlay();
+    } else {
+      orderHideClosedOverlay_();
+    }
 
     storeData = merchantInfo;
     try { void orderEnsureStorePromotionsFetchedAtLeastOnce_(); } catch (eSp) { /* 略 */ }
@@ -5074,26 +4780,56 @@ async function loadMerchantInfo(preloaded) {
   }
 }
 
+function orderParseHmToMinutes_(str) {
+  var s = String(str || '').trim();
+  var m = s.match(/(\d{1,2})\s*:\s*(\d{1,2})/);
+  if (!m) return NaN;
+  var h = parseInt(m[1], 10);
+  var min = parseInt(m[2], 10) || 0;
+  if (isNaN(h) || h < 0 || h > 23 || min < 0 || min > 59) return NaN;
+  return h * 60 + min;
+}
+
+function orderParseBusinessHoursRange_(rawHours) {
+  var raw = String(rawHours || '')
+    .replace(/[０-９]/g, function (d) { return String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30); })
+    .replace(/[：﹕]/g, ':')
+    .replace(/[～~－–—‒−﹣]/g, '-');
+  var times = raw.match(/\d{1,2}\s*:\s*\d{1,2}/g);
+  if (times && times.length >= 2) {
+    var openA = orderParseHmToMinutes_(times[0]);
+    var closeA = orderParseHmToMinutes_(times[1]);
+    if (!isNaN(openA) && !isNaN(closeA)) return { open: openA, close: closeA };
+  }
+  var dash = raw.indexOf('-');
+  if (dash >= 0) {
+    var openB = orderParseHmToMinutes_(raw.slice(0, dash));
+    var closeB = orderParseHmToMinutes_(raw.slice(dash + 1));
+    if (!isNaN(openB) && !isNaN(closeB)) return { open: openB, close: closeB };
+  }
+  return null;
+}
+
+function orderIsInsideBusinessHours_(today, rawHours) {
+  var range = orderParseBusinessHoursRange_(rawHours);
+  if (!range) return null;
+  var now = today.getHours() * 60 + today.getMinutes();
+  if (range.close > range.open) {
+    return now >= range.open && now < range.close;
+  }
+  if (range.close < range.open) {
+    return now >= range.open || now < range.close;
+  }
+  return true;
+}
+
 function checkBusinessStatus() {
   const today = new Date();
   if (orderIsVacationOrFixedClosedToday_(today)) return true;
 
-  const rawHours = (merchantInfo.businessHours || '')
-    .replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30))
-    .replace(/[：﹕]/g, ':')
-    .replace(/[～~－–—‒−﹣]/g, '-');
-
-  if (rawHours && rawHours.includes('-')) {
-    const [openStr, closeStr] = rawHours.split('-').map(t => t.trim());
-    if (openStr && closeStr) {
-      const [oH, oM = 0] = openStr.split(':').map(Number);
-      const [cH, cM = 0] = closeStr.split(':').map(Number);
-      const now   = today.getHours() * 60 + today.getMinutes();
-      const open  = oH * 60 + oM;
-      const close = cH * 60 + cM;
-      if (now < open || now >= close) return true;
-    }
-  }
+  var insideHours = orderIsInsideBusinessHours_(today, merchantInfo.businessHours);
+  if (insideHours === true) return false;
+  if (insideHours === false) return true;
 
   if (merchantInfo.status === '休息中') return true;
   return false;
@@ -5106,6 +4842,7 @@ function updateStatusDisplay() {
     dot.classList.add('closed');
     txt.textContent = '休息中';
   } else {
+    dot.classList.remove('closed');
     txt.textContent = '營業中';
   }
 }
@@ -5128,6 +4865,13 @@ function showClosedOverlay() {
     document.getElementById('closed-sub').textContent   = `營業時間\n${merchantInfo.businessHours || '--'}`;
   }
   document.getElementById('closed-overlay').classList.add('show');
+}
+
+function orderHideClosedOverlay_() {
+  try {
+    var ov = document.getElementById('closed-overlay');
+    if (ov) ov.classList.remove('show');
+  } catch (e) {}
 }
 
 let _menuCategoryOrder = []; // 從後端取得的菜單名稱排序
@@ -5409,9 +5153,6 @@ async function loadMenuData_() {
 function orderFinishMenuLoadingUi_() {
   var _ml = document.getElementById('menu-loading');
   var _mc = document.getElementById('menu-content');
-  try {
-    orderWaitGameStop_();
-  } catch (eWG) {}
   orderTruckStopProgress_(false);
   try {
     orderTruckSetProgress_(0);
@@ -5422,15 +5163,6 @@ function orderFinishMenuLoadingUi_() {
     _tr.setAttribute('aria-hidden', 'true');
     _tr.classList.remove('order-wait-truck--on');
   }
-  try {
-    var _gr = document.getElementById('order-wait-game-root');
-    if (_gr) {
-      _gr.classList.add('order-wait-game--hidden');
-      _gr.setAttribute('aria-hidden', 'true');
-    }
-    var _prog = _tr ? _tr.querySelector('.order-truck-progress') : null;
-    if (_prog) _prog.classList.remove('order-wait-game--hidden');
-  } catch (eDom) {}
   if (_ml) {
     _ml.style.display = 'none';
     _ml.setAttribute('aria-busy', 'false');
@@ -7993,9 +7725,6 @@ function orderShowBootstrapMaintenance_(messageOverride) {
   try {
     if (typeof Swal !== 'undefined') Swal.close();
   } catch (eS) {}
-  try {
-    orderWaitGameStop_();
-  } catch (eWg0) {}
   var _ml = document.getElementById('menu-loading');
   var _mc = document.getElementById('menu-content');
   if (_ml) {
@@ -8382,7 +8111,6 @@ async function bootstrapOrder() {
     window.__ORDER_VACATION_BLOCK__ = false;
   } catch (eResetLiff) {}
   orderWaitShowTruck_('資料載入中…');
-  setTimeout(function () { orderInitMiniGame_(); }, 200);
   void orderEnsureSwalReady_();
   var _orderUrlQ = new URLSearchParams(window.location.search);
   var _orderBossId = (_orderUrlQ.get('mid') || _orderUrlQ.get('Mid') || _orderUrlQ.get('id') || _orderUrlQ.get('Id') || '').trim();
