@@ -4766,7 +4766,7 @@ async function loadMerchantInfo(preloaded) {
 
     isBusinessClosed = checkBusinessStatus();
     updateStatusDisplay();
-    if (orderIsVacationOrFixedClosedToday_(new Date())) {
+    if (isBusinessClosed) {
       showClosedOverlay();
     } else {
       orderHideClosedOverlay_();
