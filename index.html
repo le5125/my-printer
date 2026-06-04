@@ -7991,6 +7991,33 @@ function posFindMenuProductByOrderBaseName_(item) {
   }
   return null;
 }
+
+/** 看板／列印主品項單價（不含加料）；price 可能為菜單單價或已含加料的合計 */
+function posBoardUnitMainPrice_(item, priceForLine, addonPerUnit, isPos) {
+  var pfl = Math.max(0, parseInt(priceForLine, 10) || 0);
+  var apu = Math.max(0, parseInt(addonPerUnit, 10) || 0);
+  if (!apu) return pfl;
+  var listUnit = NaN;
+  if (item && item.telegramDisplayUnitPrice != null && item.telegramDisplayUnitPrice !== '') {
+    listUnit = parseInt(item.telegramDisplayUnitPrice, 10);
+  }
+  if (!isNaN(listUnit) && listUnit >= 0) {
+    if (pfl === listUnit) return listUnit;
+    if (pfl === listUnit + apu) return listUnit;
+  }
+  if (!isPos) return pfl;
+  var catBase = NaN;
+  try {
+    var prod = typeof posFindMenuProductByOrderItem_ === 'function' ? posFindMenuProductByOrderItem_(item) : null;
+    if (prod) catBase = parseInt(prod.price, 10) || 0;
+  } catch (ePb) { catBase = NaN; }
+  if (!isNaN(catBase) && catBase >= 0) {
+    if (pfl === catBase) return catBase;
+    if (pfl === catBase + apu) return catBase;
+  }
+  if (pfl <= apu) return pfl;
+  return Math.max(0, pfl - apu);
+}
 function posSheetWantsPrintProductLabel_(p) {
   if (!p) return true;
   return !(p.printLabel === false || String(p.printLabel || '').trim() === '否' || p.printLabel === 0 || p.printLabel === '0');
@@ -9212,7 +9239,7 @@ function _posItemsBlock_(items) {
     var hasAddonLines = Array.isArray(addons) && addons.length > 0;
     var effCollapse = collapse;
     if (useDisc && collapse && hasAddonLines) effCollapse = false;
-    var unitMain = effCollapse ? priceBasis : Math.max(0, priceBasis - addonPerUnit);
+    var unitMain = effCollapse ? priceBasis : posBoardUnitMainPrice_(item, priceBasis, addonPerUnit, true);
     var mainLineTotal = effCollapse ? (priceBasis * quantity) : (unitMain * quantity);
     var origFromPayload = useDisc ? (parseInt(item.telegramDiscountOrigLine, 10) || 0) : 0;
     var lineAmt = useDisc ? (origFromPayload || mainLineTotal) : null;
@@ -11312,7 +11339,7 @@ function posBuildPendingOrderFullSaveExtras_(rawItems, orderSource) {
   var ordLike = { source: src, items: displayItems, merchantPromoTelegram: merchantPromoTelegram };
   var block = '';
   try {
-    block = _posItemsBlock_(ordLike, true, true);
+    block = _itemsBlock_(ordLike, { telegramLayout: true });
   } catch (_b) {
     block = '';
   }
@@ -19258,7 +19285,7 @@ function _itemsBlock_(itemsOrOrder, opts) {
         var splitMainForAddonLines = telegramLayout && !effRedundant && addons.length > 0;
     var unitMain = (effRedundant || (bundledOnline && !splitMainForAddonLines))
       ? priceForLine
-      : Math.max(0, priceForLine - addonPerUnit);
+      : posBoardUnitMainPrice_(item, priceForLine, addonPerUnit, isPos);
     var mainLineTotal = effRedundant ? (priceForLine * quantity) : (unitMain * quantity);
     var lineAmt = useDisc ? (origFromPayload || mainLineTotal) : mainLineTotal;
     if (useDisc && !effRedundant && Array.isArray(addons) && addons.length > 0) {
