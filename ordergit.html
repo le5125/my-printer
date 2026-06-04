@@ -6327,6 +6327,7 @@ function submitOrder() {
         name:     cleanName,
         sheetColName: cleanName,
         price:    ci.isRedeem ? 0 : pu,
+        telegramDisplayUnitPrice: ci.isRedeem ? 0 : pu,
         quantity: ci.qty,
         options:  (ci.options || []).filter(function (o) {
           if (o && typeof o === 'object') return String(o.name != null ? o.name : (o.l != null ? o.l : '')).trim() !== '';
